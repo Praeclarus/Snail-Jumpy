@@ -6,11 +6,18 @@
 
 //~ Helper functions
 
-// TODO(Tyler): Check the correctness of this
 internal inline s32
 RoundF32ToS32(f32 A)
 {
-    s32 Result = (s32)(A + 0.5f);
+    s32 Result;
+    if(A < 0)
+    {
+        Result = (s32)(A - 0.5f);
+    }
+    else
+    {
+        Result = (s32)(A + 0.5f);
+    }
     return(Result);
 }
 
@@ -26,24 +33,18 @@ TruncateF32ToU32(f32 A)
     return((u32)A);
 }
 
-template <typename Type> 
-internal inline Type 
-Minimum(Type A, Type B)
+internal inline u32
+CeilF32ToS32(f32 A)
 {
-    Type Result = (A > B) ? B : A;
+    u32 Result = (u32)ceilf(A);
     return(Result);
 }
 
-template <typename Type> 
-internal inline Type 
-Maximum(Type A, Type B)
-{
-    Type Result = (A > B) ? A : B;
-    return(Result);
-}
+#define Minimum(A, B) ((A) > (B) ? (B) : (A))
+#define Maximum(A, B) ((A) > (B) ? (A) : (B))
 
 internal inline f32
-Square(f32 A) 
+Square(f32 A)
 {
     f32 Result = A*A;
     return(Result);
@@ -90,8 +91,10 @@ AbsoluteValue(f32 A)
 
 //~ Vectors
 
-union v2 {
-    struct 
+typedef union v2 v2;
+union v2
+{
+    struct
     {
         f32 X, Y;
     };
@@ -102,8 +105,10 @@ union v2 {
 };
 
 // TODO(Tyler): Possibly implement operations for this?
-union v2s {
-    struct 
+typedef union v2s v2s;
+union v2s
+{
+    struct
     {
         s32 X, Y;
     };
@@ -114,24 +119,6 @@ union v2s {
 };
 
 internal inline v2
-V2(f32 X, f32 Y)
-{
-    v2 Result;
-    Result.X = X;
-    Result.Y = Y;
-    return Result;
-}
-
-internal inline v2
-V2(v2s V)
-{
-    v2 Result;
-    Result.X = (f32)V.X;
-    Result.Y = (f32)V.Y;
-    return Result;
-}
-
-internal inline v2 
 operator+(v2 A, v2 B)
 {
     v2 Result;
@@ -140,7 +127,7 @@ operator+(v2 A, v2 B)
     return(Result);
 }
 
-internal inline v2 
+internal inline v2
 operator-(v2 A, v2 B)
 {
     v2 Result;
@@ -149,8 +136,8 @@ operator-(v2 A, v2 B)
     return(Result);
 }
 
-internal inline v2 
-operator-(v2 A)
+internal inline v2
+V2Invert(v2 A)
 {
     v2 Result;
     Result.X = -A.X;
@@ -158,7 +145,7 @@ operator-(v2 A)
     return(Result);
 }
 
-internal inline v2 
+internal inline v2
 operator*(v2 A, float B)
 {
     v2 Result;
@@ -167,7 +154,7 @@ operator*(v2 A, float B)
     return(Result);
 }
 
-internal inline v2 
+internal inline v2
 operator*(float B, v2 A)
 {
     v2 Result;
@@ -176,7 +163,7 @@ operator*(float B, v2 A)
     return(Result);
 }
 
-internal inline v2 
+internal inline v2
 operator/(v2 A, float B)
 {
     v2 Result;
@@ -185,37 +172,35 @@ operator/(v2 A, float B)
     return(Result);
 }
 
-internal inline v2 
-operator/(float B, v2 A)
-{
-    v2 Result;
-    Result.X = A.X / B;
-    Result.Y = A.Y / B;
-    return(Result);
-}
-
-internal inline v2 
+internal inline v2
 operator+=(v2 &A, v2 B)
 {
     A = A + B;
     return(A);
 }
 
-internal inline v2 
+internal inline v2
 operator-=(v2 &A, v2 B)
 {
     A = A - B;
     return(A);
 }
 
-internal inline v2 
+internal inline v2
 operator*=(v2 &A, float B)
 {
-    A = A * B;
+    A = B * A;
     return(A);
 }
 
-internal inline float
+internal inline v2
+operator/=(v2 &A, float B)
+{
+    A = A / B;
+    return(A);
+}
+
+internal inline f32
 Inner(v2 A, v2 B)
 {
     float Result = (A.X*B.X)+(A.Y*B.Y);
@@ -229,6 +214,25 @@ LengthSquared(v2 Vec)
     return(Result);
 }
 
+internal inline f32
+SafeRatioN(f32 Numerator, f32 Denominator, f32 N){
+    f32 Result = N;
+    
+    if(Denominator != 0.0f){
+        Result = Numerator / Denominator;
+    }
+    
+    return(Result);
+}
 
+internal inline f32
+SafeRatio0(f32 Numerator, f32 Denominator){
+    f32 Result = SafeRatioN(Numerator, Denominator, 0.0f);
+}
+
+internal inline f32
+SafeRatio1(f32 Numerator, f32 Denominator){
+    f32 Result = SafeRatioN(Numerator, Denominator, 1.0f);
+}
 
 #endif // SNAIL_JUMPY_MATH_H

@@ -1,5 +1,5 @@
-#ifndef VEX_PATH_EDITOR_TYPES_H
-#define VEX_PATH_EDITOR_TYPES_H
+#if !defined(SNAIL_JUMPY_TYPES_H)
+#define SNAIL_JUMPY_TYPES_H
 
 #include <stdint.h>
 
@@ -39,32 +39,75 @@ typedef double f64;
 //~ Memory arena
 
 // NOTE(Tyler): Must be initialized to zero when first created
+typedef struct memory_arena memory_arena;
 struct memory_arena {
     u8 *Memory;
     memory_index Used;
     memory_index Size;
+    u32 TemporaryCount;
 };
 
-internal void 
+internal void
 InitializeArena(memory_arena *Arena, void *Memory, memory_index Size) {
+    Arena->Used = 0;
     Arena->Memory = (u8 *)Memory;
     Arena->Size = Size;
 }
 
+#define PushStruct(Arena, Type) (Type *)PushMemory(Arena, sizeof(Type))
+#define PushArray(Arena, Type, Count) (Type *)PushMemory(Arena, sizeof(Type)*(Count))
+
 internal void *
 PushMemory(memory_arena *Arena, memory_index Size) {
-    Assert((Arena->Used + Size) > Arena->Size);
+    Assert((Arena->Used + Size) < Arena->Size);
     Arena->Used += Size;
     void *Result = Arena->Memory+Arena->Used;
     return(Result);
 }
 
-internal void 
+internal void
 CopyMemory(void *To, void *From, memory_index Size) {
-    for (memory_index i = 0; i < Size; i++)
+    for (memory_index I = 0; I < Size; I++)
     {
-        *(u8*)To = *(u8*)From;
+        *((u8*)To+I) = *((u8*)From+I);
     }
 }
 
-#endif // VEX_PATH_EDITOR_TYPES_H
+struct temporary_memory {
+    u8 *Memory;
+    memory_index Used;
+    memory_index Size;
+};
+
+internal void
+BeginTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory, memory_index Size){
+    Arena->TemporaryCount++;
+    Assert((Arena->Used+Size) < Arena->Size);
+    TemporaryMemory->Memory = Arena->Memory+Arena->Used;
+    Arena->Used += Size;
+    TemporaryMemory->Size = Size;
+    TemporaryMemory->Used = 0;
+}
+
+#define PushTemporaryStruct(Arena, Type) (Type *)PushTemporaryMemory(Arena, sizeof(Type))
+#define PushTemporaryArray(Arena, Type, Count) (Type *)PushTemporaryMemory(Arena, sizeof(Type)*(Count))
+internal void *
+PushTemporaryMemory(temporary_memory *TemporaryMemory, memory_index Size){
+    Assert((TemporaryMemory->Used + Size) < TemporaryMemory->Size);
+    TemporaryMemory->Used += Size;
+    void *Result = TemporaryMemory->Memory+TemporaryMemory->Used;
+    return(Result);
+}
+
+internal void
+EndTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory){
+    Assert(Arena->TemporaryCount > 0);
+    
+    u8 *Address = (Arena->Memory+Arena->Used) - TemporaryMemory->Size;
+    Assert(Address == TemporaryMemory->Memory);
+    
+    Arena->Used -= TemporaryMemory->Size;
+    
+}
+
+#endif

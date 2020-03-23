@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <gl/gl.h>
 
 #ifdef CopyMemory
 #undef CopyMemory
@@ -13,10 +14,37 @@
 
 global b32 Running;
 global f32 GlobalPerfCounterFrequency;
-global Win32_Backbuffer GlobalBackbuffer;
+global win32_backbuffer GlobalBackbuffer;
 
 // TODO(Tyler): Possibly do this differently
 global platform_user_input UserInput;
+
+global WINDOWPLACEMENT GlobalWindowPlacement = {sizeof(GlobalWindowPlacement)};
+
+internal void
+ToggleFullscreen(HWND Window){
+    // NOTE(Tyler): Raymond Chen fullscreen code:
+    // https://devblogs.microsoft.com/oldnewthing/20100412-00/?p=14353
+    DWORD Style = GetWindowLong(Window, GWL_STYLE);
+    if(Style & WS_OVERLAPPEDWINDOW){
+        MONITORINFO MonitorInfo = {sizeof(MonitorInfo)};
+        if(GetWindowPlacement(Window, &GlobalWindowPlacement) &&
+           GetMonitorInfo(MonitorFromWindow(Window, MONITOR_DEFAULTTOPRIMARY), &MonitorInfo)){
+            SetWindowLong(Window, GWL_STYLE, Style & ~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(Window, HWND_TOP,
+                         MonitorInfo.rcMonitor.left, MonitorInfo.rcMonitor.top,
+                         MonitorInfo.rcMonitor.right- MonitorInfo.rcMonitor.left,
+                         MonitorInfo.rcMonitor.bottom- MonitorInfo.rcMonitor.top,
+                         SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        }
+    }else{
+        SetWindowLong(Window, GWL_STYLE, Style | WS_OVERLAPPEDWINDOW);
+        SetWindowPlacement(Window, &GlobalWindowPlacement);
+        SetWindowPos(Window, 0, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                     SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    }
+}
 
 // TODO(Tyler): Implement actual file I/O
 DEBUG_READ_FILE_SIG(Win32ReadFile)
@@ -72,12 +100,12 @@ DEBUG_FREE_FILE_DATA_SIG(Win32FreeFileData)
 DEBUG_WRITE_DATA_TO_FILE_SIG(Win32WriteDataToFile)
 {
     Assert(Size <= 0xffffffff);
-    HANDLE File = CreateFileA(Path, 
-                              GENERIC_READ, 
-                              FILE_SHARE_READ, 
-                              0, 
-                              CREATE_ALWAYS, 
-                              FILE_ATTRIBUTE_NORMAL, 
+    HANDLE File = CreateFileA(Path,
+                              GENERIC_READ,
+                              FILE_SHARE_READ,
+                              0,
+                              CREATE_ALWAYS,
+                              FILE_ATTRIBUTE_NORMAL,
                               0);
     DWORD BytesWritten;
     b32 Result = WriteFile(File, Data, (DWORD)Size, &BytesWritten, 0);
@@ -87,7 +115,7 @@ DEBUG_WRITE_DATA_TO_FILE_SIG(Win32WriteDataToFile)
 }
 
 internal void
-Win32ResizeDIBSection(Win32_Backbuffer *Buffer, int Width, int Height)
+Win32ResizeDIBSection(win32_backbuffer *Buffer, int Width, int Height)
 {
     if (Buffer->Memory)
     {
@@ -115,11 +143,9 @@ Win32ResizeDIBSection(Win32_Backbuffer *Buffer, int Width, int Height)
 }
 
 internal void
-Win32CopyBackbufferToWindow(HDC DeviceContext, RECT *WindowRect, Win32_Backbuffer *Buffer)
+Win32CopyBackbufferToWindow(HDC DeviceContext, RECT *WindowRect, win32_backbuffer *Buffer)
 {
-    int WindowWidth = WindowRect->right - WindowRect->left;
-    int WindowHeight = WindowRect->bottom - WindowRect->top;
-    
+#if 0
     PatBlt(DeviceContext, 0, 0, WindowWidth, 20, BLACKNESS);
     PatBlt(DeviceContext, 0, 0, 20, WindowHeight, BLACKNESS);
     PatBlt(DeviceContext, 980, 0, WindowWidth-980, WindowHeight, BLACKNESS);
@@ -129,7 +155,7 @@ Win32CopyBackbufferToWindow(HDC DeviceContext, RECT *WindowRect, Win32_Backbuffe
     WindowWidth = 960;
     WindowHeight = 540;
     
-    StretchDIBits(DeviceContext, 
+    StretchDIBits(DeviceContext,
 #if 0
                   X, Y, Width, Height,
                   X, Y, Width, Height,
@@ -139,6 +165,8 @@ Win32CopyBackbufferToWindow(HDC DeviceContext, RECT *WindowRect, Win32_Backbuffe
                   Buffer->Memory,
                   &Buffer->Info,
                   DIB_RGB_COLORS, SRCCOPY);
+    
+#endif
 }
 
 internal void
@@ -151,7 +179,7 @@ Win32ProcessKeyboardInput(platform_button_state *Button, b32 IsDown)
     }
 }
 
-LRESULT CALLBACK 
+LRESULT CALLBACK
 Win32MainWindowProc(HWND Window,
                     UINT Message,
                     WPARAM WParam,
@@ -171,7 +199,8 @@ Win32MainWindowProc(HWND Window,
             GetClientRect(Window, &ClientRect);
             int Width = ClientRect.right - ClientRect.left;
             int Height = ClientRect.bottom - ClientRect.top;
-            Win32ResizeDIBSection(&GlobalBackbuffer, Width, Height);
+            //Win32ResizeDIBSection(&GlobalBackbuffer, Width, Height);
+            UserInput.WindowSize = {(f32)Width, (f32)Height};
         }break;
         
         case WM_CLOSE:
@@ -201,33 +230,33 @@ Win32MainWindowProc(HWND Window,
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            u32 VKCode = (u32)WParam;
+            u32 VkCode = (u32)WParam;
             
             b32 WasDown = ((LParam & (1 << 30)) != 0);
             b32 IsDown = ((LParam & (1UL << 31)) == 0);
             if (WasDown != IsDown)
             {
-                if (VKCode == 'W')
-                {
+                if (VkCode == 'W'){
                     Win32ProcessKeyboardInput(&UserInput.UpButton, IsDown);
-                }
-                else if (VKCode == 'S')
-                {
+                }else if(VkCode == 'S'){
                     Win32ProcessKeyboardInput(&UserInput.DownButton, IsDown);
-                }
-                else if (VKCode == 'A')
-                {
+                }else if(VkCode == 'A'){
                     Win32ProcessKeyboardInput(&UserInput.LeftButton, IsDown);
-                }
-                else if (VKCode == 'D')
-                {
+                }else if(VkCode == 'D'){
                     Win32ProcessKeyboardInput(&UserInput.RightButton, IsDown);
-                }
-                else if (VKCode == ' ')
-                {
+                }else if(VkCode == ' '){
                     Win32ProcessKeyboardInput(&UserInput.JumpButton, IsDown);
                 }
+                
+                if(IsDown){
+                    if(VkCode == VK_F11){
+                        ToggleFullscreen(Window);
+                    }else if(VkCode == VK_ESCAPE){
+                        Running = false;
+                    }
+                }
             }
+            
         }break;
         
         default:
@@ -247,10 +276,39 @@ Win32GetWallClock()
 }
 
 internal f32
-Win32SecondsElapsed(LARGE_INTEGER Begin, LARGE_INTEGER End)
-{
+Win32SecondsElapsed(LARGE_INTEGER Begin, LARGE_INTEGER End){
     f32 Result = ((f32)End.QuadPart - (f32)Begin.QuadPart)/GlobalPerfCounterFrequency;
     return(Result);
+}
+
+internal void
+Win32InitOpenGl(HWND Window){
+    HDC DeviceContext = GetDC(Window);
+    
+    PIXELFORMATDESCRIPTOR PixelFormatDescriptor = {0};
+    PixelFormatDescriptor.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+    PixelFormatDescriptor.nVersion = 1;
+    PixelFormatDescriptor.dwFlags =
+        PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
+    PixelFormatDescriptor.cColorBits = 32;
+    PixelFormatDescriptor.cAlphaBits = 8;
+    PixelFormatDescriptor.iLayerType = PFD_MAIN_PLANE;
+    
+    int PixelFormat = ChoosePixelFormat(DeviceContext, &PixelFormatDescriptor);
+    PIXELFORMATDESCRIPTOR ActualPixelFormatDescriptor;
+    DescribePixelFormat(DeviceContext, PixelFormat, sizeof(ActualPixelFormatDescriptor), &ActualPixelFormatDescriptor);
+    
+    if(SetPixelFormat(DeviceContext, PixelFormat, &ActualPixelFormatDescriptor)){
+        HGLRC OpenGlContext = wglCreateContext(DeviceContext);
+        if(wglMakeCurrent(DeviceContext, OpenGlContext)){
+            
+        }else{
+            Assert(0);
+        }
+    }else{
+        
+    }
+    ReleaseDC(Window, DeviceContext);
 }
 
 int CALLBACK
@@ -269,19 +327,22 @@ WinMain(HINSTANCE Instance,
     
     if (RegisterClass(&WindowClass))
     {
-        // NOTE(Tyler): The window is made at whatever size but we only render 960 x 540
         HWND Window = CreateWindowEx(0,
                                      WindowClass.lpszClassName,
                                      "Snail Jumpy",
                                      WS_OVERLAPPEDWINDOW|WS_VISIBLE,
                                      CW_USEDEFAULT, CW_USEDEFAULT,
                                      CW_USEDEFAULT, CW_USEDEFAULT,
-                                     0, 
+                                     0,
                                      0,
                                      Instance,
                                      0);
         if (Window)
         {
+            Win32InitOpenGl(Window);
+            ToggleFullscreen(Window);
+            
+            //~
             LARGE_INTEGER PerformanceCounterFrequencyResult;
             QueryPerformanceFrequency(&PerformanceCounterFrequencyResult);
             GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
@@ -290,18 +351,20 @@ WinMain(HINSTANCE Instance,
             f32 TargetSecondsPerFrame = 1.0f/30.0f;
             
             game_memory GameMemory = {0};
-            GameMemory.PermanentStorageSize = Megabytes(4);
-            GameMemory.PermanentStorage = VirtualAlloc(0, GameMemory.PermanentStorageSize, MEM_COMMIT, PAGE_READWRITE);
-            GameMemory.TransientStorageSize = Gigabytes(4);
-            GameMemory.TransientStorage = VirtualAlloc(0, GameMemory.TransientStorageSize
-                                                       , MEM_COMMIT, PAGE_READWRITE);
+            {
+                memory_index Size = Megabytes(4);
+                void *Memory = VirtualAlloc(0, Size, MEM_COMMIT, PAGE_READWRITE);
+                InitializeArena(&GameMemory.PermanentStorageArena, Memory, Size);
+            }{
+                memory_index Size = Megabytes(4);
+                void *Memory = VirtualAlloc(0, Size, MEM_COMMIT, PAGE_READWRITE);
+                InitializeArena(&GameMemory.TransientStorageArena, Memory, Size);
+            }
             
             Running = true;
-            while (Running)
-            {
+            while(Running){
                 MSG Message;
-                while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
-                {
+                while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
                     if (Message.message == WM_QUIT)
                     {
                         Running = false;
@@ -312,12 +375,19 @@ WinMain(HINSTANCE Instance,
                 }
                 
                 UserInput.dTimeForFrame = TargetSecondsPerFrame;
-                
+                RECT ClientRect;
+                GetClientRect(Window, &ClientRect);
+                UserInput.WindowSize = {
+                    (f32)(ClientRect.right - ClientRect.left),
+                    (f32)(ClientRect.bottom - ClientRect.top),
+                };
+#if 0
                 platform_backbuffer GameBackbuffer;
                 GameBackbuffer.Memory = GlobalBackbuffer.Memory;
                 GameBackbuffer.Width = GlobalBackbuffer.Width;
                 GameBackbuffer.Height = GlobalBackbuffer.Height;
                 GameBackbuffer.Pitch = GlobalBackbuffer.Pitch;
+#endif
                 
                 platform_api PlatformAPI;
                 PlatformAPI.ReadFile = Win32ReadFile;
@@ -326,7 +396,9 @@ WinMain(HINSTANCE Instance,
                 
                 // TODO(Tyler): Multithreading
                 thread_context Thread = {0};
-                GameUpdateAndRender(&Thread, &GameMemory, &PlatformAPI, &UserInput, &GameBackbuffer);
+                if(GameUpdateAndRender(&Thread, &GameMemory, &PlatformAPI, &UserInput)){
+                    Running = false;
+                };
                 
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
@@ -348,9 +420,10 @@ WinMain(HINSTANCE Instance,
                 HDC DeviceContext = GetDC(Window);
                 RECT WindowRect;
                 GetClientRect(Window, &WindowRect);
-                Win32CopyBackbufferToWindow(DeviceContext, &WindowRect, &GlobalBackbuffer);
+                //Win32CopyBackbufferToWindow(DeviceContext, &WindowRect, &GlobalBackbuffer);
+                //Win32RenderWithOpenGl(DeviceContext, &WindowRect, &GameMemory);
+                SwapBuffers(DeviceContext);
                 ReleaseDC(Window, DeviceContext);
-                
             }
         }
         else

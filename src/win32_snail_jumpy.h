@@ -1,5 +1,8 @@
+#if !defined(WIN32_SNAIL_JUMPY_H)
+#define WIN32_SNAIL_JUMPY_H
 
-struct Win32_Backbuffer {
+typedef struct _win32_backbuffer win32_backbuffer;
+struct _win32_backbuffer {
     BITMAPINFO Info;
     void *Memory;
     s32 Width, Height;
@@ -7,3 +10,4 @@ struct Win32_Backbuffer {
     s32 BytesPerPixel;
 };
 
+#endif

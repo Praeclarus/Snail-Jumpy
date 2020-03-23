@@ -1,16 +1,15 @@
-
 #include "snail_jumpy.h"
 
-internal void DrawRectangle(platform_backbuffer *Backbuffer, v2 Pos, v2 Size, u32 Color);
+#include "snail_jumpy_opengl.cpp"
+//#include "snail_jumpy_tiles.cpp"
 
-#include "snail_jumpy_world.cpp"
-
+#if 0
 internal void
-DrawRectangle(platform_backbuffer *Backbuffer, v2 Pos, v2 Size, u32 Color) {
-    s32 MinX = (s32)Pos.X;
-    s32 MinY = (s32)Pos.Y;
-    s32 MaxX = (s32)(MinX+Size.X);
-    s32 MaxY = (s32)(MinY+Size.Y);
+DrawRectangle(platform_backbuffer *Backbuffer, v2 MinCorner, v2 MaxCorner, u32 Color) {
+    s32 MinX = (s32)MinCorner.X;
+    s32 MinY = (s32)MinCorner.Y;
+    s32 MaxX = (s32)MaxCorner.X;
+    s32 MaxY = (s32)MaxCorner.Y;
     
     if(MinX < 0) MinX = 0;
     if(MinY < 0) MinY = 0;
@@ -28,6 +27,19 @@ DrawRectangle(platform_backbuffer *Backbuffer, v2 Pos, v2 Size, u32 Color) {
         Row += Backbuffer->Pitch;
     }
 }
+
+internal void
+DrawRectangleInMeters(platform_backbuffer *Backbuffer, game_state *GameState, v2 MinCorner, v2 MaxCorner, u32 Color){
+    MinCorner *= GameState->MetersToPixels;
+    MaxCorner *= GameState->MetersToPixels;
+    MinCorner.Y = Backbuffer->Height - MinCorner.Y;
+    MaxCorner.Y = Backbuffer->Height - MaxCorner.Y;
+    f32 Temp = MinCorner.Y;
+    MinCorner.Y = MaxCorner.Y;
+    MaxCorner.Y = Temp;
+    DrawRectangle(Backbuffer, MinCorner, MaxCorner, Color);
+}
+#endif
 
 internal loaded_bitmap
 DEBUGLoadBitmapFromFile(thread_context *Thread, platform_api *PlatformAPI, const char *FilePath) {
@@ -67,6 +79,7 @@ DEBUGLoadBitmapFromFile(thread_context *Thread, platform_api *PlatformAPI, const
     return(Result);
 }
 
+#if 0
 internal void
 DrawBitmap(platform_backbuffer *Backbuffer, loaded_bitmap *Bitmap, v2 Pos) {
     s32 MinX = RoundF32ToS32(Pos.X);
@@ -138,153 +151,322 @@ DrawBitmap(platform_backbuffer *Backbuffer, loaded_bitmap *Bitmap, v2 Pos) {
         SourceRow -= Bitmap->Width;
     }
 }
+#endif
 
-// NOTE(Tyler): Y coordinates are also used in place for X coordinates
-internal void
-TestWall(f32 WallX, f32 PlayerX, f32 dPlayerX, f32 *CollisionTime) {
-    f32 Epsilon = 0.001f;
+internal b32
+TestWall(f32 WallX,
+         f32 PlayerX, f32 PlayerY,
+         f32 dPlayerX, f32 dPlayerY,
+         f32 MinY, f32 MaxY,
+         f32 *CollisionTime) {
+    b32 Result = false;
+    f32 Epsilon = 0.0001f;
     if(dPlayerX != 0.0f) {
         f32 CollisionTimeResult = (WallX - PlayerX) / dPlayerX;
         if((CollisionTimeResult >= 0.0f) && (*CollisionTime > CollisionTimeResult)) {
-            *CollisionTime = Maximum(0.0f, CollisionTimeResult-Epsilon);
-        }
-    }
-}
-
-internal void
-MovePlayer(world *World, entity *Player, v2 PlayerSize, v2 ddP, f32 dTimeForFrame) {
-    ddP += -1.5f * Player->dP;
-    v2 PlayerDelta = (ddP*Square(dTimeForFrame) + 
-                      Player->dP*dTimeForFrame);
-    Player->dP = ddP*dTimeForFrame + Player->dP;
-    
-    v2 NewPlayerP = Player->P;
-    NewPlayerP += PlayerDelta;
-    
-    v2s OldTileCoords = GetTileCoordsFromPoint(Player->P);
-    v2s NewTileCoords = GetTileCoordsFromPoint(NewPlayerP);
-    
-    u32 MinTileX = Minimum(OldTileCoords.X, NewTileCoords.X);
-    u32 MinTileY = Minimum(OldTileCoords.Y, NewTileCoords.Y);
-    u32 OnePastMaxTileX = Maximum(OldTileCoords.X, NewTileCoords.X) + 1;
-    u32 OnePastMaxTileY = Maximum(OldTileCoords.Y, NewTileCoords.Y) + 1;
-    
-    f32 CollisionTime = 1.0f;
-    if(PlayerDelta.X != 0.0f) {
-        for(u32 TileY = MinTileY;
-            TileY < OnePastMaxTileY;
-            TileY++)
-        {
-            for(u32 TileX = MinTileX;
-                TileX < OnePastMaxTileX;
-                TileX++)
+            f32 Y = PlayerY + (dPlayerY * CollisionTimeResult);
+            if((MinY <= Y) && (Y <= MaxY))
             {
-                if(IsTileIDWall(GetTileIDAtPoint(World, {(f32)TileX, (f32)TileY}))) {
-                    TestWall((f32)TileX, Player->P.X, PlayerDelta.X, &CollisionTime);
-                    TestWall((f32)TileX+1.0f, Player->P.X, PlayerDelta.X, &CollisionTime);
-                    TestWall((f32)TileY, Player->P.Y, PlayerDelta.Y, &CollisionTime);
-                    TestWall((f32)TileY+1.0f, Player->P.Y, PlayerDelta.Y, &CollisionTime);
-                }
+                *CollisionTime = Maximum(0.0f, CollisionTimeResult-Epsilon);
+                Result = true;
             }
         }
     }
-    
-    Player->P += PlayerDelta*CollisionTime;
+    return(Result);
 }
 
-internal void 
-GameUpdateAndRender(thread_context *Thread, game_memory *Memory, 
+internal void
+MoveEntity(game_state *GameState, u32 EntityId, f32 dTimeForFrame) {
+    entity *Entity = &GameState->Entities[EntityId];
+    
+    Entity->ddP += -1.7f*Entity->dP;
+    
+    v2 EntityDelta = ((Entity->ddP*Square(dTimeForFrame)) +
+                      (Entity->dP*dTimeForFrame));
+    Entity->dP = (Entity->ddP*dTimeForFrame) + Entity->dP;
+    
+    v2 NewEntityP = Entity->P + EntityDelta;
+    
+    f32 TimeRemaining = 1.0f;
+    for(u32 Iteration = 0;
+        (Iteration < 4) && (TimeRemaining > 0.0f);
+        Iteration++){
+        f32 CollisionTime = 1.0f;
+        v2 CollisionNormal = {0};
+        u32 CollisionEntityId = 0;
+        for(u32 OtherEntityId = 0; OtherEntityId < GameState->EntityCount; OtherEntityId++){
+            if(OtherEntityId == EntityId){
+                continue;
+            }
+            
+            entity *OtherEntity = &GameState->Entities[OtherEntityId];
+            
+            if(Entity->CollisionGroupFlag & OtherEntity->CollisionGroupFlag){
+                //v2s EntityTileCoords = GetTileCoordsFromPoint(TileMap, Entity->P);
+                v2 EntityCenter = OtherEntity->P;
+                v2 RelEntityP = Entity->P - EntityCenter;
+                f32 Width = OtherEntity->Width + Entity->Width;
+                f32 Height = OtherEntity->Height + Entity->Height;
+                
+                v2 MinCorner = -0.5*v2{Width, Height};
+                v2 MaxCorner = 0.5*v2{Width, Height};
+                
+                if(TestWall(MinCorner.X, RelEntityP.X, RelEntityP.Y, EntityDelta.X, EntityDelta.Y, MinCorner.Y, MaxCorner.Y, &CollisionTime)){
+                    CollisionNormal = v2{-1.0f, 0.0f};
+                    CollisionEntityId = OtherEntityId;
+                }
+                if(TestWall(MaxCorner.X, RelEntityP.X, RelEntityP.Y, EntityDelta.X, EntityDelta.Y, MinCorner.Y, MaxCorner.Y, &CollisionTime)){
+                    CollisionNormal = v2{1.0f, 0.0f};
+                    CollisionEntityId = OtherEntityId;
+                }
+                if(TestWall(MinCorner.Y, RelEntityP.Y, RelEntityP.X, EntityDelta.Y, EntityDelta.X, MinCorner.X, MaxCorner.X, &CollisionTime)){
+                    CollisionNormal = v2{0.0f, -1.0f};
+                    CollisionEntityId = OtherEntityId;
+                }
+                if(TestWall(MaxCorner.Y, RelEntityP.Y, RelEntityP.X, EntityDelta.Y, EntityDelta.X, MinCorner.X, MaxCorner.X, &CollisionTime)){
+                    CollisionNormal = v2{0.0f, 1.0f};
+                    CollisionEntityId = OtherEntityId;
+                }
+            }
+        }
+        
+        Entity->P += EntityDelta*CollisionTime;
+        Entity->dP = (Entity->dP - Inner(Entity->dP, CollisionNormal)*CollisionNormal);
+        EntityDelta = (EntityDelta - Inner(EntityDelta, CollisionNormal)*CollisionNormal);
+        
+        if((Iteration == 0) || (!Entity->CollisionEntityId)){
+            Entity->CollisionEntityId = CollisionEntityId;
+            if(Entity->CollisionNormal.X != CollisionNormal.X){
+                Entity->CollisionNormal.X = CollisionNormal.X;
+            }
+            if(Entity->CollisionNormal.Y != CollisionNormal.Y){
+                Entity->CollisionNormal.Y = CollisionNormal.Y;
+            }
+        }
+        
+        TimeRemaining -= CollisionTime*TimeRemaining;
+    }
+    
+    Entity->ddP = {0};
+}
+
+internal u32
+AddEntity(game_state *GameState){
+    Assert(GameState->EntityCount+1 < 256);
+    u32 Result = GameState->EntityCount++;
+    return(Result);
+}
+
+internal u32
+AddPlayer(game_state *GameState, v2 P, u32 CollisionGroupFlag){
+    u32 PlayerId = AddEntity(GameState);
+    
+    GameState->Entities[PlayerId].Type = EntityType_Player;
+    GameState->Entities[PlayerId].P = P;
+    GameState->Entities[PlayerId].Width = 0.3f;
+    GameState->Entities[PlayerId].Height = 0.4f;
+    GameState->Entities[PlayerId].CollisionGroupFlag = CollisionGroupFlag;
+    
+    return(PlayerId);
+}
+
+internal u32
+AddWall(game_state *GameState, v2 P, f32 TileSideInMeters, u32 CollisionGroupFlag){
+    u32 WallId = AddEntity(GameState);
+    
+    GameState->Entities[WallId].P = P;
+    GameState->Entities[WallId].Type = EntityType_Wall;
+    GameState->Entities[WallId].Width = TileSideInMeters;
+    GameState->Entities[WallId].Height = TileSideInMeters;
+    GameState->Entities[WallId].CollisionGroupFlag = CollisionGroupFlag;
+    
+    return(WallId);
+}
+
+internal u32
+AddPhonyWall(game_state *GameState, v2 P, f32 TileSideInMeters, u32 CollisionGroupFlag){
+    u32 WallId = AddEntity(GameState);
+    
+    GameState->Entities[WallId].P = P;
+    GameState->Entities[WallId].Type = EntityType_PhonyWall;
+    GameState->Entities[WallId].Width = TileSideInMeters;
+    GameState->Entities[WallId].Height = TileSideInMeters;
+    GameState->Entities[WallId].CollisionGroupFlag = CollisionGroupFlag;
+    
+    return(WallId);
+}
+
+internal u32
+AddSnail(game_state *GameState, u32 EntityToFollow, u32 CollisionGroupFlag){
+    u32 FollowerId = AddEntity(GameState);
+    
+    GameState->Entities[FollowerId].Type = EntityType_Snail;
+    GameState->Entities[FollowerId].Width = 0.4f;
+    GameState->Entities[FollowerId].Height = 0.4f;
+    GameState->Entities[FollowerId].P = {3, 4.201f};
+    GameState->Entities[FollowerId].CollisionGroupFlag = CollisionGroupFlag;
+    GameState->Entities[FollowerId].Direction = {-1.0f, 0.0f};
+    
+    return(FollowerId);
+}
+
+internal void
+RenderRectangle(temporary_memory *RenderMemory, render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, u32 Color){
+    
+    PushTemporaryStruct(RenderMemory, render_group_item);
+    
+    RenderGroup->Items[RenderGroup->Count].Type = RenderItemType_Rectangle;
+    RenderGroup->Items[RenderGroup->Count].MinCorner = MinCorner;
+    RenderGroup->Items[RenderGroup->Count].MaxCorner = MaxCorner;
+    RenderGroup->Items[RenderGroup->Count].Color = Color;
+    
+    RenderGroup->Count++;
+}
+
+internal b32
+GameUpdateAndRender(thread_context *Thread, game_memory *Memory,
                     platform_api *PlatformAPI,
-                    platform_user_input *Input, 
-                    platform_backbuffer *Backbuffer) {
-    Assert(Memory->PermanentStorageSize >= sizeof(game_state));
+                    platform_user_input *Input) {
+    //~ Initialization
+    Assert(Memory->PermanentStorageArena.Size >= sizeof(game_state));
     if(!Memory->IsInitialized)
     {
-        Memory->State = (game_state *)Memory->PermanentStorage;
-        Memory->State->Player.P.X = 10.0f;
-        Memory->State->Player.P.Y = Backbuffer->Height*(1.0f/60.0f);
+        Memory->State = PushStruct(&Memory->PermanentStorageArena, game_state);
+        // NOTE(Tyler): Reserve the EntityId, 0
+        Memory->State->EntityCount = 1;
         
         Memory->State->TestBitmap = DEBUGLoadBitmapFromFile(Thread, PlatformAPI, "test_background.bmp");
         Memory->State->PlayerBitmap = DEBUGLoadBitmapFromFile(Thread, PlatformAPI, "test_hero_front_head.bmp");
         
+        u32 TemplateMap[18][32] = {
+            {1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1},
+            {1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        };
+        Memory->State->MetersToPixels = 120.0f / 1.0f;
+        
+        f32 TileSideInMeters = 0.5f;
+        for (f32 Y = 0; Y < 18;Y++){
+            for (f32 X = 0; X < 32; X++){
+                u32 TileId = TemplateMap[(u32)Y][(u32)X];
+                if(TileId == 1){
+                    AddWall(Memory->State,
+                            v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters, 0x00000001);
+                }else if(TileId == 2){
+                    AddPhonyWall(Memory->State,
+                                 v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters, 0x00000002);
+                }
+            }
+        }
+        
+        Memory->State->MetersToPixels = 60.0f / 0.5f;
+        Memory->State->PlayerId = AddPlayer(Memory->State, v2{10, 5.5}, 0x00000001);
+        AddSnail(Memory->State, Memory->State->PlayerId, 0x00000003);
+        
         Memory->IsInitialized = true;
     }
+    Memory->TransientStorageArena;
+    
+    //~
     game_state *GameState = Memory->State;
+    GameState->RenderGroup = {0};
+    temporary_memory RenderMemory;
+    BeginTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory, Kilobytes(10));
+    GameState->RenderGroup.Items = (render_group_item*)RenderMemory.Memory;
     
-    v2 ScreenSizeInPixels = V2((f32)Backbuffer->Width, (f32)Backbuffer->Height);
+    //DrawBitmap(Backbuffer, &GameState->TestBitmap, {0.0f, 0.0f});
     
-    DrawRectangle(Backbuffer, {0, 0}, 
-                  {(f32)Backbuffer->Width, (f32)Backbuffer->Height}, 0x00333333);
-    
-    u32 Map[13][21] = {
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1},
-    };
-    
-    world World;
-    World.TileMap = (u32 *)Map;
-    World.XTiles = 21;
-    World.YTiles = 13;
-    World.ScreenXTiles = 16;
-    World.ScreenYTiles = 9;
-    World.TileSideInPixels = 60.0f;
-    World.TileSideInMeters = 1.0f;
-    
-    f32 MetersToPixels = World.TileSideInPixels / World.TileSideInMeters;
-    
-    UpdateCameraPos(&World, GameState->Player.P, ScreenSizeInPixels); 
-    
-    DrawBitmap(Backbuffer, &GameState->TestBitmap, V2(World.TileSideInPixels, World.TileSideInPixels)-(World.CameraPos*MetersToPixels));
-    
-    DrawWorld(Backbuffer, &World);
-    
-    v2 PlayerAcc = {0};
-    if (Input->UpButton.EndedDown)
-    {
-        PlayerAcc.Y--;
+    for(u32 EntityId = 0; EntityId < GameState->EntityCount; EntityId++){
+        entity *Entity = &GameState->Entities[EntityId];
+        switch(Entity->Type){
+            case EntityType_Player:
+            {
+                if(GameState->Entities[Entity->CollisionEntityId].Type == EntityType_Snail){
+                    Entity->P = {10, 5.5};
+                    Entity->dP = {0};
+                }
+                
+                if((Input->JumpButton.EndedDown) &&
+                   (!GameState->PreviousInput.JumpButton.EndedDown) &&
+                   (GameState->Entities[GameState->PlayerId].CollisionNormal.Y == 1.0f)){
+                    Entity->ddP.Y += 200.0f;
+                }else{
+                    Entity->ddP.Y -= 9.0f;
+                }
+                
+                if(Input->RightButton.EndedDown){
+                    Entity->ddP.X  += 7.0f;
+                }
+                if(Input->LeftButton.EndedDown){
+                    Entity->ddP.X -= 7.0f;
+                }
+                
+                GameState->PreviousInput = *Input;
+                
+                v2 PlayerMinCorner = {
+                    Entity->P.X-(0.5f*Entity->Width),
+                    Entity->P.Y-(0.5f*Entity->Height)};
+                v2 PlayerMaxCorner = PlayerMinCorner+v2{Entity->Width, Entity->Height};
+                RenderRectangle(&RenderMemory, &GameState->RenderGroup, PlayerMinCorner, PlayerMaxCorner, 0x00FFFF00);
+                //DrawRectangleInMeters(Backbuffer, GameState, PlayerMinCorner, PlayerMaxCorner, 0x00FFFF00);
+                v2 Max = PlayerMinCorner+v2{0.5f*Entity->Width, 0.5f*Entity->Height};
+                //DrawRectangleInMeters(Backbuffer, GameState, PlayerMinCorner, Max, 0x00000000);
+                
+            }break;
+            case EntityType_Snail:
+            {
+                if(GameState->Entities[Entity->CollisionEntityId].Type == EntityType_Player){
+                    GameState->Entities[Entity->CollisionEntityId].P = {10, 5.5};
+                    GameState->Entities[Entity->CollisionEntityId].dP = {0};
+                }else if((Entity->CollisionNormal.X != 0.0f)){
+                    Entity->Direction = Entity->CollisionNormal;
+                }
+                Entity->ddP = Entity->Direction;
+                
+                v2 EntityMinCorner = {
+                    Entity->P.X-(0.5f*Entity->Width),
+                    Entity->P.Y-(0.5f*Entity->Height)};
+                v2 EntityMaxCorner = EntityMinCorner+v2{Entity->Width, Entity->Height};
+                RenderRectangle(&RenderMemory, &GameState->RenderGroup, EntityMinCorner, EntityMaxCorner, 0x00AAFF88);
+                //DrawRectangleInMeters(Backbuffer, GameState, EntityMinCorner, EntityMaxCorner, 0x00AAFF88);
+            }break;
+            case EntityType_Wall:
+            {
+                RenderRectangle(&RenderMemory, &GameState->RenderGroup, Entity->P-0.5f*Entity->Size, Entity->P+0.5f*Entity->Size, 0x00FFFFFF);
+            }
+        }
     }
-    if (Input->DownButton.EndedDown)
-    {
-        PlayerAcc.Y++;
+    for(u32 EntityId = 0; EntityId < GameState->EntityCount; EntityId++){
+        entity *Entity = &GameState->Entities[EntityId];
+        if((Entity->Type == EntityType_Player) ||
+           (Entity->Type == EntityType_Snail)){
+            MoveEntity(GameState, EntityId, Input->dTimeForFrame);
+        }
     }
-    if(Input->RightButton.EndedDown)
-    {
-        PlayerAcc.X++;
+    RenderGroupWithOpenGl(GameState, &GameState->RenderGroup, Input->WindowSize);
+    
+    EndTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory);
+    
+    b32 Done = false;
+    entity *Player = &GameState->Entities[GameState->PlayerId];
+    if(Player->P.Y < -3.0f){
+        Player->P = {10, 5.5};
+        Player->dP = {0};
     }
-    if(Input->LeftButton.EndedDown)
-    {
-        PlayerAcc.X--;
-    }
-    
-    f32 PlayerAccLength = LengthSquared(PlayerAcc);
-    if (PlayerAccLength > 1.0f)
-    {
-        PlayerAcc *= 1.0f / SquareRoot(PlayerAccLength);
-    }
-    
-    f32 PlayerSpeed = 10.0f;
-    PlayerAcc *= PlayerSpeed;
-    //PlayerAcc.Y -= -5.0f;
-    
-    f32 PlayerWidth = 0.7f;
-    f32 PlayerHeight = 1.0f;
-    
-    MovePlayer(&World, &GameState->Player, V2(PlayerWidth, PlayerHeight), PlayerAcc, Input->dTimeForFrame);
-    
-    // NOTE(Tyler): The bottom center of the character is the tracked position
-    v2 PlayerTopLeft = V2(GameState->Player.P.X - 0.5f*PlayerWidth,
-                          GameState->Player.P.Y - PlayerHeight);
-    DrawRectangleInWorld(Backbuffer, &World, PlayerTopLeft,
-                         V2(PlayerWidth, PlayerHeight), 0x00FFFF00);
+    return(Done);
 }
