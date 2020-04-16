@@ -19,7 +19,7 @@ typedef s16 b16;
 typedef s32 b32;
 typedef s64 b64;
 
-typedef size_t memory_index;
+typedef size_t umw;
 
 typedef float  f32;
 typedef double f64;
@@ -42,13 +42,13 @@ typedef double f64;
 typedef struct memory_arena memory_arena;
 struct memory_arena {
     u8 *Memory;
-    memory_index Used;
-    memory_index Size;
+    umw Used;
+    umw Size;
     u32 TemporaryCount;
 };
 
 internal void
-InitializeArena(memory_arena *Arena, void *Memory, memory_index Size) {
+InitializeArena(memory_arena *Arena, void *Memory, umw Size) {
     Arena->Used = 0;
     Arena->Memory = (u8 *)Memory;
     Arena->Size = Size;
@@ -58,16 +58,23 @@ InitializeArena(memory_arena *Arena, void *Memory, memory_index Size) {
 #define PushArray(Arena, Type, Count) (Type *)PushMemory(Arena, sizeof(Type)*(Count))
 
 internal void *
-PushMemory(memory_arena *Arena, memory_index Size) {
+PushMemory(memory_arena *Arena, umw Size) {
     Assert((Arena->Used + Size) < Arena->Size);
-    Arena->Used += Size;
     void *Result = Arena->Memory+Arena->Used;
+    Arena->Used += Size;
     return(Result);
 }
 
+// TODO(Tyler): Possibly do more checking here
 internal void
-CopyMemory(void *To, void *From, memory_index Size) {
-    for (memory_index I = 0; I < Size; I++)
+PopMemory(memory_arena *Arena, umw Size){
+    Assert(Arena->Used > Size);
+    Arena->Used -= Size;
+};
+
+internal void
+CopyMemory(void *To, void *From, umw Size) {
+    for (umw I = 0; I < Size; I++)
     {
         *((u8*)To+I) = *((u8*)From+I);
     }
@@ -75,12 +82,12 @@ CopyMemory(void *To, void *From, memory_index Size) {
 
 struct temporary_memory {
     u8 *Memory;
-    memory_index Used;
-    memory_index Size;
+    umw Used;
+    umw Size;
 };
 
 internal void
-BeginTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory, memory_index Size){
+BeginTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory, umw Size){
     Arena->TemporaryCount++;
     Assert((Arena->Used+Size) < Arena->Size);
     TemporaryMemory->Memory = Arena->Memory+Arena->Used;
@@ -92,12 +99,19 @@ BeginTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory, mem
 #define PushTemporaryStruct(Arena, Type) (Type *)PushTemporaryMemory(Arena, sizeof(Type))
 #define PushTemporaryArray(Arena, Type, Count) (Type *)PushTemporaryMemory(Arena, sizeof(Type)*(Count))
 internal void *
-PushTemporaryMemory(temporary_memory *TemporaryMemory, memory_index Size){
+PushTemporaryMemory(temporary_memory *TemporaryMemory, umw Size){
     Assert((TemporaryMemory->Used + Size) < TemporaryMemory->Size);
-    TemporaryMemory->Used += Size;
     void *Result = TemporaryMemory->Memory+TemporaryMemory->Used;
+    TemporaryMemory->Used += Size;
     return(Result);
 }
+
+// TODO(Tyler): Possibly do more checking here
+internal void
+PopTemporaryMemory(temporary_memory *TemporaryMemory, umw Size){
+    Assert(TemporaryMemory->Used > Size);
+    TemporaryMemory->Used -= Size;
+};
 
 internal void
 EndTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory){
@@ -107,7 +121,6 @@ EndTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory){
     Assert(Address == TemporaryMemory->Memory);
     
     Arena->Used -= TemporaryMemory->Size;
-    
 }
 
 #endif

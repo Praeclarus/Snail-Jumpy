@@ -9,7 +9,9 @@ patterns = {
 "*.vert",
 "*.frag",
 "*.glsl",
-"*.bat"
+"*.bat",
+"*.4coder",
+"*.sja",
 };
 
 load_paths = {

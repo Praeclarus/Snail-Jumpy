@@ -33,6 +33,11 @@ TruncateF32ToU32(f32 A)
     return((u32)A);
 }
 
+internal inline f32
+FloorF32(f32 A){
+    return(floorf(A));
+}
+
 internal inline u32
 CeilF32ToS32(f32 A)
 {
@@ -234,5 +239,17 @@ internal inline f32
 SafeRatio1(f32 Numerator, f32 Denominator){
     f32 Result = SafeRatioN(Numerator, Denominator, 1.0f);
 }
+
+union v4 {
+    struct {
+        f32 X, Y, Z, W;
+    };
+    struct {
+        f32 R, G, B, A;
+    };
+};
+
+typedef v4 color;
+
 
 #endif // SNAIL_JUMPY_MATH_H
