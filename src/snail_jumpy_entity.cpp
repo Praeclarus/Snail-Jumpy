@@ -71,8 +71,7 @@ UpdateCoin(game_state *GameState, u32 Id){
         for(f32 X = 0; X < GameState->XTiles; X++){
             u8 Tile = GetTileValue(GameState, (u32)X, (u32)Y);
             if(Tile == 3){
-                CurrentCoinP++;
-                if(RandomNumber == CurrentCoinP){
+                if(RandomNumber == CurrentCoinP++){
                     NewP.X = (X+0.5f)*GameState->TileSideInMeters;
                     NewP.Y = (Y+0.5f)*GameState->TileSideInMeters;
                     break;
@@ -80,6 +79,7 @@ UpdateCoin(game_state *GameState, u32 Id){
             }
         }
     }
+    Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
     GameState->Entities.Entities[Id].P = NewP;
 }
 
@@ -175,6 +175,13 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                     }else if(OtherEntity->Type == EntityType_Coin){
                         UpdateCoin(GameState, CollisionEntityId);
                     }
+                    
+                    if(CollisionNormal.Y == 1.0f){
+                        EntityBrain->JumpTime = 0.0f;
+                    }else{
+                        EntityBrain->JumpTime = 2.0f;
+                    }
+                    
                 }break;
                 case BrainType_Snail:
                 {
@@ -356,10 +363,10 @@ UpdateAndRenderEntities(game_memory *Memory,
                 {
                     v2 ddP = {0};
                     
-                    if((Input->JumpButton.EndedDown) &&
-                       (!GameState->PreviousInput.JumpButton.EndedDown) &&
-                       (Entity->dP.Y == 0.0f)){
-                        ddP.Y += 275.0f;
+                    if((Brain->JumpTime < 0.1f) &&
+                       (Input->JumpButton.EndedDown)){
+                        ddP.Y += 85.0f;
+                        Brain->JumpTime += Input->dTimeForFrame;
                     }else{
                         ddP.Y -= 11.0f;
                     }

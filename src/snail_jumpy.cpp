@@ -6,12 +6,15 @@
 #include "third_party/stb_rect_pack.h"
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "third_party/stb_truetype.h"
+#define STB_SPRINTF_IMPLEMENTATION
+#include "third_party/stb_sprintf.h"
 
 #include "snail_jumpy.h"
 
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
+#include "snail_jumpy_game.cpp"
 
 //~ TODO(Tyler):
 /*
@@ -40,6 +43,7 @@
 *  - Possibly create a hotloaded variables file for easy tuning of variables
 *      a la Jonathan Blow's games
 *  - Multithreading & SIMD
+*  - Use the new stb_truetype baking API
 */
 //~
 
@@ -96,8 +100,9 @@ LoadAssets(game_memory *Memory, platform_api *Platform, render_api *RenderApi)
 }
 
 internal void
-LoadFont(memory_arena *Arena, font *Font, platform_api *Platform, render_api *RenderApi, u32 Width, u32 Height){
-    platform_file *File = Platform->OpenFile("c:/windows/fonts/times.ttf", OpenFile_Read);
+LoadFont(memory_arena *Arena, platform_api *Platform, render_api *RenderApi,
+         font *Font, const char *FontPath, f32 Size, u32 Width, u32 Height){
+    platform_file *File = Platform->OpenFile(FontPath, OpenFile_Read);
     u64 FileSize = Platform->GetFileSize(File);
     u8 *FileData = PushArray(Arena, u8, FileSize);
     Platform->ReadFile(File, 0, FileData, FileSize);
@@ -106,7 +111,7 @@ LoadFont(memory_arena *Arena, font *Font, platform_api *Platform, render_api *Re
     u8 *Bitmap = PushArray(Arena, u8, Width*Height);
     u32 *Pixels = PushArray(Arena, u32, Width*Height);
     
-    stbtt_BakeFontBitmap(FileData, 0, 32, Bitmap, Width, Height, 32, 93, Font->CharData);
+    stbtt_BakeFontBitmap(FileData, 0, Size, Bitmap, Width, Height, 32, 93, Font->CharData);
     // TODO(Tyler): Make this better!!!
     for(u32 Y = 0; Y < Height; Y++){
         for(u32 X = 0; X < Width; X++){
@@ -138,7 +143,7 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
             {1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1},
             {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1},
             {1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
-            {1, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+            {1, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
             {1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1},
             {1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
             {1, 0, 2, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -196,21 +201,17 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
         
         Memory->IsInitialized = true;
         
-        //LoadAssets(Memory, Platform, RenderApi);
+        LoadAssets(Memory, Platform, RenderApi);
         
-        LoadFont(&Memory->TransientStorageArena, &Memory->State->TestFont,
-                 Platform, RenderApi, 512, 512);
+        LoadFont(&Memory->TransientStorageArena, Platform, RenderApi, &Memory->State->Font, "c:/windows/fonts/times.ttf", 32, 512, 512);
     }
     
     game_state *GameState = Memory->State;
     Memory->TransientStorageArena.Used = 0;
     GameState->Counter += Input->dTimeForFrame;
     
-    GameState->RenderGroup = {0};
-    temporary_memory RenderItemArray;
-    BeginTemporaryMemory(&Memory->TransientStorageArena, &RenderItemArray, Kilobytes(16));
-    GameState->RenderGroup.Items = (render_item*)RenderItemArray.Memory;
-    GameState->RenderGroup.MaxCount = Kilobytes(16)/sizeof(render_item);
+#if 0
+    InitializeRenderGroup(&Memory->TransientStorageArena, &GameState->RenderGroup, 512);
     temporary_memory RenderMemory;
     BeginTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory, Kilobytes(64));
     
@@ -218,15 +219,18 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
     GameState->RenderGroup.MetersToPixels = 1.0f;
     GameState->RenderGroup.OutputSize = Input->WindowSize;
     
-    
-    char *String = "Goodnight!!!";
-    RenderString(&RenderMemory, &GameState->RenderGroup, &GameState->TestFont, String,
-                 500, 500);
-    
-    EndTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory);
-    EndTemporaryMemory(&Memory->TransientStorageArena, &RenderItemArray);
+    char Buffer[512];
+    stbsp_snprintf(Buffer, 512, "Counter: %f", GameState->Counter);
+    RenderString(&RenderMemory, &GameState->RenderGroup, &GameState->Font,
+                 Buffer, {1.0f, 1.0f, 1.0f, 1.0f}, 500, 500);
     
     RenderApi->RenderGroupToScreen(RenderApi, &GameState->RenderGroup);
+    
+    EndTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory);
+#endif
+    
+    MainGameUpdateAndRender(Thread, Memory, Platform, RenderApi, Input);
+    
     
     b32 Done = false;
     return(Done);

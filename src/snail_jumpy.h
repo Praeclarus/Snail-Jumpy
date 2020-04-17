@@ -42,7 +42,7 @@ struct game_state {
     // TODO(Tyler): Do this differently
     platform_user_input PreviousInput;
     
-    font TestFont;
+    font Font;
 };
 
 #endif

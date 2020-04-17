@@ -41,7 +41,7 @@ RENDER_GROUP_TO_SCREEN(Win32OpenGlRenderGroupToScreen){
             "uniform sampler2D Texture;"
             "void main()"
             "{"
-            "    FragColor = texture(Texture, FragmentTexCoord);"
+            "    FragColor = texture(Texture, FragmentTexCoord) * FragmentColor;"
             "}";
         TextureShaderProgram =
             CompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);

@@ -61,9 +61,11 @@ RenderTexture(temporary_memory *RenderMemory, render_group *RenderGroup, v2 MinC
 
 internal void
 RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
-             font *Font, char *String, f32 X, f32 Y){
+             font *Font, color Color, f32 X, f32 Y, char *String){
     // NOTE(Tyler): This is kind of a hack, the Y values are inverted here and then inverted
     // again in the renderer.
+    X *= RenderGroup->MetersToPixels;
+    Y *= RenderGroup->MetersToPixels;
     Y = RenderGroup->OutputSize.Y - Y;
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
@@ -78,10 +80,14 @@ RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
                            C-32, &X, &Y, &Q, 1);
         Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
         Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
-        Vertices[VertexOffset]   = {Q.x0, Q.y0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s0, Q.t0};
-        Vertices[VertexOffset+1] = {Q.x0, Q.y1, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s0, Q.t1};
-        Vertices[VertexOffset+2] = {Q.x1, Q.y1, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s1, Q.t1};
-        Vertices[VertexOffset+3] = {Q.x1, Q.y0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s1, Q.t0};
+        Q.x0 /= RenderGroup->MetersToPixels;
+        Q.x1 /= RenderGroup->MetersToPixels;
+        Q.y0 /= RenderGroup->MetersToPixels;
+        Q.y1 /= RenderGroup->MetersToPixels;
+        Vertices[VertexOffset]   = {Q.x0, Q.y0, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
+        Vertices[VertexOffset+1] = {Q.x0, Q.y1, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
+        Vertices[VertexOffset+2] = {Q.x1, Q.y1, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
+        Vertices[VertexOffset+3] = {Q.x1, Q.y0, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t0};
         
         VertexOffset += 4;
     }
@@ -103,4 +109,95 @@ RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
     RenderItem->Indices = Indices;
     RenderItem->IndexCount = 6*Length;
     RenderItem->Texture = Font->Texture;
+}
+
+internal inline void
+RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
+             font *Font, color Color, v2 P, char *String){
+    RenderString(RenderMemory, RenderGroup, Font, Color, P.X, P.Y, String);
+}
+
+// TODO(Tyler): Figure out a better way to do the buffer
+internal inline void
+VRenderFormatString(temporary_memory *RenderMemory, render_group *RenderGroup,
+                    font *Font, color Color, f32 X, f32 Y, char *Format, va_list VarArgs){
+    char Buffer[1024];
+    stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
+    RenderString(RenderMemory, RenderGroup, Font,
+                 Color, X, Y, Buffer);
+}
+
+internal inline void
+RenderFormatString(temporary_memory *RenderMemory, render_group *RenderGroup,
+                   font *Font, color Color, f32 X, f32 Y, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    VRenderFormatString(RenderMemory, RenderGroup, Font, Color, X, Y, Format, VarArgs);
+    va_end(VarArgs);
+}
+
+internal inline void
+RenderFormatString(temporary_memory *RenderMemory, render_group *RenderGroup,
+                   font *Font, color Color, v2 P, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    VRenderFormatString(RenderMemory, RenderGroup, Font, Color, P.X, P.Y, Format, VarArgs);
+    va_end(VarArgs);
+}
+
+internal f32
+GetStringAdvanceInPixels(font *Font, char *String){
+    f32 Result = 0;
+    f32 X = 0.0f;
+    f32 Y = 0.0f;
+    for(char C = *String; C; C = *(++String)){
+        stbtt_aligned_quad Q;
+        stbtt_GetBakedQuad(Font->CharData,
+                           Font->Width, Font->Height,
+                           C-32, &X, &Y, &Q, 1);
+        Result = Q.x1;
+    }
+    
+    return(Result);
+}
+
+internal inline f32
+GetStringAdvanceInMeters(render_group *RenderGroup, font *Font, char *String){
+    f32 Result = GetStringAdvanceInPixels(Font, String);
+    Result /= RenderGroup->MetersToPixels;
+    return(Result);
+}
+
+internal inline f32
+VGetFormatStringAdvanceInPixels(font *Font, char *Format, va_list VarArgs){
+    char Buffer[1024];
+    stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
+    f32 Result = GetStringAdvanceInPixels(Font, Buffer);
+    return(Result);
+}
+
+internal inline f32
+GetFormatStringAdvanceInPixels(font *Font, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    f32 Result = VGetFormatStringAdvanceInPixels(Font, Format, VarArgs);
+    va_end(VarArgs);
+    return(Result);
+}
+
+internal inline f32
+GetFormatStringAdvanceInMeters(render_group *RenderGroup, font *Font, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    f32 Result = VGetFormatStringAdvanceInPixels(Font, Format, VarArgs);
+    Result /= RenderGroup->MetersToPixels;
+    va_end(VarArgs);
+    return(Result);
+}
+
+internal inline void
+InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCount){
+    RenderGroup->Items = PushArray(Arena, render_item, Kilobytes(16));
+    RenderGroup->Count = 0;
+    RenderGroup->MaxCount = MaxCount;
 }

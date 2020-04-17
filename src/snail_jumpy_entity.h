@@ -51,6 +51,7 @@ enum brain_type {
     
     BrainType_Player,
     BrainType_Snail,
+    BrainType_Coin
 };
 
 struct entity_brain {
@@ -60,6 +61,16 @@ struct entity_brain {
         // Bad guy
         struct {
             v2 SnailDirection;
+        };
+        
+        // Player
+        struct {
+            f32 JumpTime;
+        };
+        
+        // Coin
+        struct {
+            f32 CooldownTime;
         };
     };
 };
