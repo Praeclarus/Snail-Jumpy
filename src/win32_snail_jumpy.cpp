@@ -385,7 +385,7 @@ OPEN_FILE(Win32OpenFile){
     }
     
     platform_file *Result;
-    HANDLE File = CreateFileA(Path, Access, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    HANDLE File = CreateFileA(Path, Access, FILE_SHARE_READ, 0, OPEN_ALWAYS, 0, 0);
     if(File != INVALID_HANDLE_VALUE){
         Result = (platform_file *)File;
     }else{
@@ -435,6 +435,14 @@ READ_FILE(Win32ReadFile){
 internal
 CLOSE_FILE(Win32CloseFile){
     CloseHandle((HANDLE)File);
+}
+
+// TODO(Tyler): Proper WriteFile for 64-bits
+internal
+WRITE_TO_FILE(Win32WriteToFile){
+    DWORD BytesWritten;
+    WriteFile((HANDLE)File, Buffer, (DWORD)BufferSize, &BytesWritten, 0);
+    return(BytesWritten);
 }
 
 internal inline FILETIME
@@ -532,7 +540,7 @@ WinMain(HINSTANCE Instance,
                 PlatformApi.OpenFile = Win32OpenFile;
                 PlatformApi.CloseFile = Win32CloseFile;
                 PlatformApi.ReadFile = Win32ReadFile;
-                //PlatformApi.WriteToFile = Win32WriteToFile;
+                PlatformApi.WriteToFile = Win32WriteToFile;
                 PlatformApi.GetFileSize = Win32GetFileSize;
                 
                 render_api RenderApi = {0};
@@ -547,12 +555,6 @@ WinMain(HINSTANCE Instance,
                 
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
-                {
-                    char Buffer[512];
-                    _snprintf(Buffer, 512, "%f\n", 1.0f/SecondsElapsed);
-                    OutputDebugString(Buffer);
-                }
-                
                 if (SecondsElapsed < TargetSecondsPerFrame)
                 {
                     while (SecondsElapsed < TargetSecondsPerFrame)

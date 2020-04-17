@@ -42,7 +42,8 @@ typedef CLOSE_FILE(close_file);
 #define READ_FILE(Name) b32 Name(platform_file *File, u64 FileOffset, void *Buffer, umw BufferSize)
 typedef READ_FILE(read_file);
 
-// TODO(Tyler): WRITE_FILE!!!
+#define WRITE_TO_FILE(Name) u64 Name(platform_file *File, void *Buffer, umw BufferSize)
+typedef WRITE_TO_FILE(write_file);
 
 #define GET_FILE_SIZE(Name) u64 Name(platform_file *File)
 typedef GET_FILE_SIZE(get_file_size);
@@ -52,6 +53,7 @@ struct platform_api {
     close_file *CloseFile;
     read_file *ReadFile;
     get_file_size *GetFileSize;
+    write_file *WriteToFile;
 };
 
 struct game_state;

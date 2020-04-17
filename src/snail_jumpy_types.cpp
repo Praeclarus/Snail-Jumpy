@@ -68,7 +68,7 @@ PushMemory(memory_arena *Arena, umw Size) {
 // TODO(Tyler): Possibly do more checking here
 internal void
 PopMemory(memory_arena *Arena, umw Size){
-    Assert(Arena->Used > Size);
+    Assert(Arena->Used >= Size);
     Arena->Used -= Size;
 };
 
@@ -121,6 +121,16 @@ EndTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory){
     Assert(Address == TemporaryMemory->Memory);
     
     Arena->Used -= TemporaryMemory->Size;
+}
+
+//~ Helpers
+internal umw
+CStringLength(char *String){
+    umw Result = 0;
+    for(char C = *String; C; C=*(++String)){
+        Result++;
+    }
+    return(Result);
 }
 
 #endif

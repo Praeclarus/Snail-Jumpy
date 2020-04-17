@@ -21,10 +21,13 @@ struct render_item {
 struct render_group {
     render_item *Items;
     u64 Count, MaxCount;
+    f32 MetersToPixels;
+    color BackgroundColor;
+    v2 OutputSize;
 };
 
 struct render_api;
-#define RENDER_GROUP_TO_SCREEN(Name) void Name(render_api *RenderApi, render_group *RenderGroup, v2 WindowSize)
+#define RENDER_GROUP_TO_SCREEN(Name) void Name(render_api *RenderApi, render_group *RenderGroup)
 typedef RENDER_GROUP_TO_SCREEN(render_group_to_screen);
 
 #define CREATE_RENDER_TEXTURE(Name) render_texture_handle Name(u8 *Pixels, u32 Width, u32 Height)
@@ -33,8 +36,6 @@ typedef CREATE_RENDER_TEXTURE(create_render_texture);
 struct render_api {
     render_group_to_screen *RenderGroupToScreen;
     create_render_texture *CreateRenderTexture;
-    color BackgroundColor;
-    f32 MetersToPixels;
 };
 
 #endif //SNAIL_JUMPY_RENDER_H

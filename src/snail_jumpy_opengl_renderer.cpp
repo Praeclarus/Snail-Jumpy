@@ -3,12 +3,14 @@
 internal
 RENDER_GROUP_TO_SCREEN(Win32OpenGlRenderGroupToScreen){
     
-    glViewport(0, 0, (GLsizei)WindowSize.Width, (GLsizei)WindowSize.Height);
+    glViewport(0, 0,
+               (GLsizei)RenderGroup->OutputSize.Width,
+               (GLsizei)RenderGroup->OutputSize.Height);
     
-    glClearColor(RenderApi->BackgroundColor.R,
-                 RenderApi->BackgroundColor.G,
-                 RenderApi->BackgroundColor.B,
-                 RenderApi->BackgroundColor.A);
+    glClearColor(RenderGroup->BackgroundColor.R,
+                 RenderGroup->BackgroundColor.G,
+                 RenderGroup->BackgroundColor.B,
+                 RenderGroup->BackgroundColor.A);
     glClear(GL_COLOR_BUFFER_BIT);
     
     glEnable(GL_BLEND);
@@ -88,8 +90,8 @@ RENDER_GROUP_TO_SCREEN(Win32OpenGlRenderGroupToScreen){
                           sizeof(vertex), (void*)offsetof(vertex, TexCoord));
     glEnableVertexAttribArray(2);
     
-    f32 A = 2.0f/((f32)WindowSize.Width/RenderApi->MetersToPixels);
-    f32 B = 2.0f/((f32)WindowSize.Height/RenderApi->MetersToPixels);
+    f32 A = 2.0f/((f32)RenderGroup->OutputSize.Width/RenderGroup->MetersToPixels);
+    f32 B = 2.0f/((f32)RenderGroup->OutputSize.Height/RenderGroup->MetersToPixels);
     f32 Projection[] = {
         A,   0, 0, 0,
         0,   B, 0, 0,
@@ -121,7 +123,7 @@ RENDER_GROUP_TO_SCREEN(Win32OpenGlRenderGroupToScreen){
         
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, Item->IndexCount*sizeof(u32), Item->Indices, GL_STREAM_DRAW);
         
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_INT, 0);
         
         glBindTexture(GL_TEXTURE_2D, 0);
     }

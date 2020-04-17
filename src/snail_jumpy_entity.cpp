@@ -51,6 +51,38 @@ RenderEntityWithAnimation(temporary_memory *RenderMemory, game_state *GameState,
                   P, P+Animation->SizeInMeters, Animation->SpriteSheet, MinTexCoord, MaxTexCoord);
 }
 
+internal u8
+GetTileValue(game_state *GameState, u32 X, u32 Y){
+    // NOTE(Tyler): We do not need to invert the Y as the Y in the actual map is inverted
+    u8 Result = *(GameState->TileMap+(Y*GameState->XTiles)+X);
+    
+    return(Result);
+}
+
+internal void
+UpdateCoin(game_state *GameState, u32 Id){
+    GameState->Score++;
+    
+    u32 RandomNumber = GlobalRandomNumberTable[(u32)(GameState->Counter*4132.0f) % ArrayCount(GlobalRandomNumberTable)];
+    RandomNumber %= GameState->NumberOfCoinPs;
+    u32 CurrentCoinP = 0;
+    v2 NewP = {};
+    for(f32 Y = 0; Y < GameState->YTiles; Y++){
+        for(f32 X = 0; X < GameState->XTiles; X++){
+            u8 Tile = GetTileValue(GameState, (u32)X, (u32)Y);
+            if(Tile == 3){
+                CurrentCoinP++;
+                if(RandomNumber == CurrentCoinP){
+                    NewP.X = (X+0.5f)*GameState->TileSideInMeters;
+                    NewP.Y = (Y+0.5f)*GameState->TileSideInMeters;
+                    break;
+                }
+            }
+        }
+    }
+    GameState->Entities.Entities[Id].P = NewP;
+}
+
 internal b32
 TestWall(f32 WallX,
          f32 PlayerX, f32 PlayerY,
@@ -72,7 +104,6 @@ TestWall(f32 WallX,
     }
     return(Result);
 }
-
 internal void
 MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
     entity *Entity = &GameState->Entities.Entities[EntityId];
@@ -92,7 +123,7 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
         f32 CollisionTime = 1.0f;
         v2 CollisionNormal = {0};
         u32 CollisionEntityId = 0;
-        for(u32 OtherEntityId = 1; OtherEntityId < GameState->EntityCount; OtherEntityId++){
+        for(u32 OtherEntityId = 1; OtherEntityId <= GameState->EntityCount; OtherEntityId++){
             if(OtherEntityId == EntityId){
                 continue;
             }
@@ -139,8 +170,10 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                 case BrainType_Player:
                 {
                     if(OtherEntityBrain->Type == BrainType_Snail){
-                        GameState->Entities.States[EntityId]|= (EntityState_Dead|EntityState_Frozen);
+                        GameState->Entities.States[EntityId] |= (EntityState_Dead|EntityState_Frozen);
                         PlayAnimation(GameState, EntityId, 2);
+                    }else if(OtherEntity->Type == EntityType_Coin){
+                        UpdateCoin(GameState, CollisionEntityId);
                     }
                 }break;
                 case BrainType_Snail:
@@ -159,13 +192,12 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
         
         TimeRemaining -= CollisionTime*TimeRemaining;
     }
-    
 }
 
 internal u32
 AddEntity(game_state *GameState){
     Assert(GameState->EntityCount+1 < 256);
-    u32 Result = GameState->EntityCount++;
+    u32 Result = ++GameState->EntityCount;
     return(Result);
 }
 
@@ -293,6 +325,22 @@ AddSally(game_state *GameState,
     return(SallyId);
 }
 
+internal u32
+AddCoin(game_state *GameState,
+        platform_api *Platform,
+        render_api *RenderApi,
+        u32 CollisionGroupFlag){
+    u32 Id = AddEntity(GameState);
+    entity *Entity = &GameState->Entities.Entities[Id];
+    
+    Entity->Type = EntityType_Coin;
+    Entity->Size = { 0.3f, 0.3f };
+    Entity->P = { 11, 5.0 };
+    Entity->CollisionGroupFlag = CollisionGroupFlag;
+    
+    return(Id);
+}
+
 internal void
 UpdateAndRenderEntities(game_memory *Memory,
                         platform_user_input *Input,
@@ -351,7 +399,7 @@ UpdateAndRenderEntities(game_memory *Memory,
         }
     }
     
-    for(u32 EntityId = 1; EntityId < GameState->EntityCount; EntityId++){
+    for(u32 EntityId = 1; EntityId <= GameState->EntityCount; EntityId++){
         entity *Entity = &GameState->Entities.Entities[EntityId];
         switch(Entity->Type){
             case EntityType_Player:
@@ -386,6 +434,12 @@ UpdateAndRenderEntities(game_memory *Memory,
                 RenderRectangle(RenderMemory, &GameState->RenderGroup,
                                 Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
                                 {1.0f, 1.0f, 1.0f, 1.0f});
+            }break;
+            case EntityType_Coin:
+            {
+                RenderRectangle(RenderMemory, &GameState->RenderGroup,
+                                Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
+                                {1.0f, 1.0f, 0.0f, 1.0f});
             }break;
         }
     }

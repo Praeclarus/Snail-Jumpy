@@ -10,6 +10,8 @@ enum entity_type {
     EntityType_PhonyWall,
     EntityType_Snail,
     EntityType_Sally,
+    
+    EntityType_Coin,
 };
 
 typedef u32 entity_state;

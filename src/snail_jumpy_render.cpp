@@ -58,3 +58,49 @@ RenderTexture(temporary_memory *RenderMemory, render_group *RenderGroup, v2 MinC
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
 }
+
+internal void
+RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
+             font *Font, char *String, f32 X, f32 Y){
+    // NOTE(Tyler): This is kind of a hack, the Y values are inverted here and then inverted
+    // again in the renderer.
+    Y = RenderGroup->OutputSize.Y - Y;
+    
+    render_item *RenderItem = AddRenderItem(RenderGroup);
+    
+    umw Length = CStringLength(String);
+    vertex *Vertices = PushTemporaryArray(RenderMemory, vertex, 4*Length);
+    u32 VertexOffset = 0;
+    for(char C = *String; C; C = *(++String)){
+        stbtt_aligned_quad Q;
+        stbtt_GetBakedQuad(Font->CharData,
+                           Font->Width, Font->Height,
+                           C-32, &X, &Y, &Q, 1);
+        Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
+        Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
+        Vertices[VertexOffset]   = {Q.x0, Q.y0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s0, Q.t0};
+        Vertices[VertexOffset+1] = {Q.x0, Q.y1, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s0, Q.t1};
+        Vertices[VertexOffset+2] = {Q.x1, Q.y1, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s1, Q.t1};
+        Vertices[VertexOffset+3] = {Q.x1, Q.y0, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, Q.s1, Q.t0};
+        
+        VertexOffset += 4;
+    }
+    RenderItem->Vertices = Vertices;
+    RenderItem->VertexCount = 4*Length;
+    
+    u32 *Indices = PushTemporaryArray(RenderMemory, u32, 6*Length);
+    u32 FaceOffset = 0;
+    for(u32 IndexOffset = 0; IndexOffset < 6*Length; IndexOffset += 6){
+        Indices[IndexOffset]   = FaceOffset;
+        Indices[IndexOffset+1] = FaceOffset+1;
+        Indices[IndexOffset+2] = FaceOffset+2;
+        Indices[IndexOffset+3] = FaceOffset;
+        Indices[IndexOffset+4] = FaceOffset+2;
+        Indices[IndexOffset+5] = FaceOffset+3;
+        FaceOffset += 4;
+    }
+    
+    RenderItem->Indices = Indices;
+    RenderItem->IndexCount = 6*Length;
+    RenderItem->Texture = Font->Texture;
+}
