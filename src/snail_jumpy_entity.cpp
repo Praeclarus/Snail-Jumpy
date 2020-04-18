@@ -80,7 +80,9 @@ UpdateCoin(game_state *GameState, u32 Id){
         }
     }
     Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-    GameState->Entities.Entities[Id].P = NewP;
+    GameState->Entities.Entities[Id].P= NewP;
+    GameState->Entities.States[Id] |= (EntityState_Dead);
+    GameState->Entities.Brains[GameState->Entities.Entities[Id].BrainSlot].CooldownTime = 1.0f;
 }
 
 internal b32
@@ -139,6 +141,12 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                 v2 MinCorner = -0.5*Size;
                 v2 MaxCorner = 0.5*Size;
                 
+                // HACK(Tyler): Do this better
+                f32 OldCollisionTime = 0.0f;
+                if(Entity->Type == EntityType_Coin){
+                    
+                }
+                
                 if(TestWall(MinCorner.X, RelEntityP.X, RelEntityP.Y, EntityDelta.X, EntityDelta.Y, MinCorner.Y, MaxCorner.Y, &CollisionTime)){
                     CollisionNormal = v2{-1.0f, 0.0f};
                     CollisionEntityId = OtherEntityId;
@@ -159,8 +167,8 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
         }
         
         Entity->P += EntityDelta*CollisionTime;
-        Entity->dP = (Entity->dP - Inner(Entity->dP, CollisionNormal)*CollisionNormal);
-        EntityDelta = (EntityDelta - Inner(EntityDelta, CollisionNormal)*CollisionNormal);
+        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
+        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
         
         if(CollisionEntityId){
             entity *OtherEntity = &GameState->Entities.Entities[CollisionEntityId];
@@ -261,7 +269,7 @@ AddPlayer(game_state *GameState,
     Animation->CurrentAnimationTime = 0.0f;
     
     Entity->BrainSlot = ++GameState->Entities.BrainCount;
-    entity_brain *Brain = &GameState->Entities.Brains[Entity->AnimationSlot];
+    entity_brain *Brain = &GameState->Entities.Brains[Entity->BrainSlot];
     
     Brain->EntityId = PlayerId;
     Brain->Type = BrainType_Player;
@@ -292,7 +300,7 @@ AddSnail(game_state *GameState,
     Animation->CurrentAnimationTime = 0.0f;
     
     Entity->BrainSlot = ++GameState->Entities.BrainCount;
-    entity_brain *Brain = &GameState->Entities.Brains[Entity->AnimationSlot];
+    entity_brain *Brain = &GameState->Entities.Brains[Entity->BrainSlot];
     
     Brain->EntityId = SnailId;
     Brain->Type = BrainType_Snail;
@@ -323,7 +331,7 @@ AddSally(game_state *GameState,
     Animation->CurrentAnimationTime = 0.0f;
     
     Entity->BrainSlot = ++GameState->Entities.BrainCount;
-    entity_brain *Brain = &GameState->Entities.Brains[Entity->AnimationSlot];
+    entity_brain *Brain = &GameState->Entities.Brains[Entity->BrainSlot];
     
     Brain->EntityId = SallyId;
     Brain->Type = BrainType_Snail;
@@ -342,8 +350,16 @@ AddCoin(game_state *GameState,
     
     Entity->Type = EntityType_Coin;
     Entity->Size = { 0.3f, 0.3f };
-    Entity->P = { 11, 5.0 };
     Entity->CollisionGroupFlag = CollisionGroupFlag;
+    
+    Entity->BrainSlot = ++GameState->Entities.BrainCount;
+    entity_brain *Brain = &GameState->Entities.Brains[Entity->BrainSlot];
+    
+    Brain->EntityId = Id;
+    Brain->Type = BrainType_Coin;
+    Brain->CooldownTime = 0.0f;
+    
+    UpdateCoin(GameState, Id);
     
     return(Id);
 }
@@ -380,6 +396,7 @@ UpdateAndRenderEntities(game_memory *Memory,
                         PlayAnimation(GameState, Brain->EntityId, PlayerAnimation_RunningLeft);
                     }else{
                         PlayAnimation(GameState, Brain->EntityId, PlayerAnimation_Idle);
+                        Entity->dP.X -= 0.25f*Entity->dP.X;
                     }
                     
                     MoveEntity(GameState, Brain->EntityId, ddP, Input->dTimeForFrame);
@@ -401,6 +418,14 @@ UpdateAndRenderEntities(game_memory *Memory,
                     u32 AnimationIndex = (Brain->SnailDirection.X > 0.0f) ?
                         SnailAnimation_Right : SnailAnimation_Left;
                     PlayAnimation(GameState, Brain->EntityId, AnimationIndex);
+                }break;
+                case BrainType_Coin:
+                {
+                    if(Brain->CooldownTime < 0.01f){
+                        GameState->Entities.States[Brain->EntityId] &= ~EntityState_Dead;
+                    }else{
+                        Brain->CooldownTime -= Input->dTimeForFrame;
+                    }
                 }break;
             }
         }
@@ -444,9 +469,11 @@ UpdateAndRenderEntities(game_memory *Memory,
             }break;
             case EntityType_Coin:
             {
-                RenderRectangle(RenderMemory, &GameState->RenderGroup,
-                                Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
-                                {1.0f, 1.0f, 0.0f, 1.0f});
+                if(!(GameState->Entities.States[EntityId] & EntityState_Dead)){
+                    RenderRectangle(RenderMemory, &GameState->RenderGroup,
+                                    Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
+                                    {1.0f, 1.0f, 0.0f, 1.0f});
+                }
             }break;
         }
     }

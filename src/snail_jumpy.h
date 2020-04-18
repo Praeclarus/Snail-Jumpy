@@ -37,11 +37,14 @@ struct game_state {
     u32 NumberOfCoinPs;
     f32 TileSideInMeters;
     
+    u32 PlayerId;
+    
     render_group RenderGroup;
     
     // TODO(Tyler): Do this differently
     platform_user_input PreviousInput;
     
+    font MainFont;
     font Font;
 };
 

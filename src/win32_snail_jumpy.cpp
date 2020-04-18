@@ -171,15 +171,15 @@ Win32MainWindowProc(HWND Window,
             b32 IsDown = ((LParam & (1UL << 31)) == 0);
             if (WasDown != IsDown)
             {
-                if (VkCode == VK_UP){
+                if (VkCode == 'W'){
                     Win32ProcessKeyboardInput(&UserInput.UpButton, IsDown);
-                }else if(VkCode == VK_DOWN){
+                }else if(VkCode == 'S'){
                     Win32ProcessKeyboardInput(&UserInput.DownButton, IsDown);
                 }else if(VkCode == VK_LEFT){
                     Win32ProcessKeyboardInput(&UserInput.LeftButton, IsDown);
                 }else if(VkCode == VK_RIGHT){
                     Win32ProcessKeyboardInput(&UserInput.RightButton, IsDown);
-                }else if(VkCode == 'Z'){
+                }else if(VkCode == ' '){
                     Win32ProcessKeyboardInput(&UserInput.JumpButton, IsDown);
                 }
                 

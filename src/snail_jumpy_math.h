@@ -94,7 +94,7 @@ AbsoluteValue(f32 A)
     return(Result);
 }
 
-//~ Vectors
+//~ Vtors
 
 typedef union v2 v2;
 union v2
@@ -213,9 +213,15 @@ Inner(v2 A, v2 B)
 }
 
 internal inline f32
-LengthSquared(v2 Vec)
+LengthSquared(v2 V)
 {
-    f32 Result = Inner(Vec, Vec);
+    f32 Result = Inner(V, V);
+    return(Result);
+}
+
+internal inline v2
+Normalize(v2 V){
+    v2 Result = V/SquareRoot(LengthSquared(V));
     return(Result);
 }
 

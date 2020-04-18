@@ -13,13 +13,18 @@ GAME_UPADTE_AND_RENDER(MainGameUpdateAndRender){
     
     UpdateAndRenderEntities(Memory, Input, &RenderMemory);
     
-    RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->Font,
+    RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->MainFont,
                        {0.0f, 1.0f, 0.0f, 1.0f},
                        0.75f, 8, "Score: %u", GameState->Score);
     
+    entity *Player = &GameState->Entities.Entities[GameState->PlayerId];
     RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->Font,
-                       {0.0f, 1.0f, 0.0f, 1.0f},
-                       0.75f, 7.75f, "Counter: %.2f", GameState->Counter);
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       0.75f, 7.7f, "PlayerVelocity: %f, %f ", Player->dP.X, Player->dP.Y);
+    
+    RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->Font,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       0.75f, 7.6f, "Counter: %.2f", GameState->Counter);
     
     RenderApi->RenderGroupToScreen(RenderApi, &GameState->RenderGroup);
     

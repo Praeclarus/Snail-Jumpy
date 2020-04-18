@@ -190,10 +190,26 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
                  Platform, RenderApi,
                  0x00000003);
         
-        AddPlayer(Memory->State,
-                  Platform, RenderApi,
-                  {10, 6},
-                  0x00000005);
+        Memory->State->PlayerId = AddPlayer(Memory->State,
+                                            Platform, RenderApi,
+                                            {10, 6},
+                                            0x00000005);
+        
+        AddCoin(Memory->State,
+                Platform, RenderApi,
+                0x00000004);
+        
+        AddCoin(Memory->State,
+                Platform, RenderApi,
+                0x00000004);
+        
+        AddCoin(Memory->State,
+                Platform, RenderApi,
+                0x00000004);
+        
+        AddCoin(Memory->State,
+                Platform, RenderApi,
+                0x00000004);
         
         AddCoin(Memory->State,
                 Platform, RenderApi,
@@ -203,7 +219,11 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
         
         LoadAssets(Memory, Platform, RenderApi);
         
-        LoadFont(&Memory->TransientStorageArena, Platform, RenderApi, &Memory->State->Font, "c:/windows/fonts/times.ttf", 32, 512, 512);
+        LoadFont(&Memory->TransientStorageArena, Platform, RenderApi,
+                 &Memory->State->Font, "Press-Start-2P.ttf", 10, 512, 512);
+        
+        LoadFont(&Memory->TransientStorageArena, Platform, RenderApi,
+                 &Memory->State->MainFont, "Press-Start-2P.ttf", 24, 512, 512);
     }
     
     game_state *GameState = Memory->State;
