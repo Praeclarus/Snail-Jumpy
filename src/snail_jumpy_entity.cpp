@@ -166,10 +166,6 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
             }
         }
         
-        Entity->P += EntityDelta*CollisionTime;
-        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
-        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
-        
         if(CollisionEntityId){
             entity *OtherEntity = &GameState->Entities.Entities[CollisionEntityId];
             entity_brain *OtherEntityBrain = &GameState->Entities.Brains[OtherEntity->BrainSlot];
@@ -204,6 +200,17 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                 }break;
             }
         }
+        
+#if 0
+        if(DiscardCollision){
+            Iteration--;
+            continue;
+        }else{
+        }
+#endif
+        Entity->P += EntityDelta*CollisionTime;
+        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
+        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
         
         TimeRemaining -= CollisionTime*TimeRemaining;
     }

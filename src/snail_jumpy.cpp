@@ -55,9 +55,9 @@ LoadAssets(game_memory *Memory, platform_api *Platform, render_api *RenderApi)
     BeginTemporaryMemory(&Memory->TransientStorageArena, &AssetLoadingMemory, Megabytes(10));
     
     asset_descriptor AnimationInfoTable[Animation_TOTAL] = {
-        {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 9, 9, 6, 3 }},
-        {"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       { 4, 4 }},
-        {"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       { 3, 3 }},
+        {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 12, 12, 6, 3 }},
+        {"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  4,  4 }},
+        {"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  3,  3 }},
     };
     
     game_state *GameState = Memory->State;
@@ -180,7 +180,7 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
             }
         }
         
-        Memory->State->RenderGroup.MetersToPixels = 60.0f / 0.5f;
+        Memory->State->RenderGroup.MetersToPixels = (Input->WindowSize.Width / 32.0f) / 0.5f;
         
         AddSnail(Memory->State,
                  Platform, RenderApi,
@@ -190,10 +190,10 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
                  Platform, RenderApi,
                  0x00000003);
         
-        Memory->State->PlayerId = AddPlayer(Memory->State,
-                                            Platform, RenderApi,
-                                            {10, 6},
-                                            0x00000005);
+        AddPlayer(Memory->State,
+                  Platform, RenderApi,
+                  {10, 6},
+                  0x00000005);
         
         AddCoin(Memory->State,
                 Platform, RenderApi,
