@@ -63,7 +63,7 @@ internal void
 UpdateCoin(game_state *GameState, u32 Id){
     GameState->Score++;
     
-    u32 RandomNumber = GlobalRandomNumberTable[(u32)(GameState->Counter*4132.0f) % ArrayCount(GlobalRandomNumberTable)];
+    u32 RandomNumber = GlobalRandomNumberTable[(u32)(GameState->Counter*4132.0f + GameState->Score) % ArrayCount(GlobalRandomNumberTable)];
     RandomNumber %= GameState->NumberOfCoinPs;
     u32 CurrentCoinP = 0;
     v2 NewP = {};
@@ -141,12 +141,6 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                 v2 MinCorner = -0.5*Size;
                 v2 MaxCorner = 0.5*Size;
                 
-                // HACK(Tyler): Do this better
-                f32 OldCollisionTime = 0.0f;
-                if(Entity->Type == EntityType_Coin){
-                    
-                }
-                
                 if(TestWall(MinCorner.X, RelEntityP.X, RelEntityP.Y, EntityDelta.X, EntityDelta.Y, MinCorner.Y, MaxCorner.Y, &CollisionTime)){
                     CollisionNormal = v2{-1.0f, 0.0f};
                     CollisionEntityId = OtherEntityId;
@@ -166,6 +160,8 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
             }
         }
         
+        b32 DiscardCollision = false;
+        
         if(CollisionEntityId){
             entity *OtherEntity = &GameState->Entities.Entities[CollisionEntityId];
             entity_brain *OtherEntityBrain = &GameState->Entities.Brains[OtherEntity->BrainSlot];
@@ -178,6 +174,7 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                         PlayAnimation(GameState, EntityId, 2);
                     }else if(OtherEntity->Type == EntityType_Coin){
                         UpdateCoin(GameState, CollisionEntityId);
+                        DiscardCollision = true;
                     }
                     
                     if(CollisionNormal.Y == 1.0f){
@@ -201,16 +198,16 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
             }
         }
         
-#if 0
+        // TODO(Tyler): Find a better way to do this!
         if(DiscardCollision){
             Iteration--;
             continue;
         }else{
+            Entity->P += EntityDelta*CollisionTime;
+            Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
+            EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
+            
         }
-#endif
-        Entity->P += EntityDelta*CollisionTime;
-        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
-        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
         
         TimeRemaining -= CollisionTime*TimeRemaining;
     }
@@ -403,7 +400,7 @@ UpdateAndRenderEntities(game_memory *Memory,
                         PlayAnimation(GameState, Brain->EntityId, PlayerAnimation_RunningLeft);
                     }else{
                         PlayAnimation(GameState, Brain->EntityId, PlayerAnimation_Idle);
-                        Entity->dP.X -= 0.25f*Entity->dP.X;
+                        Entity->dP.X -= 0.4f*Entity->dP.X;
                     }
                     
                     MoveEntity(GameState, Brain->EntityId, ddP, Input->dTimeForFrame);

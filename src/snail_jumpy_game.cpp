@@ -13,13 +13,15 @@ GAME_UPADTE_AND_RENDER(MainGameUpdateAndRender){
     
     UpdateAndRenderEntities(Memory, Input, &RenderMemory);
     
+    f32 Y = 8;
     RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->MainFont,
                        {0.0f, 1.0f, 0.0f, 1.0f},
-                       0.75f, 8, "Score: %u", GameState->Score);
+                       0.75f, Y, "Score: %u", GameState->Score);
     
+    Y -= 0.1f;
     RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->Font,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, 7.6f, "Counter: %.2f", GameState->Counter);
+                       0.75f, Y, "Counter: %.2f", GameState->Counter);
     
     RenderApi->RenderGroupToScreen(RenderApi, &GameState->RenderGroup);
     
