@@ -158,13 +158,13 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
             {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
         };
         
-        Memory->State->TileMap = PushArray(&Memory->PermanentStorageArena, u8, sizeof(TemplateMap));
-        CopyMemory(Memory->State->TileMap, TemplateMap, sizeof(TemplateMap));
-        Memory->State->XTiles = 32;
-        Memory->State->YTiles = 18;
+        Memory->State->Entities.AllCoinData.Tiles = PushArray(&Memory->PermanentStorageArena, u8, sizeof(TemplateMap));
+        CopyMemory(Memory->State->Entities.AllCoinData.Tiles, TemplateMap, sizeof(TemplateMap));
+        Memory->State->Entities.AllCoinData.XTiles = 32;
+        Memory->State->Entities.AllCoinData.YTiles = 18;
         
         f32 TileSideInMeters = 0.5f;
-        Memory->State->TileSideInMeters = TileSideInMeters;
+        Memory->State->Entities.AllCoinData.TileSideInMeters = TileSideInMeters;
         for (f32 Y = 0; Y < 18;Y++){
             for (f32 X = 0; X < 32; X++){
                 u32 TileId = TemplateMap[(u32)Y][(u32)X];
@@ -175,7 +175,7 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
                     AddPhonyWall(Memory->State,
                                  v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters, 0x00000002);
                 }else if(TileId == 3){
-                    Memory->State->NumberOfCoinPs++;
+                    Memory->State->Entities.AllCoinData.NumberOfCoinPs++;
                 }
             }
         }
@@ -214,6 +214,7 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
         AddCoin(Memory->State,
                 Platform, RenderApi,
                 0x00000004);
+        Memory->State->Score -= 5;
         
         Memory->IsInitialized = true;
         

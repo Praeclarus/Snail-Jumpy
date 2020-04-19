@@ -31,12 +31,6 @@ struct game_state {
     s32 Score;
     f32 Counter;
     
-    u8 *TileMap;
-    u32 XTiles;
-    u32 YTiles;
-    u32 NumberOfCoinPs;
-    f32 TileSideInMeters;
-    
     render_group RenderGroup;
     
     // TODO(Tyler): Do this differently

@@ -22,9 +22,10 @@ enum _entity_state {
     EntityState_Frozen  = (1<<1),
 };
 
-struct entity {
+struct core_entity {
     v2 P, dP;
     entity_type Type;
+    entity_state State;
     u32 CollisionGroupFlag;
     
     union {
@@ -46,6 +47,14 @@ struct entity_snail_data {
     v2 Direction;
 };
 
+struct coin_data {
+    u8 *Tiles;
+    u32 XTiles;
+    u32 YTiles;
+    u32 NumberOfCoinPs;
+    f32 TileSideInMeters;
+};
+
 enum brain_type {
     BrainType_None,
     
@@ -60,7 +69,8 @@ struct entity_brain {
     union {
         // Bad guy
         struct {
-            v2 SnailDirection;
+            f32 SnailDirection;
+            f32 Speed;
         };
         
         // Player
@@ -76,12 +86,18 @@ struct entity_brain {
 };
 
 struct entities {
-    entity Entities[256];
-    entity_state States[256];
+    core_entity Entities[256];
     u32 AnimationCount;
     entity_animation Animations[256];
     u32 BrainCount;
     entity_brain Brains[256];
+    coin_data AllCoinData;
+    
+    // NOTE(Tyler): I don't know if I like using this here, but it saves me from
+    // constantly typing GameState->Entities.Entities[Index]
+    inline core_entity &operator[](s32 Index){
+        return(Entities[Index]);
+    }
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H
