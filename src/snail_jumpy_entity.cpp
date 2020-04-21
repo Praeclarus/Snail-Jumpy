@@ -10,7 +10,7 @@ PlayAnimation(game_state *GameState, u32 EntityId, u32 AnimationIndex){
 
 // TODO(Tyler): Combine UpdateAnimation and RenderEntityWithAnimation into a single function
 internal b32
-UpdateAnimation(game_state *GameState, core_entity *Entity, f32 dTimeForFrame){
+UpdateAnimation(game_state *GameState, entity *Entity, f32 dTimeForFrame){
     entity_animation *EntityAnimation = &GameState->Entities.Animations[Entity->AnimationSlot];
     animation_group *Animation = &GameState->Animations[EntityAnimation->AnimationGroup];
     EntityAnimation->CurrentAnimationTime += Animation->FpsArray[EntityAnimation->CurrentAnimation]*dTimeForFrame;
@@ -22,9 +22,11 @@ UpdateAnimation(game_state *GameState, core_entity *Entity, f32 dTimeForFrame){
     return(Result);
 }
 
+// TODO(Tyler): Fix where the bottom of the animation is rendered, make it coincide
+// with the bottom of the collision box
 internal void
 RenderEntityWithAnimation(temporary_memory *RenderMemory, game_state *GameState,
-                          core_entity *Entity){
+                          entity *Entity){
     entity_animation *EntityAnimation = &GameState->Entities.Animations[Entity->AnimationSlot];
     animation_group *Animation = &GameState->Animations[EntityAnimation->AnimationGroup];
     v2 P = Entity->P;
@@ -80,9 +82,8 @@ UpdateCoin(game_state *GameState, u32 Id){
         }
     }
     Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-    GameState->Entities[Id].P= NewP;
-    GameState->Entities[Id].State |= (EntityState_Dead);
-    GameState->Entities.Brains[GameState->Entities[Id].BrainSlot].CooldownTime = 1.0f;
+    GameState->Entities.Coins[Id].P = NewP;
+    GameState->Entities.Coins[Id].CooldownTime = 1.0f;
 }
 
 internal b32
@@ -106,9 +107,41 @@ TestWall(f32 WallX,
     }
     return(Result);
 }
+
+internal b32
+TestRectangle(v2 P1, v2 Size1, v2 Delta, v2 P2, v2 Size2,
+              f32 *CollisionTime, v2 *CollisionNormal){
+    v2 RelEntityP = P1 - P2;
+    
+    v2 Size = Size2 + Size1;
+    v2 MinCorner = -0.5*Size;
+    v2 MaxCorner = 0.5*Size;
+    
+    b32 Result = false;
+    
+    if(TestWall(MinCorner.X, RelEntityP.X, RelEntityP.Y, Delta.X, Delta.Y, MinCorner.Y, MaxCorner.Y, CollisionTime)){
+        *CollisionNormal = v2{-1.0f, 0.0f};
+        Result = true;
+    }
+    if(TestWall(MaxCorner.X, RelEntityP.X, RelEntityP.Y, Delta.X, Delta.Y, MinCorner.Y, MaxCorner.Y, CollisionTime)){
+        *CollisionNormal = v2{1.0f, 0.0f};
+        Result = true;
+    }
+    if(TestWall(MinCorner.Y, RelEntityP.Y, RelEntityP.X, Delta.Y, Delta.X, MinCorner.X, MaxCorner.X, CollisionTime)){
+        *CollisionNormal = v2{0.0f, -1.0f};
+        Result = true;
+    }
+    if(TestWall(MaxCorner.Y, RelEntityP.Y, RelEntityP.X, Delta.Y, Delta.X, MinCorner.X, MaxCorner.X, CollisionTime)){
+        *CollisionNormal = v2{0.0f, 1.0f};
+        Result = true;
+    }
+    
+    return Result;
+}
+
 internal void
-MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
-    core_entity *Entity = &GameState->Entities[EntityId];
+MoveSnail(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
+    entity *Entity = &GameState->Entities[EntityId];
     
     ddP += -2.5f*Entity->dP;
     
@@ -118,6 +151,7 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
     
     v2 NewEntityP = Entity->P + EntityDelta;
     
+    collision_type CollisionType = CollisionType_NormalEntity;
     f32 TimeRemaining = 1.0f;
     for(u32 Iteration = 0;
         (Iteration < 4) && (TimeRemaining > 0.0f);
@@ -130,84 +164,168 @@ MoveEntity(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                 continue;
             }
             
-            core_entity *OtherEntity = &GameState->Entities[OtherEntityId];
+            entity *OtherEntity = &GameState->Entities[OtherEntityId];
             
             if((Entity->CollisionGroupFlag & OtherEntity->CollisionGroupFlag) &&
                !(GameState->Entities[OtherEntityId].State&EntityState_Dead)){
-                v2 EntityCenter = OtherEntity->P;
-                v2 RelEntityP = Entity->P - EntityCenter;
-                v2 Size = OtherEntity->Size + Entity->Size;
                 
-                v2 MinCorner = -0.5*Size;
-                v2 MaxCorner = 0.5*Size;
+                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                                 OtherEntity->P, OtherEntity->Size,
+                                 &CollisionTime, &CollisionNormal)){
+                    // Not needed, but is here for clarity
+                    CollisionType = CollisionType_NormalEntity;
+                    CollisionEntityId = OtherEntityId;
+                }
                 
-                if(TestWall(MinCorner.X, RelEntityP.X, RelEntityP.Y, EntityDelta.X, EntityDelta.Y, MinCorner.Y, MaxCorner.Y, &CollisionTime)){
-                    CollisionNormal = v2{-1.0f, 0.0f};
-                    CollisionEntityId = OtherEntityId;
-                }
-                if(TestWall(MaxCorner.X, RelEntityP.X, RelEntityP.Y, EntityDelta.X, EntityDelta.Y, MinCorner.Y, MaxCorner.Y, &CollisionTime)){
-                    CollisionNormal = v2{1.0f, 0.0f};
-                    CollisionEntityId = OtherEntityId;
-                }
-                if(TestWall(MinCorner.Y, RelEntityP.Y, RelEntityP.X, EntityDelta.Y, EntityDelta.X, MinCorner.X, MaxCorner.X, &CollisionTime)){
-                    CollisionNormal = v2{0.0f, -1.0f};
-                    CollisionEntityId = OtherEntityId;
-                }
-                if(TestWall(MaxCorner.Y, RelEntityP.Y, RelEntityP.X, EntityDelta.Y, EntityDelta.X, MinCorner.X, MaxCorner.X, &CollisionTime)){
-                    CollisionNormal = v2{0.0f, 1.0f};
-                    CollisionEntityId = OtherEntityId;
+            }
+        }
+        
+        for(u32 WallId = 1; WallId <= GameState->Entities.WallCount; WallId++){
+            wall_entity *WallEntity = &GameState->Entities.Walls[WallId];
+            
+            if(WallEntity->CollisionGroupFlag & Entity->CollisionGroupFlag){
+                
+                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                                 WallEntity->P, WallEntity->Size,
+                                 &CollisionTime, &CollisionNormal)){
+                    CollisionType = CollisionType_Wall;
+                    CollisionEntityId = WallId;
                 }
             }
         }
         
+        // TODO(Tyler): Clean all of this up, fix it!!!
         b32 DiscardCollision = false;
         
         if(CollisionEntityId){
-            core_entity *OtherEntity = &GameState->Entities[CollisionEntityId];
-            entity_brain *OtherEntityBrain = &GameState->Entities.Brains[OtherEntity->BrainSlot];
             entity_brain *EntityBrain = &GameState->Entities.Brains[Entity->BrainSlot];
-            switch(EntityBrain->Type){
-                case BrainType_Player:
-                {
-                    if(OtherEntityBrain->Type == BrainType_Snail){
-                        GameState->Entities[EntityId].State |= (EntityState_Dead|EntityState_Frozen);
-                        PlayAnimation(GameState, EntityId, 2);
-                    }else if(OtherEntity->Type == EntityType_Coin){
-                        UpdateCoin(GameState, CollisionEntityId);
-                        DiscardCollision = true;
-                    }
-                    
-                    if(CollisionNormal.Y == 1.0f){
-                        EntityBrain->JumpTime = 0.0f;
-                    }else{
-                        EntityBrain->JumpTime = 2.0f;
-                    }
-                    
-                }break;
-                case BrainType_Snail:
-                {
-                    if(OtherEntityBrain->Type == BrainType_Player){
-                        GameState->Entities[CollisionEntityId].State |= (EntityState_Dead|EntityState_Frozen);
-                        PlayAnimation(GameState, CollisionEntityId, 2);
-                    }
-                    
-                    if(CollisionNormal.Y == 0){
-                        EntityBrain->SnailDirection = CollisionNormal.X;
-                    }
-                }break;
+            if(CollisionType == CollisionType_Wall){
+                if(CollisionNormal.Y == 0){
+                    EntityBrain->SnailDirection = CollisionNormal.X;
+                }
+            }else if(CollisionType == CollisionType_NormalEntity) {
+                entity *OtherEntity = &GameState->Entities[CollisionEntityId];
+                entity_brain *OtherEntityBrain = &GameState->Entities.Brains[OtherEntity->BrainSlot];
+                
+                if(OtherEntityBrain->Type == BrainType_Player){
+                    GameState->Entities[CollisionEntityId].State |= (EntityState_Dead|EntityState_Frozen);
+                    PlayAnimation(GameState, CollisionEntityId, 2);
+                }
             }
         }
         
-        // TODO(Tyler): Find a better way to do this!
-        if(DiscardCollision){
-            Iteration--;
-            continue;
-        }else{
-            Entity->P += EntityDelta*CollisionTime;
-            Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
-            EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
+        Entity->P += EntityDelta*CollisionTime;
+        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
+        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
+        
+        TimeRemaining -= CollisionTime*TimeRemaining;
+    }
+}
+
+internal void
+MovePlayer(game_state *GameState, u32 EntityId, v2 ddP, f32 dTimeForFrame) {
+    entity *Entity = &GameState->Entities[EntityId];
+    
+    ddP += -2.5f*Entity->dP;
+    
+    v2 EntityDelta = (0.5f*ddP*Square(dTimeForFrame)+
+                      Entity->dP*dTimeForFrame);
+    Entity->dP = Entity->dP + (ddP*dTimeForFrame);
+    
+    v2 NewEntityP = Entity->P + EntityDelta;
+    
+    collision_type CollisionType = CollisionType_NormalEntity;
+    f32 TimeRemaining = 1.0f;
+    for(u32 Iteration = 0;
+        (Iteration < 4) && (TimeRemaining > 0.0f);
+        Iteration++){
+        f32 CollisionTime = 1.0f;
+        v2 CollisionNormal = {0};
+        u32 CollisionEntityId = 0;
+        for(u32 OtherEntityId = 1; OtherEntityId <= GameState->EntityCount; OtherEntityId++){
+            if(OtherEntityId == EntityId){
+                continue;
+            }
             
+            entity *OtherEntity = &GameState->Entities[OtherEntityId];
+            
+            if((Entity->CollisionGroupFlag & OtherEntity->CollisionGroupFlag) &&
+               !(GameState->Entities[OtherEntityId].State&EntityState_Dead)){
+                
+                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                                 OtherEntity->P, OtherEntity->Size,
+                                 &CollisionTime, &CollisionNormal)){
+                    // Not needed, but is here for clarity
+                    CollisionType = CollisionType_NormalEntity;
+                    CollisionEntityId = OtherEntityId;
+                }
+                
+            }
         }
+        
+        for(u32 WallId = 1; WallId <= GameState->Entities.WallCount; WallId++){
+            wall_entity *WallEntity = &GameState->Entities.Walls[WallId];
+            
+            if(WallEntity->CollisionGroupFlag & Entity->CollisionGroupFlag){
+                
+                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                                 WallEntity->P, WallEntity->Size,
+                                 &CollisionTime, &CollisionNormal)){
+                    CollisionType = CollisionType_Wall;
+                    CollisionEntityId = WallId;
+                }
+            }
+        }
+        
+        for(u32 CoinId = 1; CoinId <= GameState->Entities.CoinCount; CoinId++){
+            coin_entity *CoinEntity = &GameState->Entities.Coins[CoinId];
+            
+            if(CoinEntity->CooldownTime > 0.0f){
+                continue;
+            }
+            
+            if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                             CoinEntity->P, CoinEntity->Size,
+                             &CollisionTime, &CollisionNormal)){
+                CollisionType = CollisionType_Coin;
+                CollisionEntityId = CoinId;
+            }
+        }
+        
+        
+        if(CollisionEntityId){
+            // TODO(Tyler): Find a way to remove DiscardCollision
+            b32 DiscardCollision = false;
+            
+            entity_brain *EntityBrain = &GameState->Entities.Brains[Entity->BrainSlot];
+            if(CollisionType == CollisionType_Coin) {
+                UpdateCoin(GameState, CollisionEntityId);
+                DiscardCollision = true;
+            }else if(CollisionType == CollisionType_NormalEntity) {
+                entity *OtherEntity = &GameState->Entities[CollisionEntityId];
+                entity_brain *OtherEntityBrain = &GameState->Entities.Brains[OtherEntity->BrainSlot];
+                
+                if(OtherEntityBrain->Type == BrainType_Snail){
+                    GameState->Entities[EntityId].State |= (EntityState_Dead|EntityState_Frozen);
+                    PlayAnimation(GameState, EntityId, 2);
+                }
+            }
+            
+            if(CollisionNormal.Y == 1.0f){
+                EntityBrain->JumpTime = 0.0f;
+            }else{
+                EntityBrain->JumpTime = 2.0f;
+            }
+            
+            if(DiscardCollision){
+                Iteration--;
+                continue;
+            }
+        }
+        
+        Entity->P += EntityDelta*CollisionTime;
+        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
+        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
         
         TimeRemaining -= CollisionTime*TimeRemaining;
     }
@@ -221,29 +339,27 @@ AddEntity(game_state *GameState){
 }
 
 internal u32
-AddWall(game_state *GameState, v2 P, f32 TileSideInMeters, u32 CollisionGroupFlag){
-    u32 WallId = AddEntity(GameState);
-    core_entity *Entity = &GameState->Entities[WallId];
+AddWall(game_state *GameState, v2 P, f32 TileSideInMeters){
+    u32 WallId = ++GameState->Entities.WallCount;
+    wall_entity *Entity = &GameState->Entities.Walls[WallId];
     
     Entity->P = P;
-    Entity->Type = EntityType_Wall;
     Entity->Width = TileSideInMeters;
     Entity->Height = TileSideInMeters;
-    Entity->CollisionGroupFlag = CollisionGroupFlag;
+    Entity->CollisionGroupFlag = 0x00000001;
     
     return(WallId);
 }
 
 internal u32
-AddPhonyWall(game_state *GameState, v2 P, f32 TileSideInMeters, u32 CollisionGroupFlag){
-    u32 WallId = AddEntity(GameState);
-    core_entity *Entity = &GameState->Entities[WallId];
+AddPhonyWall(game_state *GameState, v2 P, f32 TileSideInMeters){
+    u32 WallId = ++GameState->Entities.WallCount;
+    wall_entity *Entity = &GameState->Entities.Walls[WallId];
     
     Entity->P = P;
-    Entity->Type = EntityType_PhonyWall;
     Entity->Width = TileSideInMeters;
     Entity->Height = TileSideInMeters;
-    Entity->CollisionGroupFlag = CollisionGroupFlag;
+    Entity->CollisionGroupFlag = 0x00000002;
     
     return(WallId);
 }
@@ -252,18 +368,17 @@ internal u32
 AddPlayer(game_state *GameState,
           platform_api *Platform,
           render_api *RenderApi,
-          v2 P,
-          u32 CollisionGroupFlag){
+          v2 P){
     
     u32 PlayerId = AddEntity(GameState);
-    core_entity *Entity = &GameState->Entities[PlayerId];
+    entity *Entity = &GameState->Entities[PlayerId];
     
     Entity->Width = 0.25f;
     Entity->Height = 0.5f;
     
     Entity->Type = EntityType_Player;
     Entity->P = P;
-    Entity->CollisionGroupFlag = CollisionGroupFlag;
+    Entity->CollisionGroupFlag = 0x00000005;
     
     Entity->AnimationSlot = ++GameState->Entities.AnimationCount;
     entity_animation *Animation = &GameState->Entities.Animations[Entity->AnimationSlot];
@@ -282,19 +397,17 @@ AddPlayer(game_state *GameState,
 }
 
 internal u32
-AddSnail(game_state *GameState,
-         platform_api *Platform,
-         render_api *RenderApi,
-         u32 CollisionGroupFlag){
+AddSnail(game_state *GameState, platform_api *Platform, render_api *RenderApi,
+         v2 P){
     
     u32 SnailId = AddEntity(GameState);
-    core_entity* Entity = &GameState->Entities[SnailId];
+    entity* Entity = &GameState->Entities[SnailId];
     
     Entity->Type = EntityType_Snail;
     Entity->Width = 0.4f;
     Entity->Height = 0.4f;
-    Entity->P = {3, 5.0f};
-    Entity->CollisionGroupFlag = CollisionGroupFlag;
+    Entity->P = P;
+    Entity->CollisionGroupFlag = 0x00000003;
     
     Entity->AnimationSlot = ++GameState->Entities.AnimationCount;
     entity_animation *Animation = &GameState->Entities.Animations[Entity->AnimationSlot];
@@ -315,18 +428,16 @@ AddSnail(game_state *GameState,
 }
 
 internal u32
-AddSally(game_state *GameState,
-         platform_api *Platform,
-         render_api *RenderApi,
-         u32 CollisionGroupFlag){
+AddSally(game_state *GameState, platform_api *Platform, render_api *RenderApi,
+         v2 P){
     u32 SallyId = AddEntity(GameState);
-    core_entity *Entity = &GameState->Entities[SallyId];
+    entity *Entity = &GameState->Entities[SallyId];
     
     Entity->Type = EntityType_Sally;
     Entity->Width = 0.9f;
     Entity->Height = 0.9f;
-    Entity->P = {4.5f, 2.0f};
-    Entity->CollisionGroupFlag = CollisionGroupFlag;
+    Entity->P = P;
+    Entity->CollisionGroupFlag = 0x00000003;
     
     Entity->AnimationSlot = ++GameState->Entities.AnimationCount;
     entity_animation *Animation = &GameState->Entities.Animations[Entity->AnimationSlot];
@@ -349,21 +460,14 @@ AddSally(game_state *GameState,
 internal u32
 AddCoin(game_state *GameState,
         platform_api *Platform,
-        render_api *RenderApi,
-        u32 CollisionGroupFlag){
-    u32 Id = AddEntity(GameState);
-    core_entity *Entity = &GameState->Entities[Id];
+        render_api *RenderApi){
+    u32 Id = ++GameState->Entities.CoinCount;
+    coin_entity *Coin = &GameState->Entities.Coins[Id];
     
-    Entity->Type = EntityType_Coin;
-    Entity->Size = { 0.3f, 0.3f };
-    Entity->CollisionGroupFlag = CollisionGroupFlag;
+    Coin->Size = { 0.3f, 0.3f };
+    Coin->CollisionGroupFlag = 0x00000004;
     
-    Entity->BrainSlot = ++GameState->Entities.BrainCount;
-    entity_brain *Brain = &GameState->Entities.Brains[Entity->BrainSlot];
-    
-    Brain->EntityId = Id;
-    Brain->Type = BrainType_Coin;
-    Brain->CooldownTime = 0.0f;
+    Coin->CooldownTime = 0.0f;
     
     UpdateCoin(GameState, Id);
     
@@ -376,9 +480,30 @@ UpdateAndRenderEntities(game_memory *Memory,
                         temporary_memory *RenderMemory){
     game_state *GameState = Memory->State;
     
+    for(u32 WallId = 1; WallId <= GameState->Entities.WallCount; WallId++){
+        wall_entity *Entity = &GameState->Entities.Walls[WallId];
+        // TODO(Tyler): Do this differently
+        if(Entity->CollisionGroupFlag == 0x00000001){
+            RenderRectangle(RenderMemory, &GameState->RenderGroup,
+                            Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
+                            {1.0f, 1.0f, 1.0f, 1.0f});
+        }
+    }
+    
+    for(u32 CoinId = 1; CoinId <= GameState->Entities.CoinCount; CoinId++){
+        coin_entity *Coin = &GameState->Entities.Coins[CoinId];
+        if(Coin->CooldownTime > 0.0f){
+            Coin->CooldownTime -= Input->dTimeForFrame;
+        }else{
+            RenderRectangle(RenderMemory, &GameState->RenderGroup,
+                            Coin->P-(Coin->Size/2), Coin->P+(Coin->Size/2),
+                            {1.0f, 1.0f, 0.0f, 1.0f});
+        }
+    }
+    
     for(u32 BrainSlot = 1; BrainSlot <= GameState->Entities.BrainCount; BrainSlot++){
         entity_brain *Brain = &GameState->Entities.Brains[BrainSlot];
-        core_entity *Entity = &GameState->Entities[Brain->EntityId];
+        entity *Entity = &GameState->Entities[Brain->EntityId];
         if(!(GameState->Entities[Brain->EntityId].State & EntityState_Frozen)){
             switch(Brain->Type){
                 case BrainType_Snail:
@@ -387,7 +512,7 @@ UpdateAndRenderEntities(game_memory *Memory,
                         Brain->Speed * Brain->SnailDirection,
                         -11.0f
                     };
-                    MoveEntity(GameState, Brain->EntityId, ddP, Input->dTimeForFrame);
+                    MoveSnail(GameState, Brain->EntityId, ddP, Input->dTimeForFrame);
                     u32 AnimationIndex = (Brain->SnailDirection > 0.0f) ?
                         SnailAnimation_Right : SnailAnimation_Left;
                     PlayAnimation(GameState, Brain->EntityId, AnimationIndex);
@@ -398,7 +523,7 @@ UpdateAndRenderEntities(game_memory *Memory,
                     
                     if((Brain->JumpTime < 0.1f) &&
                        (Input->JumpButton.EndedDown)){
-                        ddP.Y += 85.0f;
+                        ddP.Y += 70.0f;
                         Brain->JumpTime += Input->dTimeForFrame;
                     }else{
                         ddP.Y -= 11.0f;
@@ -416,40 +541,32 @@ UpdateAndRenderEntities(game_memory *Memory,
                         Entity->dP.X -= 0.4f*Entity->dP.X;
                     }
                     
-                    MoveEntity(GameState, Brain->EntityId, ddP, Input->dTimeForFrame);
+                    MovePlayer(GameState, Brain->EntityId, ddP, Input->dTimeForFrame);
                     
                     GameState->PreviousInput = *Input;
                     
                     if(Entity->P.Y < -3.0f){
-                        Entity->P = {10, 5.5};
+                        Entity->P = {1.5f, 1.5f};
                         Entity->dP = {0};
                     }
                 }break;
-                case BrainType_Coin:
-                {
-                    if(Brain->CooldownTime < 0.01f){
-                        GameState->Entities[Brain->EntityId].State &= ~EntityState_Dead;
-                    }else{
-                        Brain->CooldownTime -= Input->dTimeForFrame;
-                    }
-                }break;
+                
             }
         }
     }
     
     for(u32 EntityId = 1; EntityId <= GameState->EntityCount; EntityId++){
-        core_entity *Entity = &GameState->Entities[EntityId];
+        entity *Entity = &GameState->Entities[EntityId];
         switch(Entity->Type){
             case EntityType_Player:
             {
-                // TODO(Tyler): Possibly move this out into a separate loop???
                 if(UpdateAnimation(GameState, Entity, Input->dTimeForFrame)){
                     if(GameState->Entities[EntityId].State & EntityState_Frozen){
                         GameState->Entities[EntityId].State &= ~EntityState_Frozen;
                     }
                     if(GameState->Entities[EntityId].State & EntityState_Dead){
                         GameState->Entities[EntityId].State &= ~EntityState_Dead;
-                        Entity->P = {10, 6};
+                        Entity->P = {1.5, 1.5};
                         Entity->dP = {0, 0};
                     }
                 }
@@ -466,20 +583,6 @@ UpdateAndRenderEntities(game_memory *Memory,
                 // TODO(Tyler): Possibly move this out into a separate loop???
                 UpdateAnimation(GameState, Entity, Input->dTimeForFrame);
                 RenderEntityWithAnimation(RenderMemory, GameState, Entity);
-            }break;
-            case EntityType_Wall:
-            {
-                RenderRectangle(RenderMemory, &GameState->RenderGroup,
-                                Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
-                                {1.0f, 1.0f, 1.0f, 1.0f});
-            }break;
-            case EntityType_Coin:
-            {
-                if(!(GameState->Entities[EntityId].State & EntityState_Dead)){
-                    RenderRectangle(RenderMemory, &GameState->RenderGroup,
-                                    Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
-                                    {1.0f, 1.0f, 0.0f, 1.0f});
-                }
             }break;
         }
     }

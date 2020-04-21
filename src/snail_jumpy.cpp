@@ -25,13 +25,11 @@
 *      - Change collision system
 *      - Possibly add a wall_group entity instead of having an individual entity for each
   *          wall
-*      - SOA-ify entities, somewhat and measure?
 *  - Improve asset system
 *      - Origin for animations so it displays properly. - Is this needed???
 *      - Formalize asset loading
 *  - Change renderer!
- *      - Separate OpenGL from win32 (make OpenGL renderer not platform specific)
-*          Even more than it currently is possibly?
+*      - Z-Layer for rendering entities
  *  - Remove dll hotloading
 *  - Fix problem caused by changing FPS
 *  - Load PNG files (should I just use stb_image?)
@@ -44,6 +42,7 @@
 *      a la Jonathan Blow's games
 *  - Multithreading & SIMD
 *  - Use the new stb_truetype baking API
+*  - Movement feel
 */
 //~
 
@@ -138,20 +137,20 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
         Memory->State = PushStruct(&Memory->PermanentStorageArena, game_state);
         
         u8 TemplateMap[18][32] = {
-            {1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 3, 3, 3, 0, 2, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1},
-            {1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
-            {1, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
-            {1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1},
-            {1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 2, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1},
+            {1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 1},
+            {1, 3, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+            {1, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 1},
+            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
             {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
             {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
             {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -165,15 +164,15 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
         
         f32 TileSideInMeters = 0.5f;
         Memory->State->Entities.AllCoinData.TileSideInMeters = TileSideInMeters;
-        for (f32 Y = 0; Y < 18;Y++){
-            for (f32 X = 0; X < 32; X++){
+        for(f32 Y = 0; Y < 18; Y++){
+            for(f32 X = 0; X < 32; X++){
                 u32 TileId = TemplateMap[(u32)Y][(u32)X];
                 if(TileId == 1){
                     AddWall(Memory->State,
-                            v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters, 0x00000001);
+                            v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
                 }else if(TileId == 2){
                     AddPhonyWall(Memory->State,
-                                 v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters, 0x00000002);
+                                 v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
                 }else if(TileId == 3){
                     Memory->State->Entities.AllCoinData.NumberOfCoinPs++;
                 }
@@ -184,36 +183,34 @@ GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
         
         AddSnail(Memory->State,
                  Platform, RenderApi,
-                 0x00000003);
+                 {12.0f, 1.1f});
+        
+        AddSnail(Memory->State,
+                 Platform, RenderApi,
+                 {7.5f, 3.5f});
         
         AddSally(Memory->State,
                  Platform, RenderApi,
-                 0x00000003);
+                 {10.5f, 6.5f});
         
         AddPlayer(Memory->State,
                   Platform, RenderApi,
-                  {10, 6},
-                  0x00000005);
+                  {1.5f, 1.5f});
         
         AddCoin(Memory->State,
-                Platform, RenderApi,
-                0x00000004);
+                Platform, RenderApi);
         
         AddCoin(Memory->State,
-                Platform, RenderApi,
-                0x00000004);
+                Platform, RenderApi);
         
         AddCoin(Memory->State,
-                Platform, RenderApi,
-                0x00000004);
+                Platform, RenderApi);
         
         AddCoin(Memory->State,
-                Platform, RenderApi,
-                0x00000004);
+                Platform, RenderApi);
         
         AddCoin(Memory->State,
-                Platform, RenderApi,
-                0x00000004);
+                Platform, RenderApi);
         Memory->State->Score -= 5;
         
         Memory->IsInitialized = true;

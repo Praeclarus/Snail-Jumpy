@@ -499,10 +499,13 @@ WinMain(HINSTANCE Instance,
             {
                 umw Size = Megabytes(4);
                 void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+                Assert(Memory);
                 InitializeArena(&GameMemory.PermanentStorageArena, Memory, Size);
             }{
-                umw Size = Gigabytes(4);
+                umw Size = Gigabytes(2);
                 void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+                DWORD Error = GetLastError();
+                Assert(Memory);
                 InitializeArena(&GameMemory.TransientStorageArena, Memory, Size);
             }
             

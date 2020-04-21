@@ -5,13 +5,17 @@ enum entity_type {
     EntityType_None,
     
     EntityType_Player,
-    EntityType_Wall,
-    
-    EntityType_PhonyWall,
+    //EntityType_PhonyWall,
     EntityType_Snail,
     EntityType_Sally,
+};
+
+
+enum collision_type {
+    CollisionType_NormalEntity,
     
-    EntityType_Coin,
+    CollisionType_Coin,
+    CollisionType_Wall,
 };
 
 typedef u32 entity_state;
@@ -22,7 +26,7 @@ enum _entity_state {
     EntityState_Frozen  = (1<<1),
 };
 
-struct core_entity {
+struct entity {
     v2 P, dP;
     entity_type Type;
     entity_state State;
@@ -35,6 +39,26 @@ struct core_entity {
     
     u32 AnimationSlot;
     u32 BrainSlot;
+};
+
+struct wall_entity {
+    v2 P;
+    u32 CollisionGroupFlag;
+    union {
+        struct { f32 Width, Height; };
+        v2 Size;
+    };
+    
+};
+
+struct coin_entity {
+    v2 P;
+    u32 CollisionGroupFlag;
+    union {
+        struct { f32 Width, Height; };
+        v2 Size;
+    };
+    f32 CooldownTime;
 };
 
 struct entity_animation {
@@ -60,14 +84,14 @@ enum brain_type {
     
     BrainType_Player,
     BrainType_Snail,
-    BrainType_Coin
 };
 
+// TODO(Tyler): I am not sure if I like this struct
 struct entity_brain {
     brain_type Type;
     u32 EntityId;
     union {
-        // Bad guy
+        // Snail
         struct {
             f32 SnailDirection;
             f32 Speed;
@@ -77,16 +101,18 @@ struct entity_brain {
         struct {
             f32 JumpTime;
         };
-        
-        // Coin
-        struct {
-            f32 CooldownTime;
-        };
     };
 };
 
+// TODO(Tyler): Better allocation
 struct entities {
-    core_entity Entities[256];
+    u32 WallCount;
+    wall_entity Walls[256];
+    
+    u32 CoinCount;
+    coin_entity Coins[256];
+    
+    entity Entities[256];
     u32 AnimationCount;
     entity_animation Animations[256];
     u32 BrainCount;
@@ -95,7 +121,7 @@ struct entities {
     
     // NOTE(Tyler): I don't know if I like using this here, but it saves me from
     // constantly typing GameState->Entities.Entities[Index]
-    inline core_entity &operator[](s32 Index){
+    inline entity &operator[](s32 Index){
         return(Entities[Index]);
     }
 };

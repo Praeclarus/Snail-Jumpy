@@ -1,0 +1,1 @@
+@cloc --exclude-dir=third_party --no3 .
