@@ -5,7 +5,7 @@
 typedef struct _platform_button_state platform_button_state;
 struct _platform_button_state {
     u32 HalfTransitionCount;
-    b32 EndedDown;
+    b8 EndedDown;
 };
 
 struct platform_user_input {
@@ -19,6 +19,11 @@ struct platform_user_input {
     platform_button_state JumpButton;  // Spacebar
     
     v2 WindowSize;
+    
+    v2 MouseP;
+    b8 IsLeftMouseButtonDown;
+    b8 IsMiddleMouseButtonDown;
+    b8 IsRightMouseButtonDown;
 };
 
 struct platform_file;

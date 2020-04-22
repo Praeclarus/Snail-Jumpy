@@ -43,7 +43,8 @@ UpdateAnimation(entity *Entity, f32 dTimeForFrame){
 // TODO(Tyler): Fix where the bottom of the animation is rendered, make it coincide
 // with the bottom of the collision box
 internal void
-RenderEntityWithAnimation(temporary_memory *RenderMemory, entity *Entity){
+RenderEntityWithAnimation(temporary_memory *RenderMemory, render_group *RenderGroup,
+                          entity *Entity){
     entity_animation *EntityAnimation = &GlobalEntityAnimations[Entity->AnimationSlot];
     animation_group *Animation = &GlobalAnimations[EntityAnimation->AnimationGroup];
     v2 P = Entity->P;
@@ -67,8 +68,9 @@ RenderEntityWithAnimation(temporary_memory *RenderMemory, entity *Entity){
     
     v2 MaxTexCoord = MinTexCoord + Animation->SizeInTexCoords;
     
-    RenderTexture(RenderMemory, &GlobalRenderGroup,
-                  P, P+Animation->SizeInMeters, Animation->SpriteSheet, MinTexCoord, MaxTexCoord);
+    RenderTexture(RenderMemory, RenderGroup,
+                  P, P+Animation->SizeInMeters, 0.0f,
+                  Animation->SpriteSheet, MinTexCoord, MaxTexCoord);
 }
 
 internal u8
@@ -104,6 +106,8 @@ UpdateCoin(u32 Id){
     GlobalCoins[Id].CooldownTime = 1.0f;
 }
 
+// TODO(Tyler): Fix the bug where high values for dTimeForFrame causes
+// entities to pass through
 internal b32
 TestWall(f32 WallX,
          f32 PlayerX, f32 PlayerY,
@@ -493,14 +497,15 @@ AddCoin(){
 }
 
 internal void
-UpdateAndRenderEntities(platform_user_input *Input,
-                        temporary_memory *RenderMemory){
+UpdateAndRenderEntities(temporary_memory *RenderMemory,
+                        render_group *RenderGroup,
+                        platform_user_input *Input){
     for(u32 WallId = 1; WallId <= GlobalWallCount; WallId++){
         wall_entity *Entity = &GlobalWalls[WallId];
         // TODO(Tyler): Do this differently
         if(Entity->CollisionGroupFlag == 0x00000001){
-            RenderRectangle(RenderMemory, &GlobalRenderGroup,
-                            Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2),
+            RenderRectangle(RenderMemory, RenderGroup,
+                            Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2), 0.0f,
                             {1.0f, 1.0f, 1.0f, 1.0f});
         }
     }
@@ -510,8 +515,8 @@ UpdateAndRenderEntities(platform_user_input *Input,
         if(Coin->CooldownTime > 0.0f){
             Coin->CooldownTime -= Input->dTimeForFrame;
         }else{
-            RenderRectangle(RenderMemory, &GlobalRenderGroup,
-                            Coin->P-(Coin->Size/2), Coin->P+(Coin->Size/2),
+            RenderRectangle(RenderMemory, RenderGroup,
+                            Coin->P-(Coin->Size/2), Coin->P+(Coin->Size/2), 0.0f,
                             {1.0f, 1.0f, 0.0f, 1.0f});
         }
     }
@@ -583,19 +588,19 @@ UpdateAndRenderEntities(platform_user_input *Input,
                         Entity->dP = {0, 0};
                     }
                 }
-                RenderEntityWithAnimation(RenderMemory, Entity);
+                RenderEntityWithAnimation(RenderMemory, RenderGroup, Entity);
             }break;
             case EntityType_Snail:
             {
                 // TODO(Tyler): Possibly move this out into a separate loop???
                 UpdateAnimation(Entity, Input->dTimeForFrame);
-                RenderEntityWithAnimation(RenderMemory, Entity);
+                RenderEntityWithAnimation(RenderMemory, RenderGroup, Entity);
             }break;
             case EntityType_Sally:
             {
                 // TODO(Tyler): Possibly move this out into a separate loop???
                 UpdateAnimation(Entity, Input->dTimeForFrame);
-                RenderEntityWithAnimation(RenderMemory, Entity);
+                RenderEntityWithAnimation(RenderMemory, RenderGroup, Entity);
             }break;
         }
     }

@@ -17,48 +17,21 @@ global font GlobalFont;
 global s32 GlobalScore;
 global f32 GlobalCounter;
 
-global render_group GlobalRenderGroup;
-animation_group GlobalAnimations[Animation_TOTAL];
+global animation_group GlobalAnimations[Animation_TOTAL];
 
-memory_arena GlobalPermanentStorageArena;
-memory_arena GlobalTransientStorageArena;
+global memory_arena GlobalPermanentStorageArena;
+global memory_arena GlobalTransientStorageArena;
+
+global v2 GlobalLastMouseP;
 
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
+#include "snail_jumpy_ui.cpp"
 #include "snail_jumpy_game.cpp"
 
-//~ TODO(Tyler):
-/*
-*  - Better entity system
-*      - Change entity allocation
-*      - Ability to remove entities from the system
-*      - Change Snail AI, make it not depend on phony walls? Maybe use paths?
-*      - Change collision system
-*      - Possibly add a wall_group entity instead of having an individual entity for each
-  *          wall
-*  - Improve asset system
-*      - Origin for animations so it displays properly. - Is this needed???
-*      - Formalize asset loading
-*  - Change renderer!
-*      - Z-Layer for rendering entities
- *  - Remove dll hotloading
-*  - Load PNG files (should I just use stb_image?)
-*      Currently stb_image is being used.
- *  - Test User interface
-*  - Audio!!!
-*  - Load WAV files
-*  - Error logging system
-*  - Possibly create a hotloaded variables file for easy tuning of variables
-*      a la Jonathan Blow's games
-*  - Multithreading & SIMD
-*  - Use the new stb_truetype baking API
-*  - Movement feel
-*/
-//~
-
 internal void
-LoadAssets()
+LoadAssets(f32 MetersToPixels)
 {
     // TODO(Tyler): Formalize this
     temporary_memory AssetLoadingMemory;
@@ -85,7 +58,7 @@ LoadAssets()
                                                 &Components, 4);
         
         CurrentAnimation->SizeInMeters = {
-            AssetInfo->SizeInPixels/GlobalRenderGroup.MetersToPixels, AssetInfo->SizeInPixels/GlobalRenderGroup.MetersToPixels
+            AssetInfo->SizeInPixels/MetersToPixels, AssetInfo->SizeInPixels/MetersToPixels
         };
         CurrentAnimation->SizeInTexCoords = {
             AssetInfo->SizeInPixels/(f32)Width, AssetInfo->SizeInPixels/(f32)Height
@@ -134,6 +107,7 @@ LoadFont(memory_arena *Arena,
     Font->Texture = CreateRenderTexture((u8 *)Pixels, Width, Height);
     Font->Width = Width;
     Font->Height = Height;
+    Font->Size = Size;
     
     PopMemory(Arena, Width*Height*sizeof(u32));
     PopMemory(Arena, Width*Height);
@@ -159,15 +133,15 @@ InitializeGame(platform_user_input *Input){
     
     u8 TemplateMap[18][32] = {
         {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1},
-        {1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 1},
-        {1, 3, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
         {1, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 3, 3, 3, 3, 3, 3, 2, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 1},
@@ -198,16 +172,11 @@ InitializeGame(platform_user_input *Input){
         }
     }
     
-    GlobalRenderGroup.MetersToPixels = (Input->WindowSize.Width / 32.0f) / 0.5f;
-    
     AddSnail({12.0f, 1.1f});
-    
-    AddSnail({7.5f, 3.5f});
-    
+    AddSnail({ 2.0f, 5.0f});
+    AddSnail({ 7.5f, 3.5f});
     AddSally({10.5f, 6.5f});
-    
     AddPlayer({1.5f, 1.5f});
-    
     AddCoin();
     AddCoin();
     AddCoin();
@@ -217,12 +186,12 @@ InitializeGame(platform_user_input *Input){
     GlobalScore -= 5;
     
     // TODO(Tyler): Make LoadAssets take an arena
-    LoadAssets();
+    LoadAssets(60.0f/0.5f);
     
     LoadFont(&GlobalTransientStorageArena, &GlobalFont,
-             "Press-Start-2P.ttf", 10, 512, 512);
-    
-    LoadFont(&GlobalTransientStorageArena, &GlobalMainFont, "Press-Start-2P.ttf", 24, 512, 512);
+             "Press-Start-2P.ttf", 16, 512, 512);
+    LoadFont(&GlobalTransientStorageArena, &GlobalMainFont,
+             "Press-Start-2P.ttf", 24, 512, 512);
     
     InitializeRenderer();
 }
@@ -230,9 +199,49 @@ InitializeGame(platform_user_input *Input){
 internal b32
 GameUpdateAndRender(platform_user_input *Input){
     GlobalTransientStorageArena.Used = 0;
-    GlobalCounter += Input->dTimeForFrame;
     
+#if 1
     MainGameUpdateAndRender(Input);
+#else
+    render_group RenderGroup;
+    
+    InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, 512);
+    temporary_memory RenderMemory;
+    BeginTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory, Kilobytes(64));
+    
+    RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
+    RenderGroup.OutputSize = Input->WindowSize;
+    RenderGroup.MetersToPixels = 1.0f;
+    
+    f32 Y = Input->WindowSize.Height - 124;
+    f32 YAdvance = 30;
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       100, Y, 0.0f, "Counter: %f", GlobalCounter);
+    Y -= YAdvance;
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       100, Y, 0.0f, "Mouse P: %f %f", Input->MouseP.X, Input->MouseP.Y);
+    Y -= YAdvance;
+    
+    Y -= 30;
+    local_persist f32 SliderX = 0;
+    f32 SliderPercent = RenderSliderInputBar(&RenderMemory, &RenderGroup,
+                                             &SliderX, 100, Y, 1000, 30, 50, Input);
+    Y-= YAdvance;
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       100, Y, 0.0f, "Slider: %f", SliderPercent);
+    Y -= YAdvance;
+    
+    
+    RenderGroupToScreen(&RenderGroup);
+    
+    EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
+#endif
+    
+    GlobalLastMouseP = Input->MouseP;
+    GlobalCounter += Input->dTimeForFrame;
     
     b32 Done = false;
     return(Done);

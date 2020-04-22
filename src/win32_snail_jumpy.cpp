@@ -103,7 +103,7 @@ Win32CopyBackbufferToWindow(HDC DeviceContext, RECT *WindowRect, win32_backbuffe
 }
 
 internal void
-Win32ProcessKeyboardInput(platform_button_state *Button, b32 IsDown)
+Win32ProcessKeyboardInput(platform_button_state *Button, b8 IsDown)
 {
     if (Button->EndedDown != IsDown)
     {
@@ -121,52 +121,30 @@ Win32MainWindowProc(HWND Window,
     LRESULT Result = 0;
     switch (Message)
     {
-        case WM_ACTIVATEAPP:
-        {
+        // TODO(Tyler): Is this needed?
+        case WM_ACTIVATEAPP: {
             
         }break;
-        
-        case WM_SIZE:
-        {
+        case WM_SIZE: {
             RECT ClientRect;
             GetClientRect(Window, &ClientRect);
             int Width = ClientRect.right - ClientRect.left;
             int Height = ClientRect.bottom - ClientRect.top;
             //Win32ResizeDIBSection(&GlobalBackbuffer, Width, Height);
             UserInput.WindowSize = {(f32)Width, (f32)Height};
-        }break;
-        
-        case WM_CLOSE:
-        {
+        }
+        case WM_CLOSE: {
             Running = false;
         }break;
-        
-        case WM_DESTROY:
-        {
+        case WM_DESTROY: {
             Running = false;
         }break;
-        
-        case WM_PAINT:
-        {
-            PAINTSTRUCT Paint;
-            HDC DeviceContext = BeginPaint(Window, &Paint);
-            
-            RECT WindowRect;
-            GetClientRect(Window, &WindowRect);
-            
-            Win32CopyBackbufferToWindow(DeviceContext, &WindowRect, &GlobalBackbuffer);
-            EndPaint(Window, &Paint);
-        }break;
-        
-        case WM_SYSKEYDOWN:
-        case WM_SYSKEYUP:
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-        {
+        case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+        case WM_KEYDOWN: case WM_KEYUP: {
             u32 VkCode = (u32)WParam;
             
-            b32 WasDown = ((LParam & (1 << 30)) != 0);
-            b32 IsDown = ((LParam & (1UL << 31)) == 0);
+            b8 WasDown = ((LParam & (1 << 30)) != 0);
+            b8 IsDown = ((LParam & (1UL << 31)) == 0);
             if (WasDown != IsDown)
             {
                 if (VkCode == 'W'){
@@ -189,11 +167,26 @@ Win32MainWindowProc(HWND Window,
                     }
                 }
             }
-            
         }break;
-        
-        default:
-        {
+        case WM_LBUTTONDOWN: {
+            UserInput.IsLeftMouseButtonDown = true;
+        }break;
+        case WM_LBUTTONUP: {
+            UserInput.IsLeftMouseButtonDown = false;
+        }break;
+        case WM_MBUTTONDOWN: {
+            UserInput.IsMiddleMouseButtonDown = true;
+        }break;
+        case WM_MBUTTONUP: {
+            UserInput.IsMiddleMouseButtonDown = false;
+        }break;
+        case WM_RBUTTONDOWN: {
+            UserInput.IsRightMouseButtonDown = true;
+        }break;
+        case WM_RBUTTONUP: {
+            UserInput.IsRightMouseButtonDown = false;
+        }break;
+        default: {
             Result = DefWindowProc(Window, Message, WParam, LParam);
         }break;
     }
@@ -433,22 +426,26 @@ WinMain(HINSTANCE Instance,
     
     if (RegisterClass(&WindowClass))
     {
-        HWND Window = CreateWindowEx(0,
-                                     WindowClass.lpszClassName,
-                                     "FAKE WINDOW",
-                                     WS_OVERLAPPEDWINDOW|WS_VISIBLE,
-                                     CW_USEDEFAULT, CW_USEDEFAULT,
-                                     CW_USEDEFAULT, CW_USEDEFAULT,
-                                     0,
-                                     0,
-                                     Instance,
-                                     0);
+        HWND Window = CreateWindowExA(0,
+                                      WindowClass.lpszClassName,
+                                      "FAKE WINDOW",
+                                      WS_OVERLAPPEDWINDOW,
+                                      CW_USEDEFAULT, CW_USEDEFAULT,
+                                      CW_USEDEFAULT, CW_USEDEFAULT,
+                                      0,
+                                      0,
+                                      Instance,
+                                      0);
         if (Window)
         {
             Win32InitOpenGl(Instance, &Window);
             ToggleFullscreen(Window);
             //wglSwapIntervalEXT(1);
             InitializeGame(&UserInput);
+            
+            // TODO(Tyler): Better cursor maybe? Or just disable it altogether
+            HCURSOR Cursor = LoadCursorA(0, IDC_ARROW);
+            SetCursor(Cursor);
             
             //~
             LARGE_INTEGER PerformanceCounterFrequencyResult;
@@ -478,12 +475,18 @@ WinMain(HINSTANCE Instance,
                     (f32)(ClientRect.right - ClientRect.left),
                     (f32)(ClientRect.bottom - ClientRect.top),
                 };
+                POINT MouseP;
+                GetCursorPos(&MouseP);
+                UserInput.MouseP = {
+                    (f32)MouseP.x,
+                    (f32)(UserInput.WindowSize.Height-MouseP.y)
+                };
+                
                 
                 // TODO(Tyler): Multithreading
                 if(GameUpdateAndRender(&UserInput)){
                     Running = false;
                 };
-                
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                 UserInput.PossibledTimeForFrame = SecondsElapsed;

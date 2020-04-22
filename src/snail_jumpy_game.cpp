@@ -1,37 +1,51 @@
 internal b32
 MainGameUpdateAndRender(platform_user_input *Input){
-    // TODO(Tyler): Make the entity struct SOA so that positions can be easily accessed
-    InitializeRenderGroup(&GlobalTransientStorageArena, &GlobalRenderGroup, 512);
+    local_persist f32 Dilation;
+    Input->dTimeForFrame *= (Dilation*2);
+    render_group RenderGroup;
+    
+    InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, 512);
     temporary_memory RenderMemory;
     BeginTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory, Kilobytes(64));
     
-    GlobalRenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    GlobalRenderGroup.OutputSize = Input->WindowSize;
-    GlobalRenderGroup.MetersToPixels = 60.0f / 0.5f;
+    RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
+    RenderGroup.OutputSize = Input->WindowSize;
+    RenderGroup.MetersToPixels = 60.0f / 0.5f;
     
-    UpdateAndRenderEntities(Input, &RenderMemory);
+    UpdateAndRenderEntities(&RenderMemory, &RenderGroup, Input);
     
     f32 Y = 8;
-    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalMainFont,
+    f32 YAdvance = 0.2f;
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
                        {0.0f, 1.0f, 0.0f, 1.0f},
-                       0.75f, Y, "Score: %u", GlobalScore);
+                       0.75f, Y, 0.0f, "Score: %u", GlobalScore);
+    Y -= YAdvance;
     
-    Y -= 0.1f;
-    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalFont,
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, "Counter: %.2f", GlobalCounter);
+                       0.75f, Y, 0.0f, "Counter: %.2f", GlobalCounter);
+    Y -= YAdvance;
     
-    Y -= 0.1f;
-    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalFont,
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, "FPS: %f", 1.0f/Input->PossibledTimeForFrame);
+                       0.75f, Y, 0.0f, "dTimeForFrame: %f", Input->dTimeForFrame);
+    Y -= YAdvance;
     
-    Y -= 0.1f;
-    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalFont,
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, "Player velocity: %.2f %.2f", GlobalEntities[GlobalPlayerId].dP.X, GlobalEntities[GlobalPlayerId].dP.Y);
+                       0.75f, Y, 0.0f, "Player velocity: %.2f %.2f", GlobalEntities[GlobalPlayerId].dP.X, GlobalEntities[GlobalPlayerId].dP.Y);
+    Y -= YAdvance;
     
-    RenderGroupToScreen(&GlobalRenderGroup);
+    RenderString(&RenderMemory, &RenderGroup, &GlobalFont,
+                 {0.0f, 0.0f, 0.0f, 1.0f},
+                 0.75f, Y, 0.0f, "Time dilation (x2):");
+    Y -= YAdvance+0.2f;
+    
+    local_persist f32 SliderX = 2.25f;
+    Dilation = RenderSliderInputBar(&RenderMemory, &RenderGroup,
+                                    &SliderX, 0.75f, Y, 5.0f, 0.2f, 0.5f, Input);
+    
+    RenderGroupToScreen(&RenderGroup);
     
     EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
     

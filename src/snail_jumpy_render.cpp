@@ -7,15 +7,16 @@ AddRenderItem(render_group *RenderGroup){
 }
 
 internal void
-RenderRectangle(temporary_memory *RenderMemory, render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, color Color){
+RenderRectangle(temporary_memory *RenderMemory, render_group *RenderGroup,
+                v2 MinCorner, v2 MaxCorner, f32 Z, color Color){
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
     
     vertex *Vertices = PushTemporaryArray(RenderMemory, vertex, 4);
-    Vertices[0] = {MinCorner.X, MinCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[1] = {MinCorner.X, MaxCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[2] = {MaxCorner.X, MaxCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[3] = {MaxCorner.X, MinCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     RenderItem->Vertices = Vertices;
     RenderItem->VertexCount = 4;
     
@@ -33,16 +34,18 @@ RenderRectangle(temporary_memory *RenderMemory, render_group *RenderGroup, v2 Mi
 }
 
 internal void
-RenderTexture(temporary_memory *RenderMemory, render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord){
+RenderTexture(temporary_memory *RenderMemory, render_group *RenderGroup,
+              v2 MinCorner, v2 MaxCorner, f32 Z,
+              render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord){
     Assert(Texture);
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
     
     vertex *Vertices = PushTemporaryArray(RenderMemory, vertex, 4);
-    Vertices[0] = {MinCorner.X, MinCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
-    Vertices[1] = {MinCorner.X, MaxCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
-    Vertices[2] = {MaxCorner.X, MaxCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
-    Vertices[3] = {MaxCorner.X, MinCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
+    Vertices[0] = {MinCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
+    Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
+    Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
+    Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
     RenderItem->Vertices = Vertices;
     RenderItem->VertexCount = 4;
     
@@ -61,7 +64,7 @@ RenderTexture(temporary_memory *RenderMemory, render_group *RenderGroup, v2 MinC
 
 internal void
 RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
-             font *Font, color Color, f32 X, f32 Y, char *String){
+             font *Font, color Color, f32 X, f32 Y, f32 Z, char *String){
     // NOTE(Tyler): This is kind of a hack, the Y values are inverted here and then inverted
     // again in the renderer.
     X *= RenderGroup->MetersToPixels;
@@ -84,10 +87,10 @@ RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
         Q.x1 /= RenderGroup->MetersToPixels;
         Q.y0 /= RenderGroup->MetersToPixels;
         Q.y1 /= RenderGroup->MetersToPixels;
-        Vertices[VertexOffset]   = {Q.x0, Q.y0, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
-        Vertices[VertexOffset+1] = {Q.x0, Q.y1, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
-        Vertices[VertexOffset+2] = {Q.x1, Q.y1, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
-        Vertices[VertexOffset+3] = {Q.x1, Q.y0, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t0};
+        Vertices[VertexOffset]   = {Q.x0, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
+        Vertices[VertexOffset+1] = {Q.x0, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
+        Vertices[VertexOffset+2] = {Q.x1, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
+        Vertices[VertexOffset+3] = {Q.x1, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t0};
         
         VertexOffset += 4;
     }
@@ -113,35 +116,35 @@ RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
 
 internal inline void
 RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
-             font *Font, color Color, v2 P, char *String){
-    RenderString(RenderMemory, RenderGroup, Font, Color, P.X, P.Y, String);
+             font *Font, color Color, v2 P, f32 Z, char *String){
+    RenderString(RenderMemory, RenderGroup, Font, Color, P.X, P.Y, Z, String);
 }
 
 // TODO(Tyler): Figure out a better way to do the buffer
 internal inline void
 VRenderFormatString(temporary_memory *RenderMemory, render_group *RenderGroup,
-                    font *Font, color Color, f32 X, f32 Y, char *Format, va_list VarArgs){
+                    font *Font, color Color, f32 X, f32 Y, f32 Z, char *Format, va_list VarArgs){
     char Buffer[1024];
     stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
     RenderString(RenderMemory, RenderGroup, Font,
-                 Color, X, Y, Buffer);
+                 Color, X, Y, Z, Buffer);
 }
 
 internal inline void
 RenderFormatString(temporary_memory *RenderMemory, render_group *RenderGroup,
-                   font *Font, color Color, f32 X, f32 Y, char *Format, ...){
+                   font *Font, color Color, f32 X, f32 Y, f32 Z, char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
-    VRenderFormatString(RenderMemory, RenderGroup, Font, Color, X, Y, Format, VarArgs);
+    VRenderFormatString(RenderMemory, RenderGroup, Font, Color, X, Y, Z, Format, VarArgs);
     va_end(VarArgs);
 }
 
 internal inline void
 RenderFormatString(temporary_memory *RenderMemory, render_group *RenderGroup,
-                   font *Font, color Color, v2 P, char *Format, ...){
+                   font *Font, color Color, v2 P, f32 Z, char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
-    VRenderFormatString(RenderMemory, RenderGroup, Font, Color, P.X, P.Y, Format, VarArgs);
+    VRenderFormatString(RenderMemory, RenderGroup, Font, Color, P.X, P.Y, Z, Format, VarArgs);
     va_end(VarArgs);
 }
 
