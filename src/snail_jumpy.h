@@ -24,6 +24,8 @@ enum game_mode {
 
 //~ TODO(Tyler):
 /*
+*  - Investigate why the amount of time for the first frame is greater than
+*      succeeding frames
 *  - Better entity system
 *      - Change entity allocation
 *      - Ability to remove entities from the system
@@ -48,6 +50,7 @@ enum game_mode {
 *  - Multithreading & SIMD
 *  - Use the new stb_truetype baking API
 *  - Movement feel
+*  - Possibly create a 'legacy' OpenGL renderer that uses the fixed fucntion pipeline
 */
 //~
 

@@ -27,6 +27,7 @@ global v2 GlobalLastMouseP;
 global game_mode GlobalGameMode = GameMode_Menu;
 
 #include "snail_jumpy_stream.cpp"
+#include "snail_jumpy_profiling.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
 #include "snail_jumpy_ui.cpp"
@@ -200,6 +201,10 @@ InitializeGame(platform_user_input *Input){
 
 internal void
 UpdateAndRenderMenu(platform_user_input *Input){
+    local_persist u64 TotalTimeElapsed = 0;
+    local_persist u64 TotalFrames = 1; // Avoid divide by 0
+    u64 LastCounter = __rdtsc();
+    
     render_group RenderGroup;
     
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, 512);
@@ -219,7 +224,6 @@ UpdateAndRenderMenu(platform_user_input *Input){
                        BLACK, 100, Y, 0.0f, "Mouse P: %f %f", Input->MouseP.X, Input->MouseP.Y);
     Y -= YAdvance;
     
-    Y -= 30;
     local_persist f32 SliderPercent = 0.5f;
     RenderSliderInputBar(&RenderMemory, &RenderGroup,
                          100, Y, 1000, 30, 100, &SliderPercent, Input);
@@ -229,6 +233,12 @@ UpdateAndRenderMenu(platform_user_input *Input){
                        100, Y, 0.0f, "Slider: %f", SliderPercent);
     Y -= YAdvance;
     
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       100, Y, 0.0f, "Performance: %'llucy", TotalTimeElapsed / TotalFrames);
+    Y -= YAdvance;
+    
+    
     if(RenderButton(&RenderMemory, &RenderGroup, 100, 100, 100, 30, "Play", Input)){
         GlobalGameMode = GameMode_MainGame;
     }
@@ -236,6 +246,10 @@ UpdateAndRenderMenu(platform_user_input *Input){
     RenderGroupToScreen(&RenderGroup);
     
     EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
+    
+    u64 CurrentCounter = __rdtsc();
+    TotalTimeElapsed += CurrentCounter - LastCounter;
+    TotalFrames++;
 }
 
 internal b32

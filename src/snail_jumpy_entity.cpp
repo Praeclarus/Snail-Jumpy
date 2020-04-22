@@ -592,13 +592,11 @@ UpdateAndRenderEntities(temporary_memory *RenderMemory,
             }break;
             case EntityType_Snail:
             {
-                // TODO(Tyler): Possibly move this out into a separate loop???
                 UpdateAnimation(Entity, Input->dTimeForFrame);
                 RenderEntityWithAnimation(RenderMemory, RenderGroup, Entity);
             }break;
             case EntityType_Sally:
             {
-                // TODO(Tyler): Possibly move this out into a separate loop???
                 UpdateAnimation(Entity, Input->dTimeForFrame);
                 RenderEntityWithAnimation(RenderMemory, RenderGroup, Entity);
             }break;

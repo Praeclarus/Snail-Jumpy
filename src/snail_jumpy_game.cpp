@@ -1,7 +1,9 @@
 internal void
 UpdateAndRenderMainGame(platform_user_input *Input){
-    local_persist f32 Dilation = 0.5f;
-    Input->dTimeForFrame *= 2*Dilation;
+    local_persist u64 TotalTimeElapsed = 0;
+    local_persist u64 TotalFrames = 1; // Avoid divide by 0
+    u64 LastCounter = __rdtsc();
+    
     render_group RenderGroup;
     
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, 512);
@@ -28,25 +30,19 @@ UpdateAndRenderMainGame(platform_user_input *Input){
     
     RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, 0.0f,
-                       "dTimeForFrame: %f(speed-up: %f)", Input->dTimeForFrame, 2*Dilation);
+                       0.75f, Y, 0.0f, "Player velocity: %.2f %.2f", GlobalEntities[GlobalPlayerId].dP.X, GlobalEntities[GlobalPlayerId].dP.Y);
     Y -= YAdvance;
     
     RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, 0.0f, "Player velocity: %.2f %.2f", GlobalEntities[GlobalPlayerId].dP.X, GlobalEntities[GlobalPlayerId].dP.Y);
+                       0.75f, Y, 0.0f, "Performance: %'llucy", TotalTimeElapsed / TotalFrames);
     Y -= YAdvance;
-    
-    RenderString(&RenderMemory, &RenderGroup, &GlobalFont,
-                 {0.0f, 0.0f, 0.0f, 1.0f},
-                 0.75f, Y, 0.0f, "Time dilation (x2):");
-    Y -= YAdvance+0.2f;
-    
-    RenderSliderInputBar(&RenderMemory, &RenderGroup,
-                         0.75f, Y, 5.0f, 0.2f, 0.5f, &Dilation, Input);
-    
     
     RenderGroupToScreen(&RenderGroup);
     
     EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
+    
+    u64 CurrentCounter = __rdtsc();
+    TotalTimeElapsed += CurrentCounter - LastCounter;
+    TotalFrames++;
 }
