@@ -24,6 +24,8 @@ global memory_arena GlobalTransientStorageArena;
 
 global v2 GlobalLastMouseP;
 
+global game_mode GlobalGameMode = GameMode_Menu;
+
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
@@ -196,13 +198,8 @@ InitializeGame(platform_user_input *Input){
     InitializeRenderer();
 }
 
-internal b32
-GameUpdateAndRender(platform_user_input *Input){
-    GlobalTransientStorageArena.Used = 0;
-    
-#if 1
-    MainGameUpdateAndRender(Input);
-#else
+internal void
+UpdateAndRenderMenu(platform_user_input *Input){
     render_group RenderGroup;
     
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, 512);
@@ -216,29 +213,43 @@ GameUpdateAndRender(platform_user_input *Input){
     f32 Y = Input->WindowSize.Height - 124;
     f32 YAdvance = 30;
     RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, 0.0f, "Counter: %f", GlobalCounter);
+                       BLACK, 100, Y, 0.0f, "Counter: %f", GlobalCounter);
     Y -= YAdvance;
     RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, 0.0f, "Mouse P: %f %f", Input->MouseP.X, Input->MouseP.Y);
+                       BLACK, 100, Y, 0.0f, "Mouse P: %f %f", Input->MouseP.X, Input->MouseP.Y);
     Y -= YAdvance;
     
     Y -= 30;
-    local_persist f32 SliderX = 0;
-    f32 SliderPercent = RenderSliderInputBar(&RenderMemory, &RenderGroup,
-                                             &SliderX, 100, Y, 1000, 30, 50, Input);
+    local_persist f32 SliderPercent = 0.5f;
+    RenderSliderInputBar(&RenderMemory, &RenderGroup,
+                         100, Y, 1000, 30, 100, &SliderPercent, Input);
     Y-= YAdvance;
     RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
                        100, Y, 0.0f, "Slider: %f", SliderPercent);
     Y -= YAdvance;
     
+    if(RenderButton(&RenderMemory, &RenderGroup, 100, 100, 100, 30, "Play", Input)){
+        GlobalGameMode = GameMode_MainGame;
+    }
     
     RenderGroupToScreen(&RenderGroup);
     
     EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
-#endif
+}
+
+internal b32
+GameUpdateAndRender(platform_user_input *Input){
+    GlobalTransientStorageArena.Used = 0;
+    
+    switch(GlobalGameMode){
+        case GameMode_MainGame: {
+            UpdateAndRenderMainGame(Input);
+        }break;
+        case GameMode_Menu: {
+            UpdateAndRenderMenu(Input);
+        }break;
+    }
     
     GlobalLastMouseP = Input->MouseP;
     GlobalCounter += Input->dTimeForFrame;
