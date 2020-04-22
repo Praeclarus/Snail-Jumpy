@@ -16,16 +16,6 @@ struct win32_backbuffer {
     s32 BytesPerPixel;
 };
 
-struct win32_game_code {
-    HMODULE Module;
-    FILETIME LastWriteTime;
-    game_update_and_render *GameUpdateAndRender;
-};
-
-struct platform_stream {
-    int Magic;
-};
-
 #define WGL_NUMBER_PIXEL_FORMATS_ARB            0x2000
 #define WGL_DRAW_TO_WINDOW_ARB                  0x2001
 #define WGL_DRAW_TO_BITMAP_ARB                  0x2002

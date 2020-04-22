@@ -1,3 +1,5 @@
+#include "snail_jumpy.cpp"
+
 #include <windows.h>
 #include <gl/gl.h>
 
@@ -9,11 +11,7 @@
 #endif
 
 #include "win32_snail_jumpy.h"
-#include "snail_jumpy_opengl.cpp"
 #include "snail_jumpy_opengl_renderer.cpp"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "third_party/stb_image.h"
 
 global b32 Running;
 global f32 GlobalPerfCounterFrequency;
@@ -342,40 +340,8 @@ Win32InitOpenGl(HINSTANCE Instance, HWND *Window){
     }
 }
 
-GAME_UPADTE_AND_RENDER(Win32GameUpdateAndRenderStub){
-    return(false);
-}
-
-internal win32_game_code
-Win32LoadGameCode(){
-    win32_game_code Result;
-    
-    CopyFile("..\\build\\SnailJumpy.dll", "..\\build\\TempSnailJumpy.dll", false);
-    Result.Module = LoadLibrary("TempSnailJumpy.dll");
-    
-    Assert(Result.Module);
-    Result.GameUpdateAndRender =
-        (game_update_and_render*)GetProcAddress(Result.Module, "GameUpdateAndRender");
-    if(!Result.GameUpdateAndRender){
-        Result.GameUpdateAndRender = Win32GameUpdateAndRenderStub;
-    }
-    
-    if(!Result.GameUpdateAndRender){
-        u32 Error = GetLastError();
-        Assert(0);
-    }
-    
-    return(Result);
-}
-
-internal void
-Win32UnloadGameCode(win32_game_code *GameCode){
-    FreeLibrary(GameCode->Module);
-    // TODO(Tyler): Add stub functions!!!
-}
-
 internal
-OPEN_FILE(Win32OpenFile){
+OPEN_FILE(OpenFile){
     DWORD Access = 0;
     if(Flags & OpenFile_Read){
         Access |= GENERIC_READ;
@@ -398,7 +364,7 @@ OPEN_FILE(Win32OpenFile){
 }
 
 internal
-GET_FILE_SIZE(Win32GetFileSize){
+GET_FILE_SIZE(GetFileSize){
     u64 Result = 0;
     LARGE_INTEGER FileSize = {0};
     if(GetFileSizeEx(File, &FileSize)){
@@ -411,7 +377,7 @@ GET_FILE_SIZE(Win32GetFileSize){
 }
 
 internal
-READ_FILE(Win32ReadFile){
+READ_FILE(ReadFile){
     b32 Result = false;
     LARGE_INTEGER DistanceToMove;
     DistanceToMove.QuadPart = FileOffset;
@@ -433,28 +399,23 @@ READ_FILE(Win32ReadFile){
 }
 
 internal
-CLOSE_FILE(Win32CloseFile){
+CLOSE_FILE(CloseFile){
     CloseHandle((HANDLE)File);
 }
 
 // TODO(Tyler): Proper WriteFile for 64-bits
 internal
-WRITE_TO_FILE(Win32WriteToFile){
+WRITE_TO_FILE(WriteToFile){
     DWORD BytesWritten;
     WriteFile((HANDLE)File, Buffer, (DWORD)BufferSize, &BytesWritten, 0);
     return(BytesWritten);
 }
 
-internal inline FILETIME
-Win32GetGameCodeLastWriteTime(){
-    FILETIME LastWriteTime = {0};
-    WIN32_FIND_DATA FindData;
-    HANDLE FindHandle = FindFirstFileA("..\\build\\SnailJumpy.dll", &FindData);
-    if(FindHandle != INVALID_HANDLE_VALUE){
-        LastWriteTime= FindData.ftLastWriteTime;
-        CloseHandle(FindHandle);
-    }
-    return(LastWriteTime);
+internal
+ALLOCATE_VIRTUAL_MEMORY(AllocateVirtualMemory){
+    void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    DWORD Error = GetLastError();
+    return(Memory);
 }
 
 int CALLBACK
@@ -486,6 +447,8 @@ WinMain(HINSTANCE Instance,
         {
             Win32InitOpenGl(Instance, &Window);
             ToggleFullscreen(Window);
+            //wglSwapIntervalEXT(1);
+            InitializeGame(&UserInput);
             
             //~
             LARGE_INTEGER PerformanceCounterFrequencyResult;
@@ -493,24 +456,8 @@ WinMain(HINSTANCE Instance,
             GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
             
             LARGE_INTEGER LastCounter = Win32GetWallClock();
-            f32 TargetSecondsPerFrame = 1.0f/30.0f;
+            f32 TargetSecondsPerFrame = 1.0f/60.0f;
             
-            game_memory GameMemory = {0};
-            {
-                umw Size = Megabytes(4);
-                void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-                Assert(Memory);
-                InitializeArena(&GameMemory.PermanentStorageArena, Memory, Size);
-            }{
-                umw Size = Gigabytes(2);
-                void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-                DWORD Error = GetLastError();
-                Assert(Memory);
-                InitializeArena(&GameMemory.TransientStorageArena, Memory, Size);
-            }
-            
-            win32_game_code GameCode = Win32LoadGameCode();
-            GameCode.LastWriteTime = Win32GetGameCodeLastWriteTime();
             Running = true;
             while(Running){
                 MSG Message;
@@ -524,13 +471,6 @@ WinMain(HINSTANCE Instance,
                     DispatchMessage(&Message);
                 }
                 
-                FILETIME NewLastWriteTime = Win32GetGameCodeLastWriteTime();
-                if(CompareFileTime(&NewLastWriteTime, &GameCode.LastWriteTime) == 1){
-                    Win32UnloadGameCode(&GameCode);
-                    Win32LoadGameCode();
-                }
-                GameCode.LastWriteTime = NewLastWriteTime;
-                
                 UserInput.dTimeForFrame = TargetSecondsPerFrame;
                 RECT ClientRect;
                 GetClientRect(Window, &ClientRect);
@@ -539,28 +479,17 @@ WinMain(HINSTANCE Instance,
                     (f32)(ClientRect.bottom - ClientRect.top),
                 };
                 
-                platform_api PlatformApi;
-                PlatformApi.OpenFile = Win32OpenFile;
-                PlatformApi.CloseFile = Win32CloseFile;
-                PlatformApi.ReadFile = Win32ReadFile;
-                PlatformApi.WriteToFile = Win32WriteToFile;
-                PlatformApi.GetFileSize = Win32GetFileSize;
-                
-                render_api RenderApi = {0};
-                RenderApi.RenderGroupToScreen = Win32OpenGlRenderGroupToScreen;
-                RenderApi.CreateRenderTexture = Win32OpenGlCreateRenderTexture;
-                
                 // TODO(Tyler): Multithreading
-                thread_context Thread = {0};
-                if(GameCode.GameUpdateAndRender(&Thread, &GameMemory, &PlatformApi, &RenderApi, &UserInput)){
+                if(GameUpdateAndRender(&UserInput)){
                     Running = false;
                 };
                 
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
-                if (SecondsElapsed < TargetSecondsPerFrame)
+                UserInput.PossibledTimeForFrame = SecondsElapsed;
+                if(SecondsElapsed < TargetSecondsPerFrame)
                 {
-                    while (SecondsElapsed < TargetSecondsPerFrame)
+                    while(SecondsElapsed < TargetSecondsPerFrame)
                     {
                         DWORD SleepMS = (DWORD)(1000.0f * (TargetSecondsPerFrame-SecondsElapsed));
                         Sleep(SleepMS);
@@ -570,6 +499,7 @@ WinMain(HINSTANCE Instance,
                 else
                 {
                     // TODO(Tyler): Error logging
+                    //Assert(0);
                 }
                 
                 LastCounter = Win32GetWallClock();

@@ -12,10 +12,10 @@ RenderRectangle(temporary_memory *RenderMemory, render_group *RenderGroup, v2 Mi
     render_item *RenderItem = AddRenderItem(RenderGroup);
     
     vertex *Vertices = PushTemporaryArray(RenderMemory, vertex, 4);
-    Vertices[0] = {MinCorner.X, MinCorner.Y, 1.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[1] = {MinCorner.X, MaxCorner.Y, 1.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[2] = {MaxCorner.X, MaxCorner.Y, 1.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[3] = {MaxCorner.X, MinCorner.Y, 1.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[0] = {MinCorner.X, MinCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[1] = {MinCorner.X, MaxCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[2] = {MaxCorner.X, MaxCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[3] = {MaxCorner.X, MinCorner.Y, 0.0f, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     RenderItem->Vertices = Vertices;
     RenderItem->VertexCount = 4;
     
@@ -39,10 +39,10 @@ RenderTexture(temporary_memory *RenderMemory, render_group *RenderGroup, v2 MinC
     render_item *RenderItem = AddRenderItem(RenderGroup);
     
     vertex *Vertices = PushTemporaryArray(RenderMemory, vertex, 4);
-    Vertices[0] = {MinCorner.X, MinCorner.Y, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
-    Vertices[1] = {MinCorner.X, MaxCorner.Y, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
-    Vertices[2] = {MaxCorner.X, MaxCorner.Y, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
-    Vertices[3] = {MaxCorner.X, MinCorner.Y, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
+    Vertices[0] = {MinCorner.X, MinCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
+    Vertices[1] = {MinCorner.X, MaxCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
+    Vertices[2] = {MaxCorner.X, MaxCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
+    Vertices[3] = {MaxCorner.X, MinCorner.Y, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
     RenderItem->Vertices = Vertices;
     RenderItem->VertexCount = 4;
     
@@ -84,10 +84,10 @@ RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
         Q.x1 /= RenderGroup->MetersToPixels;
         Q.y0 /= RenderGroup->MetersToPixels;
         Q.y1 /= RenderGroup->MetersToPixels;
-        Vertices[VertexOffset]   = {Q.x0, Q.y0, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
-        Vertices[VertexOffset+1] = {Q.x0, Q.y1, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
-        Vertices[VertexOffset+2] = {Q.x1, Q.y1, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
-        Vertices[VertexOffset+3] = {Q.x1, Q.y0, 1.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t0};
+        Vertices[VertexOffset]   = {Q.x0, Q.y0, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
+        Vertices[VertexOffset+1] = {Q.x0, Q.y1, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
+        Vertices[VertexOffset+2] = {Q.x1, Q.y1, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
+        Vertices[VertexOffset+3] = {Q.x1, Q.y0, 0.0f, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t0};
         
         VertexOffset += 4;
     }

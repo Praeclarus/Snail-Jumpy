@@ -29,6 +29,7 @@ struct animation_group {
     // TODO(Tyler): Find a better way to make this array instead of having them fixed length
     u32 FrameCounts[4];
     u32 FpsArray[4];
+    f32 YOffset;
 };
 
 struct asset_descriptor {
@@ -37,6 +38,7 @@ struct asset_descriptor {
     u32 FramesPerRow;
     u32 FrameCounts[4];
     u32 FpsArray[4];
+    f32 YOffset;
 };
 
 #endif //SNAIL_JUMPY_ASSET_H

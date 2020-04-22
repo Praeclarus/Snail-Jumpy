@@ -11,6 +11,18 @@
 
 #include "snail_jumpy.h"
 
+global font GlobalMainFont;
+global font GlobalFont;
+
+global s32 GlobalScore;
+global f32 GlobalCounter;
+
+global render_group GlobalRenderGroup;
+animation_group GlobalAnimations[Animation_TOTAL];
+
+memory_arena GlobalPermanentStorageArena;
+memory_arena GlobalTransientStorageArena;
+
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
@@ -31,7 +43,6 @@
 *  - Change renderer!
 *      - Z-Layer for rendering entities
  *  - Remove dll hotloading
-*  - Fix problem caused by changing FPS
 *  - Load PNG files (should I just use stb_image?)
 *      Currently stb_image is being used.
  *  - Test User interface
@@ -47,40 +58,39 @@
 //~
 
 internal void
-LoadAssets(game_memory *Memory, platform_api *Platform, render_api *RenderApi)
+LoadAssets()
 {
     // TODO(Tyler): Formalize this
     temporary_memory AssetLoadingMemory;
-    BeginTemporaryMemory(&Memory->TransientStorageArena, &AssetLoadingMemory, Megabytes(10));
+    BeginTemporaryMemory(&GlobalTransientStorageArena, &AssetLoadingMemory, Megabytes(10));
     
     asset_descriptor AnimationInfoTable[Animation_TOTAL] = {
-        {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 12, 12, 6, 3 }},
-        {"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  4,  4 }},
-        {"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  3,  3 }},
+        {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 12, 12, 6, 3 },  0.0f },
+        {"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  4,  4 },       -0.02f},
+        {"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  3,  3 },       -0.04f},
     };
     
-    game_state *GameState = Memory->State;
     for(u32 Index = 0; Index < Animation_TOTAL; Index++){
         asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
-        animation_group *CurrentAnimation = &GameState->Animations[Index];
+        animation_group *CurrentAnimation = &GlobalAnimations[Index];
         
-        platform_file *TestFile = Platform->OpenFile(AssetInfo->Path, OpenFile_Read);
-        u64 FileSize = Platform->GetFileSize(TestFile);
+        platform_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
+        u64 FileSize = GetFileSize(TestFile);
         u8 *TestFileData = PushTemporaryArray(&AssetLoadingMemory, u8, FileSize);
-        Platform->ReadFile(TestFile, 0, TestFileData, FileSize);
-        Platform->CloseFile(TestFile);
+        ReadFile(TestFile, 0, TestFileData, FileSize);
+        CloseFile(TestFile);
         s32 Width, Height, Components;
         u8 *LoadedImage = stbi_load_from_memory(TestFileData, (int)FileSize,
                                                 &Width, &Height,
                                                 &Components, 4);
         
         CurrentAnimation->SizeInMeters = {
-            AssetInfo->SizeInPixels/GameState->RenderGroup.MetersToPixels, AssetInfo->SizeInPixels/GameState->RenderGroup.MetersToPixels
+            AssetInfo->SizeInPixels/GlobalRenderGroup.MetersToPixels, AssetInfo->SizeInPixels/GlobalRenderGroup.MetersToPixels
         };
         CurrentAnimation->SizeInTexCoords = {
             AssetInfo->SizeInPixels/(f32)Width, AssetInfo->SizeInPixels/(f32)Height
         };
-        CurrentAnimation->SpriteSheet = RenderApi->CreateRenderTexture(LoadedImage, Width, Height);
+        CurrentAnimation->SpriteSheet = CreateRenderTexture(LoadedImage, Width, Height);
         stbi_image_free(LoadedImage);
         
         CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
@@ -93,32 +103,35 @@ LoadAssets(game_memory *Memory, platform_api *Platform, render_api *RenderApi)
         CurrentAnimation->FpsArray[1] = AssetInfo->FpsArray[1];
         CurrentAnimation->FpsArray[2] = AssetInfo->FpsArray[2];
         CurrentAnimation->FpsArray[3] = AssetInfo->FpsArray[3];
+        
+        CurrentAnimation->YOffset = AssetInfo->YOffset;
     }
     
-    EndTemporaryMemory(&Memory->TransientStorageArena, &AssetLoadingMemory);
+    EndTemporaryMemory(&GlobalTransientStorageArena, &AssetLoadingMemory);
 }
 
 internal void
-LoadFont(memory_arena *Arena, platform_api *Platform, render_api *RenderApi,
+LoadFont(memory_arena *Arena,
          font *Font, const char *FontPath, f32 Size, u32 Width, u32 Height){
-    platform_file *File = Platform->OpenFile(FontPath, OpenFile_Read);
-    u64 FileSize = Platform->GetFileSize(File);
+    platform_file *File = OpenFile(FontPath, OpenFile_Read);
+    u64 FileSize = GetFileSize(File);
     u8 *FileData = PushArray(Arena, u8, FileSize);
-    Platform->ReadFile(File, 0, FileData, FileSize);
-    Platform->CloseFile(File);
+    ReadFile(File, 0, FileData, FileSize);
+    CloseFile(File);
     
     u8 *Bitmap = PushArray(Arena, u8, Width*Height);
     u32 *Pixels = PushArray(Arena, u32, Width*Height);
     
     stbtt_BakeFontBitmap(FileData, 0, Size, Bitmap, Width, Height, 32, 93, Font->CharData);
-    // TODO(Tyler): Make this better!!!
+    
+    // TODO(Tyler): Make this better!!! Maybe sse?
     for(u32 Y = 0; Y < Height; Y++){
         for(u32 X = 0; X < Width; X++){
-            Pixels[((Y*Width)+X)] = 0x00FFFFFF+(Bitmap[(Y*Width) + X]<<24);
+            Pixels[((Y*Width)+X)] = (Bitmap[(Y*Width) + X]<<24)+0x00FFFFFF;
         }
     }
     
-    Font->Texture = RenderApi->CreateRenderTexture((u8 *)Pixels, Width, Height);
+    Font->Texture = CreateRenderTexture((u8 *)Pixels, Width, Height);
     Font->Width = Width;
     Font->Height = Height;
     
@@ -127,128 +140,99 @@ LoadFont(memory_arena *Arena, platform_api *Platform, render_api *RenderApi,
     PopMemory(Arena, FileSize);
 }
 
-GAME_UPADTE_AND_RENDER(GameUpdateAndRender){
-    //~ Initialization
-    Assert(Memory->PermanentStorageArena.Size >= sizeof(game_state));
-    if(!Memory->IsInitialized)
+internal void
+InitializeGame(platform_user_input *Input){
+    stbi_set_flip_vertically_on_load(true);
+    
     {
-        stbi_set_flip_vertically_on_load(true);
-        
-        Memory->State = PushStruct(&Memory->PermanentStorageArena, game_state);
-        
-        u8 TemplateMap[18][32] = {
-            {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1},
-            {1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 1},
-            {1, 3, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
-            {1, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-            {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        };
-        
-        Memory->State->Entities.AllCoinData.Tiles = PushArray(&Memory->PermanentStorageArena, u8, sizeof(TemplateMap));
-        CopyMemory(Memory->State->Entities.AllCoinData.Tiles, TemplateMap, sizeof(TemplateMap));
-        Memory->State->Entities.AllCoinData.XTiles = 32;
-        Memory->State->Entities.AllCoinData.YTiles = 18;
-        
-        f32 TileSideInMeters = 0.5f;
-        Memory->State->Entities.AllCoinData.TileSideInMeters = TileSideInMeters;
-        for(f32 Y = 0; Y < 18; Y++){
-            for(f32 X = 0; X < 32; X++){
-                u32 TileId = TemplateMap[(u32)Y][(u32)X];
-                if(TileId == 1){
-                    AddWall(Memory->State,
-                            v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
-                }else if(TileId == 2){
-                    AddPhonyWall(Memory->State,
-                                 v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
-                }else if(TileId == 3){
-                    Memory->State->Entities.AllCoinData.NumberOfCoinPs++;
-                }
-            }
-        }
-        
-        Memory->State->RenderGroup.MetersToPixels = (Input->WindowSize.Width / 32.0f) / 0.5f;
-        
-        AddSnail(Memory->State,
-                 Platform, RenderApi,
-                 {12.0f, 1.1f});
-        
-        AddSnail(Memory->State,
-                 Platform, RenderApi,
-                 {7.5f, 3.5f});
-        
-        AddSally(Memory->State,
-                 Platform, RenderApi,
-                 {10.5f, 6.5f});
-        
-        AddPlayer(Memory->State,
-                  Platform, RenderApi,
-                  {1.5f, 1.5f});
-        
-        AddCoin(Memory->State,
-                Platform, RenderApi);
-        
-        AddCoin(Memory->State,
-                Platform, RenderApi);
-        
-        AddCoin(Memory->State,
-                Platform, RenderApi);
-        
-        AddCoin(Memory->State,
-                Platform, RenderApi);
-        
-        AddCoin(Memory->State,
-                Platform, RenderApi);
-        Memory->State->Score -= 5;
-        
-        Memory->IsInitialized = true;
-        
-        LoadAssets(Memory, Platform, RenderApi);
-        
-        LoadFont(&Memory->TransientStorageArena, Platform, RenderApi,
-                 &Memory->State->Font, "Press-Start-2P.ttf", 10, 512, 512);
-        
-        LoadFont(&Memory->TransientStorageArena, Platform, RenderApi,
-                 &Memory->State->MainFont, "Press-Start-2P.ttf", 24, 512, 512);
+        umw Size = Megabytes(4);
+        void *Memory = AllocateVirtualMemory(Size);
+        Assert(Memory);
+        InitializeArena(&GlobalPermanentStorageArena, Memory, Size);
+    }{
+        umw Size = Gigabytes(2);
+        void *Memory = AllocateVirtualMemory(Size);
+        Assert(Memory);
+        InitializeArena(&GlobalTransientStorageArena, Memory, Size);
     }
     
-    game_state *GameState = Memory->State;
-    Memory->TransientStorageArena.Used = 0;
-    GameState->Counter += Input->dTimeForFrame;
     
-#if 0
-    InitializeRenderGroup(&Memory->TransientStorageArena, &GameState->RenderGroup, 512);
-    temporary_memory RenderMemory;
-    BeginTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory, Kilobytes(64));
+    u8 TemplateMap[18][32] = {
+        {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1},
+        {1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 1},
+        {1, 3, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 3, 3, 3, 3, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    };
     
-    GameState->RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    GameState->RenderGroup.MetersToPixels = 1.0f;
-    GameState->RenderGroup.OutputSize = Input->WindowSize;
+    GlobalCoinData.Tiles = PushArray(&GlobalPermanentStorageArena, u8, sizeof(TemplateMap));
+    CopyMemory(GlobalCoinData.Tiles, TemplateMap, sizeof(TemplateMap));
+    GlobalCoinData.XTiles = 32;
+    GlobalCoinData.YTiles = 18;
     
-    char Buffer[512];
-    stbsp_snprintf(Buffer, 512, "Counter: %f", GameState->Counter);
-    RenderString(&RenderMemory, &GameState->RenderGroup, &GameState->Font,
-                 Buffer, {1.0f, 1.0f, 1.0f, 1.0f}, 500, 500);
+    f32 TileSideInMeters = 0.5f;
+    GlobalCoinData.TileSideInMeters = TileSideInMeters;
+    for(f32 Y = 0; Y < 18; Y++){
+        for(f32 X = 0; X < 32; X++){
+            u32 TileId = TemplateMap[(u32)Y][(u32)X];
+            if(TileId == 1){
+                AddWall(v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
+            }else if(TileId == 2){
+                AddPhonyWall(v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
+            }else if(TileId == 3){
+                GlobalCoinData.NumberOfCoinPs++;
+            }
+        }
+    }
     
-    RenderApi->RenderGroupToScreen(RenderApi, &GameState->RenderGroup);
+    GlobalRenderGroup.MetersToPixels = (Input->WindowSize.Width / 32.0f) / 0.5f;
     
-    EndTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory);
-#endif
+    AddSnail({12.0f, 1.1f});
     
-    MainGameUpdateAndRender(Thread, Memory, Platform, RenderApi, Input);
+    AddSnail({7.5f, 3.5f});
     
+    AddSally({10.5f, 6.5f});
+    
+    AddPlayer({1.5f, 1.5f});
+    
+    AddCoin();
+    AddCoin();
+    AddCoin();
+    AddCoin();
+    AddCoin();
+    
+    GlobalScore -= 5;
+    
+    // TODO(Tyler): Make LoadAssets take an arena
+    LoadAssets();
+    
+    LoadFont(&GlobalTransientStorageArena, &GlobalFont,
+             "Press-Start-2P.ttf", 10, 512, 512);
+    
+    LoadFont(&GlobalTransientStorageArena, &GlobalMainFont, "Press-Start-2P.ttf", 24, 512, 512);
+    
+    InitializeRenderer();
+}
+
+internal b32
+GameUpdateAndRender(platform_user_input *Input){
+    GlobalTransientStorageArena.Used = 0;
+    GlobalCounter += Input->dTimeForFrame;
+    
+    MainGameUpdateAndRender(Input);
     
     b32 Done = false;
     return(Done);

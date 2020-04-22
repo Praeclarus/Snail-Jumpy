@@ -21,23 +21,4 @@ enum game_mode {
     GameMode_MainGame,
 };
 
-struct game_state {
-    // TODO(Tyler): Move EntityCount in the entities struct
-    u32 EntityCount;
-    entities Entities;
-    // TODO(Tyler): Reserve the zeroth index maybe
-    animation_group Animations[Animation_TOTAL];
-    
-    s32 Score;
-    f32 Counter;
-    
-    render_group RenderGroup;
-    
-    // TODO(Tyler): Do this differently
-    platform_user_input PreviousInput;
-    
-    font MainFont;
-    font Font;
-};
-
 #endif

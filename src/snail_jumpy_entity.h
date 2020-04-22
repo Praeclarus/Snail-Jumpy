@@ -48,7 +48,6 @@ struct wall_entity {
         struct { f32 Width, Height; };
         v2 Size;
     };
-    
 };
 
 struct coin_entity {
@@ -102,28 +101,6 @@ struct entity_brain {
             f32 JumpTime;
         };
     };
-};
-
-// TODO(Tyler): Better allocation
-struct entities {
-    u32 WallCount;
-    wall_entity Walls[256];
-    
-    u32 CoinCount;
-    coin_entity Coins[256];
-    
-    entity Entities[256];
-    u32 AnimationCount;
-    entity_animation Animations[256];
-    u32 BrainCount;
-    entity_brain Brains[256];
-    coin_data AllCoinData;
-    
-    // NOTE(Tyler): I don't know if I like using this here, but it saves me from
-    // constantly typing GameState->Entities.Entities[Index]
-    inline entity &operator[](s32 Index){
-        return(Entities[Index]);
-    }
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H

@@ -16,8 +16,6 @@ rm *.pdb
 :SnailJumpy
 cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:Win32SnailJumpy.exe ..\src\win32_snail_jumpy.cpp /link /PDB:"SnailJumpy%time:~3,2%%time:~6,2%.pdb" %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
 
-cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:SnailJumpy.dll ..\src\snail_jumpy.cpp /LD /link /DLL %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES% /EXPORT:GameUpdateAndRender
-
 :SnailJumpyPng
 REM cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:SnailJumpyPng.exe ..\src\snail_jumpy_png.cpp /link  %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
 

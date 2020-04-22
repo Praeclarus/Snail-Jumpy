@@ -390,7 +390,7 @@ typedef void type_glUniformMatrix3x4fv(GLint location, GLsizei count, GLboolean 
 typedef void type_glUniformMatrix4x3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef void type_glDeleteVertexArrays(GLsizei n, const GLuint *arrays);
 typedef void type_glDeleteBuffers(GLsizei n, const GLuint * buffers);
-
+typedef void type_wglSwapIntervalEXT(GLint interval);
 
 #define OPENGL_FUNCTIONS  \
 X(glGenBuffers)       \
@@ -429,6 +429,7 @@ X(glUniformMatrix3x4fv)       \
 X(glUniformMatrix4x3fv)       \
 X(glDeleteVertexArrays)       \
 X(glDeleteBuffers)       \
+X(wglSwapIntervalEXT)
 
 #endif //SNAIL_JUMPY_OPENGL_H
 

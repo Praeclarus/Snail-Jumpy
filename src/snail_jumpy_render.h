@@ -26,16 +26,13 @@ struct render_group {
     v2 OutputSize;
 };
 
-struct render_api;
-#define RENDER_GROUP_TO_SCREEN(Name) void Name(render_api *RenderApi, render_group *RenderGroup)
-typedef RENDER_GROUP_TO_SCREEN(render_group_to_screen);
+#define INITIALIZE_RENDERER(Name) b32 Name()
+internal INITIALIZE_RENDERER(InitializeRenderer);
+
+#define RENDER_GROUP_TO_SCREEN(Name) void Name(render_group *RenderGroup)
+internal RENDER_GROUP_TO_SCREEN(RenderGroupToScreen);
 
 #define CREATE_RENDER_TEXTURE(Name) render_texture_handle Name(u8 *Pixels, u32 Width, u32 Height)
-typedef CREATE_RENDER_TEXTURE(create_render_texture);
-
-struct render_api {
-    render_group_to_screen *RenderGroupToScreen;
-    create_render_texture *CreateRenderTexture;
-};
+internal CREATE_RENDER_TEXTURE(CreateRenderTexture);
 
 #endif //SNAIL_JUMPY_RENDER_H

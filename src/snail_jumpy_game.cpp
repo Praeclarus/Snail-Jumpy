@@ -1,31 +1,39 @@
-GAME_UPADTE_AND_RENDER(MainGameUpdateAndRender){
-    game_state *GameState = Memory->State;
-    
+internal b32
+MainGameUpdateAndRender(platform_user_input *Input){
     // TODO(Tyler): Make the entity struct SOA so that positions can be easily accessed
-    InitializeRenderGroup(&Memory->TransientStorageArena, &GameState->RenderGroup, 512);
+    InitializeRenderGroup(&GlobalTransientStorageArena, &GlobalRenderGroup, 512);
     temporary_memory RenderMemory;
-    BeginTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory, Kilobytes(64));
+    BeginTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory, Kilobytes(64));
     
-    GameState->RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    GameState->RenderGroup.OutputSize = Input->WindowSize;
-    Memory->State->RenderGroup.MetersToPixels = Minimum((Input->WindowSize.Width/32.0f), (Input->WindowSize.Height/18.0f)) / 0.5f;
+    GlobalRenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
+    GlobalRenderGroup.OutputSize = Input->WindowSize;
+    GlobalRenderGroup.MetersToPixels = 60.0f / 0.5f;
     
-    
-    UpdateAndRenderEntities(Memory, Input, &RenderMemory);
+    UpdateAndRenderEntities(Input, &RenderMemory);
     
     f32 Y = 8;
-    RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->MainFont,
+    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalMainFont,
                        {0.0f, 1.0f, 0.0f, 1.0f},
-                       0.75f, Y, "Score: %u", GameState->Score);
+                       0.75f, Y, "Score: %u", GlobalScore);
     
     Y -= 0.1f;
-    RenderFormatString(&RenderMemory, &GameState->RenderGroup, &GameState->Font,
+    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, "Counter: %.2f", GameState->Counter);
+                       0.75f, Y, "Counter: %.2f", GlobalCounter);
     
-    RenderApi->RenderGroupToScreen(RenderApi, &GameState->RenderGroup);
+    Y -= 0.1f;
+    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       0.75f, Y, "FPS: %f", 1.0f/Input->PossibledTimeForFrame);
     
-    EndTemporaryMemory(&Memory->TransientStorageArena, &RenderMemory);
+    Y -= 0.1f;
+    RenderFormatString(&RenderMemory, &GlobalRenderGroup, &GlobalFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       0.75f, Y, "Player velocity: %.2f %.2f", GlobalEntities[GlobalPlayerId].dP.X, GlobalEntities[GlobalPlayerId].dP.Y);
+    
+    RenderGroupToScreen(&GlobalRenderGroup);
+    
+    EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
     
     return(false);
 }

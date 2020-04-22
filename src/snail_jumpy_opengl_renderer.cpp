@@ -1,72 +1,126 @@
-//~
+#define X(Name) global type_##Name *Name;
+
+
+OPENGL_FUNCTIONS
+#undef X
+
+global GLuint GlobalTextureShaderProgram;
+global GLuint GlobalColorShaderProgram;
+
+global_constant char *ColorVertexShaderSource =
+"#version 330 core \n"
+"layout (location = 0) in vec3 Position;"
+"layout (location = 1) in vec4 Color;"
+"out vec4 FragmentColor;"
+"uniform mat4 Projection;"
+"void main(){"
+"    gl_Position = Projection * vec4(Position, 1.0);"
+"    FragmentColor = Color;"
+"}";
+global_constant char *ColorFragmentShaderSource =
+"#version 330 core\n"
+"out vec4 FragColor;"
+"in vec4 FragmentColor;"
+"uniform sampler2D Texture;"
+"void main()"
+"{"
+"    FragColor = FragmentColor;"
+"}";
+
+global_constant char *TextureVertexShaderSource =
+"#version 330 core \n"
+"layout (location = 0) in vec3 Position;"
+"layout (location = 1) in vec4 Color;"
+"layout (location = 2) in vec2 TexCoord;"
+"out vec2 FragmentTexCoord;"
+"out vec4 FragmentColor;"
+"uniform mat4 Projection;"
+"void main(){"
+"    gl_Position = Projection * vec4(Position, 1.0);"
+"    FragmentTexCoord = TexCoord;"
+"    FragmentColor = Color;"
+"}";
+global_constant char *TextureFragmentShaderSource =
+"#version 330 core\n"
+"out vec4 FragColor;"
+"in vec2 FragmentTexCoord;"
+"in vec4 FragmentColor;"
+"uniform sampler2D Texture;"
+"void main()"
+"{"
+"    FragColor = texture(Texture, FragmentTexCoord) * FragmentColor;"
+"}";
+
+internal GLuint
+CompileShaderProgram(const char *VertexShaderSource, const char *FragmentShaderSource){
+    
+    GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(VertexShader, 1, &VertexShaderSource, 0);
+    glCompileShader(VertexShader);
+    {
+        s32 Status;
+        char Buffer[512];
+        glGetShaderiv(VertexShader, GL_COMPILE_STATUS, &Status);
+        if(!Status){
+            // TODO(Tyler): Logging
+            glGetShaderInfoLog(VertexShader, 512, 0, Buffer);
+            Assert(0);
+        }
+    }
+    
+    GLuint FragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(FragmentShader, 1, &FragmentShaderSource, 0);
+    glCompileShader(FragmentShader);
+    {
+        s32 Status;
+        char Buffer[512];
+        glGetShaderiv(FragmentShader, GL_COMPILE_STATUS, &Status);
+        if(!Status){
+            // TODO(Tyler): Logging
+            glGetShaderInfoLog(FragmentShader, 512, 0, Buffer);
+            Assert(0);
+        }
+    }
+    GLuint ShaderProgram = glCreateProgram();
+    glAttachShader(ShaderProgram, VertexShader);
+    glAttachShader(ShaderProgram, FragmentShader);
+    glLinkProgram(ShaderProgram);
+    {
+        s32 Status;
+        char Buffer[512];
+        glGetProgramiv(ShaderProgram, GL_LINK_STATUS, &Status);
+        if(!Status){
+            // TODO(Tyler): Logging
+            glGetProgramInfoLog(ShaderProgram, 512, 0, Buffer);
+            Assert(0);
+        }
+    }
+    return(ShaderProgram);
+}
 
 internal
-RENDER_GROUP_TO_SCREEN(Win32OpenGlRenderGroupToScreen){
-    
+INITIALIZE_RENDERER(InitializeRenderer){
+    GlobalTextureShaderProgram =
+        CompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);
+    GlobalColorShaderProgram = CompileShaderProgram(ColorVertexShaderSource, ColorFragmentShaderSource);
+    b32 Result = true;
+    return(Result);
+}
+
+internal
+RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
+    glEnable(GL_DEPTH_TEST);
     glViewport(0, 0,
                (GLsizei)RenderGroup->OutputSize.Width,
                (GLsizei)RenderGroup->OutputSize.Height);
-    
     glClearColor(RenderGroup->BackgroundColor.R,
                  RenderGroup->BackgroundColor.G,
                  RenderGroup->BackgroundColor.B,
                  RenderGroup->BackgroundColor.A);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // TODO(Tyler): Clean this up
-    local_persist GLuint TextureShaderProgram = 0;
-    local_persist GLuint ColorShaderProgram = 0;
-    if(TextureShaderProgram == 0){
-        const char *TextureVertexShaderSource =
-            "#version 330 core \n"
-            "layout (location = 0) in vec3 Position;"
-            "layout (location = 1) in vec4 Color;"
-            "layout (location = 2) in vec2 TexCoord;"
-            "out vec2 FragmentTexCoord;"
-            "out vec4 FragmentColor;"
-            "uniform mat4 Projection;"
-            "void main(){"
-            "    gl_Position = Projection * vec4(Position, 1.0);"
-            "    FragmentTexCoord = TexCoord;"
-            "    FragmentColor = Color;"
-            "}";
-        const char *TextureFragmentShaderSource =
-            "#version 330 core\n"
-            "out vec4 FragColor;"
-            "in vec2 FragmentTexCoord;"
-            "in vec4 FragmentColor;"
-            "uniform sampler2D Texture;"
-            "void main()"
-            "{"
-            "    FragColor = texture(Texture, FragmentTexCoord) * FragmentColor;"
-            "}";
-        TextureShaderProgram =
-            CompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);
-        
-        const char *ColorVertexShaderSource =
-            "#version 330 core \n"
-            "layout (location = 0) in vec3 Position;"
-            "layout (location = 1) in vec4 Color;"
-            "out vec4 FragmentColor;"
-            "uniform mat4 Projection;"
-            "void main(){"
-            "    gl_Position = Projection * vec4(Position, 1.0);"
-            "    FragmentColor = Color;"
-            "}";
-        const char *ColorFragmentShaderSource =
-            "#version 330 core\n"
-            "out vec4 FragColor;"
-            "in vec4 FragmentColor;"
-            "uniform sampler2D Texture;"
-            "void main()"
-            "{"
-            "    FragColor = FragmentColor;"
-            "}";
-        ColorShaderProgram = CompileShaderProgram(ColorVertexShaderSource, ColorFragmentShaderSource);
-    }
     
     GLuint VertexArray;
     glGenVertexArrays(1, &VertexArray);
@@ -100,20 +154,20 @@ RENDER_GROUP_TO_SCREEN(Win32OpenGlRenderGroupToScreen){
     };
     
     {
-        glUseProgram(TextureShaderProgram);
-        GLint ProjectionLocation = glGetUniformLocation(TextureShaderProgram, "Projection");
+        glUseProgram(GlobalTextureShaderProgram);
+        GLint ProjectionLocation = glGetUniformLocation(GlobalTextureShaderProgram, "Projection");
         glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, Projection);
     }{
-        glUseProgram(ColorShaderProgram);
-        GLint ProjectionLocation = glGetUniformLocation(ColorShaderProgram, "Projection");
+        glUseProgram(GlobalColorShaderProgram);
+        GLint ProjectionLocation = glGetUniformLocation(GlobalColorShaderProgram, "Projection");
         glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, Projection);
     }
     
     for(u32 Index = 0; Index < RenderGroup->Count; Index++){
         render_item *Item = &RenderGroup->Items[Index];
-        GLuint ShaderProgram = ColorShaderProgram;
+        GLuint ShaderProgram = GlobalColorShaderProgram;
         if(Item->Texture){
-            ShaderProgram = TextureShaderProgram;
+            ShaderProgram = GlobalTextureShaderProgram;
             glBindTexture(GL_TEXTURE_2D, Item->Texture);
         }
         
@@ -134,7 +188,7 @@ RENDER_GROUP_TO_SCREEN(Win32OpenGlRenderGroupToScreen){
 }
 
 internal
-CREATE_RENDER_TEXTURE(Win32OpenGlCreateRenderTexture){
+CREATE_RENDER_TEXTURE(CreateRenderTexture){
     u32 Result;
     glGenTextures(1, &Result);
     glBindTexture(GL_TEXTURE_2D, Result);
