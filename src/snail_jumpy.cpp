@@ -27,10 +27,11 @@ global v2 GlobalLastMouseP;
 global game_mode GlobalGameMode = GameMode_Menu;
 
 #include "snail_jumpy_stream.cpp"
-#include "snail_jumpy_profiling.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
 #include "snail_jumpy_ui.cpp"
+#include "snail_jumpy_debug_ui.cpp"
+
 #include "snail_jumpy_game.cpp"
 
 internal void
@@ -42,8 +43,10 @@ LoadAssets(f32 MetersToPixels)
     
     asset_descriptor AnimationInfoTable[Animation_TOTAL] = {
         {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 12, 12, 6, 3 },  0.0f },
-        {"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  4,  4 },       -0.02f},
-        {"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  3,  3 },       -0.04f},
+        {"test_snail_spritesheet2.png",  64,  4,  {  1,  1 },       {  8,  8 },        0.0f},
+        {"test_sally_spritesheet2.png", 128,  4,  {  4,  4 },       {  8,  8 },        0.0f},
+        //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },       -0.02f},
+        //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },       -0.04f},
     };
     
     for(u32 Index = 0; Index < Animation_TOTAL; Index++){
@@ -201,9 +204,7 @@ InitializeGame(platform_user_input *Input){
 
 internal void
 UpdateAndRenderMenu(platform_user_input *Input){
-    local_persist u64 TotalTimeElapsed = 0;
-    local_persist u64 TotalFrames = 1; // Avoid divide by 0
-    u64 LastCounter = __rdtsc();
+    TIMED_FUNCTION();
     
     render_group RenderGroup;
     
@@ -233,10 +234,7 @@ UpdateAndRenderMenu(platform_user_input *Input){
                        100, Y, 0.0f, "Slider: %f", SliderPercent);
     Y -= YAdvance;
     
-    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, 0.0f, "Performance: %'llucy", TotalTimeElapsed / TotalFrames);
-    Y -= YAdvance;
+    RenderAllProfileData(&RenderMemory, &RenderGroup, 100, &Y, 25, 24 );
     
     
     if(RenderButton(&RenderMemory, &RenderGroup, 100, 100, 100, 30, "Play", Input)){
@@ -246,15 +244,12 @@ UpdateAndRenderMenu(platform_user_input *Input){
     RenderGroupToScreen(&RenderGroup);
     
     EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
-    
-    u64 CurrentCounter = __rdtsc();
-    TotalTimeElapsed += CurrentCounter - LastCounter;
-    TotalFrames++;
 }
 
-internal b32
+internal void
 GameUpdateAndRender(platform_user_input *Input){
     GlobalTransientStorageArena.Used = 0;
+    GlobalProfileData.CurrentBlockIndex = 0;
     
     switch(GlobalGameMode){
         case GameMode_MainGame: {
@@ -267,7 +262,4 @@ GameUpdateAndRender(platform_user_input *Input){
     
     GlobalLastMouseP = Input->MouseP;
     GlobalCounter += Input->dTimeForFrame;
-    
-    b32 Done = false;
-    return(Done);
 }

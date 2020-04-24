@@ -48,61 +48,6 @@ ToggleFullscreen(HWND Window){
 }
 
 internal void
-Win32ResizeDIBSection(win32_backbuffer *Buffer, int Width, int Height)
-{
-    if (Buffer->Memory)
-    {
-        VirtualFree(Buffer->Memory, 0, MEM_RELEASE);
-    }
-    // NOTE(Tyler): We are locking the width and height
-    Width = 960;
-    Height = 540;
-    
-    Buffer->Width = Width;
-    Buffer->Height = Height;
-    Buffer->BytesPerPixel = 4;
-    Buffer->Pitch = Width*Buffer->BytesPerPixel;
-    
-    Buffer->Info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    Buffer->Info.bmiHeader.biWidth = Buffer->Width;
-    Buffer->Info.bmiHeader.biHeight = -Buffer->Height;
-    Buffer->Info.bmiHeader.biPlanes = 1;
-    Buffer->Info.bmiHeader.biBitCount = 32;
-    Buffer->Info.bmiHeader.biCompression = BI_RGB;
-    
-    s32 BitmapMemorySize = (Buffer->Width*Buffer->Height)*Buffer->BytesPerPixel;
-    // NOTE(Tyler): VirtualAlloc initializes the memory to 0 so it doesn't need to be done
-    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
-}
-
-internal void
-Win32CopyBackbufferToWindow(HDC DeviceContext, RECT *WindowRect, win32_backbuffer *Buffer)
-{
-#if 0
-    PatBlt(DeviceContext, 0, 0, WindowWidth, 20, BLACKNESS);
-    PatBlt(DeviceContext, 0, 0, 20, WindowHeight, BLACKNESS);
-    PatBlt(DeviceContext, 980, 0, WindowWidth-980, WindowHeight, BLACKNESS);
-    PatBlt(DeviceContext, 0, 560, WindowWidth, WindowHeight-560, BLACKNESS);
-    
-    // NOTE(Tyler): We will only render 960x540 for now
-    WindowWidth = 960;
-    WindowHeight = 540;
-    
-    StretchDIBits(DeviceContext,
-#if 0
-                  X, Y, Width, Height,
-                  X, Y, Width, Height,
-#endif
-                  20, 20, WindowWidth, WindowHeight,
-                  0, 0, Buffer->Width, Buffer->Height,
-                  Buffer->Memory,
-                  &Buffer->Info,
-                  DIB_RGB_COLORS, SRCCOPY);
-    
-#endif
-}
-
-internal void
 Win32ProcessKeyboardInput(platform_button_state *Button, b8 IsDown)
 {
     if (Button->EndedDown != IsDown)
@@ -125,14 +70,16 @@ Win32MainWindowProc(HWND Window,
         case WM_ACTIVATEAPP: {
             
         }break;
+        case WM_SETCURSOR: {
+            Result = DefWindowProcA(Window, Message, WParam, LParam);
+        }break;
         case WM_SIZE: {
             RECT ClientRect;
             GetClientRect(Window, &ClientRect);
             int Width = ClientRect.right - ClientRect.left;
             int Height = ClientRect.bottom - ClientRect.top;
-            //Win32ResizeDIBSection(&GlobalBackbuffer, Width, Height);
             UserInput.WindowSize = {(f32)Width, (f32)Height};
-        }
+        }break;
         case WM_CLOSE: {
             Running = false;
         }break;
@@ -187,7 +134,7 @@ Win32MainWindowProc(HWND Window,
             UserInput.IsRightMouseButtonDown = false;
         }break;
         default: {
-            Result = DefWindowProc(Window, Message, WParam, LParam);
+            Result = DefWindowProcA(Window, Message, WParam, LParam);
         }break;
     }
     return(Result);
@@ -443,10 +390,6 @@ WinMain(HINSTANCE Instance,
             //wglSwapIntervalEXT(1);
             InitializeGame(&UserInput);
             
-            // TODO(Tyler): Better cursor maybe? Or just disable it altogether
-            HCURSOR Cursor = LoadCursorA(0, IDC_ARROW);
-            SetCursor(Cursor);
-            
             //~
             LARGE_INTEGER PerformanceCounterFrequencyResult;
             QueryPerformanceFrequency(&PerformanceCounterFrequencyResult);
@@ -482,11 +425,8 @@ WinMain(HINSTANCE Instance,
                     (f32)(UserInput.WindowSize.Height-MouseP.y)
                 };
                 
-                
                 // TODO(Tyler): Multithreading
-                if(GameUpdateAndRender(&UserInput)){
-                    Running = false;
-                };
+                GameUpdateAndRender(&UserInput);
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                 UserInput.PossibledTimeForFrame = SecondsElapsed;

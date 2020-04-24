@@ -239,11 +239,30 @@ SafeRatioN(f32 Numerator, f32 Denominator, f32 N){
 internal inline f32
 SafeRatio0(f32 Numerator, f32 Denominator){
     f32 Result = SafeRatioN(Numerator, Denominator, 0.0f);
+    return(Result);
 }
 
 internal inline f32
 SafeRatio1(f32 Numerator, f32 Denominator){
     f32 Result = SafeRatioN(Numerator, Denominator, 1.0f);
+    return(Result);
+}
+
+internal inline u64
+SafeRatioN(u64 Numerator, u64 Denominator, u64 N){
+    u64 Result = N;
+    
+    if(Denominator != 0.0f){
+        Result = Numerator / Denominator;
+    }
+    
+    return(Result);
+}
+
+internal inline u64
+SafeRatio0(u64 Numerator, u64 Denominator){
+    u64 Result = SafeRatioN(Numerator, Denominator, 0);
+    return(Result);
 }
 
 union v4 {

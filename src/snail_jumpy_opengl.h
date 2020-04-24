@@ -390,6 +390,8 @@ typedef void type_glUniformMatrix3x4fv(GLint location, GLsizei count, GLboolean 
 typedef void type_glUniformMatrix4x3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef void type_glDeleteVertexArrays(GLsizei n, const GLuint *arrays);
 typedef void type_glDeleteBuffers(GLsizei n, const GLuint * buffers);
+
+// TODO(Tyler): Omve this to win32 specific code
 typedef void type_wglSwapIntervalEXT(GLint interval);
 
 #define OPENGL_FUNCTIONS  \

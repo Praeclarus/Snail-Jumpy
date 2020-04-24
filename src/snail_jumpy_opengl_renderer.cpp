@@ -52,7 +52,7 @@ global_constant char *TextureFragmentShaderSource =
 "}";
 
 internal GLuint
-CompileShaderProgram(const char *VertexShaderSource, const char *FragmentShaderSource){
+GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShaderSource){
     
     GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(VertexShader, 1, &VertexShaderSource, 0);
@@ -98,27 +98,23 @@ CompileShaderProgram(const char *VertexShaderSource, const char *FragmentShaderS
     return(ShaderProgram);
 }
 
+internal void
+GlUseUniformMatrix(GLuint ShaderProgram, char *Name, f32 Matrix[16]){
+    glUseProgram(ShaderProgram);
+    GLint ProjectionLocation = glGetUniformLocation(ShaderProgram, Name);
+    Assert(ProjectionLocation != -1);
+    glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, Matrix);
+}
+
+//~ API
+
 internal
 INITIALIZE_RENDERER(InitializeRenderer){
     GlobalTextureShaderProgram =
-        CompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);
-    GlobalColorShaderProgram = CompileShaderProgram(ColorVertexShaderSource, ColorFragmentShaderSource);
-    b32 Result = true;
-    return(Result);
-}
-
-internal
-RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
-    glEnable(GL_DEPTH_TEST);
-    glViewport(0, 0,
-               (GLsizei)RenderGroup->OutputSize.Width,
-               (GLsizei)RenderGroup->OutputSize.Height);
-    glClearColor(RenderGroup->BackgroundColor.R,
-                 RenderGroup->BackgroundColor.G,
-                 RenderGroup->BackgroundColor.B,
-                 RenderGroup->BackgroundColor.A);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        GlCompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);
+    GlobalColorShaderProgram = GlCompileShaderProgram(ColorVertexShaderSource, ColorFragmentShaderSource);
     
+    glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
@@ -144,6 +140,25 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
                           sizeof(vertex), (void*)offsetof(vertex, TexCoord));
     glEnableVertexAttribArray(2);
     
+    b32 Result = true;
+    return(Result);
+}
+
+// TODO(Tyler): Is there a command waiting for previous commands to finish and causing
+// wasting a large number of clock cycles
+internal
+RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
+    TIMED_FUNCTION();
+    
+    glViewport(0, 0,
+               (GLsizei)RenderGroup->OutputSize.Width,
+               (GLsizei)RenderGroup->OutputSize.Height);
+    glClearColor(RenderGroup->BackgroundColor.R,
+                 RenderGroup->BackgroundColor.G,
+                 RenderGroup->BackgroundColor.B,
+                 RenderGroup->BackgroundColor.A);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
     f32 A = 2.0f/((f32)RenderGroup->OutputSize.Width/RenderGroup->MetersToPixels);
     f32 B = 2.0f/((f32)RenderGroup->OutputSize.Height/RenderGroup->MetersToPixels);
     f32 Projection[] = {
@@ -153,15 +168,10 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
         -1, -1, 0, 1,
     };
     
-    {
-        glUseProgram(GlobalTextureShaderProgram);
-        GLint ProjectionLocation = glGetUniformLocation(GlobalTextureShaderProgram, "Projection");
-        glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, Projection);
-    }{
-        glUseProgram(GlobalColorShaderProgram);
-        GLint ProjectionLocation = glGetUniformLocation(GlobalColorShaderProgram, "Projection");
-        glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, Projection);
-    }
+    GlUseUniformMatrix(GlobalTextureShaderProgram, "Projection", Projection);
+    GlUseUniformMatrix(GlobalColorShaderProgram, "Projection", Projection);
+    
+    //u64 CycleCountSum = 0;
     
     for(u32 Index = 0; Index < RenderGroup->Count; Index++){
         render_item *Item = &RenderGroup->Items[Index];
@@ -173,18 +183,18 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
         
         glUseProgram(ShaderProgram);
         
-        glBufferData(GL_ARRAY_BUFFER, Item->VertexCount*sizeof(vertex), Item->Vertices, GL_STREAM_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, Item->VertexCount*sizeof(vertex), Item->Vertices, GL_DYNAMIC_DRAW);
         
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, Item->IndexCount*sizeof(u32), Item->Indices, GL_STREAM_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, Item->IndexCount*sizeof(u32), Item->Indices, GL_DYNAMIC_DRAW);
         
+        
+        //u64 StartCycleCount = __rdtsc();
         glDrawElements(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_INT, 0);
-        
-        glBindTexture(GL_TEXTURE_2D, 0);
+        //CycleCountSum += __rdtsc() - StartCycleCount;
     }
     
-    glDeleteBuffers(1, &VertexBuffer);
-    glDeleteBuffers(1, &ElementBuffer);
-    glDeleteVertexArrays(1, &VertexArray);
+    //EndProfiledBlock(BeginProfiledBlock("Cycles"), CycleCountSum);
+    //EndProfiledBlock(BeginProfiledBlock("Hits"), RenderGroup->Count);
 }
 
 internal

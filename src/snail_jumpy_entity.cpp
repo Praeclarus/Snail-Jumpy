@@ -500,6 +500,8 @@ internal void
 UpdateAndRenderEntities(temporary_memory *RenderMemory,
                         render_group *RenderGroup,
                         platform_user_input *Input){
+    TIMED_FUNCTION();
+    
     for(u32 WallId = 1; WallId <= GlobalWallCount; WallId++){
         wall_entity *Entity = &GlobalWalls[WallId];
         // TODO(Tyler): Do this differently

@@ -9,6 +9,7 @@
 #include "snail_jumpy_asset.h"
 #include "snail_jumpy_entity.h"
 #include "snail_jumpy_random.h"
+#include "snail_jumpy_debug.h"
 
 struct font {
     stbtt_bakedchar CharData[93];

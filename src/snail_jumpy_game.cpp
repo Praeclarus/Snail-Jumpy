@@ -1,8 +1,6 @@
 internal void
 UpdateAndRenderMainGame(platform_user_input *Input){
-    local_persist u64 TotalTimeElapsed = 0;
-    local_persist u64 TotalFrames = 1; // Avoid divide by 0
-    u64 LastCounter = __rdtsc();
+    TIMED_FUNCTION();
     
     render_group RenderGroup;
     
@@ -32,17 +30,12 @@ UpdateAndRenderMainGame(platform_user_input *Input){
                        {0.0f, 0.0f, 0.0f, 1.0f},
                        0.75f, Y, 0.0f, "Player velocity: %.2f %.2f", GlobalEntities[GlobalPlayerId].dP.X, GlobalEntities[GlobalPlayerId].dP.Y);
     Y -= YAdvance;
+    Y -= YAdvance; // Exta spacing
     
-    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, 0.0f, "Performance: %'llucy", TotalTimeElapsed / TotalFrames);
-    Y -= YAdvance;
+    RenderAllProfileData(&RenderMemory, &RenderGroup, 0.75f, &Y, 0.25f, YAdvance);
+    
     
     RenderGroupToScreen(&RenderGroup);
     
     EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
-    
-    u64 CurrentCounter = __rdtsc();
-    TotalTimeElapsed += CurrentCounter - LastCounter;
-    TotalFrames++;
 }
