@@ -2,12 +2,12 @@
 #define SNAIL_JUMPY_ENTITY_H
 
 enum entity_type {
-    EntityType_None,
-    
-    EntityType_Player,
-    //EntityType_PhonyWall,
+    EntityType_Wall,
+    EntityType_Coin,
     EntityType_Snail,
-    EntityType_Sally,
+    EntityType_Player,
+    
+    EntityType_TOTAL,
 };
 
 
@@ -26,21 +26,6 @@ enum _entity_state {
     EntityState_Frozen  = (1<<1),
 };
 
-struct entity {
-    v2 P, dP;
-    entity_type Type;
-    entity_state State;
-    u32 CollisionGroupFlag;
-    
-    union {
-        struct { f32 Width, Height; };
-        v2 Size;
-    };
-    
-    u32 AnimationSlot;
-    u32 BrainSlot;
-};
-
 struct wall_entity {
     v2 P;
     u32 CollisionGroupFlag;
@@ -48,6 +33,14 @@ struct wall_entity {
         struct { f32 Width, Height; };
         v2 Size;
     };
+};
+
+struct coin_data {
+    u8 *Tiles;
+    u32 XTiles;
+    u32 YTiles;
+    u32 NumberOfCoinPs;
+    f32 TileSideInMeters;
 };
 
 struct coin_entity {
@@ -60,47 +53,28 @@ struct coin_entity {
     f32 CooldownTime;
 };
 
-struct entity_animation {
+struct entity {
+    v2 P, dP;
+    entity_state State;
+    u32 CollisionGroupFlag;
+    
+    union {
+        struct { f32 Width, Height; };
+        v2 Size;
+    };
+    
     animation AnimationGroup;
     f32 CurrentAnimationTime;
     u32 CurrentAnimation;
 };
 
-struct entity_snail_data {
-    v2 Direction;
+struct snail_entity : entity {
+    f32 SnailDirection;
+    f32 Speed;
 };
 
-struct coin_data {
-    u8 *Tiles;
-    u32 XTiles;
-    u32 YTiles;
-    u32 NumberOfCoinPs;
-    f32 TileSideInMeters;
-};
-
-enum brain_type {
-    BrainType_None,
-    
-    BrainType_Player,
-    BrainType_Snail,
-};
-
-// TODO(Tyler): I am not sure if I like this struct
-struct entity_brain {
-    brain_type Type;
-    u32 EntityId;
-    union {
-        // Snail
-        struct {
-            f32 SnailDirection;
-            f32 Speed;
-        };
-        
-        // Player
-        struct {
-            f32 JumpTime;
-        };
-    };
+struct player_entity : entity {
+    f32 JumpTime;
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H

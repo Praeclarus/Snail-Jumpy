@@ -44,9 +44,9 @@ RenderSliderInputBar(temporary_memory *RenderMemory, render_group *RenderGroup,
     
     // TODO(Tyler): Do the text printing differently in order to make it more flexible
     *SliderPercent = CursorX/(Width-CursorWidth);
-    f32 TextY = Y + (Height/2) - (GlobalFont.Size/RenderGroup->MetersToPixels/2);
-    f32 TextWidth = GetFormatStringAdvanceInMeters(RenderGroup, &GlobalFont, "%.2f", *SliderPercent );
-    RenderFormatString(RenderMemory, RenderGroup, &GlobalFont,
+    f32 TextY = Y + (Height/2) - (GlobalNormalFont.Ascent/2/RenderGroup->MetersToPixels);
+    f32 TextWidth = GetFormatStringAdvanceInMeters(RenderGroup, &GlobalNormalFont, "%.2f", *SliderPercent );
+    RenderFormatString(RenderMemory, RenderGroup, &GlobalNormalFont,
                        {1.0f, 1.0f, 1.0f, 0.9f},
                        X + (Width-TextWidth)/2, TextY, -0.3f,
                        "%.2f", *SliderPercent );
@@ -72,10 +72,10 @@ RenderButton(temporary_memory *RenderMemory, render_group *RenderGroup,
     RenderRectangle(RenderMemory, RenderGroup,
                     {X, Y}, {X+Width, Y+Height},
                     -0.1f, ButtonColor);
-    f32 TextWidth = GetStringAdvanceInMeters(RenderGroup, &GlobalFont, Text);
+    f32 TextWidth = GetStringAdvanceInMeters(RenderGroup, &GlobalNormalFont, Text);
     RenderString(RenderMemory, RenderGroup,
-                 &GlobalFont, {1.0f, 1.0f, 1.0f, 0.9f},
-                 X+(Width/2)-(TextWidth/2), Y+(Height/2)-(GlobalFont.Size/2), -0.2f,
+                 &GlobalNormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
+                 X+(Width/2)-(TextWidth/2), Y+(Height/2)-(GlobalNormalFont.Ascent/2), -0.2f,
                  Text);
     
     return(Result);

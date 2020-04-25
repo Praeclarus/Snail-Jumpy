@@ -71,7 +71,8 @@ Win32MainWindowProc(HWND Window,
             
         }break;
         case WM_SETCURSOR: {
-            Result = DefWindowProcA(Window, Message, WParam, LParam);
+            HCURSOR Cursor = LoadCursorA(0, IDC_ARROW);
+            SetCursor(Cursor);
         }break;
         case WM_SIZE: {
             RECT ClientRect;

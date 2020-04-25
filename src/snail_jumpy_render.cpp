@@ -79,7 +79,7 @@ RenderString(temporary_memory *RenderMemory, render_group *RenderGroup,
     for(char C = *String; C; C = *(++String)){
         stbtt_aligned_quad Q;
         stbtt_GetBakedQuad(Font->CharData,
-                           Font->Width, Font->Height,
+                           Font->TextureWidth, Font->TextureHeight,
                            C-32, &X, &Y, &Q, 1);
         Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
         Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
@@ -156,7 +156,7 @@ GetStringAdvanceInPixels(font *Font, char *String){
     for(char C = *String; C; C = *(++String)){
         stbtt_aligned_quad Q;
         stbtt_GetBakedQuad(Font->CharData,
-                           Font->Width, Font->Height,
+                           Font->TextureWidth, Font->TextureHeight,
                            C-32, &X, &Y, &Q, 1);
         Result = Q.x1;
     }

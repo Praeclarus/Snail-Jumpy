@@ -15,20 +15,21 @@ UpdateAndRenderMainGame(platform_user_input *Input){
     UpdateAndRenderEntities(&RenderMemory, &RenderGroup, Input);
     
     f32 Y = 8;
-    f32 YAdvance = 0.2f;
     RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
                        {0.0f, 1.0f, 0.0f, 1.0f},
                        0.75f, Y, 0.0f, "Score: %u", GlobalScore);
-    Y -= YAdvance;
+    Y -= 0.2f;
     
-    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
+    f32 YAdvance = GlobalDebugFont.Size/RenderGroup.MetersToPixels;
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalDebugFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
                        0.75f, Y, 0.0f, "Counter: %.2f", GlobalCounter);
     Y -= YAdvance;
     
-    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalFont,
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalDebugFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       0.75f, Y, 0.0f, "Player velocity: %.2f %.2f", GlobalEntities[GlobalPlayerId].dP.X, GlobalEntities[GlobalPlayerId].dP.Y);
+                       0.75f, Y, 0.0f, "Player velocity: %.2f %.2f",
+                       GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
     Y -= YAdvance;
     Y -= YAdvance; // Exta spacing
     

@@ -10,7 +10,7 @@ RenderAllProfileData(temporary_memory *RenderMemory, render_group *RenderGroup,
         }
         
         f32 ActualX = X + (XAdvance*(f32)Block->Level);
-        RenderFormatString(RenderMemory, RenderGroup, &GlobalFont,
+        RenderFormatString(RenderMemory, RenderGroup, &GlobalDebugFont,
                            {0.0f, 0.0f, 0.0f, 1.0f},
                            ActualX, *Y, 0.0f,
                            "%s: %'llucy", Block->Name, Block->CycleCount);

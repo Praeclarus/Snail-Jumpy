@@ -1,6 +1,4 @@
 #define X(Name) global type_##Name *Name;
-
-
 OPENGL_FUNCTIONS
 #undef X
 
@@ -40,6 +38,8 @@ global_constant char *TextureVertexShaderSource =
 "    FragmentTexCoord = TexCoord;"
 "    FragmentColor = Color;"
 "}";
+// TODO(Tyler): I don't know if discarding the fragment is
+// the correct solution for handling alpha values in textures
 global_constant char *TextureFragmentShaderSource =
 "#version 330 core\n"
 "out vec4 FragColor;"
@@ -48,7 +48,11 @@ global_constant char *TextureFragmentShaderSource =
 "uniform sampler2D Texture;"
 "void main()"
 "{"
-"    FragColor = texture(Texture, FragmentTexCoord) * FragmentColor;"
+"    vec4 Color = texture(Texture, FragmentTexCoord) * FragmentColor;"
+"    if(Color.a < 0.1){"
+"        discard;"
+"    }"
+"    FragColor = Color;"
 "}";
 
 internal GLuint

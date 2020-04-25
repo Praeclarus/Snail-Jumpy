@@ -12,7 +12,8 @@
 #include "snail_jumpy.h"
 
 global font GlobalMainFont;
-global font GlobalFont;
+global font GlobalNormalFont;
+global font GlobalDebugFont;
 
 global s32 GlobalScore;
 global f32 GlobalCounter;
@@ -24,7 +25,7 @@ global memory_arena GlobalTransientStorageArena;
 
 global v2 GlobalLastMouseP;
 
-global game_mode GlobalGameMode = GameMode_Menu;
+global game_mode GlobalGameMode = GameMode_MainGame;
 
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
@@ -101,6 +102,8 @@ LoadFont(memory_arena *Arena,
     u8 *Bitmap = PushArray(Arena, u8, Width*Height);
     u32 *Pixels = PushArray(Arena, u32, Width*Height);
     
+    f32 Ascent, Descent, LineGap;
+    stbtt_GetScaledFontVMetrics(FileData, 0, Size, &Ascent, &Descent, &LineGap);
     stbtt_BakeFontBitmap(FileData, 0, Size, Bitmap, Width, Height, 32, 93, Font->CharData);
     
     // TODO(Tyler): Make this better!!! Maybe sse?
@@ -111,9 +114,12 @@ LoadFont(memory_arena *Arena,
     }
     
     Font->Texture = CreateRenderTexture((u8 *)Pixels, Width, Height);
-    Font->Width = Width;
-    Font->Height = Height;
+    Font->TextureWidth = Width;
+    Font->TextureHeight = Height;
     Font->Size = Size;
+    Font->Ascent = Ascent;
+    Font->Descent = Descent;
+    
     
     PopMemory(Arena, Width*Height*sizeof(u32));
     PopMemory(Arena, Width*Height);
@@ -165,36 +171,87 @@ InitializeGame(platform_user_input *Input){
     
     f32 TileSideInMeters = 0.5f;
     GlobalCoinData.TileSideInMeters = TileSideInMeters;
+    u32 WallCount = 0;
     for(f32 Y = 0; Y < 18; Y++){
         for(f32 X = 0; X < 32; X++){
             u32 TileId = TemplateMap[(u32)Y][(u32)X];
-            if(TileId == 1){
-                AddWall(v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
-            }else if(TileId == 2){
-                AddPhonyWall(v2{(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters}, TileSideInMeters);
-            }else if(TileId == 3){
-                GlobalCoinData.NumberOfCoinPs++;
+            if((TileId == 1) || (TileId == 2)){
+                WallCount++;
             }
         }
     }
     
-    AddSnail({12.0f, 1.1f});
-    AddSnail({ 2.0f, 5.0f});
-    AddSnail({ 7.5f, 3.5f});
-    AddSally({10.5f, 6.5f});
-    AddPlayer({1.5f, 1.5f});
-    AddCoin();
-    AddCoin();
-    AddCoin();
-    AddCoin();
-    AddCoin();
+    {
+        AllocateNEntities(WallCount, EntityType_Wall);
+        u32 CurrentWallId = 0;
+        for(f32 Y = 0; Y < 18; Y++){
+            for(f32 X = 0; X < 32; X++){
+                u32 TileId = TemplateMap[(u32)Y][(u32)X];
+                if(TileId == 3){
+                    GlobalCoinData.NumberOfCoinPs++;
+                    continue;
+                }else if(TileId == 0){
+                    continue;
+                }
+                
+                GlobalWalls[CurrentWallId].P = {(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters};
+                GlobalWalls[CurrentWallId].Width  = TileSideInMeters;
+                GlobalWalls[CurrentWallId].Height = TileSideInMeters;
+                
+                if(TileId == 1){
+                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000001;
+                }else if(TileId == 2){
+                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000002;
+                }
+                CurrentWallId++;
+            }
+        }
+    }
     
-    GlobalScore -= 5;
+    void *EntityMemory = PushMemory(&GlobalPermanentStorageArena, Megabytes(2));
+    InitializeArena(&GlobalEntityMemoryArena, EntityMemory, Megabytes(2));
+    
+    //AddNCoins();
+    {
+        u32 N = 5;
+        AllocateNEntities(N, EntityType_Coin);
+        for(u32 I = 0; I < N; I++){
+            GlobalCoins[I].Size = { 0.3f, 0.3f };
+            GlobalCoins[I].CollisionGroupFlag = 0x00000004;
+            UpdateCoin(I);
+            GlobalCoins[I].CooldownTime = 0.0f;
+        }
+        GlobalScore -= N; // HACK: UpdateCoin changes this value
+    }
+    
+    {
+        v2 Ps[] = {
+            {12.0f, 1.1f}, { 2.0f, 5.0f}, { 7.5f, 3.5f}, {10.5f, 6.5f}, {1.5f, 1.5f}
+        };
+        u32 N = 4;
+        AllocateNEntities(N, EntityType_Snail);
+        for(u32 I = 0; I < N; I++){
+            GlobalSnails[I].Size = { 0.4f, 0.4f };
+            GlobalSnails[I].P = Ps[I];
+            GlobalSnails[I].CollisionGroupFlag = 0x00000003;
+            
+            GlobalSnails[I].CurrentAnimation = SnailAnimation_Left;
+            GlobalSnails[I].AnimationGroup = Animation_Snail;
+            GlobalSnails[I].CurrentAnimationTime = 0.0f;
+            
+            GlobalSnails[I].SnailDirection = -1.0f;
+            GlobalSnails[I].Speed = 1.0f;
+        }
+    }
+    
+    AddPlayer({1.5f, 1.5f});
     
     // TODO(Tyler): Make LoadAssets take an arena
     LoadAssets(60.0f/0.5f);
     
-    LoadFont(&GlobalTransientStorageArena, &GlobalFont,
+    LoadFont(&GlobalTransientStorageArena, &GlobalDebugFont,
+             "c:/windows/fonts/Arial.ttf", 20, 512, 512);
+    LoadFont(&GlobalTransientStorageArena, &GlobalNormalFont,
              "Press-Start-2P.ttf", 16, 512, 512);
     LoadFont(&GlobalTransientStorageArena, &GlobalMainFont,
              "Press-Start-2P.ttf", 24, 512, 512);
@@ -235,7 +292,6 @@ UpdateAndRenderMenu(platform_user_input *Input){
     Y -= YAdvance;
     
     RenderAllProfileData(&RenderMemory, &RenderGroup, 100, &Y, 25, 24 );
-    
     
     if(RenderButton(&RenderMemory, &RenderGroup, 100, 100, 100, 30, "Play", Input)){
         GlobalGameMode = GameMode_MainGame;
