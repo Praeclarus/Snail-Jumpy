@@ -28,6 +28,7 @@ enum game_mode {
 *  - Investigate why the amount of time for the first frame is greater than
 *      succeeding frames
 *  - Better entity system
+*      - Improve entity allocation
 *      - Ability to remove entities from the system - Is this needed???
 *      - Change Snail AI, make it not depend on phony walls? Maybe use paths?
 *      - Possibly add a wall_group entity instead of having an individual entity for each

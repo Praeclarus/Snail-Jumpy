@@ -13,6 +13,10 @@ REM goto SnailJumpyPng
 
 rm *.pdb
 
+:SnailJumpyAssetEdit
+cl %COMPILE_OPTIONS% /Fe:AssetEdit.exe ..\src\tools\asset_edit.cpp /link %LINK_OPTIONS%
+REM AssetEdit
+
 :SnailJumpy
 cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:Win32SnailJumpy.exe ..\src\win32_snail_jumpy.cpp /link /PDB:"SnailJumpy%time:~3,2%%time:~6,2%.pdb" %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
 

@@ -10,7 +10,7 @@ struct stream {
 
 internal stream
 CreateReadStream(void *Buffer, umw BufferSize){
-    stream Result = {0};;
+    stream Result = {0};
     Result.Buffer = (u8 *)Buffer;
     Result.BufferSize = BufferSize;
     

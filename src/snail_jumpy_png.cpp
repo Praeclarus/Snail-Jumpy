@@ -12,7 +12,7 @@ struct entire_file {
 };
 
 internal entire_file
-ReadEntireEntireFile(char *Path) {
+ReadEntireFile(char *Path) {
     FILE *File = fopen(Path, "rb");
     Assert(File);
     entire_file Result = {0};
@@ -137,7 +137,7 @@ PushAndParsePngFile(memory_arena *MemoryArena, stream *Stream){
 
 int
 main(){
-    entire_file File = ReadEntireEntireFile("test.png");
+    entire_file File = ReadEntireFile("test.png");
     stream Stream = CreateReadStream(File.Data, File.Size);
     
     memory_arena Arena;

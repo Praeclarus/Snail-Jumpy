@@ -211,7 +211,6 @@ InitializeGame(platform_user_input *Input){
     void *EntityMemory = PushMemory(&GlobalPermanentStorageArena, Megabytes(2));
     InitializeArena(&GlobalEntityMemoryArena, EntityMemory, Megabytes(2));
     
-    //AddNCoins();
     {
         u32 N = 5;
         AllocateNEntities(N, EntityType_Coin);
