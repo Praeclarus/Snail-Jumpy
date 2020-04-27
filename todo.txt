@@ -1,0 +1,30 @@
+ - Better entity system
+     - Improve entity allocation
+     - Ability to remove entities from the system - Is this needed???
+     - Change Snail AI, make it not depend on phony walls? Maybe use paths?
+     - Possibly add a wall_group entity instead of having an individual entity for each
+           wall
+
+ - Improve asset system
+     - Origin for animations so it displays properly. - Is this needed???
+     - Formalize asset loading
+
+ - Hotloading
+     - Variables file a la Jonathan Blow's games
+     - Perhaps do searching in the map section of asset files
+
+ - Load PNG files (should I just use stb_image?)
+     Currently stb_image is being used.
+ - Use the new stb_truetype baking API
+
+ - Audio!!!
+ - Load WAV files
+ - Error logging system
+
+ - Multithreading & SIMD
+     How to go about this if we want compatibility with older and slower machines?
+ - Possibly create a 'legacy' OpenGL renderer that uses the fixed function pipeline
+     for older machines
+
+ - Investigate why the amount of time for the first frame is greater than
+     succeeding frames

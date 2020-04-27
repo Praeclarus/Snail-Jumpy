@@ -23,35 +23,4 @@ enum game_mode {
     GameMode_MainGame,
 };
 
-//~ TODO(Tyler):
-/*
-*  - Investigate why the amount of time for the first frame is greater than
-*      succeeding frames
-*  - Better entity system
-*      - Improve entity allocation
-*      - Ability to remove entities from the system - Is this needed???
-*      - Change Snail AI, make it not depend on phony walls? Maybe use paths?
-*      - Possibly add a wall_group entity instead of having an individual entity for each
-  *          wall
-*  - Improve asset system
-*      - Origin for animations so it displays properly. - Is this needed???
-*      - Formalize asset loading
-*  - Change renderer!
-*      - Z-Layer for rendering entities
- *  - Remove dll hotloading
-*  - Load PNG files (should I just use stb_image?)
-*      Currently stb_image is being used.
- *  - Test User interface
-*  - Audio!!!
-*  - Load WAV files
-*  - Error logging system
-*  - Possibly create a hotloaded variables file for easy tuning of variables
-*      a la Jonathan Blow's games
-*  - Multithreading & SIMD
-*  - Use the new stb_truetype baking API
-*  - Movement feel
-*  - Possibly create a 'legacy' OpenGL renderer that uses the fixed fucntion pipeline
-*/
-//~
-
 #endif

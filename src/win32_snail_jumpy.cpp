@@ -297,8 +297,11 @@ OPEN_FILE(OpenFile){
         Result = (platform_file *)File;
     }else{
         // TODO(Tyler): Logging
-        Result = {0};
-        Assert(0);
+        Result = 0;
+        DWORD Error = GetLastError();
+        if(Error != ERROR_SHARING_VIOLATION){
+            Assert(0);
+        }
     }
     
     return(Result);

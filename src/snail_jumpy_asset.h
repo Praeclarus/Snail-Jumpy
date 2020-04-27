@@ -41,4 +41,40 @@ struct asset_descriptor {
     f32 YOffset;
 };
 
+enum section {
+    Section_None,
+    
+    Section_Maps,
+    Section_Assets,
+};
+
+struct level_data {
+    u32 WidthInTiles;
+    u32 HeightInTiles;
+    u8 *MapData;
+    
+    u32 WallCount;
+};
+
+enum level {
+    Level_None,
+    
+    Level_level1,
+    Level_level2,
+    Level_level3,
+    Level_level4,
+    Level_level5,
+    
+    Level_TOTAL
+};
+
+enum attribute {
+    Attribute_None,
+    
+    Attribute_width,
+    Attribute_height,
+    Attribute_map,
+    Attribute_current_level,
+};
+
 #endif //SNAIL_JUMPY_ASSET_H

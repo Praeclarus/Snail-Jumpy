@@ -1,26 +1,18 @@
-global u32 GlobalPlayerId;
-global u32 GlobalEntityCounts[EntityType_TOTAL];
+global wall_entity *GlobalWalls;
+global u32 GlobalWallCount;
 
-// NOTE(Tyler): This might be a potential source of bugs in the future
-global_constant umw GlobalEntitySizeTable[EntityType_TOTAL] = {
-    sizeof(wall_entity), sizeof(coin_entity), sizeof(snail_entity), sizeof(player_entity)
-};
-global void *GlobalEntityArrays[EntityType_TOTAL];
-global entity_type GlobalCurrentEntityAllocationBlockType;
+global coin_entity *GlobalCoins;
+global u32 GlobalCoinCount;
+global coin_data GlobalCoinData;
+
+global snail_entity *GlobalSnails;
+global u32 GlobalSnailCount;
+
+global u32 GlobalPlayerId;
+global player_entity *GlobalPlayer;
 
 // TODO(Tyler): I don't really like needing to use macros to make it looks nice
 // so this is something to possibly change. Bugs could be highly likely
-#define GlobalCoins ((coin_entity *)GlobalEntityArrays[EntityType_Coin])
-#define GlobalCoinCount GlobalEntityCounts[EntityType_Coin]
-global coin_data GlobalCoinData;
-
-#define GlobalWalls ((wall_entity *)GlobalEntityArrays[EntityType_Wall])
-#define GlobalWallCount GlobalEntityCounts[EntityType_Wall]
-
-#define GlobalSnails ((snail_entity *)GlobalEntityArrays[EntityType_Snail])
-#define GlobalSnailCount GlobalEntityCounts[EntityType_Snail]
-
-#define GlobalPlayer ((player_entity *)GlobalEntityArrays[EntityType_Player])
 
 global memory_arena GlobalEntityMemoryArena;
 
@@ -28,8 +20,24 @@ internal void UpdateCoin(u32 Id);
 
 internal void
 AllocateNEntities(u32 N, entity_type Type){
-    GlobalEntityCounts[Type] = N;
-    GlobalEntityArrays[Type] = PushMemory(&GlobalPermanentStorageArena, N*GlobalEntitySizeTable[Type]);
+    switch(Type){
+        case EntityType_Wall: {
+            GlobalWallCount = N;
+            GlobalWalls = PushArray(&GlobalPermanentStorageArena, wall_entity, N);
+        }break;
+        case EntityType_Coin: {
+            GlobalCoinCount = N;
+            GlobalCoins = PushArray(&GlobalPermanentStorageArena, coin_entity, N);
+        }break;
+        case EntityType_Snail: {
+            GlobalSnailCount = N;
+            GlobalSnails = PushArray(&GlobalPermanentStorageArena, snail_entity, N);
+        }break;
+        case EntityType_Player: {
+            Assert(N == 1);
+            GlobalPlayer = PushArray(&GlobalPermanentStorageArena, player_entity, N);
+        }break;
+    }
 }
 
 internal u32
@@ -112,7 +120,6 @@ GetTileValue(u32 X, u32 Y){
 internal void
 UpdateCoin(u32 Id){
     GlobalScore++;
-    coin_entity *Coins = (coin_entity *)GlobalEntityArrays[EntityType_Coin];
     
     u32 RandomNumber = GlobalRandomNumberTable[(u32)(GlobalCounter*4132.0f + GlobalScore) % ArrayCount(GlobalRandomNumberTable)];
     RandomNumber %= GlobalCoinData.NumberOfCoinPs;
@@ -131,8 +138,8 @@ UpdateCoin(u32 Id){
         }
     }
     Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-    Coins[Id].P = NewP;
-    Coins[Id].CooldownTime = 1.0f;
+    GlobalCoins[Id].P = NewP;
+    GlobalCoins[Id].CooldownTime = 1.0f;
 }
 
 // TODO(Tyler): Fix the bug where high values for dTimeForFrame causes

@@ -25,14 +25,14 @@ global memory_arena GlobalTransientStorageArena;
 
 global v2 GlobalLastMouseP;
 
-global game_mode GlobalGameMode = GameMode_MainGame;
+global game_mode GlobalGameMode = GameMode_Menu;
 
+#include "snail_jumpy_hot_loading.cpp"
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
 #include "snail_jumpy_ui.cpp"
 #include "snail_jumpy_debug_ui.cpp"
-
 #include "snail_jumpy_game.cpp"
 
 internal void
@@ -142,7 +142,7 @@ InitializeGame(platform_user_input *Input){
         InitializeArena(&GlobalTransientStorageArena, Memory, Size);
     }
     
-    
+#if 0
     u8 TemplateMap[18][32] = {
         {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 1},
@@ -163,30 +163,29 @@ InitializeGame(platform_user_input *Input){
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
         {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     };
+#endif
     
-    GlobalCoinData.Tiles = PushArray(&GlobalPermanentStorageArena, u8, sizeof(TemplateMap));
-    CopyMemory(GlobalCoinData.Tiles, TemplateMap, sizeof(TemplateMap));
-    GlobalCoinData.XTiles = 32;
-    GlobalCoinData.YTiles = 18;
+    InitializeAssetHotLoading();
+    
+    void *EntityMemory = PushMemory(&GlobalPermanentStorageArena, Megabytes(2));
+    InitializeArena(&GlobalEntityMemoryArena, EntityMemory, Megabytes(2));
+    
+    AllocateNEntities(32*18, EntityType_Wall);
+    
+    LoadAssetFile("test_assets.sja");
     
     f32 TileSideInMeters = 0.5f;
+    GlobalCoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
+    GlobalCoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
+    GlobalCoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
     GlobalCoinData.TileSideInMeters = TileSideInMeters;
-    u32 WallCount = 0;
-    for(f32 Y = 0; Y < 18; Y++){
-        for(f32 X = 0; X < 32; X++){
-            u32 TileId = TemplateMap[(u32)Y][(u32)X];
-            if((TileId == 1) || (TileId == 2)){
-                WallCount++;
-            }
-        }
-    }
+    GlobalCoinData.NumberOfCoinPs = 0;
     
     {
-        AllocateNEntities(WallCount, EntityType_Wall);
         u32 CurrentWallId = 0;
         for(f32 Y = 0; Y < 18; Y++){
             for(f32 X = 0; X < 32; X++){
-                u32 TileId = TemplateMap[(u32)Y][(u32)X];
+                u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
                 if(TileId == 3){
                     GlobalCoinData.NumberOfCoinPs++;
                     continue;
@@ -207,9 +206,6 @@ InitializeGame(platform_user_input *Input){
             }
         }
     }
-    
-    void *EntityMemory = PushMemory(&GlobalPermanentStorageArena, Megabytes(2));
-    InitializeArena(&GlobalEntityMemoryArena, EntityMemory, Megabytes(2));
     
     {
         u32 N = 5;
@@ -305,6 +301,42 @@ internal void
 GameUpdateAndRender(platform_user_input *Input){
     GlobalTransientStorageArena.Used = 0;
     GlobalProfileData.CurrentBlockIndex = 0;
+    
+    LoadAssetFile("test_assets.sja");
+    
+    f32 TileSideInMeters = 0.5f;
+    GlobalCoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
+    GlobalCoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
+    GlobalCoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
+    GlobalCoinData.TileSideInMeters = TileSideInMeters;
+    GlobalCoinData.NumberOfCoinPs = 0;
+    
+    {
+        u32 CurrentWallId = 0;
+        for(f32 Y = 0; Y < 18; Y++){
+            for(f32 X = 0; X < 32; X++){
+                u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
+                if(TileId == 3){
+                    GlobalCoinData.NumberOfCoinPs++;
+                    continue;
+                }else if(TileId == 0){
+                    continue;
+                }
+                
+                GlobalWalls[CurrentWallId].P = {(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters};
+                GlobalWalls[CurrentWallId].Width  = TileSideInMeters;
+                GlobalWalls[CurrentWallId].Height = TileSideInMeters;
+                
+                if(TileId == 1){
+                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000001;
+                }else if(TileId == 2){
+                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000002;
+                }
+                CurrentWallId++;
+            }
+        }
+    }
+    
     
     switch(GlobalGameMode){
         case GameMode_MainGame: {
