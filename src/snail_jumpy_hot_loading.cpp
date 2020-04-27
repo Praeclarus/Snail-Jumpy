@@ -16,7 +16,7 @@ global hash_table GlobalLevelTable;
 global hash_table GlobalAttributeTable;
 
 global level GlobalLevelBeingRead;
-global level_data GlobalLevelData[Level_TOTAL];
+global level_data *GlobalLevelData;
 
 
 //~ Hash table

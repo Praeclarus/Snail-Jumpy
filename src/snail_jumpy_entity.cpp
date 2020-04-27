@@ -11,11 +11,6 @@ global u32 GlobalSnailCount;
 global u32 GlobalPlayerId;
 global player_entity *GlobalPlayer;
 
-// TODO(Tyler): I don't really like needing to use macros to make it looks nice
-// so this is something to possibly change. Bugs could be highly likely
-
-global memory_arena GlobalEntityMemoryArena;
-
 internal void UpdateCoin(u32 Id);
 
 internal void

@@ -58,7 +58,7 @@ UpdateAndRenderMainGame(platform_user_input *Input){
     Y -= YAdvance;
     
     Y -= YAdvance; // Exta spacing
-    RenderAllProfileData(&RenderMemory, &RenderGroup, 0.75f, &Y, 0.25f, YAdvance);
+    DebugRenderAllProfileData(&RenderMemory, &RenderGroup, 0.75f, &Y, 0.25f, YAdvance);
     
     
     RenderGroupToScreen(&RenderGroup);

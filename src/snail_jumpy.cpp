@@ -18,7 +18,7 @@ global font GlobalDebugFont;
 global s32 GlobalScore;
 global f32 GlobalCounter;
 
-global animation_group GlobalAnimations[Animation_TOTAL];
+global animation_group *GlobalAnimations;
 
 global memory_arena GlobalPermanentStorageArena;
 global memory_arena GlobalTransientStorageArena;
@@ -42,8 +42,6 @@ internal void
 LoadAssets(f32 MetersToPixels)
 {
     // TODO(Tyler): Formalize this
-    temporary_memory AssetLoadingMemory;
-    BeginTemporaryMemory(&GlobalTransientStorageArena, &AssetLoadingMemory, Megabytes(10));
     
     asset_descriptor AnimationInfoTable[Animation_TOTAL] = {
         {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 12, 12, 6, 3 },  0.0f },
@@ -59,7 +57,7 @@ LoadAssets(f32 MetersToPixels)
         
         platform_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
         u64 FileSize = GetFileSize(TestFile);
-        u8 *TestFileData = PushTemporaryArray(&AssetLoadingMemory, u8, FileSize);
+        u8 *TestFileData = PushArray(&GlobalTransientStorageArena, u8, FileSize);
         ReadFile(TestFile, 0, TestFileData, FileSize);
         CloseFile(TestFile);
         s32 Width, Height, Components;
@@ -89,8 +87,6 @@ LoadAssets(f32 MetersToPixels)
         
         CurrentAnimation->YOffset = AssetInfo->YOffset;
     }
-    
-    EndTemporaryMemory(&GlobalTransientStorageArena, &AssetLoadingMemory);
 }
 
 internal void
@@ -145,35 +141,11 @@ InitializeGame(platform_user_input *Input){
         InitializeArena(&GlobalTransientStorageArena, Memory, Size);
     }
     
-#if 0
-    u8 TemplateMap[18][32] = {
-        {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1},
-        {1, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 3, 3, 3, 3, 3, 3, 2, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    };
-#endif
-    
     InitializeAssetHotLoading();
-    
-    void *EntityMemory = PushMemory(&GlobalPermanentStorageArena, Megabytes(2));
-    InitializeArena(&GlobalEntityMemoryArena, EntityMemory, Megabytes(2));
+    GlobalLevelData = PushArray(&GlobalPermanentStorageArena, level_data, Level_TOTAL);
     
     AllocateNEntities(32*18, EntityType_Wall);
+    
     
     LoadAssetFile("test_assets.sja");
     
@@ -223,26 +195,44 @@ InitializeGame(platform_user_input *Input){
     }
     
     {
-        v2 Ps[] = {
-            {12.0f, 1.1f}, { 2.0f, 5.0f}, { 7.5f, 3.5f}, {10.5f, 6.5f}, {1.5f, 1.5f}
+        // TODO(Tyler): Formalize this!!!
+        struct {
+            v2 P;
+            animation Animation;
+        } SnailData[] = {
+            {{12.0f, 1.1f}, Animation_Snail},
+            {{ 2.0f, 5.0f}, Animation_Snail},
+            {{ 7.5f, 3.5f}, Animation_Snail},
+            {{10.5f, 6.5f}, Animation_Sally},
+            {{ 1.5f, 1.5f}, Animation_Snail}
         };
         u32 N = 4;
         AllocateNEntities(N, EntityType_Snail);
         for(u32 I = 0; I < N; I++){
-            GlobalSnails[I].Size = { 0.4f, 0.4f };
-            GlobalSnails[I].P = Ps[I];
+            if(SnailData[I].Animation == Animation_Snail){
+                GlobalSnails[I].Size = { 0.4f, 0.4f };
+                GlobalSnails[I].Speed = 1.0f;
+            }else{
+                GlobalSnails[I].Size = { 0.8f, 0.8f };
+                GlobalSnails[I].Speed = 0.5f;
+            }
+            GlobalSnails[I].P = SnailData[I].P;
             GlobalSnails[I].CollisionGroupFlag = 0x00000003;
             
             GlobalSnails[I].CurrentAnimation = SnailAnimation_Left;
-            GlobalSnails[I].AnimationGroup = Animation_Snail;
+            GlobalSnails[I].AnimationGroup = SnailData[I].Animation;
             GlobalSnails[I].CurrentAnimationTime = 0.0f;
             
             GlobalSnails[I].SnailDirection = -1.0f;
-            GlobalSnails[I].Speed = 1.0f;
+            
         }
     }
     
     AddPlayer({1.5f, 1.5f});
+    
+    GlobalAnimations =
+        PushArray(&GlobalPermanentStorageArena, animation_group, Animation_TOTAL);
+    
     
     // TODO(Tyler): Make LoadAssets take an arena
     LoadAssets(60.0f/0.5f);
@@ -289,7 +279,7 @@ UpdateAndRenderMenu(platform_user_input *Input){
                        100, Y, 0.0f, "Slider: %f", SliderPercent);
     Y -= YAdvance;
     
-    RenderAllProfileData(&RenderMemory, &RenderGroup, 100, &Y, 25, 24 );
+    DebugRenderAllProfileData(&RenderMemory, &RenderGroup, 100, &Y, 25, 24 );
     
     if(RenderButton(&RenderMemory, &RenderGroup, 100, 100, 100, 30, "Play", Input)){
         GlobalGameMode = GameMode_MainGame;

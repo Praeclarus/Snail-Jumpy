@@ -351,6 +351,9 @@ CLOSE_FILE(CloseFile){
 internal
 WRITE_TO_FILE(WriteToFile){
     DWORD BytesWritten;
+    LARGE_INTEGER DistanceToMove;
+    DistanceToMove.QuadPart = FileOffset;
+    SetFilePointerEx((HANDLE)File, DistanceToMove, 0, FILE_BEGIN);
     WriteFile((HANDLE)File, Buffer, (DWORD)BufferSize, &BytesWritten, 0);
     return(BytesWritten);
 }
