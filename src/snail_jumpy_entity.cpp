@@ -75,8 +75,7 @@ UpdateAnimation(entity *Entity, f32 dTimeForFrame){
 // TODO(Tyler): Fix where the bottom of the animation is rendered, make it coincide
 // with the bottom of the collision box
 internal void
-RenderEntityWithAnimation(temporary_memory *RenderMemory, render_group *RenderGroup,
-                          entity *Entity){
+RenderEntityWithAnimation(render_group *RenderGroup, entity *Entity){
     animation_group *Animation = &GlobalAnimations[Entity->AnimationGroup];
     v2 P = Entity->P;
     P.X -= Animation->SizeInMeters.Width/2.0f;
@@ -99,7 +98,7 @@ RenderEntityWithAnimation(temporary_memory *RenderMemory, render_group *RenderGr
     
     v2 MaxTexCoord = MinTexCoord + Animation->SizeInTexCoords;
     
-    RenderTexture(RenderMemory, RenderGroup,
+    RenderTexture(RenderGroup,
                   P, P+Animation->SizeInMeters, 0.0f,
                   Animation->SpriteSheet, MinTexCoord, MaxTexCoord);
 }
@@ -194,6 +193,8 @@ TestRectangle(v2 P1, v2 Size1, v2 Delta, v2 P2, v2 Size2,
 
 internal void
 MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
+    //TIMED_FUNCTION();
+    
     snail_entity *Entity = &GlobalSnails[EntityId];
     
     ddP += -2.5f*Entity->dP;
@@ -213,6 +214,21 @@ MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
         v2 CollisionNormal = {0};
         u32 CollisionEntityId = 0;
         
+        for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
+            wall_entity *WallEntity = &GlobalWalls[WallId];
+            
+            //if(WallEntity->CollisionGroupFlag & Entity->CollisionGroupFlag){
+            
+            if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                             WallEntity->P, WallEntity->Size,
+                             &CollisionTime, &CollisionNormal)){
+                CollisionType = CollisionType_Wall;
+                CollisionEntityId = WallId;
+            }
+            
+            //}
+        }
+        
         {
             if(!(GlobalPlayer->State & EntityState_Dead)){
                 if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
@@ -221,20 +237,6 @@ MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                     // Not needed, but is here for clarity
                     CollisionType = CollisionType_NormalEntity;
                     CollisionEntityId = 0;
-                }
-            }
-        }
-        
-        for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
-            wall_entity *WallEntity = &GlobalWalls[WallId];
-            
-            if(WallEntity->CollisionGroupFlag & Entity->CollisionGroupFlag){
-                
-                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
-                                 WallEntity->P, WallEntity->Size,
-                                 &CollisionTime, &CollisionNormal)){
-                    CollisionType = CollisionType_Wall;
-                    CollisionEntityId = WallId;
                 }
             }
         }
@@ -260,6 +262,8 @@ MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
 
 internal void
 MovePlayer(v2 ddP, f32 dTimeForFrame) {
+    //TIMED_FUNCTION();
+    
     entity *Entity = GlobalPlayer;
     
     ddP += -2.5f*Entity->dP;
@@ -361,33 +365,36 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
 }
 
 internal void
-UpdateAndRenderEntities(temporary_memory *RenderMemory,
-                        render_group *RenderGroup,
+UpdateAndRenderEntities(render_group *RenderGroup,
                         platform_user_input *Input){
     TIMED_FUNCTION();
     
+    BEGIN_BLOCK(WallEntities);
     for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
         wall_entity *Entity = &GlobalWalls[WallId];
         // TODO(Tyler): Do this differently
         if(Entity->CollisionGroupFlag == 0x00000001){
-            RenderRectangle(RenderMemory, RenderGroup,
+            RenderRectangle(RenderGroup,
                             Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2), 0.0f,
                             {1.0f, 1.0f, 1.0f, 1.0f});
         }
     }
+    END_BLOCK(WallEntities);
     
+    BEGIN_BLOCK(CoinEntities);
     for(u32 CoinId = 0; CoinId < GlobalCoinCount; CoinId++){
         coin_entity *Coin = &GlobalCoins[CoinId];
         if(Coin->CooldownTime > 0.0f){
             Coin->CooldownTime -= Input->dTimeForFrame;
         }else{
-            RenderRectangle(RenderMemory, RenderGroup,
-                            Coin->P-(Coin->Size/2), Coin->P+(
-                                                             Coin->Size/2), 0.0f,
+            RenderRectangle(RenderGroup,
+                            Coin->P-(Coin->Size/2), Coin->P+(Coin->Size/2), 0.0f,
                             {1.0f, 1.0f, 0.0f, 1.0f});
         }
     }
+    END_BLOCK(CoinEntities);
     
+    BEGIN_BLOCK(SnailEntities);
     for(u32 SnailId = 0; SnailId < GlobalSnailCount; SnailId++){
         snail_entity *Snail = &GlobalSnails[SnailId];
         v2 ddP = {
@@ -400,9 +407,11 @@ UpdateAndRenderEntities(temporary_memory *RenderMemory,
         PlayAnimation(Snail, AnimationIndex);
         
         UpdateAnimation(Snail, Input->dTimeForFrame);
-        RenderEntityWithAnimation(RenderMemory, RenderGroup, Snail);
+        RenderEntityWithAnimation(RenderGroup, Snail);
     }
+    END_BLOCK(SnailEntities);
     
+    BEGIN_BLOCK(PlayerUpdate);
     {
         if(!(GlobalPlayer->State & EntityState_Dead)){
             v2 ddP = {0};
@@ -445,6 +454,8 @@ UpdateAndRenderEntities(temporary_memory *RenderMemory,
                 GlobalPlayer->dP = {0, 0};
             }
         }
-        RenderEntityWithAnimation(RenderMemory, RenderGroup, GlobalPlayer);
+        RenderEntityWithAnimation(RenderGroup, GlobalPlayer);
     }
+    END_BLOCK(PlayerUpdate);
+    
 }

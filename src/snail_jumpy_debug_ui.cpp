@@ -1,6 +1,6 @@
 // TODO(Tyler): This also logs all the data
 internal void
-DebugRenderAllProfileData(temporary_memory *RenderMemory, render_group *RenderGroup,
+DebugRenderAllProfileData(render_group *RenderGroup,
                           f32 X, f32 *Y, f32 XAdvance, f32 YAdvance){
     for(u32 ProfileIndex = 0;
         ProfileIndex < ArrayCount(GlobalProfileData.Blocks);
@@ -11,7 +11,7 @@ DebugRenderAllProfileData(temporary_memory *RenderMemory, render_group *RenderGr
         }
         
         f32 ActualX = X + (XAdvance*(f32)Block->Level);
-        RenderFormatString(RenderMemory, RenderGroup, &GlobalDebugFont,
+        RenderFormatString(RenderGroup, &GlobalDebugFont,
                            {0.0f, 0.0f, 0.0f, 1.0f},
                            ActualX, *Y, 0.0f,
                            "%s: %'8llucy", Block->Name, Block->CycleCount);

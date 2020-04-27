@@ -146,7 +146,6 @@ InitializeGame(platform_user_input *Input){
     
     AllocateNEntities(32*18, EntityType_Wall);
     
-    
     LoadAssetFile("test_assets.sja");
     
     f32 TileSideInMeters = 0.5f;
@@ -233,7 +232,8 @@ InitializeGame(platform_user_input *Input){
     GlobalAnimations =
         PushArray(&GlobalPermanentStorageArena, animation_group, Animation_TOTAL);
     
-    
+    u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
+    GlobalDefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
     // TODO(Tyler): Make LoadAssets take an arena
     LoadAssets(60.0f/0.5f);
     
@@ -249,13 +249,9 @@ InitializeGame(platform_user_input *Input){
 
 internal void
 UpdateAndRenderMenu(platform_user_input *Input){
-    TIMED_FUNCTION();
-    
     render_group RenderGroup;
     
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, 512);
-    temporary_memory RenderMemory;
-    BeginTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory, Kilobytes(64));
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
     RenderGroup.OutputSize = Input->WindowSize;
@@ -263,37 +259,38 @@ UpdateAndRenderMenu(platform_user_input *Input){
     
     f32 Y = Input->WindowSize.Height - 124;
     f32 YAdvance = 30;
-    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
+    RenderFormatString(&RenderGroup, &GlobalMainFont,
                        BLACK, 100, Y, 0.0f, "Counter: %f", GlobalCounter);
     Y -= YAdvance;
-    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
+    RenderFormatString(&RenderGroup, &GlobalMainFont,
                        BLACK, 100, Y, 0.0f, "Mouse P: %f %f", Input->MouseP.X, Input->MouseP.Y);
     Y -= YAdvance;
     
     local_persist f32 SliderPercent = 0.5f;
-    RenderSliderInputBar(&RenderMemory, &RenderGroup,
+    RenderSliderInputBar(&RenderGroup,
                          100, Y, 1000, 30, 100, &SliderPercent, Input);
     Y-= YAdvance;
-    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalMainFont,
+    RenderFormatString(&RenderGroup, &GlobalMainFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
                        100, Y, 0.0f, "Slider: %f", SliderPercent);
     Y -= YAdvance;
     
-    DebugRenderAllProfileData(&RenderMemory, &RenderGroup, 100, &Y, 25, 24 );
+    DebugRenderAllProfileData(&RenderGroup, 100, &Y, 25, 24 );
     
-    if(RenderButton(&RenderMemory, &RenderGroup, 100, 100, 100, 30, "Play", Input)){
+    
+    if(RenderButton(&RenderGroup, 100, 100, 100, 30, "Play", Input)){
         GlobalGameMode = GameMode_MainGame;
     }
     
     RenderGroupToScreen(&RenderGroup);
-    
-    EndTemporaryMemory(&GlobalTransientStorageArena, &RenderMemory);
 }
 
 internal void
 GameUpdateAndRender(platform_user_input *Input){
     GlobalTransientStorageArena.Used = 0;
     GlobalProfileData.CurrentBlockIndex = 0;
+    
+    TIMED_FUNCTION();
     
     LoadAssetFile("test_assets.sja");
     

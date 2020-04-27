@@ -4,7 +4,7 @@
 // TODO(Tyler): To make this better remove the MetersToPixels concept from the renderer,
 // make it a part of the interface to the renderer
 internal void
-RenderSliderInputBar(temporary_memory *RenderMemory, render_group *RenderGroup,
+RenderSliderInputBar(render_group *RenderGroup,
                      f32 X, f32 Y,
                      f32 Width, f32 Height, f32 CursorWidth,
                      f32 *SliderPercent,
@@ -32,12 +32,12 @@ RenderSliderInputBar(temporary_memory *RenderMemory, render_group *RenderGroup,
     }
     
     // Bar
-    RenderRectangle(RenderMemory, RenderGroup,
+    RenderRectangle(RenderGroup,
                     {X, Y},
                     {X+Width, Y+Height},
                     -0.1f, {0.1f, 0.3f, 0.2f, 0.9f});
     // Cursor
-    RenderRectangle(RenderMemory, RenderGroup,
+    RenderRectangle(RenderGroup,
                     {X+CursorX, Y},
                     {X+CursorX+CursorWidth, Y+Height},
                     -0.2f, CursorColor);
@@ -46,14 +46,14 @@ RenderSliderInputBar(temporary_memory *RenderMemory, render_group *RenderGroup,
     *SliderPercent = CursorX/(Width-CursorWidth);
     f32 TextY = Y + (Height/2) - (GlobalNormalFont.Ascent/2/RenderGroup->MetersToPixels);
     f32 TextWidth = GetFormatStringAdvanceInMeters(RenderGroup, &GlobalNormalFont, "%.2f", *SliderPercent );
-    RenderFormatString(RenderMemory, RenderGroup, &GlobalNormalFont,
+    RenderFormatString(RenderGroup, &GlobalNormalFont,
                        {1.0f, 1.0f, 1.0f, 0.9f},
                        X + (Width-TextWidth)/2, TextY, -0.3f,
                        "%.2f", *SliderPercent );
 }
 
 internal b32
-RenderButton(temporary_memory *RenderMemory, render_group *RenderGroup,
+RenderButton(render_group *RenderGroup,
              f32 X, f32 Y, f32 Width, f32 Height, char *Text, platform_user_input *Input){
     
     color ButtonColor = {0.1f, 0.3f, 0.2f, 0.9f};
@@ -69,11 +69,11 @@ RenderButton(temporary_memory *RenderMemory, render_group *RenderGroup,
         }
     }
     
-    RenderRectangle(RenderMemory, RenderGroup,
+    RenderRectangle(RenderGroup,
                     {X, Y}, {X+Width, Y+Height},
                     -0.1f, ButtonColor);
     f32 TextWidth = GetStringAdvanceInMeters(RenderGroup, &GlobalNormalFont, Text);
-    RenderString(RenderMemory, RenderGroup,
+    RenderString(RenderGroup,
                  &GlobalNormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
                  X+(Width/2)-(TextWidth/2), Y+(Height/2)-(GlobalNormalFont.Ascent/2), -0.2f,
                  Text);

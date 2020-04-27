@@ -124,9 +124,9 @@ EndTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory){
 }
 
 //~ Helpers
-internal umw
+internal u32
 CStringLength(char *String){
-    umw Result = 0;
+    u32 Result = 0;
     for(char C = *String; C; C=*(++String)){
         Result++;
     }

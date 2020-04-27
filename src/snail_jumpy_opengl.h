@@ -390,8 +390,9 @@ typedef void type_glUniformMatrix3x4fv(GLint location, GLsizei count, GLboolean 
 typedef void type_glUniformMatrix4x3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef void type_glDeleteVertexArrays(GLsizei n, const GLuint *arrays);
 typedef void type_glDeleteBuffers(GLsizei n, const GLuint * buffers);
+typedef void type_glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, void *indices, GLint basevertex);
 
-// TODO(Tyler): Omve this to win32 specific code
+// TODO(Tyler): Move this to win32 specific code
 typedef void type_wglSwapIntervalEXT(GLint interval);
 
 #define OPENGL_FUNCTIONS  \
@@ -431,7 +432,15 @@ X(glUniformMatrix3x4fv)       \
 X(glUniformMatrix4x3fv)       \
 X(glDeleteVertexArrays)       \
 X(glDeleteBuffers)       \
-X(wglSwapIntervalEXT)
+X(wglSwapIntervalEXT)       \
+X(glDrawElementsBaseVertex)
+
+//~
+
+struct basic_program {
+    GLuint Id;
+    GLint ProjectionLocation;
+};
 
 #endif //SNAIL_JUMPY_OPENGL_H
 

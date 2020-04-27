@@ -2,9 +2,9 @@
 OPENGL_FUNCTIONS
 #undef X
 
-global GLuint GlobalTextureShaderProgram;
-global GLuint GlobalColorShaderProgram;
+global basic_program GlobalTextureShaderProgram;
 
+#if 0
 global_constant char *ColorVertexShaderSource =
 "#version 330 core \n"
 "layout (location = 0) in vec3 Position;"
@@ -24,6 +24,7 @@ global_constant char *ColorFragmentShaderSource =
 "{"
 "    FragColor = FragmentColor;"
 "}";
+#endif
 
 global_constant char *TextureVertexShaderSource =
 "#version 330 core \n"
@@ -55,7 +56,7 @@ global_constant char *TextureFragmentShaderSource =
 "    FragColor = Color;"
 "}";
 
-internal GLuint
+internal basic_program
 GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShaderSource){
     
     GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -85,38 +86,35 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
             Assert(0);
         }
     }
-    GLuint ShaderProgram = glCreateProgram();
-    glAttachShader(ShaderProgram, VertexShader);
-    glAttachShader(ShaderProgram, FragmentShader);
-    glLinkProgram(ShaderProgram);
+    basic_program Result;
+    Result.Id = glCreateProgram();
+    glAttachShader(Result.Id, VertexShader);
+    glAttachShader(Result.Id, FragmentShader);
+    glLinkProgram(Result.Id);
     {
         s32 Status;
         char Buffer[512];
-        glGetProgramiv(ShaderProgram, GL_LINK_STATUS, &Status);
+        glGetProgramiv(Result.Id, GL_LINK_STATUS, &Status);
         if(!Status){
             // TODO(Tyler): Logging
-            glGetProgramInfoLog(ShaderProgram, 512, 0, Buffer);
+            glGetProgramInfoLog(Result.Id, 512, 0, Buffer);
             Assert(0);
         }
     }
-    return(ShaderProgram);
+    
+    glUseProgram(Result.Id);
+    Result.ProjectionLocation = glGetUniformLocation(Result.Id, "Projection");
+    Assert(Result.ProjectionLocation != -1);
+    return(Result);
 }
 
-internal void
-GlUseUniformMatrix(GLuint ShaderProgram, char *Name, f32 Matrix[16]){
-    glUseProgram(ShaderProgram);
-    GLint ProjectionLocation = glGetUniformLocation(ShaderProgram, Name);
-    Assert(ProjectionLocation != -1);
-    glUniformMatrix4fv(ProjectionLocation, 1, GL_FALSE, Matrix);
-}
-
-//~ API
+//~ Render API
 
 internal
 INITIALIZE_RENDERER(InitializeRenderer){
     GlobalTextureShaderProgram =
         GlCompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);
-    GlobalColorShaderProgram = GlCompileShaderProgram(ColorVertexShaderSource, ColorFragmentShaderSource);
+    //GlobalColorShaderProgram = GlCompileShaderProgram(ColorVertexShaderSource, ColorFragmentShaderSource);
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -172,33 +170,23 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
         -1, -1, 0, 1,
     };
     
-    GlUseUniformMatrix(GlobalTextureShaderProgram, "Projection", Projection);
-    GlUseUniformMatrix(GlobalColorShaderProgram, "Projection", Projection);
+    glUseProgram(GlobalTextureShaderProgram.Id);
+    glUniformMatrix4fv(GlobalTextureShaderProgram.ProjectionLocation, 1, GL_FALSE, Projection);
     
-    //u64 CycleCountSum = 0;
+    glBufferData(GL_ARRAY_BUFFER,
+                 RenderGroup->VertexCount*sizeof(vertex), RenderGroup->Vertices,
+                 GL_STREAM_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 RenderGroup->IndexCount*sizeof(u32), RenderGroup->Indices,
+                 GL_STREAM_DRAW);
     
+    u32 IndexOffset = 0;
     for(u32 Index = 0; Index < RenderGroup->Count; Index++){
         render_item *Item = &RenderGroup->Items[Index];
-        GLuint ShaderProgram = GlobalColorShaderProgram;
-        if(Item->Texture){
-            ShaderProgram = GlobalTextureShaderProgram;
-            glBindTexture(GL_TEXTURE_2D, Item->Texture);
-        }
-        
-        glUseProgram(ShaderProgram);
-        
-        glBufferData(GL_ARRAY_BUFFER, Item->VertexCount*sizeof(vertex), Item->Vertices, GL_DYNAMIC_DRAW);
-        
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, Item->IndexCount*sizeof(u32), Item->Indices, GL_DYNAMIC_DRAW);
-        
-        
-        //u64 StartCycleCount = __rdtsc();
-        glDrawElements(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_INT, 0);
-        //CycleCountSum += __rdtsc() - StartCycleCount;
+        glBindTexture(GL_TEXTURE_2D, Item->Texture);
+        glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_SHORT, (void*)(IndexOffset*sizeof(u16)), Item->VertexOffset);
+        IndexOffset += Item->IndexCount;
     }
-    
-    //EndProfiledBlock(BeginProfiledBlock("Cycles"), CycleCountSum);
-    //EndProfiledBlock(BeginProfiledBlock("Hits"), RenderGroup->Count);
 }
 
 internal

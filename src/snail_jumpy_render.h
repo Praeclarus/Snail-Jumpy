@@ -1,7 +1,6 @@
 #ifndef SNAIL_JUMPY_RENDER_H
 #define SNAIL_JUMPY_RENDER_H
 
-// TODO(Tyler): Perhaps make this SOA and passed to the GPU that way
 struct vertex {
     f32 P[3];
     f32 Color[4];
@@ -10,17 +9,25 @@ struct vertex {
 
 typedef u32 render_texture_handle;
 struct render_item {
-    // NOTE(Tyler): Formatted as {X, Y, Z,  R, G, B, A,  U, V}
-    vertex *Vertices;
-    umw VertexCount;
-    u32 *Indices;
-    umw IndexCount;
+    u32 VertexOffset;
+    //u32 IndexOffset;
+    u32 IndexCount;
     render_texture_handle Texture;
 };
 
+// TODO(Tyler): Rename this to something better
 struct render_group {
+    vertex *Vertices;
+    u32 VertexCount;
+    u32 MaxVertexCount;
+    
+    u16 *Indices;
+    u32 IndexCount;
+    u32 MaxIndexCount;
+    
     render_item *Items;
     u64 Count, MaxCount;
+    
     f32 MetersToPixels;
     color BackgroundColor;
     v2 OutputSize;
