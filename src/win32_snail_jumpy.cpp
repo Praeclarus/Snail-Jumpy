@@ -95,9 +95,9 @@ Win32MainWindowProc(HWND Window,
             b8 IsDown = ((LParam & (1UL << 31)) == 0);
             if (WasDown != IsDown)
             {
-                if (VkCode == 'W'){
+                if (VkCode == VK_UP){
                     Win32ProcessKeyboardInput(&UserInput.UpButton, IsDown);
-                }else if(VkCode == 'S'){
+                }else if(VkCode == VK_DOWN){
                     Win32ProcessKeyboardInput(&UserInput.DownButton, IsDown);
                 }else if(VkCode == VK_LEFT){
                     Win32ProcessKeyboardInput(&UserInput.LeftButton, IsDown);
@@ -431,6 +431,12 @@ WinMain(HINSTANCE Instance,
                 
                 // TODO(Tyler): Multithreading
                 GameUpdateAndRender(&UserInput);
+                
+                UserInput.UpButton.HalfTransitionCount = 0;
+                UserInput.DownButton.HalfTransitionCount = 0;
+                UserInput.LeftButton.HalfTransitionCount = 0;
+                UserInput.RightButton.HalfTransitionCount = 0;
+                UserInput.JumpButton.HalfTransitionCount = 0;
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                 UserInput.PossibledTimeForFrame = SecondsElapsed;

@@ -27,6 +27,9 @@ global v2 GlobalLastMouseP;
 
 global game_mode GlobalGameMode = GameMode_Menu;
 
+// TODO(Tyler): Load this from a variables file at startup
+global level GlobalCurrentLevel = Level_level1;
+
 #include "snail_jumpy_hot_loading.cpp"
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
@@ -336,6 +339,7 @@ GameUpdateAndRender(platform_user_input *Input){
             }
         }
     }
+    GlobalWallCount = GlobalLevelData[GlobalCurrentLevel].WallCount;
     
     
     switch(GlobalGameMode){

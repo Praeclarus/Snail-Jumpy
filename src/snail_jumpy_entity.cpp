@@ -219,13 +219,14 @@ MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
         u32 CollisionEntityId = 0;
         
         {
-            entity *OtherEntity = GlobalPlayer;
-            if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
-                             OtherEntity->P, OtherEntity->Size,
-                             &CollisionTime, &CollisionNormal)){
-                // Not needed, but is here for clarity
-                CollisionType = CollisionType_NormalEntity;
-                CollisionEntityId = 0;
+            if(!(GlobalPlayer->State & EntityState_Dead)){
+                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                                 GlobalPlayer->P, GlobalPlayer->Size,
+                                 &CollisionTime, &CollisionNormal)){
+                    // Not needed, but is here for clarity
+                    CollisionType = CollisionType_NormalEntity;
+                    CollisionEntityId = 0;
+                }
             }
         }
         
@@ -412,7 +413,7 @@ UpdateAndRenderEntities(temporary_memory *RenderMemory,
             v2 ddP = {0};
             
             if((GlobalPlayer->JumpTime < 0.1f) &&
-               (Input->JumpButton.EndedDown)){
+               Input->JumpButton.EndedDown){
                 ddP.Y += 70.0f;
                 GlobalPlayer->JumpTime += Input->dTimeForFrame;
             }else{

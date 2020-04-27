@@ -12,14 +12,15 @@ struct platform_user_input {
     f32 dTimeForFrame;
     f32 PossibledTimeForFrame;
     
-    platform_button_state UpButton;    // 'W'
-    platform_button_state DownButton;  // 'S'
-    platform_button_state LeftButton;  // 'A'
-    platform_button_state RightButton; // 'D'
-    platform_button_state JumpButton;  // Spacebar
+    platform_button_state UpButton;
+    platform_button_state DownButton;
+    platform_button_state LeftButton;
+    platform_button_state RightButton;
+    platform_button_state JumpButton;
     
     v2 WindowSize;
     
+    // TODO(Tyler): Formalize mouse buttons, this is currently just a hacky solution
     v2 MouseP;
     b8 IsLeftMouseButtonDown;
     b8 IsMiddleMouseButtonDown;

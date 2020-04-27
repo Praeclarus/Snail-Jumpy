@@ -1,6 +1,19 @@
+
+
 internal void
 UpdateAndRenderMainGame(platform_user_input *Input){
     TIMED_FUNCTION();
+    if(Input->UpButton.EndedDown && (Input->UpButton.HalfTransitionCount%2 == 1)){
+        GlobalCurrentLevel = (level)((u32)GlobalCurrentLevel + 1);
+        if(GlobalCurrentLevel == Level_TOTAL){
+            GlobalCurrentLevel = Level_level1;
+        }
+    }else if(Input->DownButton.EndedDown && (Input->DownButton.HalfTransitionCount%2 == 1)){
+        GlobalCurrentLevel = (level)((u32)GlobalCurrentLevel - 1);
+        if(GlobalCurrentLevel == Level_None){
+            GlobalCurrentLevel = Level_level5;
+        }
+    }
     
     render_group RenderGroup;
     
@@ -31,8 +44,20 @@ UpdateAndRenderMainGame(platform_user_input *Input){
                        0.75f, Y, 0.0f, "Player velocity: %.2f %.2f",
                        GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
     Y -= YAdvance;
-    Y -= YAdvance; // Exta spacing
     
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalDebugFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       0.75f, Y, 0.0f, "Use up and down arrows to change levels");
+    Y -= YAdvance;
+    char *LevelTable[Level_TOTAL] = {
+        0, "level1", "level2", "level3", "level4", "level5",
+    };
+    RenderFormatString(&RenderMemory, &RenderGroup, &GlobalDebugFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       0.75f, Y, 0.0f, "Current level: %s", LevelTable[GlobalCurrentLevel]);
+    Y -= YAdvance;
+    
+    Y -= YAdvance; // Exta spacing
     RenderAllProfileData(&RenderMemory, &RenderGroup, 0.75f, &Y, 0.25f, YAdvance);
     
     

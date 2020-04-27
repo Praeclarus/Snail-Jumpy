@@ -15,7 +15,7 @@ global hash_table GlobalSectionTable;
 global hash_table GlobalLevelTable;
 global hash_table GlobalAttributeTable;
 
-global level GlobalCurrentLevel = Level_None;
+global level GlobalLevelBeingRead;
 global level_data GlobalLevelData[Level_TOTAL];
 
 
@@ -152,8 +152,8 @@ ReadNumber(char **Pointer){
 
 internal inline u8 *
 ReadMap(char **Pointer){
-    u32 Size = (GlobalLevelData[GlobalCurrentLevel].WidthInTiles *
-                GlobalLevelData[GlobalCurrentLevel].HeightInTiles);
+    u32 Size = (GlobalLevelData[GlobalLevelBeingRead].WidthInTiles *
+                GlobalLevelData[GlobalLevelBeingRead].HeightInTiles);
     Assert(Size);
     u8 *MapData = PushArray(&GlobalTransientStorageArena, u8, Size);
     Assert(MapData);
@@ -165,7 +165,7 @@ ReadMap(char **Pointer){
             u8 Value = *(*Pointer)++ - '0';
             MapData[CurrentMapIndex++] = Value;
             if((Value == 1) || (Value == 2)){
-                GlobalLevelData[GlobalCurrentLevel].WallCount++;
+                GlobalLevelData[GlobalLevelBeingRead].WallCount++;
             }
         }else if((**Pointer == '}')){
             (*Pointer)++;
@@ -182,7 +182,10 @@ ReadMap(char **Pointer){
 
 internal u32
 ParseMapsSection(char **Pointer){
-    GlobalCurrentLevel = Level_None;
+    GlobalLevelBeingRead = Level_None;
+    for(u32 I = 0; I < Level_TOTAL; I++){
+        GlobalLevelData[I] = {0};
+    }
     
     u32 Result = 0;
     while(**Pointer){
@@ -201,7 +204,7 @@ ParseMapsSection(char **Pointer){
             u32 Size = ReadIdentifier(Buffer, sizeof(Buffer), Pointer);
             u64 Level = FindInHashTable(&GlobalLevelTable, Buffer);
             Assert(Level);
-            GlobalCurrentLevel = (level)Level;
+            GlobalLevelBeingRead= (level)Level;
         }else if(**Pointer == '@'){
             (*Pointer)++;
             char Buffer[128];
@@ -214,15 +217,15 @@ ParseMapsSection(char **Pointer){
             switch(Attribute){
                 case Attribute_width: {
                     u32 Value = ReadNumber(Pointer);
-                    GlobalLevelData[GlobalCurrentLevel].WidthInTiles = Value;
+                    GlobalLevelData[GlobalLevelBeingRead].WidthInTiles = Value;
                 }break;
                 case Attribute_height: {
                     u32 Value = ReadNumber(Pointer);
-                    GlobalLevelData[GlobalCurrentLevel].HeightInTiles = Value;
+                    GlobalLevelData[GlobalLevelBeingRead].HeightInTiles = Value;
                 }break;
                 case Attribute_map: {
                     u8 *MapData = ReadMap(Pointer);
-                    GlobalLevelData[GlobalCurrentLevel].MapData = MapData;
+                    GlobalLevelData[GlobalLevelBeingRead].MapData = MapData;
                 }break;
 #if 0
                 case Attribute_current_level: {
