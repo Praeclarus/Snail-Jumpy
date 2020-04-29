@@ -94,7 +94,7 @@ AbsoluteValue(f32 A)
     return(Result);
 }
 
-//~ Vtors
+//~ Vectors
 
 typedef union v2 v2;
 union v2

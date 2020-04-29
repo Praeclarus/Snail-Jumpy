@@ -1,5 +1,11 @@
+ - CHANGE THE MetersToPixels CONCEPT!!!!!!!!!!!
+ ----------------------------------------------
+
+ - Create a "sub_arena" type that can be allocated directly from a memory arena
+
  - Better entity system
      - Improve entity allocation
+         - Its almost there
      - Ability to remove entities from the system - Is this needed???
      - Change Snail AI, make it not depend on phony walls? Maybe use paths?
      - Possibly add a wall_group entity instead of having an individual entity for each

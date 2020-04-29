@@ -105,6 +105,8 @@ Win32MainWindowProc(HWND Window,
                     Win32ProcessKeyboardInput(&UserInput.RightButton, IsDown);
                 }else if(VkCode == ' '){
                     Win32ProcessKeyboardInput(&UserInput.JumpButton, IsDown);
+                }else if(VkCode == 'E'){
+                    Win32ProcessKeyboardInput(&UserInput.E, IsDown);
                 }
                 
                 if(IsDown){
@@ -117,22 +119,22 @@ Win32MainWindowProc(HWND Window,
             }
         }break;
         case WM_LBUTTONDOWN: {
-            UserInput.IsLeftMouseButtonDown = true;
+            Win32ProcessKeyboardInput(&UserInput.LeftMouseButton, true);
         }break;
         case WM_LBUTTONUP: {
-            UserInput.IsLeftMouseButtonDown = false;
+            Win32ProcessKeyboardInput(&UserInput.LeftMouseButton, false);
         }break;
         case WM_MBUTTONDOWN: {
-            UserInput.IsMiddleMouseButtonDown = true;
+            Win32ProcessKeyboardInput(&UserInput.MiddleMouseButton, true);
         }break;
         case WM_MBUTTONUP: {
-            UserInput.IsMiddleMouseButtonDown = false;
+            Win32ProcessKeyboardInput(&UserInput.MiddleMouseButton, false);
         }break;
         case WM_RBUTTONDOWN: {
-            UserInput.IsRightMouseButtonDown = true;
+            Win32ProcessKeyboardInput(&UserInput.RightMouseButton, true);
         }break;
         case WM_RBUTTONUP: {
-            UserInput.IsRightMouseButtonDown = false;
+            Win32ProcessKeyboardInput(&UserInput.RightMouseButton, false);
         }break;
         default: {
             Result = DefWindowProcA(Window, Message, WParam, LParam);
@@ -435,11 +437,18 @@ WinMain(HINSTANCE Instance,
                 // TODO(Tyler): Multithreading
                 GameUpdateAndRender(&UserInput);
                 
+                // TODO(Tyler): This is already a source of bugs do something different
+                // perhaps make the buttons an array inside a union?
                 UserInput.UpButton.HalfTransitionCount = 0;
                 UserInput.DownButton.HalfTransitionCount = 0;
                 UserInput.LeftButton.HalfTransitionCount = 0;
                 UserInput.RightButton.HalfTransitionCount = 0;
                 UserInput.JumpButton.HalfTransitionCount = 0;
+                UserInput.E.HalfTransitionCount = 0;
+                UserInput.LeftMouseButton.HalfTransitionCount = 0;
+                UserInput.MiddleMouseButton.HalfTransitionCount = 0;
+                UserInput.RightMouseButton.HalfTransitionCount = 0;
+                
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                 UserInput.PossibledTimeForFrame = SecondsElapsed;
@@ -480,6 +489,9 @@ WinMain(HINSTANCE Instance,
         // TODO(Tyler): Error logging!
         OutputDebugString("Failed to register window class!");
     }
+    
+    // TODO(Tyler): Do this more formally
+    WriteAssetFile("test_assets.sja");
     
     return(0);
 }

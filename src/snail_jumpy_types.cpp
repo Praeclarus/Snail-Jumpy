@@ -36,6 +36,21 @@ typedef double f64;
 #define Gigabytes(Size) (1024L*(u64)Megabytes(Size))
 #define Assert(Expr) {if (!(Expr)) __debugbreak();};
 
+#define U8_MAX  0xff
+#define U16_MAX 0xffff
+#define U32_MAX 0xffffffff
+#define U64_MAX 0xffffffffffffffff
+
+#define S8_MAX  0x7f
+#define S16_MAX 0x7fff
+#define S32_MAX 0x7fffffff
+#define S64_MAX 0x7fffffffffffffff
+
+#define S8_MIN  0x80
+#define S16_MIN 0x8000
+#define S32_MIN 0x80000000
+#define S64_MIN 0x8000000000000000
+
 //~ Memory arena
 
 // NOTE(Tyler): Must be initialized to zero when first created
@@ -44,7 +59,7 @@ struct memory_arena {
     u8 *Memory;
     umw Used;
     umw Size;
-    u32 TemporaryCount;
+    u32 TempCount;
 };
 
 internal void
@@ -80,48 +95,127 @@ CopyMemory(void *To, void *From, umw Size) {
     }
 }
 
-struct temporary_memory {
+struct temp_memory {
     u8 *Memory;
     umw Used;
     umw Size;
 };
 
 internal void
-BeginTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory, umw Size){
-    Arena->TemporaryCount++;
+BeginTempMemory(memory_arena *Arena, temp_memory *TempMemory, umw Size){
+    Arena->TempCount++;
     Assert((Arena->Used+Size) < Arena->Size);
-    TemporaryMemory->Memory = Arena->Memory+Arena->Used;
+    TempMemory->Memory = Arena->Memory+Arena->Used;
     Arena->Used += Size;
-    TemporaryMemory->Size = Size;
-    TemporaryMemory->Used = 0;
+    TempMemory->Size = Size;
+    TempMemory->Used = 0;
 }
 
-#define PushTemporaryStruct(Arena, Type) (Type *)PushTemporaryMemory(Arena, sizeof(Type))
-#define PushTemporaryArray(Arena, Type, Count) (Type *)PushTemporaryMemory(Arena, sizeof(Type)*(Count))
+#define PushTempStruct(Arena, Type) (Type *)PushTempMemory(Arena, sizeof(Type))
+#define PushTempArray(Arena, Type, Count) (Type *)PushTempMemory(Arena, sizeof(Type)*(Count))
 internal void *
-PushTemporaryMemory(temporary_memory *TemporaryMemory, umw Size){
-    Assert((TemporaryMemory->Used + Size) < TemporaryMemory->Size);
-    void *Result = TemporaryMemory->Memory+TemporaryMemory->Used;
-    TemporaryMemory->Used += Size;
+PushTempMemory(temp_memory *TempMemory, umw Size){
+    Assert((TempMemory->Used + Size) < TempMemory->Size);
+    void *Result = TempMemory->Memory+TempMemory->Used;
+    TempMemory->Used += Size;
     return(Result);
 }
 
 // TODO(Tyler): Possibly do more checking here
 internal void
-PopTemporaryMemory(temporary_memory *TemporaryMemory, umw Size){
-    Assert(TemporaryMemory->Used > Size);
-    TemporaryMemory->Used -= Size;
+PopTempMemory(temp_memory *TempMemory, umw Size){
+    Assert(TempMemory->Used > Size);
+    TempMemory->Used -= Size;
 };
 
 internal void
-EndTemporaryMemory(memory_arena *Arena, temporary_memory *TemporaryMemory){
-    Assert(Arena->TemporaryCount > 0);
+EndTempMemory(memory_arena *Arena, temp_memory *TempMemory){
+    Assert(Arena->TempCount > 0);
     
-    u8 *Address = (Arena->Memory+Arena->Used) - TemporaryMemory->Size;
-    Assert(Address == TemporaryMemory->Memory);
+    u8 *Address = (Arena->Memory+Arena->Used) - TempMemory->Size;
+    Assert(Address == TempMemory->Memory);
     
-    Arena->Used -= TemporaryMemory->Size;
+    Arena->Used -= TempMemory->Size;
 }
+
+//~ Simple hash table
+struct hash_table {
+    u32 BucketsUsed;
+    u32 MaxBuckets;
+    u64 *Keys;
+    char **Strings;
+    u64 *Values;
+};
+
+internal u64
+HashString(char *String) {
+    u64 Result = 71984823;
+    while(s32 Char = *String++) {
+        Result += (Char << 5) * 3;
+        Result *= Char;
+    }
+    return(Result);
+}
+
+internal void
+InitializeHashTable(memory_arena *Arena, hash_table *Table, u32 MaxBuckets){
+    Table->BucketsUsed = 0;
+    Table->MaxBuckets = MaxBuckets;
+    Table->Keys = PushArray(Arena, u64, MaxBuckets);
+    Table->Strings = PushArray(Arena, char *, MaxBuckets);
+    Table->Values = PushArray(Arena, u64, MaxBuckets);
+}
+
+internal void
+InsertIntoHashTable(hash_table *Table, char *String, u64 Value){
+    u64 Hash = HashString(String);
+    if(Hash == 0){Hash++;}
+    
+    u32 Index = Hash % Table->MaxBuckets;
+    if(Index == 0){ Index++; }
+    while(u64 TestHash = Table->Keys[Index]) {
+        if(Index == 0){ Index++; }
+        if((TestHash == Hash) &&
+           (strcmp(String, Table->Strings[Index]) == 0)){
+            break;
+        }else if(TestHash == 0){
+            break;
+        }else{
+            Index++;
+            Index %= Table->MaxBuckets;
+        }
+    }
+    Assert(Index != 0);
+    
+    Table->Keys[Index] = Hash;
+    Table->Strings[Index] = String;
+    Table->Values[Index] = Value;
+}
+
+internal u64
+FindInHashTable(hash_table *Table, char *String){
+    u64 Hash = HashString(String);
+    if(Hash == 0){Hash++;}
+    
+    u32 Index = Hash % Table->MaxBuckets;
+    if(Index == 0){ Index++; }
+    while(u64 TestHash = Table->Keys[Index]) {
+        if(Index == 0){ Index++; }
+        if((TestHash == Hash) &&
+           (strcmp(String, Table->Strings[Index]) == 0)){
+            break;
+        }else if(TestHash == 0){
+            break;
+        }else{
+            Index++;
+            Index %= Table->MaxBuckets;
+        }
+    }
+    
+    u64 Result = Table->Values[Index];
+    return(Result);
+}
+
 
 //~ Helpers
 internal u32

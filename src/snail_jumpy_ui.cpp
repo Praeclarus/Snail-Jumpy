@@ -1,5 +1,6 @@
 
 #define BLACK color{0.0f, 0.0f, 0.0f, 1.0f}
+#define WHITE color{1.0f, 1.0f, 1.0f, 1.0f}
 
 // TODO(Tyler): To make this better remove the MetersToPixels concept from the renderer,
 // make it a part of the interface to the renderer
@@ -21,7 +22,7 @@ RenderSliderInputBar(render_group *RenderGroup,
        (Y-YMargin < LastMouseP.Y) && (LastMouseP.Y < Y+Height+YMargin)){
         
         CursorColor = {0.5f, 0.8f, 0.6f, 0.9f};
-        if(Input->IsLeftMouseButtonDown){
+        if(Input->LeftMouseButton.EndedDown){
             CursorX = MouseP.X-X-(CursorWidth/2);
             if((CursorX+CursorWidth) > (Width)){
                 CursorX = Width-CursorWidth;
@@ -61,7 +62,7 @@ RenderButton(render_group *RenderGroup,
     b32 Result = false;
     if((X < MouseP.X) && (MouseP.X < X+Width) &&
        (Y < MouseP.Y) && (MouseP.Y < Y+Height)){
-        if(Input->IsLeftMouseButtonDown){
+        if(IsButtonJustPressed(&Input->LeftMouseButton)){
             ButtonColor = {0.5f, 0.8f, 0.6f, 0.9f};
             Result = true;
         }else{
@@ -73,9 +74,10 @@ RenderButton(render_group *RenderGroup,
                     {X, Y}, {X+Width, Y+Height},
                     -0.1f, ButtonColor);
     f32 TextWidth = GetStringAdvanceInMeters(RenderGroup, &GlobalNormalFont, Text);
+    f32 HeightOffset = (GlobalNormalFont.Ascent/RenderGroup->MetersToPixels/2);
     RenderString(RenderGroup,
                  &GlobalNormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
-                 X+(Width/2)-(TextWidth/2), Y+(Height/2)-(GlobalNormalFont.Ascent/2), -0.2f,
+                 X+(Width/2)-(TextWidth/2), Y+(Height/2)-HeightOffset, -0.2f,
                  Text);
     
     return(Result);

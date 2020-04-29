@@ -20,11 +20,12 @@ struct platform_user_input {
     
     v2 WindowSize;
     
-    // TODO(Tyler): Formalize mouse buttons, this is currently just a hacky solution
     v2 MouseP;
-    b8 IsLeftMouseButtonDown;
-    b8 IsMiddleMouseButtonDown;
-    b8 IsRightMouseButtonDown;
+    platform_button_state LeftMouseButton;
+    platform_button_state MiddleMouseButton;
+    platform_button_state RightMouseButton;
+    
+    platform_button_state E;
 };
 
 struct platform_file;
@@ -37,6 +38,7 @@ enum _open_file_flags {
 };
 typedef u8 open_file_flags;
 
+// TODO(Tyler): Stop using macros here!
 #define OPEN_FILE(Name) platform_file *Name(const char *Path, open_file_flags Flags)
 internal OPEN_FILE(OpenFile);
 
@@ -54,5 +56,12 @@ internal GET_FILE_SIZE(GetFileSize);
 
 #define ALLOCATE_VIRTUAL_MEMORY(Name) void *Name(umw Size)
 internal ALLOCATE_VIRTUAL_MEMORY(AllocateVirtualMemory);
+
+// TODO(Tyler): Find a better spot for these
+internal inline b32
+IsButtonJustPressed(platform_button_state *Button){
+    b32 Result = Button->EndedDown && (Button->HalfTransitionCount%2 == 1);
+    return(Result);
+}
 
 #endif

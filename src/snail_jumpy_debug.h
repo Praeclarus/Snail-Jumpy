@@ -13,7 +13,7 @@ struct profile_data {
     u32 CurrentLevel;
 };
 
-// TODO(Tyler): Move this once there is a more appropriate spot for it
+// TODO(Tyler): Move this once there is a better spot
 global profile_data GlobalProfileData;
 
 internal u32

@@ -21,6 +21,7 @@ struct font {
 enum game_mode {
     GameMode_Menu,
     GameMode_MainGame,
+    GameMode_Editor,
 };
 
 #endif

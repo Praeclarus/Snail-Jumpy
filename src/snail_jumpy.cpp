@@ -11,6 +11,7 @@
 
 #include "snail_jumpy.h"
 
+
 global font GlobalMainFont;
 global font GlobalNormalFont;
 global font GlobalDebugFont;
@@ -25,18 +26,22 @@ global memory_arena GlobalTransientStorageArena;
 
 global v2 GlobalLastMouseP;
 
-global game_mode GlobalGameMode = GameMode_Menu;
-
 // TODO(Tyler): Load this from a variables file at startup
-global level GlobalCurrentLevel = Level_level1;
+global game_mode GlobalGameMode = GameMode_MainGame;
+global u32 GlobalLevelCount;
+global u32 GlobalCurrentLevel;
+global level_data *GlobalLevelData;
 
-#include "snail_jumpy_hot_loading.cpp"
+
+#include "snail_jumpy_asset.cpp"
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
 #include "snail_jumpy_ui.cpp"
 #include "snail_jumpy_debug_ui.cpp"
+#include "snail_jumpy_menu.cpp"
 #include "snail_jumpy_game.cpp"
+#include "snail_jumpy_editor.cpp"
 
 internal void
 LoadAssets(f32 MetersToPixels)
@@ -135,99 +140,18 @@ InitializeGame(platform_user_input *Input){
         Assert(Memory);
         InitializeArena(&GlobalPermanentStorageArena, Memory, Size);
     }{
-        umw Size = Gigabytes(2);
+        umw Size = Gigabytes(1);
         void *Memory = AllocateVirtualMemory(Size);
         Assert(Memory);
         InitializeArena(&GlobalTransientStorageArena, Memory, Size);
     }
     
-    InitializeAssetHotLoading();
-    GlobalLevelData = PushArray(&GlobalPermanentStorageArena, level_data, Level_TOTAL);
-    
-    AllocateNEntities(32*18, EntityType_Wall);
+    BeginTempMemory(&GlobalPermanentStorageArena, &GlobalEntityMemory, Kilobytes(64));
+    BeginTempMemory(&GlobalPermanentStorageArena, &GlobalLevelMemory, Kilobytes(4));
+    BeginTempMemory(&GlobalPermanentStorageArena, &GlobalMapDataMemory, Kilobytes(64));
     
     LoadAssetFile("test_assets.sja");
-    
-    f32 TileSideInMeters = 0.5f;
-    GlobalCoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
-    GlobalCoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
-    GlobalCoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
-    GlobalCoinData.TileSideInMeters = TileSideInMeters;
-    GlobalCoinData.NumberOfCoinPs = 0;
-    
-    {
-        u32 CurrentWallId = 0;
-        for(f32 Y = 0; Y < 18; Y++){
-            for(f32 X = 0; X < 32; X++){
-                u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
-                if(TileId == 3){
-                    GlobalCoinData.NumberOfCoinPs++;
-                    continue;
-                }else if(TileId == 0){
-                    continue;
-                }
-                
-                GlobalWalls[CurrentWallId].P = {(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters};
-                GlobalWalls[CurrentWallId].Width  = TileSideInMeters;
-                GlobalWalls[CurrentWallId].Height = TileSideInMeters;
-                
-                if(TileId == 1){
-                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000001;
-                }else if(TileId == 2){
-                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000002;
-                }
-                CurrentWallId++;
-            }
-        }
-    }
-    
-    {
-        u32 N = 5;
-        AllocateNEntities(N, EntityType_Coin);
-        for(u32 I = 0; I < N; I++){
-            GlobalCoins[I].Size = { 0.3f, 0.3f };
-            GlobalCoins[I].CollisionGroupFlag = 0x00000004;
-            UpdateCoin(I);
-            GlobalCoins[I].CooldownTime = 0.0f;
-        }
-        GlobalScore -= N; // HACK: UpdateCoin changes this value
-    }
-    
-    {
-        // TODO(Tyler): Formalize this!!!
-        struct {
-            v2 P;
-            animation Animation;
-        } SnailData[] = {
-            {{12.0f, 1.1f}, Animation_Snail},
-            {{ 2.0f, 5.0f}, Animation_Snail},
-            {{ 7.5f, 3.5f}, Animation_Snail},
-            {{10.5f, 6.5f}, Animation_Sally},
-            {{ 1.5f, 1.5f}, Animation_Snail}
-        };
-        u32 N = 4;
-        AllocateNEntities(N, EntityType_Snail);
-        for(u32 I = 0; I < N; I++){
-            if(SnailData[I].Animation == Animation_Snail){
-                GlobalSnails[I].Size = { 0.4f, 0.4f };
-                GlobalSnails[I].Speed = 1.0f;
-            }else{
-                GlobalSnails[I].Size = { 0.8f, 0.8f };
-                GlobalSnails[I].Speed = 0.5f;
-            }
-            GlobalSnails[I].P = SnailData[I].P;
-            GlobalSnails[I].CollisionGroupFlag = 0x00000003;
-            
-            GlobalSnails[I].CurrentAnimation = SnailAnimation_Left;
-            GlobalSnails[I].AnimationGroup = SnailData[I].Animation;
-            GlobalSnails[I].CurrentAnimationTime = 0.0f;
-            
-            GlobalSnails[I].SnailDirection = -1.0f;
-            
-        }
-    }
-    
-    AddPlayer({1.5f, 1.5f});
+    LoadAllEntities();
     
     GlobalAnimations =
         PushArray(&GlobalPermanentStorageArena, animation_group, Animation_TOTAL);
@@ -248,86 +172,11 @@ InitializeGame(platform_user_input *Input){
 }
 
 internal void
-UpdateAndRenderMenu(platform_user_input *Input){
-    render_group RenderGroup;
-    
-    InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, 512);
-    
-    RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    RenderGroup.OutputSize = Input->WindowSize;
-    RenderGroup.MetersToPixels = 1.0f;
-    
-    f32 Y = Input->WindowSize.Height - 124;
-    f32 YAdvance = 30;
-    RenderFormatString(&RenderGroup, &GlobalMainFont,
-                       BLACK, 100, Y, 0.0f, "Counter: %f", GlobalCounter);
-    Y -= YAdvance;
-    RenderFormatString(&RenderGroup, &GlobalMainFont,
-                       BLACK, 100, Y, 0.0f, "Mouse P: %f %f", Input->MouseP.X, Input->MouseP.Y);
-    Y -= YAdvance;
-    
-    local_persist f32 SliderPercent = 0.5f;
-    RenderSliderInputBar(&RenderGroup,
-                         100, Y, 1000, 30, 100, &SliderPercent, Input);
-    Y-= YAdvance;
-    RenderFormatString(&RenderGroup, &GlobalMainFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, 0.0f, "Slider: %f", SliderPercent);
-    Y -= YAdvance;
-    
-    DebugRenderAllProfileData(&RenderGroup, 100, &Y, 25, 24 );
-    
-    
-    if(RenderButton(&RenderGroup, 100, 100, 100, 30, "Play", Input)){
-        GlobalGameMode = GameMode_MainGame;
-    }
-    
-    RenderGroupToScreen(&RenderGroup);
-}
-
-internal void
 GameUpdateAndRender(platform_user_input *Input){
     GlobalTransientStorageArena.Used = 0;
     GlobalProfileData.CurrentBlockIndex = 0;
     
     TIMED_FUNCTION();
-    
-    LoadAssetFile("test_assets.sja");
-    
-    f32 TileSideInMeters = 0.5f;
-    GlobalCoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
-    GlobalCoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
-    GlobalCoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
-    GlobalCoinData.TileSideInMeters = TileSideInMeters;
-    GlobalCoinData.NumberOfCoinPs = 0;
-    
-    {
-        u32 CurrentWallId = 0;
-        for(f32 Y = 0; Y < 18; Y++){
-            for(f32 X = 0; X < 32; X++){
-                u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
-                if(TileId == 3){
-                    GlobalCoinData.NumberOfCoinPs++;
-                    continue;
-                }else if(TileId == 0){
-                    continue;
-                }
-                
-                GlobalWalls[CurrentWallId].P = {(X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters};
-                GlobalWalls[CurrentWallId].Width  = TileSideInMeters;
-                GlobalWalls[CurrentWallId].Height = TileSideInMeters;
-                
-                if(TileId == 1){
-                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000001;
-                }else if(TileId == 2){
-                    GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000002;
-                }
-                CurrentWallId++;
-            }
-        }
-    }
-    GlobalWallCount = GlobalLevelData[GlobalCurrentLevel].WallCount;
-    
     
     switch(GlobalGameMode){
         case GameMode_MainGame: {
@@ -335,6 +184,9 @@ GameUpdateAndRender(platform_user_input *Input){
         }break;
         case GameMode_Menu: {
             UpdateAndRenderMenu(Input);
+        }break;
+        case GameMode_Editor: {
+            UpdateAndRenderEditor(Input);
         }break;
     }
     

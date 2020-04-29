@@ -56,18 +56,6 @@ struct level_data {
     u32 WallCount;
 };
 
-enum level {
-    Level_None,
-    
-    Level_level1,
-    Level_level2,
-    Level_level3,
-    Level_level4,
-    Level_level5,
-    
-    Level_TOTAL
-};
-
 enum attribute {
     Attribute_None,
     

@@ -1,3 +1,6 @@
+
+global temp_memory GlobalEntityMemory;
+
 global wall_entity *GlobalWalls;
 global u32 GlobalWallCount;
 
@@ -18,19 +21,19 @@ AllocateNEntities(u32 N, entity_type Type){
     switch(Type){
         case EntityType_Wall: {
             GlobalWallCount = N;
-            GlobalWalls = PushArray(&GlobalPermanentStorageArena, wall_entity, N);
+            GlobalWalls = PushTempArray(&GlobalEntityMemory, wall_entity, N);
         }break;
         case EntityType_Coin: {
             GlobalCoinCount = N;
-            GlobalCoins = PushArray(&GlobalPermanentStorageArena, coin_entity, N);
+            GlobalCoins = PushTempArray(&GlobalEntityMemory, coin_entity, N);
         }break;
         case EntityType_Snail: {
             GlobalSnailCount = N;
-            GlobalSnails = PushArray(&GlobalPermanentStorageArena, snail_entity, N);
+            GlobalSnails = PushTempArray(&GlobalEntityMemory, snail_entity, N);
         }break;
         case EntityType_Player: {
             Assert(N == 1);
-            GlobalPlayer = PushArray(&GlobalPermanentStorageArena, player_entity, N);
+            GlobalPlayer = PushTempArray(&GlobalEntityMemory, player_entity, N);
         }break;
     }
 }
@@ -38,6 +41,8 @@ AllocateNEntities(u32 N, entity_type Type){
 internal u32
 AddPlayer(v2 P){
     AllocateNEntities(1, EntityType_Player);
+    *GlobalPlayer = {0};
+    
     GlobalPlayer->Width = 0.25f;
     GlobalPlayer->Height = 0.5f;
     
@@ -59,6 +64,102 @@ PlayAnimation(entity *Entity, u32 AnimationIndex){
     }
 }
 
+internal void
+LoadAllEntities(){
+    if(GlobalEntityMemory.Used != 0){ GlobalEntityMemory.Used = 0; }
+    
+    // TODO(Tyler): Change this!!!
+    AllocateNEntities(GlobalLevelData[GlobalCurrentLevel].WallCount, EntityType_Wall);
+    
+    f32 TileSideInMeters = 0.5f;
+    GlobalCoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
+    GlobalCoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
+    GlobalCoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
+    GlobalCoinData.TileSideInMeters = TileSideInMeters;
+    GlobalCoinData.NumberOfCoinPs = 0;
+    
+    u32 SnailCount = 0;
+    {
+        u32 CurrentSnailId = 0;
+        u32 CurrentWallId = 0;
+        for(f32 Y = 0; Y < 18; Y++){
+            for(f32 X = 0; X < 32; X++){
+                u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
+                if(TileId == 3){
+                    GlobalCoinData.NumberOfCoinPs++;
+                    continue;
+                }else if((TileId == 1) || (TileId == 2)){
+                    GlobalWalls[CurrentWallId].P = {0};
+                    GlobalWalls[CurrentWallId].P = {
+                        (X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters
+                    };
+                    GlobalWalls[CurrentWallId].Width  = TileSideInMeters;
+                    GlobalWalls[CurrentWallId].Height = TileSideInMeters;
+                    
+                    if(TileId == 1){
+                        GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000001;
+                    }else if(TileId == 2){
+                        GlobalWalls[CurrentWallId].CollisionGroupFlag = 0x00000002;
+                    }
+                    CurrentWallId++;
+                }else if(TileId == 4){
+                    SnailCount++;
+                }
+            }
+        }
+        
+        GlobalWallCount = CurrentWallId;
+        GlobalSnailCount = CurrentSnailId;
+    }
+    
+    
+    {
+        u32 N = Minimum(5, GlobalCoinData.NumberOfCoinPs);
+        AllocateNEntities(N, EntityType_Coin);
+        for(u32 I = 0; I < N; I++){
+            GlobalCoins[I].Size = { 0.3f, 0.3f };
+            GlobalCoins[I].CollisionGroupFlag = 0x00000004;
+            UpdateCoin(I);
+            GlobalCoins[I].CooldownTime = 0.0f;
+        }
+        GlobalScore -= N; // HACK: UpdateCoin changes this value
+    }
+    
+    AllocateNEntities(SnailCount, EntityType_Snail);
+    {
+        u32 CurrentSnailId = 0;
+        for(f32 Y = 0; Y < 18; Y++){
+            for(f32 X = 0; X < 32; X++){
+                u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
+                if(TileId == 4){
+                    Assert(CurrentSnailId < SnailCount);
+                    
+                    GlobalSnails[CurrentSnailId] = {0};
+                    
+                    GlobalSnails[CurrentSnailId].P = {
+                        (X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters
+                    };
+                    GlobalSnails[CurrentSnailId].Size = { 0.4f, 0.4f };
+                    GlobalSnails[CurrentSnailId].Speed = 1.0f;
+                    GlobalSnails[CurrentSnailId].CollisionGroupFlag = 0x00000003;
+                    
+                    GlobalSnails[CurrentSnailId].CurrentAnimation = SnailAnimation_Left;
+                    GlobalSnails[CurrentSnailId].AnimationGroup = Animation_Snail;
+                    
+                    GlobalSnails[CurrentSnailId].CurrentAnimationTime = 0.0f;
+                    GlobalSnails[CurrentSnailId].SnailDirection = -1.0f;
+                    
+                    CurrentSnailId++;
+                }
+            }
+        }
+        
+    }
+    
+    // TODO(Tyler): Formalize player starting position
+    AddPlayer({1.5f, 1.5f});
+}
+
 // TODO(Tyler): Combine UpdateAnimation and RenderEntityWithAnimation into a single function
 internal b32
 UpdateAnimation(entity *Entity, f32 dTimeForFrame){
@@ -72,8 +173,6 @@ UpdateAnimation(entity *Entity, f32 dTimeForFrame){
     return(Result);
 }
 
-// TODO(Tyler): Fix where the bottom of the animation is rendered, make it coincide
-// with the bottom of the collision box
 internal void
 RenderEntityWithAnimation(render_group *RenderGroup, entity *Entity){
     animation_group *Animation = &GlobalAnimations[Entity->AnimationGroup];
@@ -115,25 +214,27 @@ internal void
 UpdateCoin(u32 Id){
     GlobalScore++;
     
-    u32 RandomNumber = GlobalRandomNumberTable[(u32)(GlobalCounter*4132.0f + GlobalScore) % ArrayCount(GlobalRandomNumberTable)];
-    RandomNumber %= GlobalCoinData.NumberOfCoinPs;
-    u32 CurrentCoinP = 0;
-    v2 NewP = {};
-    for(f32 Y = 0; Y < GlobalCoinData.YTiles; Y++){
-        for(f32 X = 0; X < GlobalCoinData.XTiles; X++){
-            u8 Tile = GetTileValue((u32)X, (u32)Y);
-            if(Tile == 3){
-                if(RandomNumber == CurrentCoinP++){
-                    NewP.X = (X+0.5f)*GlobalCoinData.TileSideInMeters;
-                    NewP.Y = (Y+0.5f)*GlobalCoinData.TileSideInMeters;
-                    break;
+    if(GlobalCoinData.NumberOfCoinPs){
+        u32 RandomNumber = GlobalRandomNumberTable[(u32)(GlobalCounter*4132.0f + GlobalScore) % ArrayCount(GlobalRandomNumberTable)];
+        RandomNumber %= GlobalCoinData.NumberOfCoinPs;
+        u32 CurrentCoinP = 0;
+        v2 NewP = {};
+        for(f32 Y = 0; Y < GlobalCoinData.YTiles; Y++){
+            for(f32 X = 0; X < GlobalCoinData.XTiles; X++){
+                u8 Tile = GetTileValue((u32)X, (u32)Y);
+                if(Tile == 3){
+                    if(RandomNumber == CurrentCoinP++){
+                        NewP.X = (X+0.5f)*GlobalCoinData.TileSideInMeters;
+                        NewP.Y = (Y+0.5f)*GlobalCoinData.TileSideInMeters;
+                        break;
+                    }
                 }
             }
         }
+        Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
+        GlobalCoins[Id].P = NewP;
+        GlobalCoins[Id].CooldownTime = 1.0f;
     }
-    Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-    GlobalCoins[Id].P = NewP;
-    GlobalCoins[Id].CooldownTime = 1.0f;
 }
 
 // TODO(Tyler): Fix the bug where high values for dTimeForFrame causes
@@ -217,16 +318,14 @@ MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
         for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
             wall_entity *WallEntity = &GlobalWalls[WallId];
             
-            //if(WallEntity->CollisionGroupFlag & Entity->CollisionGroupFlag){
-            
-            if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
-                             WallEntity->P, WallEntity->Size,
-                             &CollisionTime, &CollisionNormal)){
-                CollisionType = CollisionType_Wall;
-                CollisionEntityId = WallId;
+            if(WallEntity->CollisionGroupFlag & Entity->CollisionGroupFlag){
+                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                                 WallEntity->P, WallEntity->Size,
+                                 &CollisionTime, &CollisionNormal)){
+                    CollisionType = CollisionType_Wall;
+                    CollisionEntityId = WallId;
+                }
             }
-            
-            //}
         }
         
         {
@@ -262,8 +361,6 @@ MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
 
 internal void
 MovePlayer(v2 ddP, f32 dTimeForFrame) {
-    //TIMED_FUNCTION();
-    
     entity *Entity = GlobalPlayer;
     
     ddP += -2.5f*Entity->dP;
@@ -274,7 +371,6 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
     
     v2 NewEntityP = Entity->P + EntityDelta;
     
-    
     collision_type CollisionType = CollisionType_NormalEntity;
     f32 TimeRemaining = 1.0f;
     for(u32 Iteration = 0;
@@ -283,24 +379,6 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
         f32 CollisionTime = 1.0f;
         v2 CollisionNormal = {0};
         u32 CollisionEntityId = 0;
-        
-        for(u32 SnailId = 0; SnailId < GlobalSnailCount; SnailId++){
-            
-            snail_entity *OtherEntity = &GlobalSnails[SnailId];
-            
-            if((Entity->CollisionGroupFlag & OtherEntity->CollisionGroupFlag) &&
-               !(GlobalSnails[SnailId].State&EntityState_Dead)){
-                
-                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
-                                 OtherEntity->P, OtherEntity->Size,
-                                 &CollisionTime, &CollisionNormal)){
-                    // Not needed, but is here for clarity
-                    CollisionType = CollisionType_NormalEntity;
-                    CollisionEntityId = SnailId;
-                }
-                
-            }
-        }
         
         for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
             wall_entity *WallEntity = &GlobalWalls[WallId];
@@ -330,6 +408,23 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
             }
         }
         
+        for(u32 SnailId = 0; SnailId < GlobalSnailCount; SnailId++){
+            
+            snail_entity *OtherEntity = &GlobalSnails[SnailId];
+            
+            if((Entity->CollisionGroupFlag & OtherEntity->CollisionGroupFlag) &&
+               !(GlobalSnails[SnailId].State&EntityState_Dead)){
+                
+                if(TestRectangle(Entity->P, Entity->Size, EntityDelta,
+                                 OtherEntity->P, OtherEntity->Size,
+                                 &CollisionTime, &CollisionNormal)){
+                    // Not needed, but is here for clarity
+                    CollisionType = CollisionType_NormalEntity;
+                    CollisionEntityId = SnailId;
+                }
+                
+            }
+        }
         
         if(CollisionTime < 1.0f){
             // TODO(Tyler): Find a way to remove DiscardCollision
@@ -369,7 +464,7 @@ UpdateAndRenderEntities(render_group *RenderGroup,
                         platform_user_input *Input){
     TIMED_FUNCTION();
     
-    BEGIN_BLOCK(WallEntities);
+    //BEGIN_BLOCK(WallEntities);
     for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
         wall_entity *Entity = &GlobalWalls[WallId];
         // TODO(Tyler): Do this differently
@@ -379,9 +474,9 @@ UpdateAndRenderEntities(render_group *RenderGroup,
                             {1.0f, 1.0f, 1.0f, 1.0f});
         }
     }
-    END_BLOCK(WallEntities);
+    //END_BLOCK(WallEntities);
     
-    BEGIN_BLOCK(CoinEntities);
+    //BEGIN_BLOCK(CoinEntities);
     for(u32 CoinId = 0; CoinId < GlobalCoinCount; CoinId++){
         coin_entity *Coin = &GlobalCoins[CoinId];
         if(Coin->CooldownTime > 0.0f){
@@ -392,9 +487,9 @@ UpdateAndRenderEntities(render_group *RenderGroup,
                             {1.0f, 1.0f, 0.0f, 1.0f});
         }
     }
-    END_BLOCK(CoinEntities);
+    //END_BLOCK(CoinEntities);
     
-    BEGIN_BLOCK(SnailEntities);
+    //BEGIN_BLOCK(SnailEntities);
     for(u32 SnailId = 0; SnailId < GlobalSnailCount; SnailId++){
         snail_entity *Snail = &GlobalSnails[SnailId];
         v2 ddP = {
@@ -409,9 +504,9 @@ UpdateAndRenderEntities(render_group *RenderGroup,
         UpdateAnimation(Snail, Input->dTimeForFrame);
         RenderEntityWithAnimation(RenderGroup, Snail);
     }
-    END_BLOCK(SnailEntities);
+    //END_BLOCK(SnailEntities);
     
-    BEGIN_BLOCK(PlayerUpdate);
+    //BEGIN_BLOCK(PlayerUpdate);
     {
         if(!(GlobalPlayer->State & EntityState_Dead)){
             v2 ddP = {0};
@@ -456,6 +551,6 @@ UpdateAndRenderEntities(render_group *RenderGroup,
         }
         RenderEntityWithAnimation(RenderGroup, GlobalPlayer);
     }
-    END_BLOCK(PlayerUpdate);
+    //END_BLOCK(PlayerUpdate);
     
 }
