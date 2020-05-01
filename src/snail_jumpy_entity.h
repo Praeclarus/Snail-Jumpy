@@ -2,28 +2,24 @@
 #define SNAIL_JUMPY_ENTITY_H
 
 enum entity_type {
-    EntityType_Wall,
-    EntityType_Coin,
-    EntityType_Snail,
-    EntityType_Player,
+    EntityType_None = 0,
     
-    EntityType_TOTAL,
+    EntityType_Wall = 1,
+    // PhonyWall = 2,
+    EntityType_Coin = 3, // Possible CoinP
+    EntityType_Snail = 4,
+    // Sally = 5
+    EntityType_Dragonfly = 6,
+    EntityType_Player = 7,
 };
 
-
-enum collision_type {
-    CollisionType_NormalEntity,
-    
-    CollisionType_Coin,
-    CollisionType_Wall,
-};
-
+// TODO(Tyler): Is this needed?
 typedef u32 entity_state;
 enum _entity_state {
     EntityState_None,
     
     EntityState_Dead    = (1<<0),
-    EntityState_Frozen  = (1<<1),
+    //EntityState_Frozen  = (1<<1),
 };
 
 struct wall_entity {
@@ -63,18 +59,26 @@ struct entity {
         v2 Size;
     };
     
+    
     animation AnimationGroup;
     f32 CurrentAnimationTime;
     u32 CurrentAnimation;
+    f32 AnimationCooldown;
 };
 
 struct snail_entity : entity {
-    f32 SnailDirection;
+    f32 Direction;
+    f32 Speed;
+};
+
+struct dragonfly_entity : entity {
+    f32 Direction;
     f32 Speed;
 };
 
 struct player_entity : entity {
     f32 JumpTime;
+    dragonfly_entity *RidingDragonfly;
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H

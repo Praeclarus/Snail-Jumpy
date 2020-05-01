@@ -3,29 +3,6 @@ OPENGL_FUNCTIONS
 #undef X
 
 global basic_program GlobalTextureShaderProgram;
-
-#if 0
-global_constant char *ColorVertexShaderSource =
-"#version 330 core \n"
-"layout (location = 0) in vec3 Position;"
-"layout (location = 1) in vec4 Color;"
-"out vec4 FragmentColor;"
-"uniform mat4 Projection;"
-"void main(){"
-"    gl_Position = Projection * vec4(Position, 1.0);"
-"    FragmentColor = Color;"
-"}";
-global_constant char *ColorFragmentShaderSource =
-"#version 330 core\n"
-"out vec4 FragColor;"
-"in vec4 FragmentColor;"
-"uniform sampler2D Texture;"
-"void main()"
-"{"
-"    FragColor = FragmentColor;"
-"}";
-#endif
-
 global_constant char *TextureVertexShaderSource =
 "#version 330 core \n"
 "layout (location = 0) in vec3 Position;"
@@ -69,6 +46,7 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
         if(!Status){
             // TODO(Tyler): Logging
             glGetShaderInfoLog(VertexShader, 512, 0, Buffer);
+            LogError(Buffer);
             Assert(0);
         }
     }
@@ -78,11 +56,12 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
     glCompileShader(FragmentShader);
     {
         s32 Status;
-        char Buffer[512];
+        char Buffer[1024];
         glGetShaderiv(FragmentShader, GL_COMPILE_STATUS, &Status);
         if(!Status){
             // TODO(Tyler): Logging
-            glGetShaderInfoLog(FragmentShader, 512, 0, Buffer);
+            glGetShaderInfoLog(FragmentShader, 1024, 0, Buffer);
+            LogError(Buffer);
             Assert(0);
         }
     }
@@ -93,17 +72,19 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
     glLinkProgram(Result.Id);
     {
         s32 Status;
-        char Buffer[512];
+        char Buffer[1024];
         glGetProgramiv(Result.Id, GL_LINK_STATUS, &Status);
         if(!Status){
             // TODO(Tyler): Logging
-            glGetProgramInfoLog(Result.Id, 512, 0, Buffer);
+            glGetProgramInfoLog(Result.Id, 1024, 0, Buffer);
+            LogError(Buffer);
             Assert(0);
         }
     }
     
     glUseProgram(Result.Id);
     Result.ProjectionLocation = glGetUniformLocation(Result.Id, "Projection");
+    LogError("Couldn't find the location of the 'Projection' uniform");
     Assert(Result.ProjectionLocation != -1);
     return(Result);
 }
@@ -114,7 +95,6 @@ internal
 INITIALIZE_RENDERER(InitializeRenderer){
     GlobalTextureShaderProgram =
         GlCompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);
-    //GlobalColorShaderProgram = GlCompileShaderProgram(ColorVertexShaderSource, ColorFragmentShaderSource);
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -161,8 +141,8 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
                  RenderGroup->BackgroundColor.A);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    f32 A = 2.0f/((f32)RenderGroup->OutputSize.Width/RenderGroup->MetersToPixels);
-    f32 B = 2.0f/((f32)RenderGroup->OutputSize.Height/RenderGroup->MetersToPixels);
+    f32 A = 2.0f/((f32)RenderGroup->OutputSize.Width);
+    f32 B = 2.0f/((f32)RenderGroup->OutputSize.Height);
     f32 Projection[] = {
         A,   0, 0, 0,
         0,   B, 0, 0,

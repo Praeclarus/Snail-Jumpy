@@ -5,11 +5,14 @@ enum edit_mode {
     EditMode_AddPhonyWall,
     EditMode_AddCoinP,
     EditMode_AddSnail,
+    EditMode_AddSally,
+    EditMode_AddDragonfly,
     
     EditMode_TOTAL
 };
 
 global edit_mode GlobalEditMode;
+global b32 GlobalHideEditorUi;
 
 internal void
 UpdateAndRenderEditor(platform_user_input *Input){
@@ -23,74 +26,86 @@ UpdateAndRenderEditor(platform_user_input *Input){
     b32 IgnoreMouseEvent = false;
     
     //~ UI
-    f32 Y = 8;
-    f32 YAdvance = GlobalDebugFont.Size/RenderGroup.MetersToPixels;
+    f32 Y = Input->WindowSize.Height-100;
+    f32 YAdvance = GlobalDebugFont.Size;
+    f32 X = Input->WindowSize.Width - 500;
     
     RenderFormatString(&RenderGroup, &GlobalDebugFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       12.0f, Y, 0.0f, "Total levels: %u", GlobalLevelCount);
+                       X, Y, 0.0f, "Total levels: %u", GlobalLevelCount);
     Y -= YAdvance;
     
     RenderFormatString(&RenderGroup, &GlobalDebugFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       12.0f, Y, 0.0f, "Current level: %u", GlobalCurrentLevel);
+                       X, Y, 0.0f, "Current level: %u", GlobalCurrentLevel);
     Y -= YAdvance;
     
     RenderString(&RenderGroup, &GlobalDebugFont,
                  {0.0f, 0.0f, 0.0f, 1.0f},
-                 12.0f, Y, -1.0f, "Use up and down arrows to change levels");
+                 X, Y, -1.0f, "Use up and down arrows to change levels");
     Y -= YAdvance;
     
     RenderString(&RenderGroup, &GlobalDebugFont,
                  {0.0f, 0.0f, 0.0f, 1.0f},
-                 12.0f, Y, -1.0f, "Use 'e' to open the game");
+                 X, Y, -1.0f, "Use 'e' to open the game");
     Y -= YAdvance;
     
     local_constant char *ModeTable[EditMode_TOTAL] = {
-        "None", "Add wall", "Add phony wall", "Add coin p", "Add snail"
+        "None", "Add wall", "Add phony wall", "Add coin p", "Add snail", "Add sally", "Add dragonfly"
     };
     RenderFormatString(&RenderGroup, &GlobalDebugFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
-                       12.0f, Y, 0.0f, "Current mode: %s", ModeTable[GlobalEditMode]);
+                       X, Y, 0.0f, "Current mode: %s", ModeTable[GlobalEditMode]);
     Y -= YAdvance;
     
     RenderString(&RenderGroup, &GlobalDebugFont,
                  {0.0f, 0.0f, 0.0f, 1.0f},
-                 12.0f, Y, 0.0f, "Use left and right arrows to change edit mode");
+                 X, Y, 0.0f, "Use left and right arrows to change edit mode");
     Y -= YAdvance;
     
-    {
-        f32 Y = 1;
-        if(RenderButton(&RenderGroup, 12.0f, Y, 2.5f, 0.25f, "Save", Input)){
-            IgnoreMouseEvent = true;
+    if(!GlobalHideEditorUi){
+        f32 StartY = 150;
+        f32 Y = StartY;
+        f32 Height = 30;
+        f32 YAdvance = Height + 20;
+        f32 X = Input->WindowSize.Width - 500;
+        f32 Width = 300;
+        if(RenderButton(&RenderGroup, X, Y, Width, Height, "Save", Input)){
             WriteAssetFile("test_assets.sja");
         }
-        Y -= 0.3f;
+        Y -= YAdvance;
         
-        if(RenderButton(&RenderGroup, 12.0f, Y, 2.5f, 0.25f, "Add level", Input)){
-            IgnoreMouseEvent = true;
+        if(RenderButton(&RenderGroup, X, Y, Width, Height, "Add level", Input)){
             // TODO(Tyler): Formalize this idea
             GlobalLevelCount++;
-            level_data *NewLevel = PushTempArray(&GlobalLevelMemory, level_data, 1);
+            level_data *NewLevel = PushArray(&GlobalLevelMemory, level_data, 1);
             NewLevel->WidthInTiles = 32;
             NewLevel->HeightInTiles = 18;
             NewLevel->WallCount++;
             u32 Size = NewLevel->WidthInTiles*NewLevel->HeightInTiles;
             // TODO(Tyler): Allocate MapDatas contiguously
-            NewLevel->MapData = PushTempArray(&GlobalMapDataMemory, u8, Size);
+            NewLevel->MapData = PushArray(&GlobalMapDataMemory, u8, Size);
         }
-        Y -= 0.3f;
+        Y -= YAdvance;
         
-        if(RenderButton(&RenderGroup, 12.0f, Y, 2.5f, 0.25f, "Remove last level", Input)){
-            IgnoreMouseEvent = true;
+        if(RenderButton(&RenderGroup, X, Y, Width, Height, "Remove last level", Input)){
             Assert(GlobalLevelCount > 1);
-            // TODO(Tyler): Formalize this idea
+            // TODO(Tyler): Allow arbitrary level numbers to be deleted and ROBUSTNESS
             level_data *Level = &((level_data *)GlobalLevelMemory.Memory)[GlobalLevelCount];
             u32 Size = Level->WidthInTiles*Level->HeightInTiles;
-            PopTempMemory(&GlobalMapDataMemory, Size);
-            PopTempMemory(&GlobalLevelMemory, sizeof(level_data));
+            GlobalMapDataMemory.Used -= Size;
+            GlobalLevelMemory.Used -= sizeof(level_data);
             GlobalLevelCount--;
         }
+        
+        if((X < Input->MouseP.X) && (Input->MouseP.X < X+Width) &&
+           (Y < Input->MouseP.Y) && (Input->MouseP.Y < StartY+Height)){
+            IgnoreMouseEvent = true;
+        }
+    }
+    
+    if(IsButtonJustPressed(&Input->Tab)){
+        GlobalHideEditorUi = !GlobalHideEditorUi;
     }
     
     if(IsButtonJustPressed(&Input->UpButton)){
@@ -147,6 +162,7 @@ UpdateAndRenderEditor(platform_user_input *Input){
         RenderRectangle(&RenderGroup, ViewTileP+(.05f*TileSize), ViewTileP+(.95f*TileSize), -.1f, {1.f, 1.f, 1.f, 1.f});
     }
     
+    // TODO(Tyler): Change this!
     for(f32 Y = 0; Y < 18; Y++){
         for(f32 X = 0; X < 32; X++){
             u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
@@ -164,12 +180,18 @@ UpdateAndRenderEditor(platform_user_input *Input){
                 animation_group *Group = &GlobalAnimations[Animation_Snail];
                 v2 Size = Group->SizeInMeters;
                 RenderTexture(&RenderGroup, Center-Size/2, Center+Size/2, 0.0f, Group->SpriteSheet, {0.0f}, Group->SizeInTexCoords);
+            }else if(TileId == 5){
+                
+            }else if(TileId == 6){
+                RenderRectangle(&RenderGroup, P, P+TileSize, 0.0f, {0.6f, 0.7f, 1.0f, 0.9f});
             }
         }
     }
     
-    Y = 8;
-    DebugRenderAllProfileData(&RenderGroup, 0.75, &Y, 0.25f, YAdvance);
+    {
+        f32 Y = Input->WindowSize.Height-100;
+        DebugRenderAllProfileData(&RenderGroup, 100, &Y, 50, YAdvance);
+    }
     
     RenderGroupToScreen(&RenderGroup);
 }

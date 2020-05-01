@@ -71,7 +71,6 @@ InitializeArena(memory_arena *Arena, void *Memory, umw Size) {
 
 #define PushStruct(Arena, Type) (Type *)PushMemory(Arena, sizeof(Type))
 #define PushArray(Arena, Type, Count) (Type *)PushMemory(Arena, sizeof(Type)*(Count))
-
 internal void *
 PushMemory(memory_arena *Arena, umw Size) {
     Assert((Arena->Used + Size) < Arena->Size);
@@ -79,13 +78,6 @@ PushMemory(memory_arena *Arena, umw Size) {
     Arena->Used += Size;
     return(Result);
 }
-
-// TODO(Tyler): Possibly do more checking here
-internal void
-PopMemory(memory_arena *Arena, umw Size){
-    Assert(Arena->Used >= Size);
-    Arena->Used -= Size;
-};
 
 internal void
 CopyMemory(void *To, void *From, umw Size) {
@@ -121,13 +113,6 @@ PushTempMemory(temp_memory *TempMemory, umw Size){
     return(Result);
 }
 
-// TODO(Tyler): Possibly do more checking here
-internal void
-PopTempMemory(temp_memory *TempMemory, umw Size){
-    Assert(TempMemory->Used > Size);
-    TempMemory->Used -= Size;
-};
-
 internal void
 EndTempMemory(memory_arena *Arena, temp_memory *TempMemory){
     Assert(Arena->TempCount > 0);
@@ -136,6 +121,29 @@ EndTempMemory(memory_arena *Arena, temp_memory *TempMemory){
     Assert(Address == TempMemory->Memory);
     
     Arena->Used -= TempMemory->Size;
+}
+
+struct sub_arena {
+    u8 *Memory;
+    umw Used;
+    umw Size;
+};
+
+internal void
+InitializeSubArena(memory_arena *Arena, sub_arena *SubArena, umw Size){
+    Assert((Arena->Used+Size) < Arena->Size);
+    SubArena->Memory = Arena->Memory+Arena->Used;
+    Arena->Used += Size;
+    SubArena->Size = Size;
+    SubArena->Used = 0;
+}
+
+internal void *
+PushMemory(sub_arena *Arena, umw Size) {
+    Assert((Arena->Used + Size) < Arena->Size);
+    void *Result = Arena->Memory+Arena->Used;
+    Arena->Used += Size;
+    return(Result);
 }
 
 //~ Simple hash table
@@ -154,6 +162,18 @@ HashString(char *String) {
         Result += (Char << 5) * 3;
         Result *= Char;
     }
+    return(Result);
+}
+
+internal u64
+CompareStrings(char *A, char *B){
+    b32 Result = true;
+    while(*A && *B){
+        if(*A++ != *B++){
+            Result = false;
+        }
+    }
+    
     return(Result);
 }
 
@@ -202,7 +222,7 @@ FindInHashTable(hash_table *Table, char *String){
     while(u64 TestHash = Table->Keys[Index]) {
         if(Index == 0){ Index++; }
         if((TestHash == Hash) &&
-           (strcmp(String, Table->Strings[Index]) == 0)){
+           (CompareStrings(String, Table->Strings[Index]) == 0)){
             break;
         }else if(TestHash == 0){
             break;
@@ -216,12 +236,11 @@ FindInHashTable(hash_table *Table, char *String){
     return(Result);
 }
 
-
 //~ Helpers
 internal u32
 CStringLength(char *String){
     u32 Result = 0;
-    for(char C = *String; C; C=*(++String)){
+    for(char C = *String; C; C = *(++String)){
         Result++;
     }
     return(Result);

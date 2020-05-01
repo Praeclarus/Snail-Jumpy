@@ -20,7 +20,6 @@ enum animation_number {
     SnailAnimation_Left  = 1,
 };
 
-// TODO(Tyler): Possibly make this struct smaller
 struct animation_group {
     v2 SizeInMeters;
     v2 SizeInTexCoords;

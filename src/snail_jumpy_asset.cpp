@@ -1,5 +1,5 @@
-global temp_memory GlobalLevelMemory;
-global temp_memory GlobalMapDataMemory;
+global sub_arena GlobalLevelMemory;
+global sub_arena GlobalMapDataMemory;
 
 struct entire_file {
     u8 *Data;
@@ -27,6 +27,7 @@ internal inline void
 LoadAssetFile(char *Path){
     TIMED_FUNCTION();
     entire_file File = ReadEntireFile(&GlobalTransientStorageArena, Path);
+    u8 *FileEnd = File.Data+File.Size;
     
     // TODO(Tyler): Logging
     u8 *Pointer = File.Data;
@@ -35,7 +36,7 @@ LoadAssetFile(char *Path){
     // TODO(Tyler): Test this for robustness
     GlobalLevelCount = *(u32 *)Pointer;
     Pointer += sizeof(u32);
-    GlobalLevelData = PushTempArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
+    GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
     
     for(u32 I = 0; I < GlobalLevelCount; I++){
         GlobalLevelData[I].WidthInTiles = *(u32 *)Pointer;
@@ -50,7 +51,7 @@ LoadAssetFile(char *Path){
     
     for(u32 I = 0; I < GlobalLevelCount; I++){
         u32 Size = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
-        GlobalLevelData[I].MapData = PushTempArray(&GlobalMapDataMemory, u8, Size);
+        GlobalLevelData[I].MapData = PushArray(&GlobalMapDataMemory, u8, Size);
         for(u32 J = 0; J < Size; J++){
             GlobalLevelData[I].MapData[J] = *Pointer++;
         }

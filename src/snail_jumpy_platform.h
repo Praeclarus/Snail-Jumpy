@@ -26,6 +26,7 @@ struct platform_user_input {
     platform_button_state RightMouseButton;
     
     platform_button_state E;
+    platform_button_state Tab;
 };
 
 struct platform_file;

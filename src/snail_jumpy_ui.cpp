@@ -12,10 +12,10 @@ RenderSliderInputBar(render_group *RenderGroup,
                      platform_user_input *Input){
     // TODO(Tyler): This MetersToPixels conversion thing is
     // a little bit of a hack used here, FIX IT!!!
-    v2 MouseP = Input->MouseP / RenderGroup->MetersToPixels;
-    v2 LastMouseP = GlobalLastMouseP / RenderGroup->MetersToPixels;
-    f32 XMargin = 10 / RenderGroup->MetersToPixels;
-    f32 YMargin = 30 / RenderGroup->MetersToPixels;
+    v2 MouseP = Input->MouseP;
+    v2 LastMouseP = GlobalLastMouseP;
+    f32 XMargin = 10;
+    f32 YMargin = 30;
     f32 CursorX = *SliderPercent*(Width-CursorWidth);
     color CursorColor = {0.33f, 0.6f, 0.4f, 0.9f};
     if((X+CursorX-XMargin < LastMouseP.X) && (LastMouseP.X < X+CursorX+CursorWidth+XMargin) &&
@@ -36,17 +36,17 @@ RenderSliderInputBar(render_group *RenderGroup,
     RenderRectangle(RenderGroup,
                     {X, Y},
                     {X+Width, Y+Height},
-                    -0.1f, {0.1f, 0.3f, 0.2f, 0.9f});
+                    -0.1f, {0.1f, 0.3f, 0.2f, 0.9f}, true);
     // Cursor
     RenderRectangle(RenderGroup,
                     {X+CursorX, Y},
                     {X+CursorX+CursorWidth, Y+Height},
-                    -0.2f, CursorColor);
+                    -0.2f, CursorColor, true);
     
     // TODO(Tyler): Do the text printing differently in order to make it more flexible
     *SliderPercent = CursorX/(Width-CursorWidth);
-    f32 TextY = Y + (Height/2) - (GlobalNormalFont.Ascent/2/RenderGroup->MetersToPixels);
-    f32 TextWidth = GetFormatStringAdvanceInMeters(RenderGroup, &GlobalNormalFont, "%.2f", *SliderPercent );
+    f32 TextY = Y + (Height/2) - (GlobalNormalFont.Ascent/2);
+    f32 TextWidth = GetFormatStringAdvance(&GlobalNormalFont, "%.2f", *SliderPercent);
     RenderFormatString(RenderGroup, &GlobalNormalFont,
                        {1.0f, 1.0f, 1.0f, 0.9f},
                        X + (Width-TextWidth)/2, TextY, -0.3f,
@@ -58,7 +58,7 @@ RenderButton(render_group *RenderGroup,
              f32 X, f32 Y, f32 Width, f32 Height, char *Text, platform_user_input *Input){
     
     color ButtonColor = {0.1f, 0.3f, 0.2f, 0.9f};
-    v2 MouseP = Input->MouseP / RenderGroup->MetersToPixels;
+    v2 MouseP = Input->MouseP;
     b32 Result = false;
     if((X < MouseP.X) && (MouseP.X < X+Width) &&
        (Y < MouseP.Y) && (MouseP.Y < Y+Height)){
@@ -72,9 +72,9 @@ RenderButton(render_group *RenderGroup,
     
     RenderRectangle(RenderGroup,
                     {X, Y}, {X+Width, Y+Height},
-                    -0.1f, ButtonColor);
-    f32 TextWidth = GetStringAdvanceInMeters(RenderGroup, &GlobalNormalFont, Text);
-    f32 HeightOffset = (GlobalNormalFont.Ascent/RenderGroup->MetersToPixels/2);
+                    -0.1f, ButtonColor, true);
+    f32 TextWidth = GetStringAdvance(&GlobalNormalFont, Text);
+    f32 HeightOffset = (GlobalNormalFont.Ascent/2);
     RenderString(RenderGroup,
                  &GlobalNormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
                  X+(Width/2)-(TextWidth/2), Y+(Height/2)-HeightOffset, -0.2f,

@@ -107,6 +107,8 @@ Win32MainWindowProc(HWND Window,
                     Win32ProcessKeyboardInput(&UserInput.JumpButton, IsDown);
                 }else if(VkCode == 'E'){
                     Win32ProcessKeyboardInput(&UserInput.E, IsDown);
+                }else if(VkCode == VK_TAB){
+                    Win32ProcessKeyboardInput(&UserInput.Tab, IsDown);
                 }
                 
                 if(IsDown){
@@ -256,29 +258,37 @@ Win32InitOpenGl(HINSTANCE Instance, HWND *Window){
                                     // NOTE(Tyler): Success!!!
                                     
                                 }else{
+                                    LogError("Win32: Couldn't load OpenGL functions");
                                     Assert(0);
                                 }
                             }else{
+                                LogError("Win32: Couldn't make OpenGL context current 2");
                                 Assert(0);
                             }
                         }else{
+                            LogError("Win32: Couldn't create OpenGL context");
                             Assert(0);
                         }
                     }else{
+                        LogError("Win32: Couldn't set pixel format");
                         Assert(0);
                     }
                 }else{
                     // TODO(Tyler): Logging!!!
+                    LogError("Win32: Couldn't choose pixel format 2");
                     Assert(0);
                 }
             }else{
+                LogError("Win32: Couldn't choose pixel format 1");
                 Assert(0);
             }
         }else{
+            LogError("Win32: Couldn't make OpenGL context current 1");
             Assert(0);
         }
     }else{
         // TODO(Tyler): Logging!!!
+        LogError("Win32: Couldn't set pixel format 1");
         Assert(0);
     }
 }
@@ -448,6 +458,7 @@ WinMain(HINSTANCE Instance,
                 UserInput.LeftMouseButton.HalfTransitionCount = 0;
                 UserInput.MiddleMouseButton.HalfTransitionCount = 0;
                 UserInput.RightMouseButton.HalfTransitionCount = 0;
+                UserInput.Tab.HalfTransitionCount = 0;
                 
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
@@ -481,6 +492,7 @@ WinMain(HINSTANCE Instance,
         {
             // TODO(Tyler): Error logging!
             OutputDebugString("Failed to create window!");
+            LogError("Win32: Failed to create window!");
         }
         
     }
@@ -488,6 +500,7 @@ WinMain(HINSTANCE Instance,
     {
         // TODO(Tyler): Error logging!
         OutputDebugString("Failed to register window class!");
+        LogError("Win32: Failed to register window class!!");
     }
     
     // TODO(Tyler): Do this more formally

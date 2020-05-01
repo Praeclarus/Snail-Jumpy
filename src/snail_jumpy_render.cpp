@@ -43,7 +43,12 @@ AddIndices(render_group *RenderGroup, u32 Count){
 
 internal void
 RenderRectangle(render_group *RenderGroup,
-                v2 MinCorner, v2 MaxCorner, f32 Z, color Color){
+                v2 MinCorner, v2 MaxCorner, f32 Z, color Color, b8 UsePixelSpace = false){
+    
+    if(!UsePixelSpace){
+        MinCorner *= RenderGroup->MetersToPixels;
+        MaxCorner *= RenderGroup->MetersToPixels;
+    }
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
     RenderItem->IndexCount = 6;
@@ -66,8 +71,13 @@ RenderRectangle(render_group *RenderGroup,
 
 internal void
 RenderTexture(render_group *RenderGroup,
-              v2 MinCorner, v2 MaxCorner, f32 Z, render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord){
+              v2 MinCorner, v2 MaxCorner, f32 Z, render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord, b32 UsePixelSpace = false){
     Assert(Texture);
+    
+    if(!UsePixelSpace){
+        MinCorner *= RenderGroup->MetersToPixels;
+        MaxCorner *= RenderGroup->MetersToPixels;
+    }
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
     RenderItem->IndexCount = 6;
@@ -90,8 +100,15 @@ RenderTexture(render_group *RenderGroup,
 
 internal void
 RenderTextureWithColor(render_group *RenderGroup,
-                       v2 MinCorner, v2 MaxCorner, f32 Z, render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord, color Color){
+                       v2 MinCorner, v2 MaxCorner, f32 Z,
+                       render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord,
+                       color Color, b8 UsePixelSpace = false){
     Assert(Texture);
+    
+    if(!UsePixelSpace){
+        MinCorner *= RenderGroup->MetersToPixels;
+        MaxCorner *= RenderGroup->MetersToPixels;
+    }
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
     RenderItem->IndexCount = 6;
@@ -115,14 +132,10 @@ RenderTextureWithColor(render_group *RenderGroup,
 internal void
 RenderString(render_group *RenderGroup,
              font *Font, color Color, f32 X, f32 Y, f32 Z, char *String){
-    // NOTE(Tyler): This is kind of a hack, the Y values are inverted here and then inverted
-    // again in the renderer.
-    X *= RenderGroup->MetersToPixels;
-    Y *= RenderGroup->MetersToPixels;
     Y = RenderGroup->OutputSize.Y - Y;
     
     // TODO(Tyler): Compare performance difference after changes
-#if 1
+#if 0
     u32 Length = CStringLength(String);
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
@@ -169,13 +182,9 @@ RenderString(render_group *RenderGroup,
         stbtt_GetBakedQuad(Font->CharData,
                            Font->TextureWidth, Font->TextureHeight,
                            C-32, &X, &Y, &Q, 1);
-        Q.x0 /= RenderGroup->MetersToPixels;
-        Q.x1 /= RenderGroup->MetersToPixels;
         Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
         Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
-        Q.y0 /= RenderGroup->MetersToPixels;
-        Q.y1 /= RenderGroup->MetersToPixels;
-        RenderTextureWithColor(RenderGroup, {Q.x0, Q.y0}, {Q.x1, Q.y1}, Z, Font->Texture, {Q.s0, Q.t0}, {Q.s1, Q.t1}, Color);
+        RenderTextureWithColor(RenderGroup, {Q.x0, Q.y0}, {Q.x1, Q.y1}, Z, Font->Texture, {Q.s0, Q.t0}, {Q.s1, Q.t1}, Color, true);
     }
 #endif
     
@@ -216,7 +225,7 @@ RenderFormatString(render_group *RenderGroup,
 }
 
 internal f32
-GetStringAdvanceInPixels(font *Font, char *String){
+GetStringAdvance(font *Font, char *String){
     f32 Result = 0;
     f32 X = 0.0f;
     f32 Y = 0.0f;
@@ -232,35 +241,18 @@ GetStringAdvanceInPixels(font *Font, char *String){
 }
 
 internal inline f32
-GetStringAdvanceInMeters(render_group *RenderGroup, font *Font, char *String){
-    f32 Result = GetStringAdvanceInPixels(Font, String);
-    Result /= RenderGroup->MetersToPixels;
-    return(Result);
-}
-
-internal inline f32
-VGetFormatStringAdvanceInPixels(font *Font, char *Format, va_list VarArgs){
+VGetFormatStringAdvance(font *Font, char *Format, va_list VarArgs){
     char Buffer[1024];
     stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
-    f32 Result = GetStringAdvanceInPixels(Font, Buffer);
+    f32 Result = GetStringAdvance(Font, Buffer);
     return(Result);
 }
 
 internal inline f32
-GetFormatStringAdvanceInPixels(font *Font, char *Format, ...){
+GetFormatStringAdvance(font *Font, char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
-    f32 Result = VGetFormatStringAdvanceInPixels(Font, Format, VarArgs);
-    va_end(VarArgs);
-    return(Result);
-}
-
-internal inline f32
-GetFormatStringAdvanceInMeters(render_group *RenderGroup, font *Font, char *Format, ...){
-    va_list VarArgs;
-    va_start(VarArgs, Format);
-    f32 Result = VGetFormatStringAdvanceInPixels(Font, Format, VarArgs);
-    Result /= RenderGroup->MetersToPixels;
+    f32 Result = VGetFormatStringAdvance(Font, Format, VarArgs);
     va_end(VarArgs);
     return(Result);
 }

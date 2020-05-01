@@ -11,7 +11,6 @@
 
 #include "snail_jumpy.h"
 
-
 global font GlobalMainFont;
 global font GlobalNormalFont;
 global font GlobalDebugFont;
@@ -32,7 +31,7 @@ global u32 GlobalLevelCount;
 global u32 GlobalCurrentLevel;
 global level_data *GlobalLevelData;
 
-
+#include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_asset.cpp"
 #include "snail_jumpy_stream.cpp"
 #include "snail_jumpy_render.cpp"
@@ -49,7 +48,7 @@ LoadAssets(f32 MetersToPixels)
     // TODO(Tyler): Formalize this
     
     asset_descriptor AnimationInfoTable[Animation_TOTAL] = {
-        {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 12, 12, 6, 3 },  0.0f },
+        {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 15, 15, 6, 3 },  0.0f },
         {"test_snail_spritesheet2.png",  64,  4,  {  1,  1 },       {  8,  8 },        0.0f},
         {"test_sally_spritesheet2.png", 128,  4,  {  4,  4 },       {  8,  8 },        0.0f},
         //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },       -0.02f},
@@ -123,11 +122,6 @@ LoadFont(memory_arena *Arena,
     Font->Size = Size;
     Font->Ascent = Ascent;
     Font->Descent = Descent;
-    
-    
-    PopMemory(Arena, Width*Height*sizeof(u32));
-    PopMemory(Arena, Width*Height);
-    PopMemory(Arena, FileSize);
 }
 
 internal void
@@ -146,9 +140,11 @@ InitializeGame(platform_user_input *Input){
         InitializeArena(&GlobalTransientStorageArena, Memory, Size);
     }
     
-    BeginTempMemory(&GlobalPermanentStorageArena, &GlobalEntityMemory, Kilobytes(64));
-    BeginTempMemory(&GlobalPermanentStorageArena, &GlobalLevelMemory, Kilobytes(4));
-    BeginTempMemory(&GlobalPermanentStorageArena, &GlobalMapDataMemory, Kilobytes(64));
+    GlobalLogFile = OpenFile("log.log", OpenFile_Write);
+    
+    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEntityMemory, Kilobytes(64));
+    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalLevelMemory, Kilobytes(4));
+    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalMapDataMemory, Kilobytes(64));
     
     LoadAssetFile("test_assets.sja");
     LoadAllEntities();
@@ -169,6 +165,7 @@ InitializeGame(platform_user_input *Input){
              "Press-Start-2P.ttf", 24, 512, 512);
     
     InitializeRenderer();
+    
 }
 
 internal void
