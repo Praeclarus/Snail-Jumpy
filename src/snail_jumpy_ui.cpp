@@ -1,7 +1,4 @@
 
-#define BLACK color{0.0f, 0.0f, 0.0f, 1.0f}
-#define WHITE color{1.0f, 1.0f, 1.0f, 1.0f}
-
 // TODO(Tyler): To make this better remove the MetersToPixels concept from the renderer,
 // make it a part of the interface to the renderer
 internal void
@@ -82,3 +79,25 @@ RenderButton(render_group *RenderGroup,
     
     return(Result);
 }
+
+struct layout {
+    v2 BaseP;
+    v2 CurrentP;
+    v2 Advance;
+};
+
+internal layout
+CreateLayout(f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance){
+    layout Result = {0};
+    Result.BaseP = { BaseX, BaseY };
+    Result.CurrentP = Result.BaseP;
+    Result.Advance = { XAdvance, YAdvance };
+}
+
+#if 0
+internal b32
+RenderLayoutButton(render_group *RenderGroup, layout *Layout,
+                   char *Text, platform_user_input *Input){
+    RenderButton(RenderGroup, Layout.CurrentP.X, Layout.CurrentP.Y);
+}
+#endif

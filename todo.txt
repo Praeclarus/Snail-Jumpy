@@ -1,12 +1,6 @@
 TODOS:
 -----------------------------------------------
 
- - Create a 'sub_arena' type that can be allocated directly from a memory arena
- 
- - Change animation system
-     - Remove the entity freezing/killing to stop entities from moving/updating
-       during an animation, do this by maybe introducing a sort of 'cooldown'
-
  - Better entity system
      - Improve collision system!!!
      - Improve entity system, it is currently too hard to add a new entity

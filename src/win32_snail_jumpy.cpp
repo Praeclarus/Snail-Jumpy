@@ -503,8 +503,10 @@ WinMain(HINSTANCE Instance,
         LogError("Win32: Failed to register window class!!");
     }
     
+#if 1
     // TODO(Tyler): Do this more formally
     WriteAssetFile("test_assets.sja");
+#endif
     
     return(0);
 }

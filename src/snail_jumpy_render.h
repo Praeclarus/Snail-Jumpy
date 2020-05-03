@@ -42,4 +42,9 @@ internal RENDER_GROUP_TO_SCREEN(RenderGroupToScreen);
 #define CREATE_RENDER_TEXTURE(Name) render_texture_handle Name(u8 *Pixels, u32 Width, u32 Height)
 internal CREATE_RENDER_TEXTURE(CreateRenderTexture);
 
+
+#define BLACK color{0.0f, 0.0f, 0.0f, 1.0f}
+#define WHITE color{1.0f, 1.0f, 1.0f, 1.0f}
+#define YELLOW color{1.0f, 1.0f, 0.0f, 1.0f}
+
 #endif //SNAIL_JUMPY_RENDER_H

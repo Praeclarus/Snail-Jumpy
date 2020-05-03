@@ -1,4 +1,4 @@
-// TODO(Tyler): Implement an allocator for stb_image
+// TODO(Tyler): Implement an allocator for the stb libraries
 #define STB_NO_STDIO
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
@@ -18,7 +18,7 @@ global font GlobalDebugFont;
 global s32 GlobalScore;
 global f32 GlobalCounter;
 
-global animation_group *GlobalAnimations;
+global spritesheet_asset *GlobalAssets;;
 
 global memory_arena GlobalPermanentStorageArena;
 global memory_arena GlobalTransientStorageArena;
@@ -32,8 +32,8 @@ global u32 GlobalCurrentLevel;
 global level_data *GlobalLevelData;
 
 #include "snail_jumpy_logging.cpp"
-#include "snail_jumpy_asset.cpp"
 #include "snail_jumpy_stream.cpp"
+#include "snail_jumpy_asset.cpp"
 #include "snail_jumpy_render.cpp"
 #include "snail_jumpy_entity.cpp"
 #include "snail_jumpy_ui.cpp"
@@ -41,57 +41,6 @@ global level_data *GlobalLevelData;
 #include "snail_jumpy_menu.cpp"
 #include "snail_jumpy_game.cpp"
 #include "snail_jumpy_editor.cpp"
-
-internal void
-LoadAssets(f32 MetersToPixels)
-{
-    // TODO(Tyler): Formalize this
-    
-    asset_descriptor AnimationInfoTable[Animation_TOTAL] = {
-        {"test_avatar_spritesheet.png",  64, 10,  { 10, 10, 7, 6 }, { 15, 15, 6, 3 },  0.0f },
-        {"test_snail_spritesheet2.png",  64,  4,  {  1,  1 },       {  8,  8 },        0.0f},
-        {"test_sally_spritesheet2.png", 128,  4,  {  4,  4 },       {  8,  8 },        0.0f},
-        //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },       -0.02f},
-        //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },       -0.04f},
-    };
-    
-    for(u32 Index = 0; Index < Animation_TOTAL; Index++){
-        asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
-        animation_group *CurrentAnimation = &GlobalAnimations[Index];
-        
-        platform_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
-        u64 FileSize = GetFileSize(TestFile);
-        u8 *TestFileData = PushArray(&GlobalTransientStorageArena, u8, FileSize);
-        ReadFile(TestFile, 0, TestFileData, FileSize);
-        CloseFile(TestFile);
-        s32 Width, Height, Components;
-        u8 *LoadedImage = stbi_load_from_memory(TestFileData, (int)FileSize,
-                                                &Width, &Height,
-                                                &Components, 4);
-        
-        CurrentAnimation->SizeInMeters = {
-            AssetInfo->SizeInPixels/MetersToPixels, AssetInfo->SizeInPixels/MetersToPixels
-        };
-        CurrentAnimation->SizeInTexCoords = {
-            AssetInfo->SizeInPixels/(f32)Width, AssetInfo->SizeInPixels/(f32)Height
-        };
-        CurrentAnimation->SpriteSheet = CreateRenderTexture(LoadedImage, Width, Height);
-        stbi_image_free(LoadedImage);
-        
-        CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
-        CurrentAnimation->FrameCounts[0] = AssetInfo->FrameCounts[0];
-        CurrentAnimation->FrameCounts[1] = AssetInfo->FrameCounts[1];
-        CurrentAnimation->FrameCounts[2] = AssetInfo->FrameCounts[2];
-        CurrentAnimation->FrameCounts[3] = AssetInfo->FrameCounts[3];
-        
-        CurrentAnimation->FpsArray[0] = AssetInfo->FpsArray[0];
-        CurrentAnimation->FpsArray[1] = AssetInfo->FpsArray[1];
-        CurrentAnimation->FpsArray[2] = AssetInfo->FpsArray[2];
-        CurrentAnimation->FpsArray[3] = AssetInfo->FpsArray[3];
-        
-        CurrentAnimation->YOffset = AssetInfo->YOffset;
-    }
-}
 
 internal void
 LoadFont(memory_arena *Arena,
@@ -149,18 +98,67 @@ InitializeGame(platform_user_input *Input){
     LoadAssetFile("test_assets.sja");
     LoadAllEntities();
     
-    GlobalAnimations =
-        PushArray(&GlobalPermanentStorageArena, animation_group, Animation_TOTAL);
-    
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
     GlobalDefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
-    // TODO(Tyler): Make LoadAssets take an arena
-    LoadAssets(60.0f/0.5f);
+    
+    GlobalAssets =
+        PushArray(&GlobalPermanentStorageArena, spritesheet_asset, Asset_TOTAL);
+    {
+        f32 MetersToPixels = 60.0f/0.5f;
+        
+        asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
+            {"test_avatar_spritesheet.png",     64, 10,  { 10, 10, 7, 6 }, { 10, 10, 6, 3 }, 0.0f },
+            {"test_snail_spritesheet2.png",     80,  5,  {  4,  4, 5, 5 }, {  7,  7, 7, 7 },-0.07f},
+            {"test_sally_spritesheet2.png",    128,  4,  {  4,  4 },       {  7,  7 },       0.0f},
+            {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 5, 5 }, {  7,  7, 7, 7 }, 0.0f },
+            //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },      -0.02f},
+            //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },      -0.04f},
+            //{"test_dragonfly_spritesheet.png", 128, 10,  { 10, 10, 5, 5 }, {  7,  7, 7, 7 }, 0.0f },
+        };
+        
+        for(u32 Index = 0; Index < Asset_TOTAL; Index++){
+            asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
+            spritesheet_asset *CurrentAnimation = &GlobalAssets[Index];
+            
+            platform_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
+            u64 FileSize = GetFileSize(TestFile);
+            u8 *TestFileData = PushArray(&GlobalTransientStorageArena, u8, FileSize);
+            ReadFile(TestFile, 0, TestFileData, FileSize);
+            CloseFile(TestFile);
+            s32 Width, Height, Components;
+            u8 *LoadedImage = stbi_load_from_memory(TestFileData, (int)FileSize,
+                                                    &Width, &Height,
+                                                    &Components, 4);
+            
+            CurrentAnimation->SizeInMeters = {
+                AssetInfo->SizeInPixels/MetersToPixels, AssetInfo->SizeInPixels/MetersToPixels
+            };
+            CurrentAnimation->SizeInTexCoords = {
+                AssetInfo->SizeInPixels/(f32)Width, AssetInfo->SizeInPixels/(f32)Height
+            };
+            CurrentAnimation->SpriteSheet = CreateRenderTexture(LoadedImage, Width, Height);
+            stbi_image_free(LoadedImage);
+            
+            CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
+            CurrentAnimation->FrameCounts[0] = AssetInfo->FrameCounts[0];
+            CurrentAnimation->FrameCounts[1] = AssetInfo->FrameCounts[1];
+            CurrentAnimation->FrameCounts[2] = AssetInfo->FrameCounts[2];
+            CurrentAnimation->FrameCounts[3] = AssetInfo->FrameCounts[3];
+            
+            CurrentAnimation->FpsArray[0] = AssetInfo->FpsArray[0];
+            CurrentAnimation->FpsArray[1] = AssetInfo->FpsArray[1];
+            CurrentAnimation->FpsArray[2] = AssetInfo->FpsArray[2];
+            CurrentAnimation->FpsArray[3] = AssetInfo->FpsArray[3];
+            
+            CurrentAnimation->YOffset = AssetInfo->YOffset;
+        }
+    }
+    
     
     LoadFont(&GlobalTransientStorageArena, &GlobalDebugFont,
              "c:/windows/fonts/Arial.ttf", 20, 512, 512);
     LoadFont(&GlobalTransientStorageArena, &GlobalNormalFont,
-             "Press-Start-2P.ttf", 16, 512, 512);
+             "Press-Start-2P.ttf", 12, 512, 512);
     LoadFont(&GlobalTransientStorageArena, &GlobalMainFont,
              "Press-Start-2P.ttf", 24, 512, 512);
     

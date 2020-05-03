@@ -21,7 +21,6 @@ UpdateAndRenderMainGame(platform_user_input *Input){
         GlobalGameMode = GameMode_Editor;
     }
     
-    
     render_group RenderGroup;
     
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
@@ -43,12 +42,6 @@ UpdateAndRenderMainGame(platform_user_input *Input){
     RenderFormatString(&RenderGroup, &GlobalDebugFont,
                        {0.0f, 0.0f, 0.0f, 1.0f},
                        100, Y, -1.0f, "Counter: %.2f", GlobalCounter);
-    Y -= YAdvance;
-    
-    RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, -1.0f, "Player velocity: %.2f %.2f",
-                       GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
     Y -= YAdvance;
     
     RenderFormatString(&RenderGroup, &GlobalDebugFont,
@@ -78,6 +71,34 @@ UpdateAndRenderMainGame(platform_user_input *Input){
                      X, Y, -1.0f, "Use 'e' to open the editor");
         Y -= YAdvance;
     }
+    
+    RenderFormatString(&RenderGroup, &GlobalDebugFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       100, Y, -1.0f, "Player velocity: %.2f %.2f",
+                       GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
+    Y -= YAdvance;
+    
+    RenderFormatString(&RenderGroup, &GlobalDebugFont,
+                       {0.0f, 0.0f, 0.0f, 1.0f},
+                       100, Y, -1.0f, "Player animation: %u %f %f",
+                       GlobalPlayer->CurrentAnimation,
+                       GlobalPlayer->AnimationState,
+                       GlobalPlayer->AnimationCooldown);
+    Y -= YAdvance;
+    
+#if 0
+    for(u32 SnailId = 0; SnailId < GlobalSnailCount; SnailId++){
+        entity *Snail = &GlobalSnails[SnailId];
+        RenderFormatString(&RenderGroup, &GlobalDebugFont,
+                           {0.0f, 0.0f, 0.0f, 1.0f},
+                           100, Y,  -1.0f, "Snail %u animation: %u %f %f",
+                           SnailId,
+                           Snail->CurrentAnimation,
+                           Snail->AnimationState,
+                           Snail->AnimationCooldown);
+        Y -= YAdvance;
+    }
+#endif
     
     Y -= YAdvance; // Exta spacing
     DebugRenderAllProfileData(&RenderGroup, 100, &Y, 50, YAdvance);

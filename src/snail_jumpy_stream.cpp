@@ -19,6 +19,7 @@ CreateReadStream(void *Buffer, umw BufferSize){
 
 
 #define ConsumeType(Stream, Type) (Type *)ConsumeBytes(Stream, sizeof(Type))
+#define ConsumeArray(Stream, Type, N) (Type *)ConsumeBytes(Stream, N*sizeof(Type))
 internal u8 *
 ConsumeBytes(stream *Stream, u32 Bytes){
     u8 *Result = 0;

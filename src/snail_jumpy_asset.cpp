@@ -27,34 +27,58 @@ internal inline void
 LoadAssetFile(char *Path){
     TIMED_FUNCTION();
     entire_file File = ReadEntireFile(&GlobalTransientStorageArena, Path);
-    u8 *FileEnd = File.Data+File.Size;
-    
-    // TODO(Tyler): Logging
-    u8 *Pointer = File.Data;
-    Assert((*Pointer++ == 's') && (*Pointer++ == 'j') && (*Pointer++ == 'a'));
-    
-    // TODO(Tyler): Test this for robustness
-    GlobalLevelCount = *(u32 *)Pointer;
-    Pointer += sizeof(u32);
-    GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
-    
-    for(u32 I = 0; I < GlobalLevelCount; I++){
-        GlobalLevelData[I].WidthInTiles = *(u32 *)Pointer;
-        Pointer += sizeof(u32);
+    if(File.Size){
+        stream Stream = CreateReadStream(File.Data, File.Size);
         
-        GlobalLevelData[I].HeightInTiles = *(u32 *)Pointer;
-        Pointer += sizeof(u32);
+        asset_file_header *Header = ConsumeType(&Stream, asset_file_header);
+        GlobalLevelCount = Header->LevelCount;
         
-        GlobalLevelData[I].WallCount = *(u32 *)Pointer;
-        Pointer += sizeof(u32);
-    }
-    
-    for(u32 I = 0; I < GlobalLevelCount; I++){
-        u32 Size = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
-        GlobalLevelData[I].MapData = PushArray(&GlobalMapDataMemory, u8, Size);
-        for(u32 J = 0; J < Size; J++){
-            GlobalLevelData[I].MapData[J] = *Pointer++;
+        GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
+        
+        for(u32 I = 0; I < GlobalLevelCount; I++){
+            asset_file_level *Level = ConsumeType(&Stream, asset_file_level);
+            GlobalLevelData[I].WidthInTiles = Level->WidthInTiles;
+            GlobalLevelData[I].HeightInTiles = Level->HeightInTiles;
+            GlobalLevelData[I].WallCount = Level->WallCount;
+            GlobalLevelData[I].EnemyCount = Level->EnemyCount;
         }
+        
+        for(u32 I = 0; I < GlobalLevelCount; I++){
+            u32 MapSize = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
+            GlobalLevelData[I].MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
+            u8 *Map = ConsumeArray(&Stream, u8, MapSize);
+            CopyMemory(GlobalLevelData[I].MapData, Map, MapSize);
+        }
+        
+        for(u32 I = 0; I < GlobalLevelCount; I++){
+            GlobalLevelData[I].MaxEnemyCount = 50;
+            GlobalLevelData[I].Enemies = PushArray(&GlobalPermanentStorageArena,
+                                                   level_enemy,
+                                                   GlobalLevelData[I].MaxEnemyCount);
+            for(u32 J = 0; J < GlobalLevelData[I].EnemyCount; J++){
+                asset_file_enemy *Enemy = ConsumeType(&Stream, asset_file_enemy);
+                //Assert(Enemy->Type != 0);
+                GlobalLevelData[I].Enemies[J].Type = Enemy->Type;
+                GlobalLevelData[I].Enemies[J].P = Enemy->P;
+                GlobalLevelData[I].Enemies[J].PathStart = Enemy->PathStart;
+                GlobalLevelData[I].Enemies[J].PathEnd = Enemy->PathEnd;
+                GlobalLevelData[I].Enemies[J].Direction = Enemy->Direction;
+            }
+        }
+        
+    }else{
+        GlobalLevelCount = 1;
+        GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
+        GlobalLevelData[0].WidthInTiles = 32;
+        GlobalLevelData[0].HeightInTiles = 18;
+        GlobalLevelData[0].WallCount = 0;
+        u32 Size = GlobalLevelData[0].WidthInTiles*GlobalLevelData[0].HeightInTiles;
+        GlobalLevelData[0].MapData = PushArray(&GlobalMapDataMemory, u8, Size);
+        GlobalLevelData[0].EnemyCount = 0;
+        GlobalLevelData[0].MaxEnemyCount = 50;
+        GlobalLevelData[0].Enemies = PushArray(&GlobalPermanentStorageArena,
+                                               level_enemy,
+                                               GlobalLevelData[0].MaxEnemyCount);
     }
 }
 
@@ -62,30 +86,50 @@ LoadAssetFile(char *Path){
 internal inline void
 WriteAssetFile(char *Path){
     platform_file *File = OpenFile(Path, OpenFile_Write);
-    u32 Offset = 0;
-    u8 *Buffer = PushArray(&GlobalTransientStorageArena, u8, Kilobytes(16));
-    u8 *Pointer = Buffer;
-    u32 Size = 0;
+    temp_memory Buffer;
+    BeginTempMemory(&GlobalTransientStorageArena, &Buffer, Kilobytes(16));
     
-    *Pointer++ = 's';
-    *Pointer++ = 'j';
-    *Pointer++ = 'a';
-    *(u32*)Pointer = GlobalLevelCount; Pointer += 4;
-    Size += 7;
+    asset_file_header *Header = PushTempStruct(&Buffer, asset_file_header);
+    Header->Header[0] = 's';
+    Header->Header[1] = 'j';
+    Header->Header[2] = 'a';
+    Header->Version = 1;
+    Header->LevelCount = GlobalLevelCount;
     
     for(u32 I = 0; I < GlobalLevelCount; I++){
-        *(u32*)Pointer = GlobalLevelData[I].WidthInTiles; Pointer += 4;
-        *(u32*)Pointer = GlobalLevelData[I].HeightInTiles; Pointer += 4;
-        *(u32*)Pointer = GlobalLevelData[I].WallCount; Pointer += 4;
-        Size += 12;
+        asset_file_level *Level = PushTempStruct(&Buffer, asset_file_level);
+        Level->WidthInTiles = GlobalLevelData[I].WidthInTiles;
+        Level->HeightInTiles = GlobalLevelData[I].HeightInTiles;
+        Level->WallCount = GlobalLevelData[I].WallCount;
+        Level->EnemyCount = GlobalLevelData[I].EnemyCount;
     }
-    WriteToFile(File, 0, Buffer, Size);
+    WriteToFile(File, 0, Buffer.Memory, Buffer.Used);
     
+    u32 Offset = (u32)Buffer.Used;
     for(u32 I = 0; I < GlobalLevelCount; I++){
         u32 MapSize = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
-        WriteToFile(File, Size, GlobalLevelData[I].MapData, MapSize);
-        Size += MapSize;
+        WriteToFile(File, Offset, GlobalLevelData[I].MapData, MapSize);
+        Offset += MapSize;
     }
     
+    Buffer.Used = 0;
+    for(u32 I = 0; I < GlobalLevelCount; I++){
+        level_data *Level = &GlobalLevelData[I];
+        for(u32 J = 0; J < Level->EnemyCount; J++){
+            level_enemy *LevelEnemy = &Level->Enemies[J];
+            asset_file_enemy *Enemy = PushTempStruct(&Buffer, asset_file_enemy);
+            //Assert(LevelEnemy->Type != 0);
+            Enemy->Type = LevelEnemy->Type; // Not yet used
+            Enemy->P = LevelEnemy->P;
+            Enemy->PathStart = LevelEnemy->PathStart;
+            Enemy->PathEnd = LevelEnemy->PathEnd;
+            Enemy->Direction = LevelEnemy->Direction;
+        }
+    }
+    
+    WriteToFile(File, Offset, Buffer.Memory, Buffer.Used);
+    
     CloseFile(File);
+    
+    EndTempMemory(&GlobalTransientStorageArena, &Buffer);
 }
