@@ -94,6 +94,7 @@ InitializeGame(platform_user_input *Input){
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEntityMemory, Kilobytes(64));
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalLevelMemory, Kilobytes(4));
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalMapDataMemory, Kilobytes(64));
+    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEnemyMemory, Kilobytes(64));
     
     LoadAssetFile("test_assets.sja");
     LoadAllEntities();
@@ -107,9 +108,9 @@ InitializeGame(platform_user_input *Input){
         f32 MetersToPixels = 60.0f/0.5f;
         
         asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
-            {"test_avatar_spritesheet.png",     64, 10,  { 10, 10, 7, 6 }, { 10, 10, 6, 3 }, 0.0f },
-            {"test_snail_spritesheet2.png",     80,  5,  {  4,  4, 5, 5 }, {  7,  7, 7, 7 },-0.07f},
-            {"test_sally_spritesheet2.png",    128,  4,  {  4,  4 },       {  7,  7 },       0.0f},
+            {"test_avatar_spritesheet.png",      64, 10,  { 10, 10, 7, 6 }, { 10, 10, 6, 3 }, 0.0f },
+            {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 5, 5 }, {  7,  7, 7, 7 },-0.07f},
+            {"test_sally_spritesheet2.png",     128,  4,  {  4,  4, 5, 5 }, {  7,  7, 7, 7 }, 0.0f},
             {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 5, 5 }, {  7,  7, 7, 7 }, 0.0f },
             //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },      -0.02f},
             //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },      -0.04f},

@@ -1,5 +1,6 @@
 global sub_arena GlobalLevelMemory;
 global sub_arena GlobalMapDataMemory;
+global sub_arena GlobalEnemyMemory;
 
 struct entire_file {
     u8 *Data;
@@ -52,7 +53,7 @@ LoadAssetFile(char *Path){
         
         for(u32 I = 0; I < GlobalLevelCount; I++){
             GlobalLevelData[I].MaxEnemyCount = 50;
-            GlobalLevelData[I].Enemies = PushArray(&GlobalPermanentStorageArena,
+            GlobalLevelData[I].Enemies = PushArray(&GlobalEnemyMemory,
                                                    level_enemy,
                                                    GlobalLevelData[I].MaxEnemyCount);
             for(u32 J = 0; J < GlobalLevelData[I].EnemyCount; J++){

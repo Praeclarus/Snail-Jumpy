@@ -100,9 +100,10 @@ AddPlayer(v2 P){
     *GlobalPlayer = {0};
     
     GlobalPlayer->Width = 0.25f;
-    GlobalPlayer->Height = 0.5f;
+    GlobalPlayer->Height = 0.4f;
     
     GlobalPlayer->P = P;
+    GlobalPlayer->ZLayer = -0.9f;
     
     GlobalPlayer->CurrentAnimation = PlayerAnimation_Idle;
     GlobalPlayer->Asset = Asset_Player;
@@ -136,8 +137,7 @@ LoadAllEntities(){
                     GlobalWalls[CurrentWallId].P = {
                         (X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters
                     };
-                    GlobalWalls[CurrentWallId].Width  = TileSideInMeters;
-                    GlobalWalls[CurrentWallId].Height = TileSideInMeters;
+                    GlobalWalls[CurrentWallId].Size = {TileSideInMeters, TileSideInMeters};
                     
                     CurrentWallId++;
                 }
@@ -146,6 +146,8 @@ LoadAllEntities(){
         
         GlobalWallCount = CurrentWallId;
     }
+    
+    
     
     {
         u32 N = Minimum(5, GlobalCoinData.NumberOfCoinPs);
@@ -158,6 +160,9 @@ LoadAllEntities(){
         GlobalScore -= N; // HACK: UpdateCoin changes this value
     }
     
+    // TODO(Tyler): Formalize player starting position
+    AddPlayer({1.5f, 1.5f});
+    
     {
         AllocateNEntities(GlobalLevelData[GlobalCurrentLevel].EnemyCount, EntityType_Snail);
         for(u32 I = 0; I < GlobalLevelData[GlobalCurrentLevel].EnemyCount; I ++){
@@ -167,7 +172,6 @@ LoadAllEntities(){
             Assert(GlobalEnemies[I].Type);
             
             GlobalEnemies[I].P = Enemy->P;
-            //GlobalEnemies[I].CollisionGroupFlag = 0x00000003;
             
             GlobalEnemies[I].CurrentAnimation = SnailAnimation_Left;
             
@@ -175,7 +179,7 @@ LoadAllEntities(){
             if(Enemy->Type == EntityType_Snail){
                 GlobalEnemies[I].Asset = Asset_Snail; // For clarity
                 GlobalEnemies[I].Size = { 0.4f, 0.4f };
-            }else if(Enemy->Type == 4){
+            }else if(Enemy->Type == EntityType_Sally){
                 GlobalEnemies[I].Asset = Asset_Sally;
                 GlobalEnemies[I].Size = { 0.8f, 0.8f };
             }else if(Enemy->Type == EntityType_Dragonfly){
@@ -192,13 +196,11 @@ LoadAllEntities(){
         }
     }
     
-    // TODO(Tyler): Formalize player starting position
-    AddPlayer({1.5f, 1.5f});
 }
 
 internal void
 KillPlayer(f32 dTimeForFrame){
-    GlobalPlayer->State &= EntityState_Dead;
+    GlobalPlayer->State |= EntityState_Dead;
     PlayAnimationToEnd(GlobalPlayer, PlayerAnimation_Death, dTimeForFrame);
 }
 
@@ -293,40 +295,34 @@ TestRectangle(v2 P1, v2 Size1, v2 Delta, v2 P2, v2 Size2,
 }
 
 internal void
-TestWallCollisions(v2 P, v2 Size, v2 EntityDelta,
-                   f32 *CollisionTime, v2 *CollisionNormal,
-                   entity_type *CollisionEntityType, u32 *CollisionEntityId){
+TestWallCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
     for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
         wall_entity *WallEntity = &GlobalWalls[WallId];
         
         if(TestRectangle(P, Size, EntityDelta,
                          WallEntity->P, WallEntity->Size,
-                         CollisionTime, CollisionNormal)){
-            *CollisionEntityType = EntityType_Wall;
-            *CollisionEntityId = WallId;
+                         &Event->Time, &Event->Normal)){
+            Event->Type = CollisionType_Wall;
+            Event->EntityId = WallId;
         }
     }
     
 }
 
 internal void
-TestPlayerCollision(v2 P, v2 Size, v2 EntityDelta,
-                    f32 *CollisionTime, v2 *CollisionNormal,
-                    entity_type *CollisionEntityType, u32 *CollisionEntityId){
+TestPlayerCollision(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
     if(!(GlobalPlayer->State & EntityState_Dead)){
         if(TestRectangle(P, Size, EntityDelta,
                          GlobalPlayer->P, GlobalPlayer->Size,
-                         CollisionTime, CollisionNormal)){
-            *CollisionEntityType = EntityType_Player;
-            *CollisionEntityId = 0;
+                         &Event->Time, &Event->Normal)){
+            Event->Type = CollisionType_Player;
+            Event->EntityId = 0;
         }
     }
 }
 
 internal void
-TestCoinCollisions(v2 P, v2 Size, v2 EntityDelta,
-                   f32 *CollisionTime, v2 *CollisionNormal,
-                   entity_type *CollisionEntityType, u32 *CollisionEntityId){
+TestCoinCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
     for(u32 CoinId = 0; CoinId < GlobalCoinCount; CoinId++){
         coin_entity *CoinEntity = &GlobalCoins[CoinId];
         
@@ -336,31 +332,68 @@ TestCoinCollisions(v2 P, v2 Size, v2 EntityDelta,
         
         if(TestRectangle(P, Size, EntityDelta,
                          CoinEntity->P, CoinEntity->Size,
-                         CollisionTime, CollisionNormal)){
-            *CollisionEntityType = EntityType_Coin;
-            *CollisionEntityId = CoinId;
+                         &Event->Time, &Event->Normal)){
+            Event->Type = CollisionType_Coin;
+            Event->EntityId = CoinId;
         }
     }
     
 }
 
 internal void
-TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta,
-                    f32 *CollisionTime, v2 *CollisionNormal,
-                    entity_type *CollisionEntityType, u32 *CollisionEntityId){
+TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
     for(u32 Id = 0; Id < GlobalEnemyCount; Id++){
+        enemy_entity *Enemy = &GlobalEnemies[Id];
         
-        enemy_entity *OtherEntity = &GlobalEnemies[Id];
-        
-        if(!(OtherEntity->State&EntityState_Dead)){
-            
-            if(TestRectangle(P, Size, EntityDelta,
-                             OtherEntity->P, OtherEntity->Size,
-                             CollisionTime, CollisionNormal)){
-                *CollisionEntityType = (entity_type)OtherEntity->Type;
-                *CollisionEntityId = Id;
+        if(!(Enemy->State&EntityState_Dead)){
+            if(Enemy->Type == EntityType_Dragonfly){
+                // TODO(Tyler): Robustness, the means of calculating the boxes could
+                // be improved
+                
+                v2 RectSize1 = {Enemy->Size.X*0.4f, Enemy->Size.Y*0.7f};
+                v2 RectP1 = Enemy->P;
+                RectP1.X += Enemy->Size.X*Enemy->Direction*0.4f;
+                RectP1.Y += Enemy->Size.Y*0.4f;
+                
+                v2 RectSize2 = {Enemy->Size.X, Enemy->Size.Y*0.2f};
+                v2 RectP2 = Enemy->P;
+                //RectP2.X += Enemy->Size.X*-Enemy->Direction*0.4f;
+                RectP2.Y += Enemy->Size.Y*0.37f;
+                v2 Move = {0};
+                Move.X = 0.03f*Enemy->Direction;
+                Move.Y = (RectSize1.Y/2+RectP1.Y)-(RectSize2.Y/2+RectP2.Y);
+                
+                // Body
+                if(TestRectangle(P, Size, EntityDelta,
+                                 RectP1, RectSize1, &Event->Time, &Event->Normal)){
+                    Event->Type = CollisionType_Dragonfly;
+                    Event->EntityId = Id;
+                    if(Event->Normal.X == -Enemy->Direction){
+                        Event->StepMove = Move;
+                    }else if(Event->Normal.Y == 1.0f){
+                    }else{
+                        Event->IsFatal = true;
+                    }
+                }
+                
+                // Tail
+                if(TestRectangle(P, Size, EntityDelta,
+                                 RectP2, RectSize2, &Event->Time, &Event->Normal)){
+                    Event->Type = CollisionType_Dragonfly;
+                    Event->EntityId = Id;
+                    if(Event->Normal.Y == 1.0f){
+                    }else{
+                        Event->IsFatal = true;
+                    }
+                }
+                
+            }else{
+                if(TestRectangle(P, Size, EntityDelta,
+                                 Enemy->P, Enemy->Size, &Event->Time, &Event->Normal)){
+                    Event->Type = CollisionType_Snail;
+                    Event->EntityId = Id;
+                }
             }
-            
         }
     }
 }
@@ -379,44 +412,36 @@ MoveSnail(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
     
     v2 NewEntityP = Entity->P + EntityDelta;
     
-    entity_type CollisionEntityType = EntityType_None;
     f32 TimeRemaining = 1.0f;
     for(u32 Iteration = 0;
         (Iteration < 4) && (TimeRemaining > 0.0f);
         Iteration++){
-        f32 CollisionTime = 1.0f;
-        v2 CollisionNormal = {0};
-        u32 CollisionEntityId = 0;
+        collision_event Event = {0};
+        Event.Time = 1.0f;
         
-        TestWallCollisions(Entity->P, Entity->Size, EntityDelta,
-                           &CollisionTime, &CollisionNormal,
-                           &CollisionEntityType, &CollisionEntityId);
+        TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
-        TestPlayerCollision(Entity->P, Entity->Size, EntityDelta,
-                            &CollisionTime, &CollisionNormal,
-                            &CollisionEntityType, &CollisionEntityId);
+        TestPlayerCollision(Entity->P, Entity->Size, EntityDelta, &Event);
         
-        if(CollisionTime < 1.0f){
-            // TODO(Tyler): Fix dragonfly collision
-            if(CollisionEntityType == EntityType_Wall){
-                if(CollisionNormal.Y == 0){
-                    Entity->Direction = CollisionNormal.X;
+        if(Event.Time < 1.0f){
+            if(Event.Type == CollisionType_Wall){
+                if(Event.Normal.Y == 0){
+                    Entity->Direction = Event.Normal.X;
                     u32 Animation = (Entity->Direction > 0.0f) ?
                         SnailAnimation_TurningRight : SnailAnimation_TurningLeft;
                     PlayAnimationToEnd(Entity, Animation, dTimeForFrame);
                 }
-            }else
-                if(CollisionEntityType == EntityType_Player) {
+            }else if(Event.Type == CollisionType_Player) {
                 GlobalPlayer->State |= (EntityState_Dead);
                 KillPlayer(dTimeForFrame);
             }
         }
         
-        Entity->P += EntityDelta*CollisionTime;
-        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
-        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
+        Entity->P += EntityDelta*Event.Time;
+        Entity->dP = (Entity->dP-Inner(Entity->dP, Event.Normal)*Event.Normal);
+        EntityDelta = (EntityDelta-Inner(EntityDelta, Event.Normal)*Event.Normal);
         
-        TimeRemaining -= CollisionTime*TimeRemaining;
+        TimeRemaining -= Event.Time*TimeRemaining;
     }
 }
 
@@ -426,16 +451,17 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
     
     ddP += -2.0f*Entity->dP;
     v2 dP = Entity->dP;
-    if(Entity->RidingDragonfly){
-        dP += Entity->RidingDragonfly->dP;
+    if(Entity->IsRidingDragonfly){
+        enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
+        dP += Dragonfly->dP;
         
-        f32 DragonlyLeft = (GlobalPlayer->RidingDragonfly->P.X -
-                            0.5f*GlobalPlayer->RidingDragonfly->Size.Width);
-        f32 DragonlyRight = (GlobalPlayer->RidingDragonfly->P.X +
-                             0.5f*GlobalPlayer->RidingDragonfly->Size.Width);
+        f32 DragonlyLeft = (Dragonfly->P.X -
+                            0.5f*Dragonfly->Size.Width);
+        f32 DragonlyRight = (Dragonfly->P.X +
+                             0.5f*Dragonfly->Size.Width);
         if((DragonlyLeft < GlobalPlayer->P.X) && (GlobalPlayer->P.X < DragonlyRight)){
         }else{
-            GlobalPlayer->RidingDragonfly = 0;
+            GlobalPlayer->IsRidingDragonfly = false;
         }
     }
     v2 EntityDelta = (0.5f*ddP*Square(dTimeForFrame)+
@@ -444,46 +470,40 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
     
     v2 NewEntityP = Entity->P + EntityDelta;
     
-    entity_type CollisionEntityType = EntityType_None;
+    collision_type CollisionType = CollisionType_None;
     f32 TimeRemaining = 1.0f;
+    
     for(u32 Iteration = 0;
         (Iteration < 4) && (TimeRemaining > 0.0f);
         Iteration++){
-        f32 CollisionTime = 1.0f;
-        v2 CollisionNormal = {0};
-        u32 CollisionEntityId = 0;
+        collision_event Event = {0};
+        Event.Time = 1.0f;
         
-        TestWallCollisions(Entity->P, Entity->Size, EntityDelta,
-                           &CollisionTime, &CollisionNormal,
-                           &CollisionEntityType, &CollisionEntityId);
-        TestCoinCollisions(Entity->P, Entity->Size, EntityDelta,
-                           &CollisionTime, &CollisionNormal,
-                           &CollisionEntityType, &CollisionEntityId);
-        TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta,
-                            &CollisionTime, &CollisionNormal,
-                            &CollisionEntityType, &CollisionEntityId);
+        TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        TestCoinCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
-        if(CollisionTime < 1.0f){
+        if(Event.Time < 1.0f){
             // TODO(Tyler): Find a way to remove DiscardCollision
             b32 DiscardCollision = false;
             
-            if(CollisionEntityType == EntityType_Coin){
-                UpdateCoin(CollisionEntityId);
+            if(Event.Type == CollisionType_Coin){
+                UpdateCoin(Event.EntityId);
                 DiscardCollision = true;
-            }else if(CollisionEntityType == EntityType_Snail){
+            }else if(Event.Type == CollisionType_Snail){
                 GlobalPlayer->State |= (EntityState_Dead);
                 KillPlayer(dTimeForFrame);
-            }else if(CollisionEntityType == EntityType_Dragonfly){
-                if(CollisionNormal.Y == 1.0f){
-                    // TODO(Tyler): I don't know if I like using a pointer to an entity, but
-                    // I see no reason why not to. Entities are not yet able to be removed
-                    // from the system, unless the system is restarted,
-                    // and even then it doesn't matter
-                    GlobalPlayer->RidingDragonfly = &GlobalEnemies[CollisionEntityId];
-                }else{
-                    GlobalPlayer->State |= (EntityState_Dead);
+            }else if(Event.Type == CollisionType_Dragonfly){
+                if(Event.IsFatal){
                     KillPlayer(dTimeForFrame);
+                }else{
+                    GlobalPlayer->IsRidingDragonfly = true;
+                    GlobalPlayer->RidingDragonfly = Event.EntityId;
+                    GlobalPlayer->P += Event.StepMove;
                 }
+            }else if(Event.Type == CollisionType_Wall){
+            }else{
+                KillPlayer(dTimeForFrame);
             }
             
             if(DiscardCollision){
@@ -491,18 +511,18 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
                 continue;
             }
             
-            if(CollisionNormal.Y == 1.0f){
+            if(Event.Normal.Y == 1.0f){
                 GlobalPlayer->JumpTime = 0.0f;
             }else{
                 GlobalPlayer->JumpTime = 2.0f;
             }
         }
         
-        Entity->P += EntityDelta*CollisionTime;
-        Entity->dP = (Entity->dP-Inner(Entity->dP, CollisionNormal)*CollisionNormal);
-        EntityDelta = (EntityDelta-Inner(EntityDelta, CollisionNormal)*CollisionNormal);
+        Entity->P += EntityDelta*Event.Time;
+        Entity->dP = (Entity->dP-Inner(Entity->dP, Event.Normal)*Event.Normal);
+        EntityDelta = (EntityDelta-Inner(EntityDelta, Event.Normal)*Event.Normal);
         
-        TimeRemaining -= CollisionTime*TimeRemaining;
+        TimeRemaining -= Event.Time*TimeRemaining;
     }
 }
 
@@ -546,7 +566,7 @@ UpdateAndRenderEntities(render_group *RenderGroup,
             
             if((GlobalPlayer->JumpTime < 0.1f) &&
                Input->JumpButton.EndedDown){
-                ddP.Y += 80.0f;
+                ddP.Y += 85.0f;
                 GlobalPlayer->JumpTime += Input->dTimeForFrame;
             }else{
                 ddP.Y -= 17.0f;
@@ -576,10 +596,10 @@ UpdateAndRenderEntities(render_group *RenderGroup,
     }
     //END_BLOCK(PlayerUpdate);
     
-    
     //BEGIN_BLOCK(SnailEntities);
     for(u32 Id = 0; Id < GlobalEnemyCount; Id++){
         enemy_entity *Enemy = &GlobalEnemies[Id];
+        
         if(Enemy->AnimationCooldown <= 0.0f){
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
             f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
@@ -609,7 +629,7 @@ UpdateAndRenderEntities(render_group *RenderGroup,
                     0.0f
                 };
                 
-                if(Enemy->Type == EntityType_Snail){
+                if(Enemy->Type != EntityType_Dragonfly){
                     ddP.Y = -11.0f;
                 }
                 

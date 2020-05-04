@@ -4,7 +4,7 @@ enum edit_mode {
     EditMode_AddWall = EntityType_Wall,
     EditMode_AddCoinP = EntityType_Coin,
     EditMode_Snail = EntityType_Snail,
-    EditMode_Sally = 4,
+    EditMode_Sally = EntityType_Sally,
     EditMode_Dragonfly = EntityType_Dragonfly,
     
     EditMode_TOTAL
@@ -88,19 +88,29 @@ UpdateAndRenderEditor(platform_user_input *Input){
                 // TODO(Tyler): Allocate MapDatas contiguously
                 NewLevel->MapData = PushArray(&GlobalMapDataMemory, u8, Size);
                 NewLevel->MaxEnemyCount = 50;
-                NewLevel->Enemies = PushArray(&GlobalPermanentStorageArena,
+                NewLevel->Enemies = PushArray(&GlobalEnemyMemory,
                                               level_enemy,
                                               GlobalLevelData[0].MaxEnemyCount);
             }
             
             Y -= YAdvance;
-            if(RenderButton(&RenderGroup, X, Y, Width, Height, "Remove last level", Input)){
+            if(RenderButton(&RenderGroup, X, Y, Width, Height, "Remove level", Input)){
                 Assert(GlobalLevelCount > 1);
-                // TODO(Tyler): Allow arbitrary level numbers to be deleted and ROBUSTNESS
-                level_data *Level = &((level_data *)GlobalLevelMemory.Memory)[GlobalLevelCount];
-                u32 Size = Level->WidthInTiles*Level->HeightInTiles;
+                level_data *AllLevels = ((level_data *)GlobalLevelMemory.Memory);
+                level_data DeletedLevel = AllLevels[GlobalCurrentLevel];
+                AllLevels[GlobalCurrentLevel] = AllLevels[GlobalLevelCount-1];
+                u32 Size = DeletedLevel.WidthInTiles*DeletedLevel.HeightInTiles;
+                // TODO(Tyler): Robustness this currently means that all levels must have the same map size!
+                CopyMemory(DeletedLevel.MapData, AllLevels[GlobalCurrentLevel].MapData,
+                           Size);
+                CopyMemory(DeletedLevel.Enemies, AllLevels[GlobalCurrentLevel].Enemies,
+                           AllLevels[GlobalCurrentLevel].EnemyCount*sizeof(level_enemy));
+                AllLevels[GlobalCurrentLevel].Enemies = DeletedLevel.Enemies;
+                AllLevels[GlobalCurrentLevel].MapData = DeletedLevel.MapData;
+                
                 GlobalMapDataMemory.Used -= Size;
-                GlobalLevelMemory.Used -= sizeof(level_data);
+                GlobalEnemyMemory.Used -= AllLevels[GlobalCurrentLevel].EnemyCount*sizeof(level_enemy);
+                
                 GlobalLevelCount--;
             }
             if(GlobalSelectedEnemy){

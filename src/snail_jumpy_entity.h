@@ -7,9 +7,34 @@ enum entity_type {
     EntityType_Wall = 1,
     EntityType_Coin = 2, // Possible CoinP
     EntityType_Snail = 3,
-    // Sally = 4
+    EntityType_Sally = 4,
     EntityType_Dragonfly = 5,
     EntityType_Player = 6,
+};
+
+enum collision_type {
+    CollisionType_None,
+    
+    CollisionType_Wall,
+    CollisionType_Snail,
+    CollisionType_Player,
+    CollisionType_Coin,
+    CollisionType_Dragonfly,
+};
+
+struct collision_event {
+    collision_type Type;
+    f32 Time;
+    v2 Normal;
+    u32 EntityId;
+    
+    union {
+        // Dragonfly
+        struct {
+            b8 IsFatal;
+            v2 StepMove;
+        };
+    };
 };
 
 // TODO(Tyler): Is this needed?
@@ -39,6 +64,7 @@ struct coin_data {
 struct coin_entity {
     entity_type Type;
     v2 P;
+    
     union {
         struct { f32 Width, Height; };
         v2 Size;
@@ -77,7 +103,9 @@ struct enemy_entity : public entity {
 
 struct player_entity : public entity {
     f32 JumpTime;
-    enemy_entity *RidingDragonfly;
+    // TODO(Tyler): There is likely a better way to do this
+    b8 IsRidingDragonfly;
+    u32 RidingDragonfly;
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H

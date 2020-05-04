@@ -2,21 +2,16 @@ TODOS:
 -----------------------------------------------
 
  - Better entity system
-     - Improve collision system!!!
+     - Improve collision system, it is almost there
      - Improve entity system, it is currently too hard to add a new entity
-     - Ability to remove entities from the system - Is this needed???
-     - Change Snail AI, make it not depend on phony walls? Maybe use paths?
-         - This would also allow a sort of speed up in the middle, slow down at the ends.
-           Also if this is applied to Dragonfly AI as it would allow for more complex
-           paths
-
      - Add a wall_group entity instead of having an individual entity for each wall
 
  - Improve asset system
      - Formalize asset loading, almost there
-     - Perhaps use different bits to represent different entities
      - Add Sally back in
      - Formalize player spawn
+
+ - Improve the Z layer
 
  - Hotloading
      - Variables file a la Jonathan Blow's games
@@ -28,6 +23,8 @@ TODOS:
  - Audio!!!
      - Load WAV files
 
+ - Proper random number generation
+
  - Multithreading & SIMD, should this be done if we want compatibility with older lower end
    machines?
 
@@ -35,8 +32,7 @@ TODOS:
    for older machines
 
  - Editor, How fancy do we want to get?
-     - Ability to add Sallies and dragonflies
-     - Remove any levels
+     - Drag entity path endpoints
      - Undo/Redo
 
 BUGS:
@@ -49,3 +45,11 @@ BUGS:
  - Score doesn't reset on level change, easy fix
  - Friction isn't applied if a player quickly changes the direction they are moving
  - Player can jump while falling
+ - Player can kinda fall through dragonfly when turning
+ - Player can get stuck when walking onto the dragonfly's torso, if the dragonfly happens
+   to be under a platform
+     - Might not be a problem if the player size changes
+
+IDEAS:
+-----------------------------------------------
+ - Randomize enemy directions on start
