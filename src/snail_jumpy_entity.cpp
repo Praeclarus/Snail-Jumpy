@@ -408,7 +408,7 @@ TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
             }else{
                 if(TestRectangle(P, Size, EntityDelta,
                                  Enemy->P, Enemy->Size, &Event->Time, &Event->Normal)){
-                    Event->Type = CollisionType_Dragonfly;
+                    Event->Type = CollisionType_Snail;
                     Event->EntityId = Id;
                 }
             }
@@ -630,8 +630,6 @@ UpdateAndRenderEntities(render_group *RenderGroup,
     //BEGIN_BLOCK(SnailEntities);
     for(u32 Id = 0; Id < GlobalEnemyCount; Id++){
         enemy_entity *Enemy = &GlobalEnemies[Id];
-        
-#if 1
         if(Enemy->AnimationCooldown <= 0.0f){
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
             f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
@@ -672,7 +670,6 @@ UpdateAndRenderEntities(render_group *RenderGroup,
                 MoveEnemy(Id, ddP, Input->dTimeForFrame);
             }
         }
-#endif
         
         UpdateAndRenderAnimation(RenderGroup, Enemy, Input->dTimeForFrame);
         v2 Radius = {0.1f, 0.1f};
