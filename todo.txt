@@ -1,6 +1,13 @@
 TODOS:
 -----------------------------------------------
 
+ - When the player is riding a dragonfly when it turns, possibly interpolate the player
+   position to look better when riding the dragonfly
+
+ - Framerate independence!
+
+ - Dragonfly wings in a separate sprite
+
  - Better entity system
      - Improve collision system, it is almost there
      - Improve entity system, it is currently too hard to add a new entity
@@ -10,6 +17,8 @@ TODOS:
      - Formalize asset loading, almost there
      - Add Sally back in
      - Formalize player spawn
+     - Allow a variable number of animations in a spritesheet_asset instead of having it
+       fixed size
 
  - Improve the Z layer
 
@@ -49,6 +58,9 @@ BUGS:
  - Player can get stuck when walking onto the dragonfly's torso, if the dragonfly happens
    to be under a platform
      - Might not be a problem if the player size changes
+ - POSSIBLY: Collision event should be reset when a new collision is detected
+ - Riding on dragonfly go directly under a wall can cause the riding player to get stuck
+ - Dragonflies don't move with two collision boxes
 
 IDEAS:
 -----------------------------------------------

@@ -17,10 +17,10 @@ enum asset_animations {
     PlayerAnimation_Death        = 2,
     PlayerAnimation_Idle         = 3,
     
-    SnailAnimation_Left  = 0,
-    SnailAnimation_Right = 1,
-    SnailAnimation_TurningLeft = 2,
-    SnailAnimation_TurningRight = 3,
+    EnemyAnimation_Left  = 0,
+    EnemyAnimation_Right = 1,
+    EnemyAnimation_TurningLeft = 2,
+    EnemyAnimation_TurningRight = 3,
 };
 
 struct spritesheet_asset {
