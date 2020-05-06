@@ -148,14 +148,14 @@ LoadAllEntities(){
     }
     
     {
-        u32 N = Minimum(5, GlobalCoinData.NumberOfCoinPs);
+        u32 N = Minimum(7, GlobalCoinData.NumberOfCoinPs);
         AllocateNEntities(N, EntityType_Coin);
         for(u32 I = 0; I < N; I++){
             GlobalCoins[I].Size = { 0.3f, 0.3f };
             UpdateCoin(I);
             GlobalCoins[I].AnimationCooldown = 0.0f;
         }
-        GlobalScore -= N; // HACK: UpdateCoin changes this value
+        GlobalScore = 0; // HACK: UpdateCoin changes this value
     }
     
     // TODO(Tyler): Formalize player starting position
@@ -464,7 +464,7 @@ MoveEnemy(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                     PlayAnimationToEnd(Entity, Animation, dTimeForFrame);
                 }
             }else if(Event.Type == CollisionType_Player) {
-                //KillPlayer(dTimeForFrame);
+                KillPlayer(dTimeForFrame);
             }
         }
         

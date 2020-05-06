@@ -15,13 +15,13 @@ global b32 GlobalHideEditorUi;
 global level_enemy *GlobalSelectedEnemy;
 
 internal spritesheet_asset *
-GetAssetFromEnemy(level_enemy *Enemy){
+GetAssetFromEntityType(u32 Type){
     asset_type AssetType;
-    if(Enemy->Type == EntityType_Snail){
+    if(Type == EntityType_Snail){
         AssetType = Asset_Snail;
-    }else if(Enemy->Type == EntityType_Sally){
+    }else if(Type == EntityType_Sally){
         AssetType = Asset_Sally;
-    }else if(Enemy->Type == EntityType_Dragonfly){
+    }else if(Type == EntityType_Dragonfly){
         AssetType = Asset_Dragonfly;
     }else{
         // NOTE(Tyler): Stop the compiler from complaining
@@ -193,11 +193,13 @@ UpdateAndRenderEditor(platform_user_input *Input){
     
     if(IsButtonJustPressed(&Input->UpButton)){
         GlobalCurrentLevel++;
+        GlobalSelectedEnemy = 0;
         if(GlobalCurrentLevel == GlobalLevelCount){
             GlobalCurrentLevel = 0;
         }
     }else if(IsButtonJustPressed(&Input->DownButton)){
         GlobalCurrentLevel--;
+        GlobalSelectedEnemy = 0;
         if(GlobalCurrentLevel == U32_MAX){
             GlobalCurrentLevel = GlobalLevelCount-1;
         }
@@ -265,20 +267,38 @@ UpdateAndRenderEditor(platform_user_input *Input){
              (GlobalEditMode == EditMode_Sally) ||
              (GlobalEditMode == EditMode_Dragonfly)){
         
-        spritesheet_asset *Asset = &GlobalAssets[Asset_Snail];
+        spritesheet_asset *Asset = 0;
+        f32 YOffset = 0;
+        if(GlobalEditMode == EditMode_Snail){
+            Asset = &GlobalAssets[Asset_Snail];
+            YOffset = 0.1f*Asset->SizeInMeters.Y;
+        }else if(GlobalEditMode == EditMode_Sally){
+            Asset = &GlobalAssets[Asset_Sally];
+            YOffset = 0.3f*Asset->SizeInMeters.Y;
+        }else if(GlobalEditMode == EditMode_Dragonfly){
+            Asset = &GlobalAssets[Asset_Dragonfly];
+            YOffset = 0.25f*Asset->SizeInMeters.Y;
+        }else{
+            Assert(0);
+        }
+        
         v2 Size = Asset->SizeInMeters;
         v2 ViewTileP = {TileP.X*TileSize.X, TileP.Y*TileSize.Y};
         v2 Center = ViewTileP+(0.5f*TileSize);
-        RenderTexture(&RenderGroup, Center-Size/2, Center+Size/2, 0.0f,
-                      Asset->SpriteSheet, {0.0f}, Asset->SizeInTexCoords);
+        RenderTexture(&RenderGroup, v2{Center.X, Center.Y+YOffset}-Size/2,
+                      v2{Center.X, Center.Y+YOffset}+Size/2, 0.0f,
+                      Asset->SpriteSheet,
+                      {0.0f, 1.0f-Asset->SizeInTexCoords.Y}, {Asset->SizeInTexCoords.X, 1.0f});
         
         if(IsButtonJustPressed(&Input->LeftMouseButton) && !IgnoreMouseEvent){
             level_enemy *ExistingEnemy = 0;
             for(u32 I = 0; I < GlobalLevelData[GlobalCurrentLevel].EnemyCount; I++){
                 // TODO(Tyler): Use the proper size
                 level_enemy *Enemy = &GlobalLevelData[GlobalCurrentLevel].Enemies[I];
-                v2 MinCorner = Enemy->P-(0.5f*TileSize);
-                v2 MaxCorner = Enemy->P+(0.5f*TileSize);
+                spritesheet_asset *Asset = GetAssetFromEntityType(Enemy->Type);
+                v2 Size = Asset->SizeInMeters;
+                v2 MinCorner = Enemy->P-(0.5f*Size);
+                v2 MaxCorner = Enemy->P+(0.5f*Size);
                 if((MinCorner.X < MouseP.X) && (MouseP.X < MaxCorner.X) &&
                    (MinCorner.Y < MouseP.Y) && (MouseP.Y < MaxCorner.Y)){
                     ExistingEnemy = Enemy;
@@ -304,8 +324,6 @@ UpdateAndRenderEditor(platform_user_input *Input){
                 GlobalSelectedEnemy = ExistingEnemy;
             }
         }else if(IsButtonJustPressed(&Input->RightMouseButton) && !IgnoreMouseEvent){
-            //Assert(0);
-            
             level_enemy *ClickedEnemy = 0;
             u32 ClickedIndex = 0;
             for(u32 I = 0; I < GlobalLevelData[GlobalCurrentLevel].EnemyCount; I++){
@@ -353,68 +371,65 @@ UpdateAndRenderEditor(platform_user_input *Input){
     // TODO(Tyler): Correct entity position
     if(GlobalSelectedEnemy){
         f32 YOffset = 0;
-        asset_type AssetType;
+        spritesheet_asset *Asset = 0;
+        v2 Margin = {0};
         if(GlobalSelectedEnemy->Type == EntityType_Snail){
-            AssetType = Asset_Snail;
+            Asset = &GlobalAssets[Asset_Snail];
+            YOffset = 0.1f*Asset->SizeInMeters.Y;
         }else if(GlobalSelectedEnemy->Type == EntityType_Sally){
-            YOffset = 0.2f;
-            AssetType = Asset_Sally;
+            Asset = &GlobalAssets[Asset_Sally];
+            Margin = {0.2f, 0.2f};
+            YOffset = 0.3f*Asset->SizeInMeters.Y;
         }else if(GlobalSelectedEnemy->Type == EntityType_Dragonfly){
-            AssetType = Asset_Dragonfly;
+            Asset = &GlobalAssets[Asset_Dragonfly];
+            Margin = {0.1f, 0.1f};
+            YOffset = 0.25f*Asset->SizeInMeters.Y;
         }else{
-            // NOTE(Tyler): Stop the compiler from complaining
-            AssetType = Asset_TOTAL;
             Assert(0);
         }
         
-        spritesheet_asset *Asset = &GlobalAssets[AssetType];
-        v2 Size = Asset->SizeInMeters;
+        v2 Size = Asset->SizeInMeters+Margin;
         v2 Min = GlobalSelectedEnemy->P-Size/2;
         v2 Max = GlobalSelectedEnemy->P+Size/2;
         Min.Y += YOffset;
         Max.Y += YOffset;
-        f32 Margin = 0.05f;
-        RenderRectangle(&RenderGroup, Min, {Max.X, Min.Y+Margin}, -0.1f, BLUE);
-        RenderRectangle(&RenderGroup, {Max.X-Margin, Min.Y}, {Max.X, Max.Y}, -0.1f, BLUE);
-        RenderRectangle(&RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Margin}, -0.1f, BLUE);
-        RenderRectangle(&RenderGroup, {Min.X, Min.Y}, {Min.X+Margin, Max.Y}, -0.1f, BLUE);
+        f32 Thickness = 0.03f;
+        RenderRectangle(&RenderGroup, Min, {Max.X, Min.Y+Thickness}, -0.1f, BLUE);
+        RenderRectangle(&RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, -0.1f, BLUE);
+        RenderRectangle(&RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.1f, BLUE);
+        RenderRectangle(&RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.1f, BLUE);
     }
     for(u32 I = 0; I < GlobalLevelData[GlobalCurrentLevel].EnemyCount; I++){
         level_enemy *Enemy = &GlobalLevelData[GlobalCurrentLevel].Enemies[I];
         // TODO(Tyler): This could be factored in to something
-        asset_type AssetIndex;
+        spritesheet_asset *Asset = 0;
         f32 YOffset = 0;
         if(Enemy->Type == EntityType_Snail){
-            AssetIndex = Asset_Snail; // For clarity
+            Asset = &GlobalAssets[Asset_Snail];
+            YOffset = 0.1f*Asset->SizeInMeters.Y;
         }else if(Enemy->Type == EntityType_Sally){
-            AssetIndex = Asset_Sally;
-            YOffset = 0.2f;
+            Asset = &GlobalAssets[Asset_Sally];
+            YOffset = 0.3f*Asset->SizeInMeters.Y;
         }else if(Enemy->Type == EntityType_Dragonfly){
-            AssetIndex = Asset_Dragonfly;
+            Asset = &GlobalAssets[Asset_Dragonfly];
+            YOffset = 0.25f*Asset->SizeInMeters.Y;
         }else{
-            // NOTE(Tyler): Stop the compiler from complaining
-            AssetIndex = Asset_TOTAL;
             Assert(0);
         }
         
-        spritesheet_asset *Asset = &GlobalAssets[AssetIndex];
         v2 Size = Asset->SizeInMeters;
-        RenderTexture(&RenderGroup, v2{Enemy->P.X, Enemy->P.Y+YOffset}-Size/2,
-                      v2{Enemy->P.X, Enemy->P.Y+YOffset}+Size/2, -1.0f, Asset->SpriteSheet,
-                      {0.0f, 1.0f-Asset->SizeInTexCoords.Y},
-                      {Asset->SizeInTexCoords.X, 1.0f});
-        
         if(Enemy->Direction > 0){
-            RenderRectangle(&RenderGroup,
-                            {(Enemy->P+Size/2).X, Enemy->P.Y+YOffset},
-                            {(Enemy->P+Size/2).X+0.3f, Enemy->P.Y+YOffset+0.05f},
-                            -0.1f, BLUE);
+            RenderTexture(&RenderGroup, v2{Enemy->P.X, Enemy->P.Y+YOffset}-Size/2,
+                          v2{Enemy->P.X, Enemy->P.Y+YOffset}+Size/2, -0.5f, Asset->SpriteSheet,
+                          {0.0f, 1.0f-2*Asset->SizeInTexCoords.Y},
+                          {Asset->SizeInTexCoords.X, 1.0f-Asset->SizeInTexCoords.Y});
             
         }else if(Enemy->Direction < 0){
-            RenderRectangle(&RenderGroup,
-                            {(Enemy->P-Size/2).X, Enemy->P.Y+YOffset},
-                            {(Enemy->P-Size/2).X-0.3f, Enemy->P.Y+YOffset+0.05f},
-                            -0.1f, BLUE);
+            RenderTexture(&RenderGroup, v2{Enemy->P.X, Enemy->P.Y+YOffset}-Size/2,
+                          v2{Enemy->P.X, Enemy->P.Y+YOffset}+Size/2, -0.5f, Asset->SpriteSheet,
+                          {0.0f, 1.0f-Asset->SizeInTexCoords.Y},
+                          {Asset->SizeInTexCoords.X, 1.0f});
+            
         }
         
         if((GlobalEditMode == EditMode_Snail) ||
