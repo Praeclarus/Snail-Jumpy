@@ -1,4 +1,6 @@
 
+internal void LoadOverworld();
+
 internal void
 UpdateAndRenderMainGame(platform_user_input *Input){
     //TIMED_FUNCTION();
@@ -8,21 +10,24 @@ UpdateAndRenderMainGame(platform_user_input *Input){
         if(GlobalCurrentLevel == GlobalLevelCount){
             GlobalCurrentLevel = 0;
         }
-        LoadAllEntities();
+        ChangeState(GameMode_None, GlobalCurrentLevel);
     }else if(IsButtonJustPressed(&Input->DownButton)){
         GlobalCurrentLevel--;
         if(GlobalCurrentLevel == U32_MAX){
             GlobalCurrentLevel = GlobalLevelCount-1;
         }
-        LoadAllEntities();
+        ChangeState(GameMode_None, GlobalCurrentLevel);
     }
     
-    if(IsButtonJustPressed(&Input->E)){
-        GlobalGameMode = GameMode_Editor;
+    if(IsButtonJustPressed(KeyboardButton(Input, 'E'))){
+        ChangeState(GameMode_Editor, GlobalCurrentLevel);
+    }
+    
+    if(IsButtonJustPressed(&Input->Esc)){
+        ChangeState(GameMode_Overworld, 0);
     }
     
     render_group RenderGroup;
-    
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
@@ -32,77 +37,43 @@ UpdateAndRenderMainGame(platform_user_input *Input){
     
     UpdateAndRenderEntities(&RenderGroup, Input);
     
-    f32 Y = Input->WindowSize.Height - 100;
-    f32 YAdvance = GlobalDebugFont.Size;
-    RenderFormatString(&RenderGroup, &GlobalMainFont,
-                       {0.0f, 1.0f, 0.0f, 1.0f},
-                       100, Y, -1.0f, "Score: %u", GlobalScore);
-    Y -= 30;
+    layout Layout = CreateLayout(100, Input->WindowSize.Height-100,
+                                 30, GlobalDebugFont.Size);
+    LayoutString(&RenderGroup, &Layout, &GlobalMainFont,
+                 GREEN, "Score: %u", GlobalScore);
     
-    RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, -1.0f, "Counter: %.2f", GlobalCounter);
-    Y -= YAdvance;
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "Counter: %.2f", GlobalCounter);
     
-    RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, -1.0f, "TransientMemory:  %'jd", GlobalTransientStorageArena.Used);
-    Y -= YAdvance;
-    RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, -1.0f, "PermanentMemory:  %'jd", GlobalPermanentStorageArena.Used);
-    Y -= YAdvance;
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "TransientMemory:  %'jd", GlobalTransientStorageArena.Used);
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "PermanentMemory:  %'jd", GlobalPermanentStorageArena.Used);
     
     {
-        f32 Y = Input->WindowSize.Height - 100;
-        f32 X = Input->WindowSize.Width - 500;
-        RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                           {0.0f, 0.0f, 0.0f, 1.0f},
-                           X, Y, -1.0f, "Current level: %u", GlobalCurrentLevel);
-        Y -= YAdvance;
+        layout Layout = CreateLayout(Input->WindowSize.Width-500, Input->WindowSize.Height-100,
+                                     30, GlobalDebugFont.Size);
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Current level: %u", GlobalCurrentLevel);
         
-        RenderString(&RenderGroup, &GlobalDebugFont,
-                     {0.0f, 0.0f, 0.0f, 1.0f},
-                     X, Y, -1.0f, "Use up and down arrows to change levels");
-        Y -= YAdvance;
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Use up and down arrows to change levels");
         
-        RenderString(&RenderGroup, &GlobalDebugFont,
-                     {0.0f, 0.0f, 0.0f, 1.0f},
-                     X, Y, -1.0f, "Use 'e' to open the editor");
-        Y -= YAdvance;
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Use 'e' to open the editor");
     }
     
-    RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, -1.0f, "Player velocity: %.2f %.2f",
-                       GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
-    Y -= YAdvance;
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "Player velocity: %.2f %.2f",
+                 GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
     
-    RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                       {0.0f, 0.0f, 0.0f, 1.0f},
-                       100, Y, -1.0f, "Player animation: %u %f %f",
-                       GlobalPlayer->CurrentAnimation,
-                       GlobalPlayer->AnimationState,
-                       GlobalPlayer->AnimationCooldown);
-    Y -= YAdvance;
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "Player animation: %u %f %f",
+                 GlobalPlayer->CurrentAnimation,
+                 GlobalPlayer->AnimationState,
+                 GlobalPlayer->AnimationCooldown);
     
-#if 0
-    for(u32 SnailId = 0; SnailId < GlobalSnailCount; SnailId++){
-        entity *Snail = &GlobalSnails[SnailId];
-        RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                           {0.0f, 0.0f, 0.0f, 1.0f},
-                           100, Y,  -1.0f, "Snail %u animation: %u %f %f",
-                           SnailId,
-                           Snail->CurrentAnimation,
-                           Snail->AnimationState,
-                           Snail->AnimationCooldown);
-        Y -= YAdvance;
-    }
-#endif
-    
-    Y -= YAdvance; // Exta spacing
-    DebugRenderAllProfileData(&RenderGroup, 100, &Y, 50, YAdvance);
-    
+    DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);
 }

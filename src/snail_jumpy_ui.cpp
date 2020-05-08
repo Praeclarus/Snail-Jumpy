@@ -1,14 +1,11 @@
 
-// TODO(Tyler): To make this better remove the MetersToPixels concept from the renderer,
-// make it a part of the interface to the renderer
+//~ Basic widgets
 internal void
 RenderSliderInputBar(render_group *RenderGroup,
                      f32 X, f32 Y,
                      f32 Width, f32 Height, f32 CursorWidth,
                      f32 *SliderPercent,
                      platform_user_input *Input){
-    // TODO(Tyler): This MetersToPixels conversion thing is
-    // a little bit of a hack used here, FIX IT!!!
     v2 MouseP = Input->MouseP;
     v2 LastMouseP = GlobalLastMouseP;
     f32 XMargin = 10;
@@ -69,35 +66,71 @@ RenderButton(render_group *RenderGroup,
     
     RenderRectangle(RenderGroup,
                     {X, Y}, {X+Width, Y+Height},
-                    -0.1f, ButtonColor, true);
+                    -0.99f, ButtonColor, true);
     f32 TextWidth = GetStringAdvance(&GlobalNormalFont, Text);
     f32 HeightOffset = (GlobalNormalFont.Ascent/2);
     RenderString(RenderGroup,
                  &GlobalNormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
-                 X+(Width/2)-(TextWidth/2), Y+(Height/2)-HeightOffset, -0.2f,
+                 X+(Width/2)-(TextWidth/2), Y+(Height/2)-HeightOffset, -1.0f,
                  Text);
     
     return(Result);
 }
 
+//~ Layout
 struct layout {
     v2 BaseP;
     v2 CurrentP;
     v2 Advance;
+    f32 Width;
 };
 
 internal layout
-CreateLayout(f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance){
+CreateLayout(f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance, f32 Width = 100){
     layout Result = {0};
     Result.BaseP = { BaseX, BaseY };
     Result.CurrentP = Result.BaseP;
     Result.Advance = { XAdvance, YAdvance };
+    Result.Width = Width;
+    return(Result);
 }
 
-#if 0
-internal b32
-RenderLayoutButton(render_group *RenderGroup, layout *Layout,
-                   char *Text, platform_user_input *Input){
-    RenderButton(RenderGroup, Layout.CurrentP.X, Layout.CurrentP.Y);
+internal void
+AdvanceLayoutY(layout *Layout){
+    Layout->CurrentP.Y -= Layout->Advance.Y;
 }
-#endif
+
+internal b32
+LayoutButton(render_group *RenderGroup, layout *Layout,
+             char *Text, platform_user_input *Input, f32 PercentWidth = 1.0f){
+    b32 Result = RenderButton(RenderGroup, Layout->CurrentP.X, Layout->CurrentP.Y,
+                              PercentWidth*Layout->Width, Layout->Advance.Y, Text, Input);
+    Layout->CurrentP.Y -= 1.2f*Layout->Advance.Y;
+    return(Result);
+}
+
+internal b32
+LayoutButtonSameY(render_group *RenderGroup, layout *Layout,
+                  char *Text, platform_user_input *Input, f32 PercentWidth = 1.0f){
+    b32 Result = RenderButton(RenderGroup, Layout->CurrentP.X, Layout->CurrentP.Y,
+                              PercentWidth*Layout->Width, Layout->Advance.Y, Text, Input);
+    Layout->CurrentP.X += PercentWidth*Layout->Width;
+    return(Result);
+}
+
+internal void
+EndLayoutSameY(layout *Layout){
+    Layout->CurrentP.X = Layout->BaseP.X;
+    Layout->CurrentP.Y -= Layout->Advance.Y;
+}
+
+internal void
+LayoutString(render_group *RenderGroup, layout *Layout,
+             font *Font, color Color, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    VRenderFormatString(RenderGroup, Font, Color,
+                        Layout->CurrentP.X, Layout->CurrentP.Y, -0.7f, Format, VarArgs);
+    va_end(VarArgs);
+    Layout->CurrentP.Y -= Font->Size;
+}

@@ -6,6 +6,7 @@ enum asset_type {
     Asset_Snail     = 1,
     Asset_Sally     = 2,
     Asset_Dragonfly = 3,
+    Asset_Speedy    = 4,
     
     // NOTE(Tyler): Keep at end!!!
     Asset_TOTAL

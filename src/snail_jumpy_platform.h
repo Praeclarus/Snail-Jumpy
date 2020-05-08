@@ -17,6 +17,7 @@ struct platform_user_input {
     platform_button_state LeftButton;
     platform_button_state RightButton;
     platform_button_state JumpButton;
+    platform_button_state Shift;
     
     v2 WindowSize;
     
@@ -25,8 +26,10 @@ struct platform_user_input {
     platform_button_state MiddleMouseButton;
     platform_button_state RightMouseButton;
     
-    platform_button_state E;
     platform_button_state Tab;
+    platform_button_state Esc;
+    
+    platform_button_state Keyboard[26];
 };
 
 struct platform_file;
@@ -62,6 +65,13 @@ internal ALLOCATE_VIRTUAL_MEMORY(AllocateVirtualMemory);
 internal inline b32
 IsButtonJustPressed(platform_button_state *Button){
     b32 Result = Button->EndedDown && (Button->HalfTransitionCount%2 == 1);
+    return(Result);
+}
+
+internal inline platform_button_state *
+KeyboardButton(platform_user_input *Input, char Key){
+    Assert(('A' <= Key) && (Key <= 'Z'));
+    platform_button_state *Result = &Input->Keyboard[Key-'A'];
     return(Result);
 }
 

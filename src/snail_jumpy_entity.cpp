@@ -11,6 +11,9 @@ global coin_data GlobalCoinData;
 global enemy_entity *GlobalEnemies;
 global u32 GlobalEnemyCount;
 
+global teleporter *GlobalTeleporters;
+global u32 GlobalTeleporterCount;
+
 global player_entity *GlobalPlayer;
 
 internal void UpdateCoin(u32 Id);
@@ -91,6 +94,10 @@ AllocateNEntities(u32 N, entity_type Type){
             Assert(N == 1);
             GlobalPlayer = PushArray(&GlobalEntityMemory, player_entity, N);
         }break;
+        case EntityType_Teleporter: {
+            GlobalTeleporterCount = N;
+            GlobalTeleporters = PushArray(&GlobalEntityMemory, teleporter, N);
+        }break;
     }
 }
 
@@ -111,94 +118,9 @@ AddPlayer(v2 P){
 }
 
 internal void
-LoadAllEntities(){
-    if(GlobalEntityMemory.Used != 0){ GlobalEntityMemory.Used = 0; }
-    
-    // TODO(Tyler): Change this!!!
-    AllocateNEntities(GlobalLevelData[GlobalCurrentLevel].WallCount, EntityType_Wall);
-    
-    f32 TileSideInMeters = 0.5f;
-    GlobalCoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
-    GlobalCoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
-    GlobalCoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
-    GlobalCoinData.TileSideInMeters = TileSideInMeters;
-    GlobalCoinData.NumberOfCoinPs = 0;
-    
-    {
-        u32 CurrentWallId = 0;
-        for(f32 Y = 0; Y < GlobalLevelData[GlobalCurrentLevel].HeightInTiles; Y++){
-            for(f32 X = 0; X < GlobalLevelData[GlobalCurrentLevel].WidthInTiles; X++){
-                u8 TileId = *(GlobalLevelData[GlobalCurrentLevel].MapData + ((u32)Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)X);
-                if(TileId == EntityType_Coin){
-                    GlobalCoinData.NumberOfCoinPs++;
-                    continue;
-                }else if(TileId == EntityType_Wall){
-                    GlobalWalls[CurrentWallId].P = {0};
-                    GlobalWalls[CurrentWallId].P = {
-                        (X+0.5f)*TileSideInMeters, (Y+0.5f)*TileSideInMeters
-                    };
-                    GlobalWalls[CurrentWallId].Size = {TileSideInMeters, TileSideInMeters};
-                    
-                    CurrentWallId++;
-                }
-            }
-        }
-        
-        GlobalWallCount = CurrentWallId;
-    }
-    
-    {
-        u32 N = Minimum(7, GlobalCoinData.NumberOfCoinPs);
-        AllocateNEntities(N, EntityType_Coin);
-        for(u32 I = 0; I < N; I++){
-            GlobalCoins[I].Size = { 0.3f, 0.3f };
-            UpdateCoin(I);
-            GlobalCoins[I].AnimationCooldown = 0.0f;
-        }
-        GlobalScore = 0; // HACK: UpdateCoin changes this value
-    }
-    
-    // TODO(Tyler): Formalize player starting position
-    AddPlayer({1.5f, 1.5f});
-    
-    {
-        AllocateNEntities(GlobalLevelData[GlobalCurrentLevel].EnemyCount, EntityType_Snail);
-        for(u32 I = 0; I < GlobalLevelData[GlobalCurrentLevel].EnemyCount; I ++){
-            level_enemy *Enemy = &GlobalLevelData[GlobalCurrentLevel].Enemies[I];
-            GlobalEnemies[I] = {0};
-            GlobalEnemies[I].Type = Enemy->Type;
-            Assert(GlobalEnemies[I].Type);
-            
-            GlobalEnemies[I].P = Enemy->P;
-            
-            GlobalEnemies[I].CurrentAnimation = EnemyAnimation_Left;
-            
-            GlobalEnemies[I].Speed = 1.0f;
-            if(Enemy->Type == EntityType_Snail){
-                GlobalEnemies[I].Asset = Asset_Snail; // For clarity
-                GlobalEnemies[I].Size = { 0.4f, 0.4f };
-            }else if(Enemy->Type == EntityType_Sally){
-                GlobalEnemies[I].Asset = Asset_Sally;
-                GlobalEnemies[I].Size = { 0.8f, 0.8f };
-                GlobalEnemies[I].P.Y += 0.2f;
-            }else if(Enemy->Type == EntityType_Dragonfly){
-                GlobalEnemies[I].Asset = Asset_Dragonfly;
-                GlobalEnemies[I].Size = { 1.0f, 0.5f };
-                GlobalEnemies[I].ZLayer = -0.9f;
-                GlobalEnemies[I].Speed = 2.0f;
-            }
-            
-            GlobalEnemies[I].Direction = Enemy->Direction;
-            GlobalEnemies[I].PathStart = Enemy->PathStart;
-            GlobalEnemies[I].PathEnd = Enemy->PathEnd;
-        }
-    }
-    
-}
-
-internal void
 KillPlayer(f32 dTimeForFrame){
     GlobalPlayer->State |= EntityState_Dead;
+    GlobalScore = 0;
     PlayAnimationToEnd(GlobalPlayer, PlayerAnimation_Death, dTimeForFrame);
 }
 
@@ -305,6 +227,22 @@ TestWallCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
                          &Event->Time, &Event->Normal)){
             Event->Type = CollisionType_Wall;
             Event->EntityId = WallId;
+        }
+    }
+    
+}
+
+internal void
+TestTeleporterCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
+    for(u32 Id = 0; Id < GlobalTeleporterCount; Id++){
+        teleporter *Teleporter = &GlobalTeleporters[Id];
+        
+        if(TestRectangle(P, Size, EntityDelta,
+                         Teleporter->P, Teleporter->Size,
+                         &Event->Time, &Event->Normal)){
+            Event->Type = CollisionType_Teleporter;
+            Event->EntityId = Id;
+            Event->NewLevel = Teleporter->Level;
         }
     }
     
@@ -511,6 +449,7 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
         Event.Time = 1.0f;
         
         TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        TestTeleporterCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestCoinCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
@@ -532,6 +471,9 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
                     GlobalPlayer->RidingDragonfly = Event.EntityId;
                     GlobalPlayer->P += Event.StepMove;
                 }
+            }else if(Event.Type == CollisionType_Teleporter){
+                Assert(GlobalGameMode == GameMode_Overworld);
+                ChangeState(GameMode_MainGame, Event.NewLevel);
             }else if(Event.Type == CollisionType_Wall){
             }else{
                 KillPlayer(dTimeForFrame);
@@ -558,20 +500,17 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
 }
 
 internal void
-UpdateAndRenderEntities(render_group *RenderGroup,
-                        platform_user_input *Input){
-    TIMED_FUNCTION();
-    
-    //BEGIN_BLOCK(WallEntities);
+UpdateAndRenderWalls(render_group *RenderGroup){
     for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
         wall_entity *Entity = &GlobalWalls[WallId];
         RenderRectangle(RenderGroup,
                         Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2), 0.0f,
-                        {1.0f, 1.0f, 1.0f, 1.0f});
+                        WHITE);
     }
-    //END_BLOCK(WallEntities);
-    
-    //BEGIN_BLOCK(CoinEntities);
+}
+
+internal void
+UpdateAndRenderCoins(render_group *RenderGroup, platform_user_input *Input){
     for(u32 CoinId = 0; CoinId < GlobalCoinCount; CoinId++){
         coin_entity *Coin = &GlobalCoins[CoinId];
         if(Coin->AnimationCooldown > 0.0f){
@@ -582,7 +521,14 @@ UpdateAndRenderEntities(render_group *RenderGroup,
                             {1.0f, 1.0f, 0.0f, 1.0f});
         }
     }
-    //END_BLOCK(CoinEntities);
+}
+
+internal void
+UpdateAndRenderEntities(render_group *RenderGroup, platform_user_input *Input){
+    TIMED_FUNCTION();
+    
+    UpdateAndRenderWalls(RenderGroup);
+    UpdateAndRenderCoins(RenderGroup, Input);
     
     //BEGIN_BLOCK(PlayerUpdate);
     {
@@ -630,6 +576,7 @@ UpdateAndRenderEntities(render_group *RenderGroup,
     //BEGIN_BLOCK(SnailEntities);
     for(u32 Id = 0; Id < GlobalEnemyCount; Id++){
         enemy_entity *Enemy = &GlobalEnemies[Id];
+        
         if(Enemy->AnimationCooldown <= 0.0f){
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
             f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
@@ -662,7 +609,6 @@ UpdateAndRenderEntities(render_group *RenderGroup,
                 if(Enemy->Type != EntityType_Dragonfly){
                     ddP.Y = -11.0f;
                 }
-                
                 
                 u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
                     EnemyAnimation_Right : EnemyAnimation_Left;

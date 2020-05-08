@@ -47,5 +47,6 @@ internal CREATE_RENDER_TEXTURE(CreateRenderTexture);
 #define WHITE color{1.0f, 1.0f, 1.0f, 1.0f}
 #define YELLOW color{1.0f, 1.0f, 0.0f, 1.0f}
 #define BLUE color{0.0f, 0.0f, 1.0f, 1.0f}
+#define GREEN color{0.0f, 1.0f, 0.0f, 1.0f}
 
 #endif //SNAIL_JUMPY_RENDER_H

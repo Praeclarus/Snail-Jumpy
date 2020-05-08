@@ -26,10 +26,15 @@ global memory_arena GlobalTransientStorageArena;
 global v2 GlobalLastMouseP;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_MainGame;
+global game_mode GlobalGameMode = GameMode_Overworld;
 global u32 GlobalLevelCount;
 global u32 GlobalCurrentLevel;
 global level_data *GlobalLevelData;
+
+global state_change_data GlobalStateChangeData;
+
+internal inline void
+ChangeState(game_mode NewMode, u32 NewLevel);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -38,9 +43,12 @@ global level_data *GlobalLevelData;
 #include "snail_jumpy_entity.cpp"
 #include "snail_jumpy_ui.cpp"
 #include "snail_jumpy_debug_ui.cpp"
+#include "snail_jumpy_level.cpp"
+
 #include "snail_jumpy_menu.cpp"
-#include "snail_jumpy_game.cpp"
 #include "snail_jumpy_editor.cpp"
+#include "snail_jumpy_game.cpp"
+#include "snail_jumpy_overworld.cpp"
 
 internal void
 LoadFont(memory_arena *Arena,
@@ -97,7 +105,8 @@ InitializeGame(platform_user_input *Input){
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEnemyMemory, Kilobytes(64));
     
     LoadAssetFile("test_assets.sja");
-    LoadAllEntities();
+    LoadOverworld();
+    //LoadAllEntities();
     
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
     GlobalDefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
@@ -110,8 +119,9 @@ InitializeGame(platform_user_input *Input){
         asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
             {"test_avatar_spritesheet.png",      64, 10,  { 10, 10, 7, 6 }, { 15, 15, 6, 3 }, 0.0f },
             {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 3, 3 }, {  7,  7, 7, 7 },-0.07f},
-            {"test_sally_spritesheet2.png",     128,  4,  {  4,  4, 3, 3 }, {  7,  7, 7, 7 }, 0.0f},
+            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, {  7,  7, 7, 7 }, 0.0f},
             {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, {  7,  7, 7, 7 }, 0.0f },
+            {"test_speedy_spritesheet.png",      80, 10,  {  4,  4, 3, 3 }, {  7,  7, 7, 7 },-0.07f },
             //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },      -0.02f},
             //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },      -0.04f},
             //{"test_dragonfly_spritesheet.png", 128, 10,  { 10, 10, 5, 5 }, {  7,  7, 7, 7 }, 0.0f },
@@ -164,7 +174,13 @@ InitializeGame(platform_user_input *Input){
              "Press-Start-2P.ttf", 24, 512, 512);
     
     InitializeRenderer();
-    
+}
+
+internal inline void
+ChangeState(game_mode NewMode, u32 NewLevel){
+    GlobalStateChangeData.DidChange= true;
+    GlobalStateChangeData.NewMode = NewMode;
+    GlobalStateChangeData.NewLevel = NewLevel;
 }
 
 internal void
@@ -184,8 +200,28 @@ GameUpdateAndRender(platform_user_input *Input){
         case GameMode_Editor: {
             UpdateAndRenderEditor(Input);
         }break;
+        case GameMode_Overworld: {
+            UpdateAndRenderOverworld(Input);
+        }break;
     }
     
     GlobalLastMouseP = Input->MouseP;
     GlobalCounter += Input->dTimeForFrame;
+    
+    if(GlobalStateChangeData.DidChange){
+        if(GlobalStateChangeData.NewMode == GameMode_None){
+            LoadLevel(GlobalStateChangeData.NewLevel);
+        }else if(GlobalStateChangeData.NewMode == GameMode_MainGame){
+            GlobalGameMode = GameMode_MainGame;
+            LoadLevel(GlobalStateChangeData.NewLevel);
+        }else if(GlobalStateChangeData.NewMode == GameMode_Overworld){
+            GlobalGameMode = GameMode_Overworld;
+            LoadOverworld();
+        }else if(GlobalStateChangeData.NewMode == GameMode_Editor){
+            GlobalGameMode = GameMode_Editor;
+        }
+        
+        GlobalStateChangeData = {0};
+    }
+    
 }

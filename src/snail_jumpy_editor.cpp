@@ -6,6 +6,7 @@ enum edit_mode {
     EditMode_Snail = EntityType_Snail,
     EditMode_Sally = EntityType_Sally,
     EditMode_Dragonfly = EntityType_Dragonfly,
+    EditMode_Speedy = EntityType_Speedy,
     
     EditMode_TOTAL
 };
@@ -13,6 +14,7 @@ enum edit_mode {
 global edit_mode GlobalEditMode;
 global b32 GlobalHideEditorUi;
 global level_enemy *GlobalSelectedEnemy;
+
 
 internal spritesheet_asset *
 GetAssetFromEntityType(u32 Type){
@@ -23,6 +25,8 @@ GetAssetFromEntityType(u32 Type){
         AssetType = Asset_Sally;
     }else if(Type == EntityType_Dragonfly){
         AssetType = Asset_Dragonfly;
+    }else if(Type == EntityType_Speedy){
+        AssetType = Asset_Speedy;
     }else{
         // NOTE(Tyler): Stop the compiler from complaining
         AssetType = Asset_TOTAL;
@@ -32,7 +36,6 @@ GetAssetFromEntityType(u32 Type){
     spritesheet_asset *Result = &GlobalAssets[AssetType];
     return(Result);
 }
-
 
 internal void
 UpdateAndRenderEditor(platform_user_input *Input){
@@ -47,143 +50,11 @@ UpdateAndRenderEditor(platform_user_input *Input){
     
     v2 TileSize = {0.5f, 0.5f};
     
-    //~ UI
     if(!GlobalHideEditorUi){
-        f32 StartY = Input->WindowSize.Height-100;
-        f32 Y = StartY;
-        f32 YAdvance = GlobalDebugFont.Size;
-        f32 X = Input->WindowSize.Width - 500;
-        
-        RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                           {0.0f, 0.0f, 0.0f, 1.0f},
-                           X, Y, 0.0f, "Total levels: %u", GlobalLevelCount);
-        Y -= YAdvance;
-        
-        RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                           {0.0f, 0.0f, 0.0f, 1.0f},
-                           X, Y, 0.0f, "Current level: %u", GlobalCurrentLevel);
-        Y -= YAdvance;
-        
-        RenderString(&RenderGroup, &GlobalDebugFont,
-                     {0.0f, 0.0f, 0.0f, 1.0f},
-                     X, Y, -1.0f, "Use up and down arrows to change levels");
-        Y -= YAdvance;
-        
-        RenderString(&RenderGroup, &GlobalDebugFont,
-                     {0.0f, 0.0f, 0.0f, 1.0f},
-                     X, Y, -1.0f, "Use 'e' to open the game");
-        Y -= YAdvance;
-        
-        local_constant char *ModeTable[EditMode_TOTAL] = {
-            "None", "Add wall", "Add coin p", "Snail", "Sally", "Dragonfly",
-        };
-        RenderFormatString(&RenderGroup, &GlobalDebugFont,
-                           {0.0f, 0.0f, 0.0f, 1.0f},
-                           X, Y, 0.0f, "Current mode: %s", ModeTable[GlobalEditMode]);
-        Y -= YAdvance;
-        
-        RenderString(&RenderGroup, &GlobalDebugFont,
-                     {0.0f, 0.0f, 0.0f, 1.0f},
-                     X, Y, 0.0f, "Use left and right arrows to change edit mode");
-        Y -= YAdvance;
-        
-        {
-            f32 Height = 20;
-            f32 YAdvance = Height + 5;
-            f32 Width = 250;
-            Y -= YAdvance;
-            if(RenderButton(&RenderGroup, X, Y, Width, Height, "Save", Input)){
-                WriteAssetFile("test_assets.sja");
-            }
-            
-            Y -= YAdvance;
-            if(RenderButton(&RenderGroup, X, Y, Width, Height, "Add level", Input)){
-                // TODO(Tyler): Formalize this idea
-                GlobalLevelCount++;
-                level_data *NewLevel = PushArray(&GlobalLevelMemory, level_data, 1);
-                NewLevel->WidthInTiles = 32;
-                NewLevel->HeightInTiles = 18;
-                NewLevel->WallCount++;
-                u32 Size = NewLevel->WidthInTiles*NewLevel->HeightInTiles;
-                // TODO(Tyler): Allocate MapDatas contiguously
-                NewLevel->MapData = PushArray(&GlobalMapDataMemory, u8, Size);
-                NewLevel->MaxEnemyCount = 50;
-                NewLevel->Enemies = PushArray(&GlobalEnemyMemory,
-                                              level_enemy,
-                                              GlobalLevelData[0].MaxEnemyCount);
-            }
-            
-            Y -= YAdvance;
-            if(RenderButton(&RenderGroup, X, Y, Width, Height, "Remove level", Input)){
-                Assert(GlobalLevelCount > 1);
-                level_data *AllLevels = ((level_data *)GlobalLevelMemory.Memory);
-                level_data DeletedLevel = AllLevels[GlobalCurrentLevel];
-                AllLevels[GlobalCurrentLevel] = AllLevels[GlobalLevelCount-1];
-                u32 Size = DeletedLevel.WidthInTiles*DeletedLevel.HeightInTiles;
-                // TODO(Tyler): Robustness this currently means that all levels must have the same map size!
-                CopyMemory(DeletedLevel.MapData, AllLevels[GlobalCurrentLevel].MapData,
-                           Size);
-                CopyMemory(DeletedLevel.Enemies, AllLevels[GlobalCurrentLevel].Enemies,
-                           AllLevels[GlobalCurrentLevel].EnemyCount*sizeof(level_enemy));
-                AllLevels[GlobalCurrentLevel].Enemies = DeletedLevel.Enemies;
-                AllLevels[GlobalCurrentLevel].MapData = DeletedLevel.MapData;
-                
-                GlobalMapDataMemory.Used -= Size;
-                GlobalEnemyMemory.Used -= AllLevels[GlobalCurrentLevel].EnemyCount*sizeof(level_enemy);
-                
-                GlobalLevelCount--;
-            }
-            if(GlobalSelectedEnemy){
-                
-                Y -= YAdvance;
-                RenderString(&RenderGroup, &GlobalDebugFont,
-                             {0.0f, 0.0f, 0.0f, 1.0f},
-                             X, Y, 0.0f, "Direction: ");
-                
-                Y -= YAdvance;
-                if(RenderButton(&RenderGroup, X, Y, Width/2, Height, "<-", Input)){
-                    GlobalSelectedEnemy->Direction = -1.0f;
-                }
-                if(RenderButton(&RenderGroup, X+Width/2, Y, Width/2, Height, "->", Input)){
-                    GlobalSelectedEnemy->Direction = 1.0f;
-                }
-                
-                Y -= YAdvance;
-                RenderString(&RenderGroup, &GlobalDebugFont,
-                             {0.0f, 0.0f, 0.0f, 1.0f},
-                             X, Y, 0.0f, "Change left travel distance: ");
-                
-                Y -= YAdvance;
-                if(RenderButton(&RenderGroup, X, Y, Width/2, Height, "<-", Input)){
-                    GlobalSelectedEnemy->PathStart.X -= TileSize.X;
-                }
-                if(RenderButton(&RenderGroup, X+Width/2, Y, Width/2, Height, "->", Input)){
-                    if(GlobalSelectedEnemy->PathStart.X < GlobalSelectedEnemy->P.X-TileSize.X){
-                        GlobalSelectedEnemy->PathStart.X += TileSize.X;
-                    }
-                }
-                
-                Y -= YAdvance;
-                RenderString(&RenderGroup, &GlobalDebugFont,
-                             {0.0f, 0.0f, 0.0f, 1.0f},
-                             X, Y, 0.0f, "Change right travel distance: ");
-                
-                Y -= YAdvance;
-                if(RenderButton(&RenderGroup, X, Y, Width/2, Height, "<-", Input)){
-                    if(GlobalSelectedEnemy->P.X+TileSize.X < GlobalSelectedEnemy->PathEnd.X){
-                        GlobalSelectedEnemy->PathEnd.X -= TileSize.X;
-                    }
-                }
-                if(RenderButton(&RenderGroup, X+Width/2, Y, Width/2, Height, "->", Input)){
-                    GlobalSelectedEnemy->PathEnd.X += TileSize.X;
-                }
-            }
-            
-            
-            if((X < Input->MouseP.X) && (Input->MouseP.X < X+Width) &&
-               (Y < Input->MouseP.Y) && (Input->MouseP.Y < StartY+Height)){
-                IgnoreMouseEvent = true;
-            }
+        v2 UiMinCorner = {Input->WindowSize.Width-500, Input->WindowSize.Height-600};
+        if((UiMinCorner.X < Input->MouseP.X) && (Input->MouseP.X < Input->WindowSize.Width) &&
+           (UiMinCorner.Y < Input->MouseP.Y) && (Input->MouseP.Y < Input->WindowSize.Height)){
+            IgnoreMouseEvent = true;
         }
     }
     
@@ -217,10 +88,9 @@ UpdateAndRenderEditor(platform_user_input *Input){
         }
     }
     
-    if(Input->E.EndedDown && (Input->E.HalfTransitionCount%2 == 1)){
-        GlobalGameMode = GameMode_MainGame;
+    if(IsButtonJustPressed(KeyboardButton(Input, 'E'))){
+        ChangeState(GameMode_MainGame, GlobalCurrentLevel);
         GlobalScore = 0;
-        LoadAllEntities();
     }
     
     //~ Editing
@@ -233,12 +103,17 @@ UpdateAndRenderEditor(platform_user_input *Input){
         
         if(Input->LeftMouseButton.EndedDown && !IgnoreMouseEvent){
             u8 *TileId = GlobalLevelData[GlobalCurrentLevel].MapData+((u32)TileP.Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)TileP.X;
-            GlobalLevelData[GlobalCurrentLevel].WallCount++;
-            *TileId = (u8)GlobalEditMode;
+            if(*TileId == 0){
+                if(GlobalEditMode == EditMode_AddWall){
+                    GlobalLevelData[GlobalCurrentLevel].WallCount++;
+                }
+                *TileId = (u8)GlobalEditMode;
+            }
         }else if(Input->RightMouseButton.EndedDown && !IgnoreMouseEvent){
             u8 *TileId = GlobalLevelData[GlobalCurrentLevel].MapData+((u32)TileP.Y*GlobalLevelData[GlobalCurrentLevel].WidthInTiles)+(u32)TileP.X;
-            if((*TileId == EntityType_Wall)){
-                GlobalLevelData[GlobalCurrentLevel].WallCount++;
+            if(*TileId == EntityType_Wall){
+                GlobalLevelData[GlobalCurrentLevel].WallCount--;
+                //Assert(0);
             }
             *TileId = 0;
         }
@@ -265,7 +140,8 @@ UpdateAndRenderEditor(platform_user_input *Input){
         
     }else if((GlobalEditMode == EditMode_Snail) ||
              (GlobalEditMode == EditMode_Sally) ||
-             (GlobalEditMode == EditMode_Dragonfly)){
+             (GlobalEditMode == EditMode_Dragonfly) ||
+             (GlobalEditMode == EditMode_Speedy)){
         
         spritesheet_asset *Asset = 0;
         f32 YOffset = 0;
@@ -278,6 +154,9 @@ UpdateAndRenderEditor(platform_user_input *Input){
         }else if(GlobalEditMode == EditMode_Dragonfly){
             Asset = &GlobalAssets[Asset_Dragonfly];
             YOffset = 0.25f*Asset->SizeInMeters.Y;
+        }else if(GlobalEditMode == EditMode_Speedy){
+            Asset = &GlobalAssets[Asset_Speedy];
+            YOffset = 0.1f*Asset->SizeInMeters.Y;
         }else{
             Assert(0);
         }
@@ -288,7 +167,8 @@ UpdateAndRenderEditor(platform_user_input *Input){
         RenderTexture(&RenderGroup, v2{Center.X, Center.Y+YOffset}-Size/2,
                       v2{Center.X, Center.Y+YOffset}+Size/2, 0.0f,
                       Asset->SpriteSheet,
-                      {0.0f, 1.0f-Asset->SizeInTexCoords.Y}, {Asset->SizeInTexCoords.X, 1.0f});
+                      {0.0f, 1.0f-Asset->SizeInTexCoords.Y},
+                      {Asset->SizeInTexCoords.X, 1.0f});
         
         if(IsButtonJustPressed(&Input->LeftMouseButton) && !IgnoreMouseEvent){
             level_enemy *ExistingEnemy = 0;
@@ -384,6 +264,9 @@ UpdateAndRenderEditor(platform_user_input *Input){
             Asset = &GlobalAssets[Asset_Dragonfly];
             Margin = {0.1f, 0.1f};
             YOffset = 0.25f*Asset->SizeInMeters.Y;
+        }else if(GlobalSelectedEnemy->Type == EditMode_Speedy){
+            Asset = &GlobalAssets[Asset_Speedy];
+            YOffset = 0.1f*Asset->SizeInMeters.Y;
         }else{
             Assert(0);
         }
@@ -413,6 +296,9 @@ UpdateAndRenderEditor(platform_user_input *Input){
         }else if(Enemy->Type == EntityType_Dragonfly){
             Asset = &GlobalAssets[Asset_Dragonfly];
             YOffset = 0.25f*Asset->SizeInMeters.Y;
+        }else if(Enemy->Type == EditMode_Speedy){
+            Asset = &GlobalAssets[Asset_Speedy];
+            YOffset = 0.1f*Asset->SizeInMeters.Y;
         }else{
             Assert(0);
         }
@@ -434,7 +320,8 @@ UpdateAndRenderEditor(platform_user_input *Input){
         
         if((GlobalEditMode == EditMode_Snail) ||
            (GlobalEditMode == EditMode_Sally) ||
-           (GlobalEditMode == EditMode_Dragonfly)){
+           (GlobalEditMode == EditMode_Dragonfly) ||
+           (GlobalEditMode == EditMode_Speedy)){
             v2 Radius = {0.1f, 0.1f};
             color Color = {1.0f, 0.0f, 0.0f, 1.0f};
             RenderRectangle(&RenderGroup, Enemy->PathStart-Radius, Enemy->PathStart+Radius,
@@ -444,11 +331,125 @@ UpdateAndRenderEditor(platform_user_input *Input){
         }
     }
     
+    if(!GlobalHideEditorUi){
+        //~ UI
+        layout Layout = CreateLayout(Input->WindowSize.Width-500,
+                                     Input->WindowSize.Height-100,
+                                     50, GlobalDebugFont.Size, 300);
+        
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Total levels: %u", GlobalLevelCount);
+        
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Current level: %u", GlobalCurrentLevel);
+        
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Use up and down arrows to change levels");
+        
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Use 'e' to open the game");
+        
+        local_constant char *ModeTable[EditMode_TOTAL] = {
+            "None", "Add wall", "Add coin p", "Snail", "Sally", "Dragonfly", "Speedy"
+        };
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Current mode: %s", ModeTable[GlobalEditMode]);
+        
+        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                     BLACK, "Use left and right arrows to change edit mode");
+        
+        {
+            AdvanceLayoutY(&Layout);
+            if(LayoutButton(&RenderGroup, &Layout, "Save", Input)){
+                WriteAssetFile("test_assets.sja");
+            }
+            
+            if(LayoutButton(&RenderGroup, &Layout, "Add level", Input)){
+                // TODO(Tyler): Formalize this idea
+                GlobalLevelCount++;
+                level_data *NewLevel = PushArray(&GlobalLevelMemory, level_data, 1);
+                NewLevel->WidthInTiles = 32;
+                NewLevel->HeightInTiles = 18;
+                //NewLevel->WallCount++;
+                u32 Size = NewLevel->WidthInTiles*NewLevel->HeightInTiles;
+                // TODO(Tyler): Allocate MapDatas contiguously
+                NewLevel->MapData = PushArray(&GlobalMapDataMemory, u8, Size);
+                NewLevel->MaxEnemyCount = 50;
+                NewLevel->Enemies = PushArray(&GlobalEnemyMemory,
+                                              level_enemy,
+                                              GlobalLevelData[0].MaxEnemyCount);
+            }
+            
+            if(LayoutButton(&RenderGroup, &Layout, "Remove level", Input)){
+                Assert(GlobalLevelCount > 1);
+                level_data *AllLevels = ((level_data *)GlobalLevelMemory.Memory);
+                level_data DeletedLevel = AllLevels[GlobalCurrentLevel];
+                AllLevels[GlobalCurrentLevel] = AllLevels[GlobalLevelCount-1];
+                u32 Size = DeletedLevel.WidthInTiles*DeletedLevel.HeightInTiles;
+                // TODO(Tyler): ROBUSTENESS/INCOMPLETE, currently all levels must
+                // have the same map size
+                CopyMemory(DeletedLevel.MapData, AllLevels[GlobalCurrentLevel].MapData,
+                           Size);
+                CopyMemory(DeletedLevel.Enemies, AllLevels[GlobalCurrentLevel].Enemies,
+                           AllLevels[GlobalCurrentLevel].EnemyCount*sizeof(level_enemy));
+                AllLevels[GlobalCurrentLevel].Enemies = DeletedLevel.Enemies;
+                AllLevels[GlobalCurrentLevel].MapData = DeletedLevel.MapData;
+                
+                GlobalMapDataMemory.Used -= Size;
+                GlobalEnemyMemory.Used -= AllLevels[GlobalCurrentLevel].EnemyCount*sizeof(level_enemy);
+                
+                GlobalLevelCount--;
+            }
+            if(GlobalSelectedEnemy){
+                
+                LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                             BLACK, "Direction: ");
+                
+                if(LayoutButtonSameY(&RenderGroup, &Layout, "<-", Input, 0.5f)){
+                    GlobalSelectedEnemy->Direction = -1.0f;
+                }
+                if(LayoutButtonSameY(&RenderGroup, &Layout, "->", Input, 0.5f)){
+                    GlobalSelectedEnemy->Direction = 1.0f;
+                }
+                EndLayoutSameY(&Layout);
+                
+                LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                             BLACK, "Change left travel distance: ");
+                
+                if(LayoutButtonSameY(&RenderGroup, &Layout, "<-", Input, 0.5f)){
+                    GlobalSelectedEnemy->PathStart.X -= TileSize.X;
+                }
+                if(LayoutButtonSameY(&RenderGroup, &Layout, "->", Input, 0.5f)){
+                    if(GlobalSelectedEnemy->PathStart.X < GlobalSelectedEnemy->P.X-TileSize.X){
+                        GlobalSelectedEnemy->PathStart.X += TileSize.X;
+                    }
+                }
+                EndLayoutSameY(&Layout);
+                
+                LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                             BLACK, "Change right travel distance: ");
+                
+                if(LayoutButtonSameY(&RenderGroup, &Layout, "<-", Input, 0.5f)){
+                    if(GlobalSelectedEnemy->P.X+TileSize.X < GlobalSelectedEnemy->PathEnd.X){
+                        GlobalSelectedEnemy->PathEnd.X -= TileSize.X;
+                    }
+                }
+                if(LayoutButtonSameY(&RenderGroup, &Layout, "->", Input, 0.5f)){
+                    GlobalSelectedEnemy->PathEnd.X += TileSize.X;
+                }
+                EndLayoutSameY(&Layout);
+            }
+        }
+    }
+    
+#if 0
     {
+        
         f32 Y = Input->WindowSize.Height-100;
         f32 YAdvance = GlobalDebugFont.Size;
         DebugRenderAllProfileData(&RenderGroup, 100, &Y, 50, YAdvance);
     }
+#endif
     
     RenderGroupToScreen(&RenderGroup);
 }

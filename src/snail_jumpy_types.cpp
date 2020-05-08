@@ -87,6 +87,14 @@ CopyMemory(void *To, void *From, umw Size) {
     }
 }
 
+internal void
+ZeroMemory(void *Memory, umw Size) {
+    for (umw I = 0; I < Size; I++)
+    {
+        *((u8*)Memory+I) = 0;
+    }
+}
+
 struct temp_memory {
     u8 *Memory;
     umw Used;
@@ -155,6 +163,7 @@ struct hash_table {
     u64 *Values;
 };
 
+// TODO(Tyler): Better hash functio
 internal u64
 HashString(char *String) {
     u64 Result = 71984823;

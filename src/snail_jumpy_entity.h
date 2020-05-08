@@ -9,7 +9,10 @@ enum entity_type {
     EntityType_Snail = 3,
     EntityType_Sally = 4,
     EntityType_Dragonfly = 5,
-    EntityType_Player = 6,
+    EntityType_Speedy = 6,
+    EntityType_Player = 7,
+    
+    EntityType_Teleporter = 8,
 };
 
 enum collision_type {
@@ -20,6 +23,7 @@ enum collision_type {
     CollisionType_Player,
     CollisionType_Coin,
     CollisionType_Dragonfly,
+    CollisionType_Teleporter
 };
 
 struct collision_event {
@@ -33,6 +37,11 @@ struct collision_event {
         struct {
             b8 IsFatal;
             v2 StepMove;
+        };
+        
+        // Teleporter
+        struct {
+            u32 NewLevel;
         };
     };
 };
@@ -62,7 +71,6 @@ struct coin_data {
 };
 
 struct coin_entity {
-    entity_type Type;
     v2 P;
     
     union {
@@ -74,6 +82,16 @@ struct coin_entity {
     asset_type Asset;
     u32 CurrentAnimation;
     f32 AnimationState;
+};
+
+struct teleporter {
+    v2 P;
+    union {
+        struct { f32 Width, Height; };
+        v2 Size;
+    };
+    
+    u32 Level;
 };
 
 struct entity {

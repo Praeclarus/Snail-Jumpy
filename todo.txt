@@ -1,24 +1,28 @@
 TODOS:
 -----------------------------------------------
 
- - When the player is riding a dragonfly when it turns, possibly interpolate the player
-   position to look better when riding the dragonfly
- - Framerate independence!
  - UI layout system
+ - Cleanup editor code
+
+ - Framerate independence!
 
  - Dragonfly wings in a separate sprite
 
  - Better entity system
+     - Perhaps a system to calculate the snail endpoints
      - Improve collision system, it is almost there
      - Improve entity system, it is currently too hard to add a new entity
      - Add a wall_group entity instead of having an individual entity for each wall
+     - When the player is riding a dragonfly when it turns, possibly interpolate the player
+       position to look better when riding the dragonfly
 
  - Improve asset system
      - Formalize asset loading, almost there
-     - Add Sally back in
      - Formalize player spawn
+     - Allow a variable number of coins in a level
      - Allow a variable number of animations in a spritesheet_asset instead of having it
        fixed size
+     - Asset 'specs' like Y-Offset, etc.
 
  - Improve the Z layer
 
@@ -62,7 +66,7 @@ BUGS:
  - Riding on dragonfly go directly under a wall can cause the riding player to get stuck
  - Dragonflies don't move with two collision boxes
  - Snails sometimes do the turning animation twice
-
+ - Snail falls through the floor
 IDEAS:
 -----------------------------------------------
  - Randomize enemy directions on start

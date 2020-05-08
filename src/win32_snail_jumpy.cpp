@@ -87,7 +87,7 @@ Win32MainWindowProc(HWND Window,
         case WM_DESTROY: {
             Running = false;
         }break;
-        case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+        //case WM_SYSKEYDOWN: case WM_SYSKEYUP:
         case WM_KEYDOWN: case WM_KEYUP: {
             u32 VkCode = (u32)WParam;
             
@@ -95,7 +95,7 @@ Win32MainWindowProc(HWND Window,
             b8 IsDown = ((LParam & (1UL << 31)) == 0);
             if (WasDown != IsDown)
             {
-                if (VkCode == VK_UP){
+                if(VkCode == VK_UP){
                     Win32ProcessKeyboardInput(&UserInput.UpButton, IsDown);
                 }else if(VkCode == VK_DOWN){
                     Win32ProcessKeyboardInput(&UserInput.DownButton, IsDown);
@@ -105,17 +105,23 @@ Win32MainWindowProc(HWND Window,
                     Win32ProcessKeyboardInput(&UserInput.RightButton, IsDown);
                 }else if(VkCode == ' '){
                     Win32ProcessKeyboardInput(&UserInput.JumpButton, IsDown);
-                }else if(VkCode == 'E'){
-                    Win32ProcessKeyboardInput(&UserInput.E, IsDown);
                 }else if(VkCode == VK_TAB){
                     Win32ProcessKeyboardInput(&UserInput.Tab, IsDown);
+                }else if(VkCode == VK_SHIFT){
+                    Win32ProcessKeyboardInput(&UserInput.Shift, IsDown);
+                }else if(VkCode == VK_ESCAPE){
+                    Win32ProcessKeyboardInput(&UserInput.Esc, IsDown);
+                }
+                else if(('A' <= VkCode) && (VkCode <= 'Z')){
+                    u32 Key = VkCode - 'A';
+                    Win32ProcessKeyboardInput(&UserInput.Keyboard[Key], IsDown);
                 }
                 
                 if(IsDown){
                     if(VkCode == VK_F11){
                         ToggleFullscreen(Window);
                     }else if(VkCode == VK_ESCAPE){
-                        Running = false;
+                        Win32ProcessKeyboardInput(&UserInput.Tab, IsDown);
                     }
                 }
             }
@@ -454,12 +460,16 @@ WinMain(HINSTANCE Instance,
                 UserInput.LeftButton.HalfTransitionCount = 0;
                 UserInput.RightButton.HalfTransitionCount = 0;
                 UserInput.JumpButton.HalfTransitionCount = 0;
-                UserInput.E.HalfTransitionCount = 0;
                 UserInput.LeftMouseButton.HalfTransitionCount = 0;
                 UserInput.MiddleMouseButton.HalfTransitionCount = 0;
                 UserInput.RightMouseButton.HalfTransitionCount = 0;
+                UserInput.Esc.HalfTransitionCount = 0;
                 UserInput.Tab.HalfTransitionCount = 0;
+                UserInput.Shift.HalfTransitionCount = 0;
                 
+                for(u32 I = 0; I < 26; I++){
+                    UserInput.Keyboard[I].HalfTransitionCount = 0;
+                }
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                 UserInput.PossibledTimeForFrame = SecondsElapsed;

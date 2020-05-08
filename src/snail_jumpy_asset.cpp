@@ -32,41 +32,44 @@ LoadAssetFile(char *Path){
         stream Stream = CreateReadStream(File.Data, File.Size);
         
         asset_file_header *Header = ConsumeType(&Stream, asset_file_header);
-        GlobalLevelCount = Header->LevelCount;
-        
-        GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
-        
-        for(u32 I = 0; I < GlobalLevelCount; I++){
-            asset_file_level *Level = ConsumeType(&Stream, asset_file_level);
-            GlobalLevelData[I].WidthInTiles = Level->WidthInTiles;
-            GlobalLevelData[I].HeightInTiles = Level->HeightInTiles;
-            GlobalLevelData[I].WallCount = Level->WallCount;
-            GlobalLevelData[I].EnemyCount = Level->EnemyCount;
-        }
-        
-        for(u32 I = 0; I < GlobalLevelCount; I++){
-            u32 MapSize = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
-            GlobalLevelData[I].MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
-            u8 *Map = ConsumeArray(&Stream, u8, MapSize);
-            CopyMemory(GlobalLevelData[I].MapData, Map, MapSize);
-        }
-        
-        for(u32 I = 0; I < GlobalLevelCount; I++){
-            GlobalLevelData[I].MaxEnemyCount = 50;
-            GlobalLevelData[I].Enemies = PushArray(&GlobalEnemyMemory,
-                                                   level_enemy,
-                                                   GlobalLevelData[I].MaxEnemyCount);
-            for(u32 J = 0; J < GlobalLevelData[I].EnemyCount; J++){
-                asset_file_enemy *Enemy = ConsumeType(&Stream, asset_file_enemy);
-                //Assert(Enemy->Type != 0);
-                GlobalLevelData[I].Enemies[J].Type = Enemy->Type;
-                GlobalLevelData[I].Enemies[J].P = Enemy->P;
-                GlobalLevelData[I].Enemies[J].PathStart = Enemy->PathStart;
-                GlobalLevelData[I].Enemies[J].PathEnd = Enemy->PathEnd;
-                GlobalLevelData[I].Enemies[J].Direction = Enemy->Direction;
+        if(Header->Version == 1){
+            GlobalLevelCount = Header->LevelCount;
+            
+            GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
+            
+            for(u32 I = 0; I < GlobalLevelCount; I++){
+                asset_file_level *Level = ConsumeType(&Stream, asset_file_level);
+                GlobalLevelData[I].WidthInTiles = Level->WidthInTiles;
+                GlobalLevelData[I].HeightInTiles = Level->HeightInTiles;
+                GlobalLevelData[I].WallCount = Level->WallCount;
+                GlobalLevelData[I].EnemyCount = Level->EnemyCount;
             }
+            
+            for(u32 I = 0; I < GlobalLevelCount; I++){
+                u32 MapSize = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
+                GlobalLevelData[I].MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
+                u8 *Map = ConsumeArray(&Stream, u8, MapSize);
+                CopyMemory(GlobalLevelData[I].MapData, Map, MapSize);
+            }
+            
+            for(u32 I = 0; I < GlobalLevelCount; I++){
+                GlobalLevelData[I].MaxEnemyCount = 50;
+                GlobalLevelData[I].Enemies = PushArray(&GlobalEnemyMemory,
+                                                       level_enemy,
+                                                       GlobalLevelData[I].MaxEnemyCount);
+                for(u32 J = 0; J < GlobalLevelData[I].EnemyCount; J++){
+                    asset_file_enemy *Enemy = ConsumeType(&Stream, asset_file_enemy);
+                    //Assert(Enemy->Type != 0);
+                    GlobalLevelData[I].Enemies[J].Type = Enemy->Type;
+                    GlobalLevelData[I].Enemies[J].P = Enemy->P;
+                    GlobalLevelData[I].Enemies[J].PathStart = Enemy->PathStart;
+                    GlobalLevelData[I].Enemies[J].PathEnd = Enemy->PathEnd;
+                    GlobalLevelData[I].Enemies[J].Direction = Enemy->Direction;
+                }
+            }
+        }else{
+            Assert(0);
         }
-        
     }else{
         GlobalLevelCount = 1;
         GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);

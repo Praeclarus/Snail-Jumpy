@@ -19,9 +19,17 @@ struct font {
 };
 
 enum game_mode {
+    GameMode_None,
     GameMode_Menu,
     GameMode_MainGame,
     GameMode_Editor,
+    GameMode_Overworld,
+};
+
+struct state_change_data {
+    b8 DidChange;
+    game_mode NewMode;
+    u32 NewLevel;
 };
 
 #endif
