@@ -31,27 +31,30 @@ LoadOverworld(){
     
     if(GlobalEntityMemory.Used != 0){ GlobalEntityMemory.Used = 0; }
     LoadWallsFromMap((u8*)Map, WallCount, 32, 18, 0.5f);
-    AllocateNEntities(2, EntityType_Teleporter);
+    AllocateNEntities(3, EntityType_Teleporter);
     GlobalTeleporters[0].P = {3.0f, 3.0f};
     GlobalTeleporters[0].Size = {0.5f, 0.5f};
-    GlobalTeleporters[0].Level = 0;
+    GlobalTeleporters[0].Level = "Test_Level";
     GlobalTeleporters[1].P = {4.0f, 3.0f};
     GlobalTeleporters[1].Size = {0.5f, 0.5f};
-    GlobalTeleporters[1].Level = 1;
+    GlobalTeleporters[1].Level = "Test_Level2";
+    GlobalTeleporters[2].P = {5.0f, 3.0f};
+    GlobalTeleporters[2].Size = {0.5f, 0.5f};
+    GlobalTeleporters[2].Level = "Test_Level3";
     
     AddPlayer({1.5f, 1.5f});
 }
 
 internal void
-UpdateAndRenderOverworld(platform_user_input *Input){
+UpdateAndRenderOverworld(){
     
     render_group RenderGroup;
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    RenderGroup.OutputSize = Input->WindowSize;
+    RenderGroup.OutputSize = GlobalInput.WindowSize;
     //RenderGroup.MetersToPixels = 60.0f / 0.5f;
-    RenderGroup.MetersToPixels = Minimum((Input->WindowSize.Width/32.0f), (Input->WindowSize.Height/18.0f)) / 0.5f;
+    RenderGroup.MetersToPixels = Minimum((GlobalInput.WindowSize.Width/32.0f), (GlobalInput.WindowSize.Height/18.0f)) / 0.5f;
     
     UpdateAndRenderWalls(&RenderGroup);
     
@@ -59,36 +62,94 @@ UpdateAndRenderOverworld(platform_user_input *Input){
         teleporter *Teleporter = &GlobalTeleporters[Id];
         RenderRectangle(&RenderGroup, Teleporter->P-(Teleporter->Size/2),
                         Teleporter->P+(Teleporter->Size/2), 0.0f, BLUE);
+        
+        v2 P = Teleporter->P;
+        v2 Radius = Teleporter->Size/2;
+        v2 PlayerMin = GlobalPlayer->P-(GlobalPlayer->Size/2);
+        v2 PlayerMax = GlobalPlayer->P+(GlobalPlayer->Size/2);
+        if((P.X-Radius.X <= PlayerMax.X) &&
+           (PlayerMin.X  <= P.X+Radius.X) &&
+           (P.Y-Radius.Y <= PlayerMax.Y) &&
+           (PlayerMin.Y  <= P.Y+Radius.Y)){
+            v2 TileSize = v2{0.1f, 0.1f};
+            v2 MapSize = v2{32*TileSize.X, 18*TileSize.Y};
+            v2 StringP = v2{
+                Teleporter->P.X,
+                Teleporter->P.Y + Teleporter->Size.Y/2 + MapSize.Y + 0.07f
+            };
+            
+            StringP *= RenderGroup.MetersToPixels;
+            f32 Advance = GetStringAdvance(&GlobalMainFont, Teleporter->Level);
+            StringP.X -= Advance/2;
+            RenderString(&RenderGroup, &GlobalMainFont, GREEN,
+                         StringP.X, StringP.Y, -1.0f, Teleporter->Level);
+            
+            // TODO(Tyler): I don't know how efficient FindInHashTable actually, it
+            // could likely be improved, and probably should be
+            u32 Level = (u32)FindInHashTable(&GlobalLevelTable, Teleporter->Level);
+            if(Level){
+                v2 MapP = v2{
+                    Teleporter->P.X-MapSize.X/2,
+                    Teleporter->P.Y+Teleporter->Size.Y/2
+                };
+                RenderLevelMapAndEntities(&RenderGroup, Level-1, TileSize,
+                                          MapP, -0.2f);
+                
+                f32 Thickness = 0.03f;
+                v2 Min = MapP-v2{Thickness, Thickness};
+                v2 Max = MapP+MapSize+v2{Thickness, Thickness};
+                color Color = color{0.2f, 0.5f, 0.2f, 1.0f};
+                RenderRectangle(&RenderGroup, Min, {Max.X, Min.Y+Thickness}, -0.1f, Color);
+                RenderRectangle(&RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, -0.1f, Color);
+                RenderRectangle(&RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.1f, Color);
+                RenderRectangle(&RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.1f, Color);
+            }else{
+                //Assert(0);
+            }
+            
+            if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Space])){
+                ChangeState(GameMode_MainGame, Teleporter->Level);
+            }
+        }
     }
+    
     
     // Player
     {
         v2 ddP = {0};
         
         f32 MovementSpeed = 70;
-        if(Input->Shift.EndedDown){
+        if(GlobalInput.Buttons[KeyCode_Shift].EndedDown){
             MovementSpeed = 120;
         }
-        if(Input->RightButton.EndedDown && !Input->LeftButton.EndedDown){
+        if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
+           !GlobalInput.Buttons[KeyCode_Left].EndedDown){
             ddP.X += MovementSpeed;
             PlayAnimation(GlobalPlayer, PlayerAnimation_RunningRight);
-        }else if(Input->LeftButton.EndedDown && !Input->RightButton.EndedDown){
+        }else if(GlobalInput.Buttons[KeyCode_Left].EndedDown &&
+                 !GlobalInput.Buttons[KeyCode_Right].EndedDown){
             ddP.X -= MovementSpeed;
             PlayAnimation(GlobalPlayer, PlayerAnimation_RunningLeft);
         }else{
             PlayAnimation(GlobalPlayer, PlayerAnimation_Idle);
         }
         
-        if(Input->UpButton.EndedDown && !Input->DownButton.EndedDown){
+        if(GlobalInput.Buttons[KeyCode_Up].EndedDown &&
+           !GlobalInput.Buttons[KeyCode_Down].EndedDown){
             ddP.Y += MovementSpeed;
-        }else if(Input->DownButton.EndedDown && !Input->UpButton.EndedDown){
+        }else if(GlobalInput.Buttons[KeyCode_Down].EndedDown &&
+                 !GlobalInput.Buttons[KeyCode_Up].EndedDown){
             ddP.Y -= MovementSpeed;
         }
         GlobalPlayer->dP -= 0.3f*GlobalPlayer->dP;
         
-        MovePlayer(ddP, Input->dTimeForFrame);
-        UpdateAndRenderAnimation(&RenderGroup, GlobalPlayer, Input->dTimeForFrame);
+        MovePlayer(ddP, GlobalInput.dTimeForFrame);
+        UpdateAndRenderAnimation(&RenderGroup, GlobalPlayer, GlobalInput.dTimeForFrame);
     }
+    
+    layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
+                                 30, GlobalDebugFont.Size);
+    DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);
 }

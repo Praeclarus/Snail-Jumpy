@@ -42,6 +42,16 @@ PeekBytes(stream *Stream, u32 Bytes){
     return(Result);
 }
 
+// TODO(Tyler): Robustness???
+internal inline char *
+ConsumeString(stream *Stream){
+    char *Result = (char *)Stream->Buffer+Stream->CurrentIndex;
+    u64 Length = CStringLength(Result);
+    ConsumeBytes(Stream, (u32)Length+1);
+    
+    return(Result);
+}
+
 internal u32
 ConsumeBits(stream *Stream, u32 Bits){
     Assert(Bits < 32);

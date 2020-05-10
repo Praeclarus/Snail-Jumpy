@@ -174,7 +174,7 @@ HashString(char *String) {
     return(Result);
 }
 
-internal u64
+internal b32
 CompareStrings(char *A, char *B){
     b32 Result = true;
     while(*A && *B){
@@ -205,7 +205,7 @@ InsertIntoHashTable(hash_table *Table, char *String, u64 Value){
     while(u64 TestHash = Table->Keys[Index]) {
         if(Index == 0){ Index++; }
         if((TestHash == Hash) &&
-           (strcmp(String, Table->Strings[Index]) == 0)){
+           CompareStrings(String, Table->Strings[Index])){
             break;
         }else if(TestHash == 0){
             break;
@@ -231,7 +231,7 @@ FindInHashTable(hash_table *Table, char *String){
     while(u64 TestHash = Table->Keys[Index]) {
         if(Index == 0){ Index++; }
         if((TestHash == Hash) &&
-           (CompareStrings(String, Table->Strings[Index]) == 0)){
+           CompareStrings(String, Table->Strings[Index])){
             break;
         }else if(TestHash == 0){
             break;

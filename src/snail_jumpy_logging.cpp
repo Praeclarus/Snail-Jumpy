@@ -1,5 +1,3 @@
-// TODO(Tyler): Clear the log file on startup
-
 global platform_file *GlobalLogFile;
 global u32 GlobalLogFileOffset;
 

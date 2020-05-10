@@ -102,22 +102,6 @@ AllocateNEntities(u32 N, entity_type Type){
 }
 
 internal void
-AddPlayer(v2 P){
-    AllocateNEntities(1, EntityType_Player);
-    *GlobalPlayer = {0};
-    
-    GlobalPlayer->Width = 0.25f;
-    GlobalPlayer->Height = 0.5f;
-    
-    GlobalPlayer->P = P;
-    GlobalPlayer->ZLayer = -0.8f;
-    
-    GlobalPlayer->CurrentAnimation = PlayerAnimation_Idle;
-    GlobalPlayer->Asset = Asset_Player;
-    GlobalPlayer->AnimationState = 0.0f;
-}
-
-internal void
 KillPlayer(f32 dTimeForFrame){
     GlobalPlayer->State |= EntityState_Dead;
     GlobalScore = 0;
@@ -441,7 +425,6 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
     
     collision_type CollisionType = CollisionType_None;
     f32 TimeRemaining = 1.0f;
-    
     for(u32 Iteration = 0;
         (Iteration < 4) && (TimeRemaining > 0.0f);
         Iteration++){
@@ -449,7 +432,7 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
         Event.Time = 1.0f;
         
         TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
-        TestTeleporterCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        //TestTeleporterCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestCoinCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
@@ -471,9 +454,6 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
                     GlobalPlayer->RidingDragonfly = Event.EntityId;
                     GlobalPlayer->P += Event.StepMove;
                 }
-            }else if(Event.Type == CollisionType_Teleporter){
-                Assert(GlobalGameMode == GameMode_Overworld);
-                ChangeState(GameMode_MainGame, Event.NewLevel);
             }else if(Event.Type == CollisionType_Wall){
             }else{
                 KillPlayer(dTimeForFrame);
@@ -510,11 +490,11 @@ UpdateAndRenderWalls(render_group *RenderGroup){
 }
 
 internal void
-UpdateAndRenderCoins(render_group *RenderGroup, platform_user_input *Input){
+UpdateAndRenderCoins(render_group *RenderGroup){
     for(u32 CoinId = 0; CoinId < GlobalCoinCount; CoinId++){
         coin_entity *Coin = &GlobalCoins[CoinId];
         if(Coin->AnimationCooldown > 0.0f){
-            Coin->AnimationCooldown -= Input->dTimeForFrame;
+            Coin->AnimationCooldown -= GlobalInput.dTimeForFrame;
         }else{
             RenderRectangle(RenderGroup,
                             Coin->P-(Coin->Size/2), Coin->P+(Coin->Size/2), 0.0f,
@@ -524,11 +504,11 @@ UpdateAndRenderCoins(render_group *RenderGroup, platform_user_input *Input){
 }
 
 internal void
-UpdateAndRenderEntities(render_group *RenderGroup, platform_user_input *Input){
+UpdateAndRenderEntities(render_group *RenderGroup){
     TIMED_FUNCTION();
     
     UpdateAndRenderWalls(RenderGroup);
-    UpdateAndRenderCoins(RenderGroup, Input);
+    UpdateAndRenderCoins(RenderGroup);
     
     //BEGIN_BLOCK(PlayerUpdate);
     {
@@ -542,18 +522,20 @@ UpdateAndRenderEntities(render_group *RenderGroup, platform_user_input *Input){
             }
             
             if((GlobalPlayer->JumpTime < 0.1f) &&
-               Input->JumpButton.EndedDown){
+               GlobalInput.Buttons[KeyCode_Space].EndedDown){
                 ddP.Y += 88.0f;
-                GlobalPlayer->JumpTime += Input->dTimeForFrame;
+                GlobalPlayer->JumpTime += GlobalInput.dTimeForFrame;
             }else{
                 ddP.Y -= 17.0f;
             }
             
             f32 MovementSpeed = 70;
-            if(Input->RightButton.EndedDown && !Input->LeftButton.EndedDown){
+            if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
+               !GlobalInput.Buttons[KeyCode_Left].EndedDown){
                 ddP.X += MovementSpeed;
                 PlayAnimation(GlobalPlayer, PlayerAnimation_RunningRight);
-            }else if(Input->LeftButton.EndedDown && !Input->RightButton.EndedDown){
+            }else if(GlobalInput.Buttons[KeyCode_Left].EndedDown &&
+                     !GlobalInput.Buttons[KeyCode_Right].EndedDown){
                 ddP.X -= MovementSpeed;
                 PlayAnimation(GlobalPlayer, PlayerAnimation_RunningLeft);
             }else{
@@ -561,7 +543,7 @@ UpdateAndRenderEntities(render_group *RenderGroup, platform_user_input *Input){
             }
             GlobalPlayer->dP.X -= 0.3f*GlobalPlayer->dP.X;
             
-            MovePlayer(ddP, Input->dTimeForFrame);
+            MovePlayer(ddP, GlobalInput.dTimeForFrame);
             
             if(GlobalPlayer->P.Y < -3.0f){
                 GlobalPlayer->P = {1.5f, 1.5f};
@@ -569,7 +551,7 @@ UpdateAndRenderEntities(render_group *RenderGroup, platform_user_input *Input){
             }
         }
         
-        UpdateAndRenderAnimation(RenderGroup, GlobalPlayer, Input->dTimeForFrame);
+        UpdateAndRenderAnimation(RenderGroup, GlobalPlayer, GlobalInput.dTimeForFrame);
     }
     //END_BLOCK(PlayerUpdate);
     
@@ -592,12 +574,12 @@ UpdateAndRenderEntities(render_group *RenderGroup, platform_user_input *Input){
             
             if((StateAlongPath < 0.05f) &&
                (Enemy->Direction < 0)){
-                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningRight, Input->dTimeForFrame);
+                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningRight, GlobalInput.dTimeForFrame);
                 Enemy->Direction = 1.0f;
                 Enemy->dP = {0};
             }else if((StateAlongPath > (1.0f-0.05f)) &&
                      (Enemy->Direction > 0)){
-                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningLeft, Input->dTimeForFrame);
+                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningLeft, GlobalInput.dTimeForFrame);
                 Enemy->Direction = -1.0f;
                 Enemy->dP = {0};
             }else{
@@ -613,11 +595,11 @@ UpdateAndRenderEntities(render_group *RenderGroup, platform_user_input *Input){
                 u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
                     EnemyAnimation_Right : EnemyAnimation_Left;
                 PlayAnimation(Enemy, AnimationIndex);
-                MoveEnemy(Id, ddP, Input->dTimeForFrame);
+                MoveEnemy(Id, ddP, GlobalInput.dTimeForFrame);
             }
         }
         
-        UpdateAndRenderAnimation(RenderGroup, Enemy, Input->dTimeForFrame);
+        UpdateAndRenderAnimation(RenderGroup, Enemy, GlobalInput.dTimeForFrame);
         v2 Radius = {0.1f, 0.1f};
         color Color = {1.0f, 0.0f, 0.0f, 1.0f};
         RenderRectangle(RenderGroup, Enemy->PathStart-Radius, Enemy->PathStart+Radius,

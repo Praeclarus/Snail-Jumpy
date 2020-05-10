@@ -1,37 +1,6 @@
 #if !defined(SNAIL_JUMPY_PLATFORM_H)
 #define SNAIL_JUMPY_PLATFORM_H
 
-// NOTE(Tyler): This is the platform layer, not the platforms that the entities interact with
-typedef struct _platform_button_state platform_button_state;
-struct _platform_button_state {
-    u32 HalfTransitionCount;
-    b8 EndedDown;
-};
-
-struct platform_user_input {
-    f32 dTimeForFrame;
-    f32 PossibledTimeForFrame;
-    
-    platform_button_state UpButton;
-    platform_button_state DownButton;
-    platform_button_state LeftButton;
-    platform_button_state RightButton;
-    platform_button_state JumpButton;
-    platform_button_state Shift;
-    
-    v2 WindowSize;
-    
-    v2 MouseP;
-    platform_button_state LeftMouseButton;
-    platform_button_state MiddleMouseButton;
-    platform_button_state RightMouseButton;
-    
-    platform_button_state Tab;
-    platform_button_state Esc;
-    
-    platform_button_state Keyboard[26];
-};
-
 struct platform_file;
 struct platform_window;
 
@@ -61,17 +30,45 @@ internal GET_FILE_SIZE(GetFileSize);
 #define ALLOCATE_VIRTUAL_MEMORY(Name) void *Name(umw Size)
 internal ALLOCATE_VIRTUAL_MEMORY(AllocateVirtualMemory);
 
+enum key_codes {
+    KeyCode_Tab = '\t',
+    KeyCode_Space = ' ',
+    KeyCode_ASCIICOUNT = 96,
+    KeyCode_Shift = KeyCode_ASCIICOUNT,
+    KeyCode_Up    = 97,
+    KeyCode_Down  = 98,
+    KeyCode_Left  = 99,
+    KeyCode_Right = 100,
+    KeyCode_BackSpace = 101,
+    KeyCode_Escape = 102,
+    
+    KeyCode_TOTAL,
+};
+
+// NOTE(Tyler): This is the platform layer, not the platforms that the entities interact with
+struct platform_button {
+    u8 HalfTransitionCount;
+    b8 EndedDown;
+};
+
+struct platform_input {
+    f32 dTimeForFrame;
+    
+    v2 WindowSize;
+    
+    v2 MouseP;
+    v2 LastMouseP;
+    platform_button LeftMouseButton;
+    platform_button MiddleMouseButton;
+    platform_button RightMouseButton;
+    
+    platform_button Buttons[KeyCode_TOTAL];
+};
+
 // TODO(Tyler): Find a better spot for these
 internal inline b32
-IsButtonJustPressed(platform_button_state *Button){
+IsButtonJustPressed(platform_button *Button){
     b32 Result = Button->EndedDown && (Button->HalfTransitionCount%2 == 1);
-    return(Result);
-}
-
-internal inline platform_button_state *
-KeyboardButton(platform_user_input *Input, char Key){
-    Assert(('A' <= Key) && (Key <= 'Z'));
-    platform_button_state *Result = &Input->Keyboard[Key-'A'];
     return(Result);
 }
 

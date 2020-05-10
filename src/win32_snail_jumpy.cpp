@@ -17,9 +17,6 @@ global b32 Running;
 global f32 GlobalPerfCounterFrequency;
 global win32_backbuffer GlobalBackbuffer;
 
-// TODO(Tyler): Possibly do this differently
-global platform_user_input UserInput;
-
 global WINDOWPLACEMENT GlobalWindowPlacement = {sizeof(GlobalWindowPlacement)};
 
 internal void
@@ -48,7 +45,7 @@ ToggleFullscreen(HWND Window){
 }
 
 internal void
-Win32ProcessKeyboardInput(platform_button_state *Button, b8 IsDown)
+Win32ProcessKeyboardInput(platform_button *Button, b8 IsDown)
 {
     if (Button->EndedDown != IsDown)
     {
@@ -79,7 +76,7 @@ Win32MainWindowProc(HWND Window,
             GetClientRect(Window, &ClientRect);
             int Width = ClientRect.right - ClientRect.left;
             int Height = ClientRect.bottom - ClientRect.top;
-            UserInput.WindowSize = {(f32)Width, (f32)Height};
+            GlobalInput.WindowSize = {(f32)Width, (f32)Height};
         }break;
         case WM_CLOSE: {
             Running = false;
@@ -96,53 +93,53 @@ Win32MainWindowProc(HWND Window,
             if (WasDown != IsDown)
             {
                 if(VkCode == VK_UP){
-                    Win32ProcessKeyboardInput(&UserInput.UpButton, IsDown);
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Up], IsDown);
                 }else if(VkCode == VK_DOWN){
-                    Win32ProcessKeyboardInput(&UserInput.DownButton, IsDown);
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Down], IsDown);
                 }else if(VkCode == VK_LEFT){
-                    Win32ProcessKeyboardInput(&UserInput.LeftButton, IsDown);
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Left], IsDown);
                 }else if(VkCode == VK_RIGHT){
-                    Win32ProcessKeyboardInput(&UserInput.RightButton, IsDown);
-                }else if(VkCode == ' '){
-                    Win32ProcessKeyboardInput(&UserInput.JumpButton, IsDown);
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Right], IsDown);
+                }else if(VkCode == VK_SPACE){
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Space], IsDown);
                 }else if(VkCode == VK_TAB){
-                    Win32ProcessKeyboardInput(&UserInput.Tab, IsDown);
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Tab], IsDown);
                 }else if(VkCode == VK_SHIFT){
-                    Win32ProcessKeyboardInput(&UserInput.Shift, IsDown);
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Shift], IsDown);
                 }else if(VkCode == VK_ESCAPE){
-                    Win32ProcessKeyboardInput(&UserInput.Esc, IsDown);
-                }
-                else if(('A' <= VkCode) && (VkCode <= 'Z')){
-                    u32 Key = VkCode - 'A';
-                    Win32ProcessKeyboardInput(&UserInput.Keyboard[Key], IsDown);
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Escape], IsDown);
+                }else if(('0' <= VkCode) && (VkCode <= 'Z')){
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[VkCode], IsDown);
+                }else if(VkCode == VK_BACK){
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_BackSpace], IsDown);
+                }else if(VkCode == VK_OEM_MINUS){
+                    Win32ProcessKeyboardInput(&GlobalInput.Buttons['-'], IsDown);
                 }
                 
                 if(IsDown){
                     if(VkCode == VK_F11){
                         ToggleFullscreen(Window);
-                    }else if(VkCode == VK_ESCAPE){
-                        Win32ProcessKeyboardInput(&UserInput.Tab, IsDown);
                     }
                 }
             }
         }break;
         case WM_LBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&UserInput.LeftMouseButton, true);
+            Win32ProcessKeyboardInput(&GlobalInput.LeftMouseButton, true);
         }break;
         case WM_LBUTTONUP: {
-            Win32ProcessKeyboardInput(&UserInput.LeftMouseButton, false);
+            Win32ProcessKeyboardInput(&GlobalInput.LeftMouseButton, false);
         }break;
         case WM_MBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&UserInput.MiddleMouseButton, true);
+            Win32ProcessKeyboardInput(&GlobalInput.MiddleMouseButton, true);
         }break;
         case WM_MBUTTONUP: {
-            Win32ProcessKeyboardInput(&UserInput.MiddleMouseButton, false);
+            Win32ProcessKeyboardInput(&GlobalInput.MiddleMouseButton, false);
         }break;
         case WM_RBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&UserInput.RightMouseButton, true);
+            Win32ProcessKeyboardInput(&GlobalInput.RightMouseButton, true);
         }break;
         case WM_RBUTTONUP: {
-            Win32ProcessKeyboardInput(&UserInput.RightMouseButton, false);
+            Win32ProcessKeyboardInput(&GlobalInput.RightMouseButton, false);
         }break;
         default: {
             Result = DefWindowProcA(Window, Message, WParam, LParam);
@@ -413,7 +410,7 @@ WinMain(HINSTANCE Instance,
             Win32InitOpenGl(Instance, &Window);
             ToggleFullscreen(Window);
             //wglSwapIntervalEXT(1);
-            InitializeGame(&UserInput);
+            InitializeGame();
             
             //~
             LARGE_INTEGER PerformanceCounterFrequencyResult;
@@ -436,43 +433,31 @@ WinMain(HINSTANCE Instance,
                     DispatchMessage(&Message);
                 }
                 
-                UserInput.dTimeForFrame = TargetSecondsPerFrame;
+                GlobalInput.dTimeForFrame = TargetSecondsPerFrame;
                 RECT ClientRect;
                 GetClientRect(Window, &ClientRect);
-                UserInput.WindowSize = {
+                GlobalInput.WindowSize = {
                     (f32)(ClientRect.right - ClientRect.left),
                     (f32)(ClientRect.bottom - ClientRect.top),
                 };
                 POINT MouseP;
                 GetCursorPos(&MouseP);
-                UserInput.MouseP = {
+                GlobalInput.MouseP = {
                     (f32)MouseP.x,
-                    (f32)(UserInput.WindowSize.Height-MouseP.y)
+                    (f32)(GlobalInput.WindowSize.Height-MouseP.y)
                 };
                 
                 // TODO(Tyler): Multithreading
-                GameUpdateAndRender(&UserInput);
+                GameUpdateAndRender();
                 
-                // TODO(Tyler): This is already a source of bugs do something different
-                // perhaps make the buttons an array inside a union?
-                UserInput.UpButton.HalfTransitionCount = 0;
-                UserInput.DownButton.HalfTransitionCount = 0;
-                UserInput.LeftButton.HalfTransitionCount = 0;
-                UserInput.RightButton.HalfTransitionCount = 0;
-                UserInput.JumpButton.HalfTransitionCount = 0;
-                UserInput.LeftMouseButton.HalfTransitionCount = 0;
-                UserInput.MiddleMouseButton.HalfTransitionCount = 0;
-                UserInput.RightMouseButton.HalfTransitionCount = 0;
-                UserInput.Esc.HalfTransitionCount = 0;
-                UserInput.Tab.HalfTransitionCount = 0;
-                UserInput.Shift.HalfTransitionCount = 0;
-                
-                for(u32 I = 0; I < 26; I++){
-                    UserInput.Keyboard[I].HalfTransitionCount = 0;
+                GlobalInput.LeftMouseButton.HalfTransitionCount = 0;
+                GlobalInput.MiddleMouseButton.HalfTransitionCount = 0;
+                GlobalInput.RightMouseButton.HalfTransitionCount = 0;
+                for(u32 I = 0; I < KeyCode_TOTAL; I++){
+                    GlobalInput.Buttons[I].HalfTransitionCount = 0;
                 }
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
-                UserInput.PossibledTimeForFrame = SecondsElapsed;
                 if(SecondsElapsed < TargetSecondsPerFrame)
                 {
                     while(SecondsElapsed < TargetSecondsPerFrame)
@@ -486,6 +471,7 @@ WinMain(HINSTANCE Instance,
                 {
                     // TODO(Tyler): Error logging
                     //Assert(0);
+                    LogError("Missed FPS");
                 }
                 
                 LastCounter = Win32GetWallClock();

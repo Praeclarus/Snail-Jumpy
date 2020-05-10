@@ -84,7 +84,9 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
     
     glUseProgram(Result.Id);
     Result.ProjectionLocation = glGetUniformLocation(Result.Id, "Projection");
-    LogError("Couldn't find the location of the 'Projection' uniform");
+    if(Result.ProjectionLocation == -1){
+        LogError("Couldn't find the location of the 'Projection' uniform");
+    }
     Assert(Result.ProjectionLocation != -1);
     return(Result);
 }

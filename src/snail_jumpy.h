@@ -29,7 +29,28 @@ enum game_mode {
 struct state_change_data {
     b8 DidChange;
     game_mode NewMode;
-    u32 NewLevel;
+    char *NewLevel;
+};
+
+enum edit_mode {
+    EditMode_None,
+    // NOTE(Tyler): These correspond to the actual numbers used in the map
+    EditMode_AddWall = EntityType_Wall,
+    EditMode_AddCoinP = EntityType_Coin,
+    EditMode_Snail = EntityType_Snail,
+    EditMode_Sally = EntityType_Sally,
+    EditMode_Dragonfly = EntityType_Dragonfly,
+    EditMode_Speedy = EntityType_Speedy,
+    
+    EditMode_TOTAL
+};
+
+struct text_box_data {
+    b32 IsSelected;;
+    // TODO(Tyler): Maybe not make this fixed size?
+    char Buffer[512];
+    u32 BufferIndex;
+    f32 BackSpaceHoldTime;
 };
 
 #endif

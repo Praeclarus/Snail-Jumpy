@@ -18,23 +18,37 @@ global font GlobalDebugFont;
 global s32 GlobalScore;
 global f32 GlobalCounter;
 
-global spritesheet_asset *GlobalAssets;;
+global spritesheet_asset *GlobalAssets;
 
 global memory_arena GlobalPermanentStorageArena;
 global memory_arena GlobalTransientStorageArena;
 
-global v2 GlobalLastMouseP;
+global sub_arena GlobalLevelMemory;
+global sub_arena GlobalMapDataMemory;
+global sub_arena GlobalEnemyMemory;
 
-// TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_Overworld;
+hash_table GlobalLevelTable;
 global u32 GlobalLevelCount;
 global u32 GlobalCurrentLevel;
 global level_data *GlobalLevelData;
 
+global platform_input GlobalInput;
+
 global state_change_data GlobalStateChangeData;
 
+// TODO(Tyler): Load this from a variables file at startup
+global game_mode GlobalGameMode = GameMode_Overworld;
+
+
+global edit_mode GlobalEditMode;
+global b32 GlobalHideEditorUi;
+global level_enemy *GlobalSelectedEnemy;
+
+global text_box_data GlobalLevelNameTextBox;
+
+
 internal inline void
-ChangeState(game_mode NewMode, u32 NewLevel);
+ChangeState(game_mode NewMode, char *NewLevel);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -82,7 +96,7 @@ LoadFont(memory_arena *Arena,
 }
 
 internal void
-InitializeGame(platform_user_input *Input){
+InitializeGame(){
     stbi_set_flip_vertically_on_load(true);
     
     {
@@ -97,23 +111,28 @@ InitializeGame(platform_user_input *Input){
         InitializeArena(&GlobalTransientStorageArena, Memory, Size);
     }
     
-    GlobalLogFile = OpenFile("log.log", OpenFile_Write);
+    GlobalLogFile = OpenFile("log.txt", OpenFile_Write);
+    GlobalLogFileOffset = (u32)GetFileSize(GlobalLogFile);
+    // Not actually an error
+    LogError("\n=======================================================================");
     
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEntityMemory, Kilobytes(64));
+    // TODO(Tyler): I don't quite like using three arenas for storing level info
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalLevelMemory, Kilobytes(4));
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalMapDataMemory, Kilobytes(64));
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEnemyMemory, Kilobytes(64));
+    InitializeHashTable(&GlobalPermanentStorageArena, &GlobalLevelTable, 1024);
     
     LoadAssetFile("test_assets.sja");
+    
     LoadOverworld();
-    //LoadAllEntities();
     
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
     GlobalDefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
     
-    GlobalAssets =
-        PushArray(&GlobalPermanentStorageArena, spritesheet_asset, Asset_TOTAL);
     {
+        GlobalAssets =
+            PushArray(&GlobalPermanentStorageArena, spritesheet_asset, Asset_TOTAL);
         f32 MetersToPixels = 60.0f/0.5f;
         
         asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
@@ -177,14 +196,14 @@ InitializeGame(platform_user_input *Input){
 }
 
 internal inline void
-ChangeState(game_mode NewMode, u32 NewLevel){
+ChangeState(game_mode NewMode, char *NewLevel){
     GlobalStateChangeData.DidChange= true;
     GlobalStateChangeData.NewMode = NewMode;
     GlobalStateChangeData.NewLevel = NewLevel;
 }
 
 internal void
-GameUpdateAndRender(platform_user_input *Input){
+GameUpdateAndRender(){
     GlobalTransientStorageArena.Used = 0;
     GlobalProfileData.CurrentBlockIndex = 0;
     
@@ -192,21 +211,21 @@ GameUpdateAndRender(platform_user_input *Input){
     
     switch(GlobalGameMode){
         case GameMode_MainGame: {
-            UpdateAndRenderMainGame(Input);
+            UpdateAndRenderMainGame();
         }break;
         case GameMode_Menu: {
-            UpdateAndRenderMenu(Input);
+            UpdateAndRenderMenu();
         }break;
         case GameMode_Editor: {
-            UpdateAndRenderEditor(Input);
+            UpdateAndRenderEditor();
         }break;
         case GameMode_Overworld: {
-            UpdateAndRenderOverworld(Input);
+            UpdateAndRenderOverworld();
         }break;
     }
     
-    GlobalLastMouseP = Input->MouseP;
-    GlobalCounter += Input->dTimeForFrame;
+    GlobalInput.LastMouseP = GlobalInput.MouseP;
+    GlobalCounter += GlobalInput.dTimeForFrame;
     
     if(GlobalStateChangeData.DidChange){
         if(GlobalStateChangeData.NewMode == GameMode_None){

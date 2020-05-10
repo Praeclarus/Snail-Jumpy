@@ -41,7 +41,7 @@ struct collision_event {
         
         // Teleporter
         struct {
-            u32 NewLevel;
+            char *NewLevel;
         };
     };
 };
@@ -91,7 +91,7 @@ struct teleporter {
         v2 Size;
     };
     
-    u32 Level;
+    char *Level;
 };
 
 struct entity {

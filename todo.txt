@@ -1,7 +1,7 @@
 TODOS:
 -----------------------------------------------
 
- - UI layout system
+ - Improve user input
  - Cleanup editor code
 
  - Framerate independence!
@@ -9,9 +9,12 @@ TODOS:
  - Dragonfly wings in a separate sprite
 
  - Better entity system
+     - Fix don't use a percent for Snail AI
+     - Allow different AIs for enemies
+     - Snail spawner
      - Perhaps a system to calculate the snail endpoints
+
      - Improve collision system, it is almost there
-     - Improve entity system, it is currently too hard to add a new entity
      - Add a wall_group entity instead of having an individual entity for each wall
      - When the player is riding a dragonfly when it turns, possibly interpolate the player
        position to look better when riding the dragonfly
@@ -23,6 +26,11 @@ TODOS:
      - Allow a variable number of animations in a spritesheet_asset instead of having it
        fixed size
      - Asset 'specs' like Y-Offset, etc.
+     - Scale assets so that it doesn't need to be scaled when exported. This may save
+       some memory on the GPU and on lower end machines might actually provide a small
+       performance gain on the renderer.
+         - Profile this to see if there is even a difference at all(though the difference
+             may be more pronounced on lower end machines).
 
  - Improve the Z layer
 

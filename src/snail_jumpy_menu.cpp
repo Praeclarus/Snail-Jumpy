@@ -1,23 +1,23 @@
 internal void
-UpdateAndRenderMenu(platform_user_input *Input){
+UpdateAndRenderMenu(){
     render_group RenderGroup;
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    RenderGroup.OutputSize = Input->WindowSize;
+    RenderGroup.OutputSize = GlobalInput.WindowSize;
     RenderGroup.MetersToPixels = 1.0f;
     
-    layout Layout = CreateLayout(100, Input->WindowSize.Height-124, 30, 30);
+    layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-124, 30, 30);
     LayoutString(&RenderGroup, &Layout, &GlobalMainFont,
                  BLACK, "Counter: %f", GlobalCounter);
     LayoutString(&RenderGroup, &Layout, &GlobalMainFont,
-                 BLACK, "Mouse P: %f %f", Input->MouseP.X, Input->MouseP.Y);
+                 BLACK, "Mouse P: %f %f", GlobalInput.MouseP.X, GlobalInput.MouseP.Y);
     
-    DebugRenderAllProfileData(&RenderGroup, &Layout);
-    
-    if(RenderButton(&RenderGroup, 100, 100, 100, 30, "Play", Input)){
+    if(RenderButton(&RenderGroup, 100, 100, 100, 30, "Play")){
         ChangeState(GameMode_Overworld, 0);
     }
+    
+    DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);
 }

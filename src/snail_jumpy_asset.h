@@ -62,6 +62,8 @@ struct level_data {
     u32 MaxEnemyCount;
     u32 EnemyCount;
     level_enemy *Enemies;
+    
+    char *Name;
 };
 
 #pragma pack(push, 1)

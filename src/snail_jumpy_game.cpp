@@ -2,28 +2,28 @@
 internal void LoadOverworld();
 
 internal void
-UpdateAndRenderMainGame(platform_user_input *Input){
+UpdateAndRenderMainGame(){
     //TIMED_FUNCTION();
     
-    if(IsButtonJustPressed(&Input->UpButton)){
+    if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Up])){
         GlobalCurrentLevel++;
         if(GlobalCurrentLevel == GlobalLevelCount){
             GlobalCurrentLevel = 0;
         }
-        ChangeState(GameMode_None, GlobalCurrentLevel);
-    }else if(IsButtonJustPressed(&Input->DownButton)){
+        ChangeState(GameMode_None, 0);
+    }else if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Down])){
         GlobalCurrentLevel--;
         if(GlobalCurrentLevel == U32_MAX){
             GlobalCurrentLevel = GlobalLevelCount-1;
         }
-        ChangeState(GameMode_None, GlobalCurrentLevel);
+        ChangeState(GameMode_None, 0);
     }
     
-    if(IsButtonJustPressed(KeyboardButton(Input, 'E'))){
-        ChangeState(GameMode_Editor, GlobalCurrentLevel);
+    if(IsButtonJustPressed(&GlobalInput.Buttons['E'])){
+        ChangeState(GameMode_Editor, 0);
     }
     
-    if(IsButtonJustPressed(&Input->Esc)){
+    if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Escape])){
         ChangeState(GameMode_Overworld, 0);
     }
     
@@ -31,34 +31,30 @@ UpdateAndRenderMainGame(platform_user_input *Input){
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    RenderGroup.OutputSize = Input->WindowSize;
+    RenderGroup.OutputSize = GlobalInput.WindowSize;
     //RenderGroup.MetersToPixels = 60.0f / 0.5f;
-    RenderGroup.MetersToPixels = Minimum((Input->WindowSize.Width/32.0f), (Input->WindowSize.Height/18.0f)) / 0.5f;
+    RenderGroup.MetersToPixels = Minimum((GlobalInput.WindowSize.Width/32.0f), (GlobalInput.WindowSize.Height/18.0f)) / 0.5f;
     
-    UpdateAndRenderEntities(&RenderGroup, Input);
+    UpdateAndRenderEntities(&RenderGroup);
     
-    layout Layout = CreateLayout(100, Input->WindowSize.Height-100,
+    layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
                                  30, GlobalDebugFont.Size);
     LayoutString(&RenderGroup, &Layout, &GlobalMainFont,
                  GREEN, "Score: %u", GlobalScore);
-    
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "Counter: %.2f", GlobalCounter);
-    
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "TransientMemory:  %'jd", GlobalTransientStorageArena.Used);
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "PermanentMemory:  %'jd", GlobalPermanentStorageArena.Used);
     
     {
-        layout Layout = CreateLayout(Input->WindowSize.Width-500, Input->WindowSize.Height-100,
+        layout Layout = CreateLayout(GlobalInput.WindowSize.Width-500, GlobalInput.WindowSize.Height-100,
                                      30, GlobalDebugFont.Size);
         LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                      BLACK, "Current level: %u", GlobalCurrentLevel);
-        
         LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                      BLACK, "Use up and down arrows to change levels");
-        
         LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                      BLACK, "Use 'e' to open the editor");
     }
@@ -66,12 +62,13 @@ UpdateAndRenderMainGame(platform_user_input *Input){
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "Player velocity: %.2f %.2f",
                  GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
-    
+#if 0
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "Player animation: %u %f %f",
                  GlobalPlayer->CurrentAnimation,
                  GlobalPlayer->AnimationState,
                  GlobalPlayer->AnimationCooldown);
+#endif
     
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     
