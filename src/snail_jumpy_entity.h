@@ -105,12 +105,11 @@ struct entity {
         v2 Size;
     };
     
-    f32 ZLayer;
-    
     f32 AnimationCooldown;
     asset_type Asset;
     u32 CurrentAnimation;
     f32 AnimationState;
+    f32 ZLayer;
 };
 
 struct enemy_entity : public entity {
