@@ -171,7 +171,7 @@ UpdateAndRenderOverworld(){
             ddP.Y -= MovementSpeed;
         }
         
-        ddP.X = 60;
+        //ddP.X = 60;
         MovePlayer(ddP);
         
         // TODO(Tyler): TEMPORARY, do this more properly, DO NOT KEEP THIS!!!
