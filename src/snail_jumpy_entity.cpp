@@ -102,10 +102,10 @@ AllocateNEntities(u32 N, entity_type Type){
 }
 
 internal void
-KillPlayer(f32 dTimeForFrame){
+KillPlayer(){
     GlobalPlayer->State |= EntityState_Dead;
     GlobalScore = 0;
-    PlayAnimationToEnd(GlobalPlayer, PlayerAnimation_Death, dTimeForFrame);
+    PlayAnimationToEnd(GlobalPlayer, PlayerAnimation_Death, GlobalInput.dTimeForFrame);
 }
 
 internal u8
@@ -211,22 +211,6 @@ TestWallCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
                          &Event->Time, &Event->Normal)){
             Event->Type = CollisionType_Wall;
             Event->EntityId = WallId;
-        }
-    }
-    
-}
-
-internal void
-TestTeleporterCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 Id = 0; Id < GlobalTeleporterCount; Id++){
-        teleporter *Teleporter = &GlobalTeleporters[Id];
-        
-        if(TestRectangle(P, Size, EntityDelta,
-                         Teleporter->P, Teleporter->Size,
-                         &Event->Time, &Event->Normal)){
-            Event->Type = CollisionType_Teleporter;
-            Event->EntityId = Id;
-            Event->NewLevel = Teleporter->Level;
         }
     }
     
@@ -386,7 +370,7 @@ MoveEnemy(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                     PlayAnimationToEnd(Entity, Animation, dTimeForFrame);
                 }
             }else if(Event.Type == CollisionType_Player) {
-                KillPlayer(dTimeForFrame);
+                KillPlayer();
             }
         }
         
@@ -399,29 +383,73 @@ MoveEnemy(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
 }
 
 internal void
-MovePlayer(v2 ddP, f32 dTimeForFrame) {
+MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
     player_entity *Entity = GlobalPlayer;
-    
     ddP += -2.0f*Entity->dP;
-    v2 dP = Entity->dP;
-    if(Entity->IsRidingDragonfly){
-        enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
-        dP += Dragonfly->dP;
-        
-        f32 DragonlyLeft = (Dragonfly->P.X -
-                            0.5f*Dragonfly->Size.Width);
-        f32 DragonlyRight = (Dragonfly->P.X +
-                             0.5f*Dragonfly->Size.Width);
-        if((DragonlyLeft < GlobalPlayer->P.X) && (GlobalPlayer->P.X < DragonlyRight)){
-        }else{
-            GlobalPlayer->IsRidingDragonfly = false;
-        }
-    }
-    v2 EntityDelta = (0.5f*ddP*Square(dTimeForFrame)+
-                      dP*dTimeForFrame);
-    Entity->dP = Entity->dP + (ddP*dTimeForFrame);
     
-    v2 NewEntityP = Entity->P + EntityDelta;
+    f32 RemainingFrameTime = GlobalInput.dTimeForFrame;
+    
+    v2 EntityDelta = {0};
+    while(RemainingFrameTime >= FIXED_TIME_STEP){
+        v2 dP = Entity->dP;
+        if(Entity->IsRidingDragonfly){
+            enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
+            dP += Dragonfly->dP;
+            
+            f32 DragonlyLeft = (Dragonfly->P.X -
+                                0.5f*Dragonfly->Size.Width);
+            f32 DragonlyRight = (Dragonfly->P.X +
+                                 0.5f*Dragonfly->Size.Width);
+            if((DragonlyLeft < GlobalPlayer->P.X) && (GlobalPlayer->P.X < DragonlyRight)){
+            }else{
+                GlobalPlayer->IsRidingDragonfly = false;
+            }
+        }
+        
+        EntityDelta = (EntityDelta +
+                       dP*FIXED_TIME_STEP +
+                       0.5f*ddP*Square(FIXED_TIME_STEP));
+        Entity->dP = (v2{FrictionFactors.X*Entity->dP.X, FrictionFactors.Y*Entity->dP.Y} +
+                      (ddP*FIXED_TIME_STEP));
+        RemainingFrameTime -= FIXED_TIME_STEP;
+    }
+    
+    if(RemainingFrameTime > 0.0f){
+        v2 dP = Entity->dP;
+        if(Entity->IsRidingDragonfly){
+            enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
+            dP += Dragonfly->dP;
+            
+            f32 DragonlyLeft = (Dragonfly->P.X -
+                                0.5f*Dragonfly->Size.Width);
+            f32 DragonlyRight = (Dragonfly->P.X +
+                                 0.5f*Dragonfly->Size.Width);
+            if((DragonlyLeft < GlobalPlayer->P.X) && (GlobalPlayer->P.X < DragonlyRight)){
+            }else{
+                GlobalPlayer->IsRidingDragonfly = false;
+            }
+        }
+        
+#if 0
+        v2 NewDelta = (EntityDelta +
+                       dP*FIXED_TIME_STEP +
+                       0.5f*ddP*Square(FIXED_TIME_STEP));
+        v2 NewdP = dP + (ddP*FIXED_TIME_STEP);
+        
+        f32 Alpha = (RemainingFrameTime / FIXED_TIME_STEP);
+        
+        EntityDelta = (Alpha*EntityDelta + (1.0f-Alpha)*NewDelta);
+        Entity->dP = (Alpha*Entity->dP + (1.0f-Alpha)*NewdP);
+        
+#else
+        
+        EntityDelta = (EntityDelta +
+                       dP*RemainingFrameTime +
+                       0.5f*ddP*Square(RemainingFrameTime));
+        Entity->dP = dP + (ddP*RemainingFrameTime);
+#endif
+        
+    }
     
     collision_type CollisionType = CollisionType_None;
     f32 TimeRemaining = 1.0f;
@@ -432,7 +460,6 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
         Event.Time = 1.0f;
         
         TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
-        //TestTeleporterCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestCoinCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
@@ -445,10 +472,10 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
                 DiscardCollision = true;
             }else if(Event.Type == CollisionType_Snail){
                 GlobalPlayer->State |= (EntityState_Dead);
-                KillPlayer(dTimeForFrame);
+                KillPlayer();
             }else if(Event.Type == CollisionType_Dragonfly){
                 if(Event.IsFatal){
-                    KillPlayer(dTimeForFrame);
+                    KillPlayer();
                 }else{
                     GlobalPlayer->IsRidingDragonfly = true;
                     GlobalPlayer->RidingDragonfly = Event.EntityId;
@@ -456,7 +483,7 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
                 }
             }else if(Event.Type == CollisionType_Wall){
             }else{
-                KillPlayer(dTimeForFrame);
+                KillPlayer();
             }
             
             if(DiscardCollision){
@@ -478,6 +505,7 @@ MovePlayer(v2 ddP, f32 dTimeForFrame) {
         TimeRemaining -= Event.Time*TimeRemaining;
     }
 }
+
 
 internal void
 UpdateAndRenderWalls(render_group *RenderGroup){
@@ -529,7 +557,7 @@ UpdateAndRenderEntities(render_group *RenderGroup){
                 ddP.Y -= 17.0f;
             }
             
-            f32 MovementSpeed = 70;
+            f32 MovementSpeed = 50;
             if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
                !GlobalInput.Buttons[KeyCode_Left].EndedDown){
                 ddP.X += MovementSpeed;
@@ -541,9 +569,8 @@ UpdateAndRenderEntities(render_group *RenderGroup){
             }else{
                 PlayAnimation(GlobalPlayer, PlayerAnimation_Idle);
             }
-            GlobalPlayer->dP.X -= 0.3f*GlobalPlayer->dP.X;
             
-            MovePlayer(ddP, GlobalInput.dTimeForFrame);
+            MovePlayer(ddP, v2{0.7f, 1.0f});
             
             if(GlobalPlayer->P.Y < -3.0f){
                 GlobalPlayer->P = {1.5f, 1.5f};

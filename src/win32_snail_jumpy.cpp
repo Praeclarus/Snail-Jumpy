@@ -433,7 +433,6 @@ WinMain(HINSTANCE Instance,
                     DispatchMessage(&Message);
                 }
                 
-                GlobalInput.dTimeForFrame = TargetSecondsPerFrame;
                 RECT ClientRect;
                 GetClientRect(Window, &ClientRect);
                 GlobalInput.WindowSize = {
@@ -466,12 +465,14 @@ WinMain(HINSTANCE Instance,
                         Sleep(SleepMS);
                         SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                     }
+                    GlobalInput.dTimeForFrame = TargetSecondsPerFrame;
                 }
                 else
                 {
                     // TODO(Tyler): Error logging
                     //Assert(0);
                     LogError("Missed FPS");
+                    GlobalInput.dTimeForFrame = SecondsElapsed;
                 }
                 
                 LastCounter = Win32GetWallClock();

@@ -71,7 +71,7 @@ UpdateAndRenderOverworld(){
     render_group RenderGroup;
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
     
-    RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
+    RenderGroup.BackgroundColor = color{0.4f, 0.5f, 0.45f, 1.0f};
     RenderGroup.OutputSize = GlobalInput.WindowSize;
     //RenderGroup.MetersToPixels = 60.0f / 0.5f;
     RenderGroup.MetersToPixels = Minimum((GlobalInput.WindowSize.Width/32.0f), (GlobalInput.WindowSize.Height/18.0f)) / 0.5f;
@@ -118,6 +118,9 @@ UpdateAndRenderOverworld(){
                     Teleporter->P.X-MapSize.X/2,
                     Teleporter->P.Y+Teleporter->Size.Y/2
                 };
+                RenderRectangle(&RenderGroup, MapP, MapP+MapSize, 0.0f,
+                                {0.5f, 0.5f, 0.5f, 1.0f});
+                
                 RenderLevelMapAndEntities(&RenderGroup, Level-1, TileSize,
                                           MapP, -0.2f);
                 
@@ -139,14 +142,14 @@ UpdateAndRenderOverworld(){
         }
     }
     
-    
+    local_persist f32 TimeStamp = 0.0f;
     // Player
     {
         v2 ddP = {0};
         
-        f32 MovementSpeed = 70;
+        f32 MovementSpeed = 30;
         if(GlobalInput.Buttons[KeyCode_Shift].EndedDown){
-            MovementSpeed = 120;
+            MovementSpeed = 60;
         }
         if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
            !GlobalInput.Buttons[KeyCode_Left].EndedDown){
@@ -167,9 +170,9 @@ UpdateAndRenderOverworld(){
                  !GlobalInput.Buttons[KeyCode_Up].EndedDown){
             ddP.Y -= MovementSpeed;
         }
-        GlobalPlayer->dP -= 0.3f*GlobalPlayer->dP;
         
-        MovePlayer(ddP, GlobalInput.dTimeForFrame);
+        ddP.X = 60;
+        MovePlayer(ddP);
         
         // TODO(Tyler): TEMPORARY, do this more properly, DO NOT KEEP THIS!!!
         v2 ActualPlayerP = GlobalPlayer->P;
@@ -182,6 +185,10 @@ UpdateAndRenderOverworld(){
             GlobalCameraP.X = 16.0f;
         }else if((GlobalCameraP.X) < 0.0f){
             GlobalCameraP.X = 0.0f;
+        }else{
+            if(TimeStamp == 0.0f){
+                TimeStamp = GlobalCounter;
+            }
         }
         if((GlobalCameraP.Y+9.0f) > 18.0f){
             GlobalCameraP.Y = 9.0f;
@@ -192,6 +199,12 @@ UpdateAndRenderOverworld(){
     
     layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
                                  30, GlobalDebugFont.Size);
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "Milliseconds per frame: %f", 1000.0f*GlobalInput.dTimeForFrame);
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "FPS: %f", 1.0f/GlobalInput.dTimeForFrame);
+    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+                 BLACK, "TimeStamp: %f", TimeStamp);
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);

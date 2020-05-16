@@ -2,9 +2,10 @@ TODOS:
 -----------------------------------------------
 
  - Improve user input
- - Cleanup editor code
+ - Cleanup editor
 
- - Framerate independence!
+ - Improve framerate independence, it is almost there but the integration when there isn't
+     enough frametime to make a full timestep can be improved
 
  - Dragonfly wings in a separate sprite
 

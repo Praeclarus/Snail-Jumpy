@@ -10,13 +10,13 @@ UpdateAndRenderMainGame(){
         if(GlobalCurrentLevel == GlobalLevelCount){
             GlobalCurrentLevel = 0;
         }
-        ChangeState(GameMode_None, 0);
+        ChangeState(GameMode_None, GlobalLevelData[GlobalCurrentLevel].Name);
     }else if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Down])){
         GlobalCurrentLevel--;
         if(GlobalCurrentLevel == U32_MAX){
             GlobalCurrentLevel = GlobalLevelCount-1;
         }
-        ChangeState(GameMode_None, 0);
+        ChangeState(GameMode_None, GlobalLevelData[GlobalCurrentLevel].Name);
     }
     
     if(IsButtonJustPressed(&GlobalInput.Buttons['E'])){

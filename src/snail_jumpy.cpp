@@ -11,6 +11,8 @@
 
 #include "snail_jumpy.h"
 
+global_constant f32 FIXED_TIME_STEP = (1.0f/240.0f);
+
 global font GlobalMainFont;
 global font GlobalNormalFont;
 global font GlobalDebugFont;
@@ -38,7 +40,6 @@ global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
 global game_mode GlobalGameMode = GameMode_Overworld;
-
 
 global edit_mode GlobalEditMode;
 global b32 GlobalHideEditorUi;
@@ -126,6 +127,7 @@ InitializeGame(){
     LoadAssetFile("test_assets.sja");
     
     LoadOverworld();
+    //LoadLevel("Test_Level");
     
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
     GlobalDefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
