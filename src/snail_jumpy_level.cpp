@@ -1,4 +1,5 @@
 
+
 //~ Level loading
 internal void
 AddPlayer(v2 P){
@@ -105,11 +106,11 @@ LoadLevel(char *LevelName){
                         GlobalEnemies[I].Asset = Asset_Dragonfly;
                         GlobalEnemies[I].Size = { 1.0f, 0.5f };
                         GlobalEnemies[I].ZLayer = -0.9f;
-                        GlobalEnemies[I].Speed = 2.0f;
+                        GlobalEnemies[I].Speed *= 2.0f;
                     }else if(Enemy->Type == EntityType_Speedy){
                         GlobalEnemies[I].Asset = Asset_Speedy;
                         GlobalEnemies[I].Size = { 0.4f, 0.4f };
-                        GlobalEnemies[I].Speed = 7.5f;
+                        GlobalEnemies[I].Speed *= 7.5f;
                     }
                     
                     GlobalEnemies[I].Direction = Enemy->Direction;

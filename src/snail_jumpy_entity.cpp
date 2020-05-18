@@ -29,13 +29,13 @@ PlayAnimation(entity *Entity, u32 AnimationIndex){
 }
 
 internal void
-PlayAnimationToEnd(entity *Entity, u32 AnimationIndex, f32 dTimeForFrame, f32 NumberOfTimes=1.0f){
+PlayAnimationToEnd(entity *Entity, u32 AnimationIndex){
     spritesheet_asset *Asset = &GlobalAssets[Entity->Asset];
     f32 FrameCount = (f32)Asset->FrameCounts[AnimationIndex];
     f32 Fps = (f32)Asset->FpsArray[AnimationIndex];
     // NOTE(Tyler): - dTimeForFrame is so that the animation doesn't flash the starting
     // frame of the animation for a single timestep
-    Entity->AnimationCooldown = (NumberOfTimes*(FrameCount/Fps)) - dTimeForFrame;
+    Entity->AnimationCooldown = (FrameCount/Fps) - GlobalInput.dTimeForFrame;
     Entity->CurrentAnimation = AnimationIndex;
     Entity->AnimationState = 0.0f;
 }
@@ -105,7 +105,7 @@ internal void
 KillPlayer(){
     GlobalPlayer->State |= EntityState_Dead;
     GlobalScore = 0;
-    PlayAnimationToEnd(GlobalPlayer, PlayerAnimation_Death, GlobalInput.dTimeForFrame);
+    PlayAnimationToEnd(GlobalPlayer, PlayerAnimation_Death);
 }
 
 internal u8
@@ -323,18 +323,38 @@ TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
 }
 
 internal void
-MoveEnemy(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
+MoveEnemy(u32 EntityId, v2 ddP) {
     //TIMED_FUNCTION();
     
     enemy_entity *Entity = &GlobalEnemies[EntityId];
-    
     ddP += -2.5f*Entity->dP;
     
-    v2 EntityDelta = (0.5f*ddP*Square(dTimeForFrame)+
-                      Entity->dP*dTimeForFrame);
-    Entity->dP = Entity->dP + (ddP*dTimeForFrame);
+    v2 EntityDelta = {0};
+    f32 RemainingFrameTime = GlobalInput.dTimeForFrame;
+    f32 Epsilon = 0.00001f;
+    while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
+        
+        EntityDelta = (EntityDelta +
+                       Entity->dP*FIXED_TIME_STEP +
+                       0.5f*ddP*Square(FIXED_TIME_STEP));
+        Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
+        
+        
+        RemainingFrameTime -= FIXED_TIME_STEP;
+    }
     
-    v2 NewEntityP = Entity->P + EntityDelta;
+    if(RemainingFrameTime > Epsilon){
+        v2 NextEntityDelta = (EntityDelta +
+                              Entity->dP*FIXED_TIME_STEP +
+                              0.5f*ddP*Square(FIXED_TIME_STEP));
+        v2 NextEntitydP = (Entity->dP + (ddP*FIXED_TIME_STEP));
+        
+        f32 Alpha = RemainingFrameTime / FIXED_TIME_STEP;
+        EntityDelta = ((1.0f-Alpha)*EntityDelta +
+                       Alpha*NextEntityDelta);
+        Entity->dP = ((1.0f-Alpha)*Entity->dP +
+                      Alpha*NextEntitydP);
+    }
     
     f32 TimeRemaining = 1.0f;
     for(u32 Iteration = 0;
@@ -367,7 +387,7 @@ MoveEnemy(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
                     Entity->Direction = Event.Normal.X;
                     u32 Animation = (Entity->Direction > 0.0f) ?
                         EnemyAnimation_TurningRight : EnemyAnimation_TurningLeft;
-                    PlayAnimationToEnd(Entity, Animation, dTimeForFrame);
+                    PlayAnimationToEnd(Entity, Animation);
                 }
             }else if(Event.Type == CollisionType_Player) {
                 KillPlayer();
@@ -380,6 +400,7 @@ MoveEnemy(u32 EntityId, v2 ddP, f32 dTimeForFrame) {
         
         TimeRemaining -= Event.Time*TimeRemaining;
     }
+    
 }
 
 internal void
@@ -387,68 +408,49 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
     player_entity *Entity = GlobalPlayer;
     ddP += -2.0f*Entity->dP;
     
-    f32 RemainingFrameTime = GlobalInput.dTimeForFrame;
-    
-    v2 EntityDelta = {0};
-    while(RemainingFrameTime >= FIXED_TIME_STEP){
-        v2 dP = Entity->dP;
-        if(Entity->IsRidingDragonfly){
-            enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
-            dP += Dragonfly->dP;
-            
-            f32 DragonlyLeft = (Dragonfly->P.X -
-                                0.5f*Dragonfly->Size.Width);
-            f32 DragonlyRight = (Dragonfly->P.X +
-                                 0.5f*Dragonfly->Size.Width);
-            if((DragonlyLeft < GlobalPlayer->P.X) && (GlobalPlayer->P.X < DragonlyRight)){
-            }else{
-                GlobalPlayer->IsRidingDragonfly = false;
-            }
-        }
+    v2 dP = Entity->dP;
+    if(Entity->IsRidingDragonfly){
+        enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
+        dP += Dragonfly->dP;
         
-        EntityDelta = (EntityDelta +
-                       dP*FIXED_TIME_STEP +
-                       0.5f*ddP*Square(FIXED_TIME_STEP));
-        Entity->dP = (v2{FrictionFactors.X*Entity->dP.X, FrictionFactors.Y*Entity->dP.Y} +
-                      (ddP*FIXED_TIME_STEP));
-        RemainingFrameTime -= FIXED_TIME_STEP;
+        Entity->IsRidingDragonfly = false;
     }
     
-    if(RemainingFrameTime > 0.0f){
-        v2 dP = Entity->dP;
-        if(Entity->IsRidingDragonfly){
-            enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
-            dP += Dragonfly->dP;
-            
-            f32 DragonlyLeft = (Dragonfly->P.X -
-                                0.5f*Dragonfly->Size.Width);
-            f32 DragonlyRight = (Dragonfly->P.X +
-                                 0.5f*Dragonfly->Size.Width);
-            if((DragonlyLeft < GlobalPlayer->P.X) && (GlobalPlayer->P.X < DragonlyRight)){
-            }else{
-                GlobalPlayer->IsRidingDragonfly = false;
-            }
-        }
-        
-#if 0
-        v2 NewDelta = (EntityDelta +
+    v2 EntityDelta = {0};
+    f32 RemainingFrameTime = GlobalInput.dTimeForFrame;
+    f32 Epsilon = 0.00001f;
+    u32 Iterations = 0;
+    while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
+        EntityDelta = (EntityDelta +
                        dP*FIXED_TIME_STEP +
                        0.5f*ddP*Square(FIXED_TIME_STEP));
-        v2 NewdP = dP + (ddP*FIXED_TIME_STEP);
+        dP = dP + (ddP*FIXED_TIME_STEP);
+        Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
+        Entity->dP = (v2{FrictionFactors.X*Entity->dP.X, FrictionFactors.Y*Entity->dP.Y});
         
-        f32 Alpha = (RemainingFrameTime / FIXED_TIME_STEP);
+        RemainingFrameTime -= FIXED_TIME_STEP;
+        Iterations++;
+        // TODO(Tyler): This might not be the best way to cap iterations, it can cause
+        // sliding backwards when riding dragonflies
+        if(Iterations > MAX_PHYSICS_ITERATIONS){
+            RemainingFrameTime = 0.0f; // NOTE(Tyler): Don't try to interpolate!
+            break;
+        }
+    }
+    
+    if(RemainingFrameTime > Epsilon){
+        v2 NextEntityDelta = (EntityDelta +
+                              dP*FIXED_TIME_STEP +
+                              0.5f*ddP*Square(FIXED_TIME_STEP));
+        // NOTE(Tyler): I do not believe we need to interpolate for 'dP'
+        v2 NextEntitydP = (Entity->dP + (ddP*FIXED_TIME_STEP));
+        NextEntitydP = (v2{FrictionFactors.X*NextEntitydP.X, FrictionFactors.Y*NextEntitydP.Y});
         
-        EntityDelta = (Alpha*EntityDelta + (1.0f-Alpha)*NewDelta);
-        Entity->dP = (Alpha*Entity->dP + (1.0f-Alpha)*NewdP);
-        
-#else
-        
-        EntityDelta = (EntityDelta +
-                       dP*RemainingFrameTime +
-                       0.5f*ddP*Square(RemainingFrameTime));
-        Entity->dP = dP + (ddP*RemainingFrameTime);
-#endif
-        
+        f32 Alpha = RemainingFrameTime / FIXED_TIME_STEP;
+        EntityDelta = ((1.0f-Alpha)*EntityDelta +
+                       Alpha*NextEntityDelta);
+        Entity->dP = ((1.0f-Alpha)*Entity->dP +
+                      Alpha*NextEntitydP);
     }
     
     collision_type CollisionType = CollisionType_None;
@@ -464,7 +466,8 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
         TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
         if(Event.Time < 1.0f){
-            // TODO(Tyler): Find a way to remove DiscardCollision
+            // TODO(Tyler): Find a way to remove DiscardCollision, possibly using
+            // a special collision with triggers?
             b32 DiscardCollision = false;
             
             if(Event.Type == CollisionType_Coin){
@@ -557,7 +560,7 @@ UpdateAndRenderEntities(render_group *RenderGroup){
                 ddP.Y -= 17.0f;
             }
             
-            f32 MovementSpeed = 50;
+            f32 MovementSpeed = 120;
             if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
                !GlobalInput.Buttons[KeyCode_Left].EndedDown){
                 ddP.X += MovementSpeed;
@@ -601,12 +604,12 @@ UpdateAndRenderEntities(render_group *RenderGroup){
             
             if((StateAlongPath < 0.05f) &&
                (Enemy->Direction < 0)){
-                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningRight, GlobalInput.dTimeForFrame);
+                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningRight);
                 Enemy->Direction = 1.0f;
                 Enemy->dP = {0};
             }else if((StateAlongPath > (1.0f-0.05f)) &&
                      (Enemy->Direction > 0)){
-                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningLeft, GlobalInput.dTimeForFrame);
+                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningLeft);
                 Enemy->Direction = -1.0f;
                 Enemy->dP = {0};
             }else{
@@ -622,7 +625,7 @@ UpdateAndRenderEntities(render_group *RenderGroup){
                 u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
                     EnemyAnimation_Right : EnemyAnimation_Left;
                 PlayAnimation(Enemy, AnimationIndex);
-                MoveEnemy(Id, ddP, GlobalInput.dTimeForFrame);
+                MoveEnemy(Id, ddP);
             }
         }
         

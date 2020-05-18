@@ -147,9 +147,9 @@ UpdateAndRenderOverworld(){
     {
         v2 ddP = {0};
         
-        f32 MovementSpeed = 30;
+        f32 MovementSpeed = 80;
         if(GlobalInput.Buttons[KeyCode_Shift].EndedDown){
-            MovementSpeed = 60;
+            MovementSpeed = 120;
         }
         if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
            !GlobalInput.Buttons[KeyCode_Left].EndedDown){
@@ -171,8 +171,12 @@ UpdateAndRenderOverworld(){
             ddP.Y -= MovementSpeed;
         }
         
-        //ddP.X = 60;
+        ddP.X = 60;
+        
         MovePlayer(ddP);
+        if((GlobalPlayer->P.X > 8.0f) && (TimeStamp == 0.0f)){
+            TimeStamp = GlobalCounter;
+        }
         
         // TODO(Tyler): TEMPORARY, do this more properly, DO NOT KEEP THIS!!!
         v2 ActualPlayerP = GlobalPlayer->P;
@@ -185,10 +189,6 @@ UpdateAndRenderOverworld(){
             GlobalCameraP.X = 16.0f;
         }else if((GlobalCameraP.X) < 0.0f){
             GlobalCameraP.X = 0.0f;
-        }else{
-            if(TimeStamp == 0.0f){
-                TimeStamp = GlobalCounter;
-            }
         }
         if((GlobalCameraP.Y+9.0f) > 18.0f){
             GlobalCameraP.Y = 9.0f;
@@ -199,10 +199,7 @@ UpdateAndRenderOverworld(){
     
     layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
                                  30, GlobalDebugFont.Size);
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
-                 BLACK, "Milliseconds per frame: %f", 1000.0f*GlobalInput.dTimeForFrame);
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
-                 BLACK, "FPS: %f", 1.0f/GlobalInput.dTimeForFrame);
+    LayoutFps(&RenderGroup, &Layout);
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "TimeStamp: %f", TimeStamp);
     DebugRenderAllProfileData(&RenderGroup, &Layout);

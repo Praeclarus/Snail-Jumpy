@@ -96,6 +96,7 @@ struct teleporter {
 
 struct entity {
     // NOTE(Tyler): Needs to be u32 otherwise compiler complains
+    // TODO(Tyler): Reorder to fix the above NOTE
     u32 Type;
     v2 P, dP;
     entity_state State;

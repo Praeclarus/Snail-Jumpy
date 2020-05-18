@@ -94,6 +94,12 @@ AbsoluteValue(f32 A)
     return(Result);
 }
 
+internal inline f32
+ToPowerOf(f32 Base, f32 Exponent){
+    f32 Result = powf(Base, Exponent);
+    return(Result);
+}
+
 //~ Vectors
 
 typedef union v2 v2;

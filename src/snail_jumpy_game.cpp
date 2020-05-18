@@ -59,16 +59,19 @@ UpdateAndRenderMainGame(){
                      BLACK, "Use 'e' to open the editor");
     }
     
+    LayoutFps(&RenderGroup, &Layout);
+    
+    Layout.CurrentP.X += Layout.Advance.X;
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "Player velocity: %.2f %.2f",
                  GlobalPlayer->dP.X, GlobalPlayer->dP.Y);
-#if 0
     LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
                  BLACK, "Player animation: %u %f %f",
                  GlobalPlayer->CurrentAnimation,
                  GlobalPlayer->AnimationState,
                  GlobalPlayer->AnimationCooldown);
-#endif
+    
+    Layout.CurrentP.X -= Layout.Advance.X;
     
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     

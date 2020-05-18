@@ -212,3 +212,12 @@ LayoutString(render_group *RenderGroup, layout *Layout,
     va_end(VarArgs);
     Layout->CurrentP.Y -= Font->Size;
 }
+
+//~ Helpers
+internal void
+LayoutFps(render_group *RenderGroup, layout *Layout){
+    LayoutString(RenderGroup, Layout, &GlobalDebugFont,
+                 BLACK, "Milliseconds per frame: %f", 1000.0f*GlobalInput.dTimeForFrame);
+    LayoutString(RenderGroup, Layout, &GlobalDebugFont,
+                 BLACK, "FPS: %f", 1.0f/GlobalInput.dTimeForFrame);
+}

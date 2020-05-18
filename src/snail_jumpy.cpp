@@ -11,7 +11,8 @@
 
 #include "snail_jumpy.h"
 
-global_constant f32 FIXED_TIME_STEP = (1.0f/240.0f);
+global_constant f32 FIXED_TIME_STEP = (1.0f/120.0f);
+global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
 
 global font GlobalMainFont;
 global font GlobalNormalFont;
@@ -39,7 +40,7 @@ global platform_input GlobalInput;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_Overworld;
+global game_mode GlobalGameMode = GameMode_MainGame;
 
 global edit_mode GlobalEditMode;
 global b32 GlobalHideEditorUi;
@@ -115,7 +116,7 @@ InitializeGame(){
     GlobalLogFile = OpenFile("log.txt", OpenFile_Write);
     GlobalLogFileOffset = (u32)GetFileSize(GlobalLogFile);
     // Not actually an error
-    LogError("\n=======================================================================");
+    LogError("=======================================================================\n");
     
     InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEntityMemory, Kilobytes(64));
     // TODO(Tyler): I don't quite like using three arenas for storing level info
@@ -126,8 +127,11 @@ InitializeGame(){
     
     LoadAssetFile("test_assets.sja");
     
-    LoadOverworld();
-    //LoadLevel("Test_Level");
+    if(GlobalGameMode == GameMode_Overworld){
+        LoadOverworld();
+    }else if(GlobalGameMode == GameMode_MainGame){
+        LoadLevel("Test_Level");
+    }
     
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
     GlobalDefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);

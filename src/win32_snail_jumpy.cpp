@@ -419,6 +419,7 @@ WinMain(HINSTANCE Instance,
             
             LARGE_INTEGER LastCounter = Win32GetWallClock();
             f32 TargetSecondsPerFrame = 1.0f/60.0f;
+            GlobalInput.dTimeForFrame = TargetSecondsPerFrame;
             
             Running = true;
             while(Running){
