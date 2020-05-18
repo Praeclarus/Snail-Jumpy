@@ -332,6 +332,7 @@ MoveEnemy(u32 EntityId, v2 ddP) {
     v2 EntityDelta = {0};
     f32 RemainingFrameTime = GlobalInput.dTimeForFrame;
     f32 Epsilon = 0.00001f;
+    u32 Iterations = 0;
     while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
         
         EntityDelta = (EntityDelta +
@@ -339,8 +340,14 @@ MoveEnemy(u32 EntityId, v2 ddP) {
                        0.5f*ddP*Square(FIXED_TIME_STEP));
         Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
         
-        
         RemainingFrameTime -= FIXED_TIME_STEP;
+        Iterations++;
+        // TODO(Tyler): This might not be the best way to cap iterations, it can cause
+        // sliding backwards when riding dragonflies
+        if(Iterations > MAX_PHYSICS_ITERATIONS){
+            RemainingFrameTime = 0.0f; // NOTE(Tyler): Don't try to interpolate!
+            break;
+        }
     }
     
     if(RemainingFrameTime > Epsilon){
