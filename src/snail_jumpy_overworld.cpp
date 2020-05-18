@@ -171,7 +171,7 @@ UpdateAndRenderOverworld(){
             ddP.Y -= MovementSpeed;
         }
         
-        ddP.X = 60;
+        //ddP.X = 60;
         
         MovePlayer(ddP);
         if((GlobalPlayer->P.X > 8.0f) && (TimeStamp == 0.0f)){

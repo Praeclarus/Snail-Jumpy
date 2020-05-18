@@ -408,10 +408,10 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
     player_entity *Entity = GlobalPlayer;
     ddP += -2.0f*Entity->dP;
     
-    v2 dP = Entity->dP;
+    v2 dPOffset = {0};
     if(Entity->IsRidingDragonfly){
         enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
-        dP += Dragonfly->dP;
+        dPOffset = Dragonfly->dP;
         
         Entity->IsRidingDragonfly = false;
     }
@@ -422,9 +422,9 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
     u32 Iterations = 0;
     while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
         EntityDelta = (EntityDelta +
-                       dP*FIXED_TIME_STEP +
+                       Entity->dP*FIXED_TIME_STEP +
+                       dPOffset*FIXED_TIME_STEP +
                        0.5f*ddP*Square(FIXED_TIME_STEP));
-        dP = dP + (ddP*FIXED_TIME_STEP);
         Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
         Entity->dP = (v2{FrictionFactors.X*Entity->dP.X, FrictionFactors.Y*Entity->dP.Y});
         
@@ -440,9 +440,9 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
     
     if(RemainingFrameTime > Epsilon){
         v2 NextEntityDelta = (EntityDelta +
-                              dP*FIXED_TIME_STEP +
+                              Entity->dP*FIXED_TIME_STEP +
+                              dPOffset*FIXED_TIME_STEP +
                               0.5f*ddP*Square(FIXED_TIME_STEP));
-        // NOTE(Tyler): I do not believe we need to interpolate for 'dP'
         v2 NextEntitydP = (Entity->dP + (ddP*FIXED_TIME_STEP));
         NextEntitydP = (v2{FrictionFactors.X*NextEntitydP.X, FrictionFactors.Y*NextEntitydP.Y});
         

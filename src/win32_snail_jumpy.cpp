@@ -418,7 +418,7 @@ WinMain(HINSTANCE Instance,
             GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
             
             LARGE_INTEGER LastCounter = Win32GetWallClock();
-            f32 TargetSecondsPerFrame = 1.0f/60.0f;
+            f32 TargetSecondsPerFrame = 1.0f/30.0f;
             GlobalInput.dTimeForFrame = TargetSecondsPerFrame;
             
             Running = true;
