@@ -41,11 +41,12 @@ global platform_input GlobalInput;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_MainGame;
+global game_mode GlobalGameMode = GameMode_Overworld;
 
 global editor    GlobalEditor;
 
 global v2           GlobalCameraP;
+global v2           GlobalLastOverworldPlayerP;
 global memory_arena GlobalOverworldMapMemory;
 global u32          GlobalOverworldXTiles;
 global u32          GlobalOverworldYTiles;
@@ -240,6 +241,10 @@ GameUpdateAndRender(){
     GlobalCounter += GlobalInput.dTimeForFrame;
     
     if(GlobalStateChangeData.DidChange){
+        if(GlobalGameMode == GameMode_Overworld){
+            GlobalLastOverworldPlayerP = GlobalManager.Player->P;
+        }
+        
         if(GlobalStateChangeData.NewMode == GameMode_None){
             LoadLevel(GlobalStateChangeData.NewLevel);
         }else if(GlobalStateChangeData.NewMode == GameMode_MainGame){
@@ -253,6 +258,7 @@ GameUpdateAndRender(){
         }else if(GlobalStateChangeData.NewMode == GameMode_OverworldEditor){
             GlobalGameMode = GameMode_OverworldEditor;
         }
+        GlobalCameraP = {0};
         
         GlobalStateChangeData = {0};
     }

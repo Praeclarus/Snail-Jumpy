@@ -64,7 +64,7 @@ UpdateAndRenderLevelEditor(){
         if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Left])){
             GlobalEditor.Mode = (edit_mode)((u32)GlobalEditor.Mode - 1);
             if(GlobalEditor.Mode < EditMode_None){
-                GlobalEditor.Mode = (edit_mode)(EditMode_TOTAL-1);
+                GlobalEditor.Mode = EditMode_Speedy;
             }
         }else if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Right])){
             GlobalEditor.Mode = (edit_mode)((u32)GlobalEditor.Mode + 1);

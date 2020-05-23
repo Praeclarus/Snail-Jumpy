@@ -112,14 +112,13 @@ AllocateNEntities(u32 N, entity_type Type){
 }
 
 //~ Helpers
-internal void
-OpenDoor(u32 StaticId){
-    door_entity *Door = &GlobalManager.Doors[GlobalManager.DoorLookupTable[0]];
+internal inline void
+OpenDoor(door_entity *Door){
     if(!Door->IsOpen){ Door->AnimationCooldown = 1.0f; }
     Door->IsOpen = true;
 }
 
-internal void
+internal inline void
 KillPlayer(){
     //GlobalManager.Player->State |= EntityState_Dead;
     //GlobalScore = 0;
@@ -129,7 +128,7 @@ KillPlayer(){
     //PlayAnimationToEnd(GlobalManager.Player, PlayerAnimation_Death);
 }
 
-internal u8
+internal inline u8
 GetCoinTileValue(u32 X, u32 Y){
     // NOTE(Tyler): We do not need to invert the Y as the Y in the actual map is inverted
     u8 Result = *(GlobalManager.CoinData.Tiles+(Y*GlobalManager.CoinData.XTiles)+X);
@@ -471,19 +470,15 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
                        dPOffset*FIXED_TIME_STEP +
                        0.5f*ddP*Square(FIXED_TIME_STEP));
         Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
-        if(FrictionFactors.Y == 1.0f){
-            if(Entity->IsGrounded){
-                Entity->dP.X *= FrictionFactors.X;
-            }
-        }else{
-            Entity->dP.X *= FrictionFactors.X;
-            Entity->dP.Y *= FrictionFactors.Y;
-        }
+        Entity->dP.X *= FrictionFactors.X;
+        Entity->dP.Y *= FrictionFactors.Y;
         
         RemainingFrameTime -= FIXED_TIME_STEP;
         Iterations++;
         // TODO(Tyler): This might not be the best way to cap iterations, it can cause
-        // sliding backwards when riding dragonflies
+        // sliding backwards when riding dragonflies, there is a simple work around, that
+        // has been implemented, but it that work around physically slows down everything
+        // relative to running at the max FPS
         if(Iterations > MAX_PHYSICS_ITERATIONS){
             RemainingFrameTime = 0.0f; // NOTE(Tyler): Don't try to interpolate!
             break;

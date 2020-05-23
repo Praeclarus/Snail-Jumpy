@@ -60,26 +60,27 @@ UpdateAndRenderMainGame(){
                 ddP.Y += 88.0f;
                 GlobalManager.Player->JumpTime += GlobalInput.dTimeForFrame;
                 GlobalManager.Player->IsGrounded= false;
+            }else if(!GlobalInput.Buttons[KeyCode_Space].EndedDown){
+                GlobalManager.Player->JumpTime = 2.0f;
+                ddP.Y -= 17.0f;
             }else{
                 ddP.Y -= 17.0f;
             }
             
-            f32 MovementSpeed = 10;
             b8 IsRunning = false;
-            if(GlobalManager.Player->IsGrounded){
-                MovementSpeed = 120;
-                if(GlobalInput.Buttons[KeyCode_Shift].EndedDown && 
-                   (GlobalManager.Player->SprintTime < 2.0f)){
-                    IsRunning = true;
-                    MovementSpeed = 240;
-                    GlobalManager.Player->SprintTime += GlobalInput.dTimeForFrame;
-                }else{
-                    if(GlobalManager.Player->SprintTime == 0.0f){
-                    }else if(GlobalManager.Player->SprintTime < 0.0f){
-                        GlobalManager.Player->SprintTime = 0.0f;
-                    }else if(!GlobalInput.Buttons[KeyCode_Shift].EndedDown){
-                        GlobalManager.Player->SprintTime -= GlobalInput.dTimeForFrame;
-                    }
+            f32 MovementSpeed = 120;
+            if(GlobalInput.Buttons[KeyCode_Shift].EndedDown && 
+               (GlobalManager.Player->SprintTime < 2.0f)){
+                IsRunning = true;
+                MovementSpeed = 240;
+                GlobalManager.Player->SprintTime += GlobalInput.dTimeForFrame;
+            }else{
+                if(GlobalManager.Player->SprintTime == 0.0f){
+                }else if(GlobalManager.Player->SprintTime < 0.0f){
+                    GlobalManager.Player->SprintTime = 0.0f;
+                }else if(!GlobalInput.Buttons[KeyCode_Shift].EndedDown &&
+                         GlobalManager.Player->IsGrounded){
+                    GlobalManager.Player->SprintTime -= GlobalInput.dTimeForFrame;
                 }
             }
             

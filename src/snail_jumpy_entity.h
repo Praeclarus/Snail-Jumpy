@@ -93,6 +93,20 @@ struct teleporter {
     };
     
     const char *Level;
+    b8          IsLocked;
+};
+
+struct door_entity {
+    v2 P;
+    union {
+        struct { f32 Width; f32 Height; };
+        v2 Size;
+    };
+    b8 IsOpen;
+    
+    f32 AnimationCooldown;
+    
+    const char *RequiredLevelToOpen;
 };
 
 struct entity {
@@ -129,17 +143,6 @@ struct player_entity : public entity {
     b8 IsGrounded;
 };
 
-struct door_entity {
-    v2 P;
-    union {
-        struct { f32 Width; f32 Height; };
-        v2 Size;
-    };
-    b8 IsOpen;
-    
-    f32 AnimationCooldown;
-};
-
 struct entity_manager {
     memory_arena Memory;
     
@@ -158,7 +161,6 @@ struct entity_manager {
     
     player_entity *Player;
     
-    u32 *DoorLookupTable;
     door_entity *Doors;
     u32 DoorCount;
 };
