@@ -104,7 +104,6 @@ LoadOverworld(){
         
         for(u32 DoorId = 0; DoorId < GlobalManager.DoorCount; DoorId++){
             door_entity *Door = &GlobalManager.Doors[DoorId];
-            OpenDoor(Door);
             if(IsLevelCompleted(Door->RequiredLevelToOpen)){
                 OpenDoor(Door);
             }
