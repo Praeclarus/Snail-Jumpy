@@ -469,7 +469,11 @@ WinMain(HINSTANCE Instance,
                     // TODO(Tyler): Error logging
                     //Assert(0);
                     LogError("Missed FPS");
-                    GlobalInput.dTimeForFrame = SecondsElapsed;
+                    GlobalInput.dTimeForFrame= SecondsElapsed;
+                    // TODO(Tyler): I don't know if this is a good solution
+                    if(GlobalInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
+                        GlobalInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
+                    }
                 }
                 
                 LastCounter = Win32GetWallClock();

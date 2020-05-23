@@ -122,9 +122,11 @@ struct enemy_entity : public entity {
 
 struct player_entity : public entity {
     f32 JumpTime;
+    f32 SprintTime;
     // TODO(Tyler): There is likely a better way to do this
-    b8 IsRidingDragonfly;
     u32 RidingDragonfly;
+    b8 IsRidingDragonfly;
+    b8 IsGrounded;
 };
 
 struct door_entity {

@@ -41,7 +41,7 @@ global platform_input GlobalInput;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_Overworld;
+global game_mode GlobalGameMode = GameMode_MainGame;
 
 global editor    GlobalEditor;
 
@@ -150,7 +150,7 @@ InitializeGame(){
         f32 MetersToPixels = 60.0f/0.5f;
         
         asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
-            {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 5, 5, 1, 1, 2, 2 }, { 7, 7, 7, 7, 7, 7, 7, 7}, 0.0f },
+            {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 6, 6, 5, 5, 1, 1, 2, 2 }, { 7, 7, 7, 7, 7, 7, 7, 7, 7, 7}, 0.0f },
             {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 },-0.07f},
             {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 }, 0.0f},
             {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 7, 7, 7, 7 }, 0.0f },

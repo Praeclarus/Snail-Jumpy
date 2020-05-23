@@ -110,6 +110,8 @@ LoadAssetFile(char *Path){
                 Level->Name = LevelName;
                 CopyMemory(Level->Name, Name, Length);
                 InsertIntoHashTable(&GlobalLevelTable, Level->Name, I+1);
+                
+                Level->CoinsRequiredToComplete = 0;
             }
         }else{
             Assert(0);

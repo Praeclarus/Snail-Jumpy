@@ -3,6 +3,7 @@ global entity_manager GlobalManager;
 
 internal void UpdateCoin(u32 Id);
 
+//~ Animation rendering
 internal void
 PlayAnimation(entity *Entity, u32 AnimationIndex){
     // TODO(Tyler): I am not sure if this is a good way to do this
@@ -23,16 +24,6 @@ PlayAnimationToEnd(entity *Entity, u32 AnimationIndex){
     Entity->AnimationCooldown = (FrameCount/Fps) - GlobalInput.dTimeForFrame;
     Entity->CurrentAnimation = AnimationIndex;
     Entity->AnimationState = 0.0f;
-}
-
-internal void
-ResetEntitySystem(){
-    GlobalManager.Memory.Used = 0;
-    GlobalManager.WallCount = 0;
-    GlobalManager.CoinCount = 0;
-    GlobalManager.EnemyCount = 0;
-    GlobalManager.TeleporterCount = 0;
-    GlobalManager.DoorCount = 0;
 }
 
 internal void
@@ -72,6 +63,18 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
                   Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
 }
 
+
+//~ Entity allocation and management
+internal void
+ResetEntitySystem(){
+    GlobalManager.Memory.Used = 0;
+    GlobalManager.WallCount = 0;
+    GlobalManager.CoinCount = 0;
+    GlobalManager.EnemyCount = 0;
+    GlobalManager.TeleporterCount = 0;
+    GlobalManager.DoorCount = 0;
+}
+
 // TODO(Tyler): I don't really like this function
 internal void
 AllocateNEntities(u32 N, entity_type Type){
@@ -108,6 +111,7 @@ AllocateNEntities(u32 N, entity_type Type){
     }
 }
 
+//~ Helpers
 internal void
 OpenDoor(u32 StaticId){
     door_entity *Door = &GlobalManager.Doors[GlobalManager.DoorLookupTable[0]];
@@ -118,7 +122,7 @@ OpenDoor(u32 StaticId){
 internal void
 KillPlayer(){
     //GlobalManager.Player->State |= EntityState_Dead;
-    GlobalScore = 0;
+    //GlobalScore = 0;
     //GlobalManager.Player->State &= ~EntityState_Dead;
     GlobalManager.Player->P = {1.5, 1.5};
     GlobalManager.Player->dP = {0, 0};
@@ -126,7 +130,7 @@ KillPlayer(){
 }
 
 internal u8
-GetTileValue(u32 X, u32 Y){
+GetCoinTileValue(u32 X, u32 Y){
     // NOTE(Tyler): We do not need to invert the Y as the Y in the actual map is inverted
     u8 Result = *(GlobalManager.CoinData.Tiles+(Y*GlobalManager.CoinData.XTiles)+X);
     
@@ -145,7 +149,7 @@ UpdateCoin(u32 Id){
         v2 NewP = {};
         for(f32 Y = 0; Y < GlobalManager.CoinData.YTiles; Y++){
             for(f32 X = 0; X < GlobalManager.CoinData.XTiles; X++){
-                u8 Tile = GetTileValue((u32)X, (u32)Y);
+                u8 Tile = GetCoinTileValue((u32)X, (u32)Y);
                 if(Tile == EntityType_Coin){
                     if(RandomNumber == CurrentCoinP++){
                         NewP.X = (X+0.5f)*GlobalManager.CoinData.TileSideInMeters;
@@ -160,6 +164,9 @@ UpdateCoin(u32 Id){
         GlobalManager.Coins[Id].AnimationCooldown = 1.0f;
     }
 }
+
+
+//~ Collision detection
 
 // TODO(Tyler): ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS!
 // the collision system is not very robust or good at all!!!
@@ -464,7 +471,14 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
                        dPOffset*FIXED_TIME_STEP +
                        0.5f*ddP*Square(FIXED_TIME_STEP));
         Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
-        Entity->dP = (v2{FrictionFactors.X*Entity->dP.X, FrictionFactors.Y*Entity->dP.Y});
+        if(FrictionFactors.Y == 1.0f){
+            if(Entity->IsGrounded){
+                Entity->dP.X *= FrictionFactors.X;
+            }
+        }else{
+            Entity->dP.X *= FrictionFactors.X;
+            Entity->dP.Y *= FrictionFactors.Y;
+        }
         
         RemainingFrameTime -= FIXED_TIME_STEP;
         Iterations++;
@@ -535,8 +549,10 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
             
             if(Event.Normal.Y == 1.0f){
                 GlobalManager.Player->JumpTime = 0.0f;
+                GlobalManager.Player->IsGrounded = true;
             }else{
                 GlobalManager.Player->JumpTime = 2.0f;
+                Entity->IsGrounded = false;
             }
         }
         
@@ -548,7 +564,7 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
     }
 }
 
-
+//~ Entity updating and rendering
 internal void
 UpdateAndRenderWalls(render_group *RenderGroup){
     for(u32 WallId = 0; WallId < GlobalManager.WallCount; WallId++){
@@ -572,7 +588,6 @@ UpdateAndRenderCoins(render_group *RenderGroup){
         }
     }
 }
-
 
 internal void
 UpdateAndRenderEnemies(render_group *RenderGroup){

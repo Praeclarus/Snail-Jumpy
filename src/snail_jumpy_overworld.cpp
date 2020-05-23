@@ -112,6 +112,10 @@ LoadOverworld(){
     GlobalManager.Player->ZLayer = -0.5f;
     
     GlobalCameraP = {0};
+    
+    if(IsLevelCompleted("Test_Level")){
+        OpenDoor(0);
+    }
 }
 
 internal void
@@ -150,11 +154,12 @@ UpdateAndRenderOverworld(){
             if(Color.A < 0.3f){
                 Color.A = 0.3f;
             }
-            Door->AnimationCooldown -= 3*GlobalInput.dTimeForFrame;
+            Door->AnimationCooldown -= GlobalInput.dTimeForFrame;
             RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, Color);
         }
     }
     
+#if 0    
     // NOTE(Tyler): Door trigger
     {
         v2 P = {8.75f, 4.25f};
@@ -169,6 +174,7 @@ UpdateAndRenderOverworld(){
             OpenDoor(0);
         }
     }
+#endif
     
     // NOTE(Tyler): Teleporters
     for(u32 Id = 0; Id < GlobalManager.TeleporterCount; Id++){

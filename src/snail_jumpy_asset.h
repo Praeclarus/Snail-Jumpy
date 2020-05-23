@@ -15,12 +15,14 @@ enum asset_type {
 enum asset_animations {
     PlayerAnimation_IdleLeft     = 0,
     PlayerAnimation_IdleRight    = 1,
-    PlayerAnimation_RunningLeft  = 2,
-    PlayerAnimation_RunningRight = 3,
-    PlayerAnimation_JumpingLeft  = 4,
-    PlayerAnimation_JumpingRight = 5,
-    PlayerAnimation_FallingLeft  = 6,
-    PlayerAnimation_FallingRight = 7,
+    PlayerAnimation_WalkingLeft  = 2,
+    PlayerAnimation_WalkingRight = 3,
+    PlayerAnimation_RunningLeft  = 4,
+    PlayerAnimation_RunningRight = 5,
+    PlayerAnimation_JumpingLeft  = 6,
+    PlayerAnimation_JumpingRight = 7,
+    PlayerAnimation_FallingLeft  = 8,
+    PlayerAnimation_FallingRight = 9,
     
     EnemyAnimation_Left  = 0,
     EnemyAnimation_Right = 1,
@@ -34,8 +36,8 @@ struct spritesheet_asset {
     render_texture_handle SpriteSheet;
     u32 FramesPerRow;
     // TODO(Tyler): Find a better way to make this array instead of having them fixed length
-    u32 FrameCounts[9];
-    u32 FpsArray[9];
+    u32 FrameCounts[16];
+    u32 FpsArray[16];
     f32 YOffset;
 };
 
@@ -43,8 +45,8 @@ struct asset_descriptor {
     const char *Path;
     u32 SizeInPixels;
     u32 FramesPerRow;
-    u32 FrameCounts[9];
-    u32 FpsArray[9];
+    u32 FrameCounts[16];
+    u32 FpsArray[16];
     f32 YOffset;
 };
 

@@ -1,10 +1,13 @@
 
 internal void LoadOverworld();
 
+global f32 GlobalCompletionCooldown;
+
 internal void
 UpdateAndRenderMainGame(){
     //TIMED_FUNCTION();
     
+    // TODO(Tyler): User input should be handled better
     if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Up])){
         GlobalCurrentLevel++;
         if(GlobalCurrentLevel == GlobalLevelCount){
@@ -35,11 +38,12 @@ UpdateAndRenderMainGame(){
     RenderGroup.OutputSize = GlobalInput.WindowSize;
     //RenderGroup.MetersToPixels = 60.0f / 0.5f;
     RenderGroup.MetersToPixels = Minimum((GlobalInput.WindowSize.Width/32.0f), (GlobalInput.WindowSize.Height/18.0f)) / 0.5f;
+    
     UpdateAndRenderWalls(&RenderGroup);
     UpdateAndRenderCoins(&RenderGroup);
     UpdateAndRenderEnemies(&RenderGroup);
     
-    //BEGIN_BLOCK(PlayerUpdate);
+    // NOTE(Tyler): Update player
     {
         if(GlobalManager.Player->AnimationCooldown <= 0.0f){
             v2 ddP = {0};
@@ -51,16 +55,34 @@ UpdateAndRenderMainGame(){
                 GlobalManager.Player->dP = {0, 0};
             }
 #endif
-            
             if((GlobalManager.Player->JumpTime < 0.1f) &&
                GlobalInput.Buttons[KeyCode_Space].EndedDown){
                 ddP.Y += 88.0f;
                 GlobalManager.Player->JumpTime += GlobalInput.dTimeForFrame;
+                GlobalManager.Player->IsGrounded= false;
             }else{
                 ddP.Y -= 17.0f;
             }
             
-            f32 MovementSpeed = 120;
+            f32 MovementSpeed = 10;
+            b8 IsRunning = false;
+            if(GlobalManager.Player->IsGrounded){
+                MovementSpeed = 120;
+                if(GlobalInput.Buttons[KeyCode_Shift].EndedDown && 
+                   (GlobalManager.Player->SprintTime < 2.0f)){
+                    IsRunning = true;
+                    MovementSpeed = 240;
+                    GlobalManager.Player->SprintTime += GlobalInput.dTimeForFrame;
+                }else{
+                    if(GlobalManager.Player->SprintTime == 0.0f){
+                    }else if(GlobalManager.Player->SprintTime < 0.0f){
+                        GlobalManager.Player->SprintTime = 0.0f;
+                    }else if(!GlobalInput.Buttons[KeyCode_Shift].EndedDown){
+                        GlobalManager.Player->SprintTime -= GlobalInput.dTimeForFrame;
+                    }
+                }
+            }
+            
             if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
                !GlobalInput.Buttons[KeyCode_Left].EndedDown){
                 ddP.X += MovementSpeed;
@@ -69,6 +91,7 @@ UpdateAndRenderMainGame(){
                 ddP.X -= MovementSpeed;
             }
             
+            // TODO(Tyler): It might be a better idea to use an espilon here
             if(ddP.X != 0.0f){
                 u8 Direction = 0.0f < ddP.X;
                 if(0.0f < GlobalManager.Player->dP.Y){
@@ -76,7 +99,11 @@ UpdateAndRenderMainGame(){
                 }else if(GlobalManager.Player->dP.Y < 0.0f){
                     PlayAnimation(GlobalManager.Player, PlayerAnimation_FallingLeft+Direction);
                 }else{
-                    PlayAnimation(GlobalManager.Player, PlayerAnimation_RunningLeft+Direction);
+                    if(IsRunning){
+                        PlayAnimation(GlobalManager.Player, PlayerAnimation_RunningLeft+Direction);
+                    }else{
+                        PlayAnimation(GlobalManager.Player, PlayerAnimation_WalkingLeft+Direction);
+                    }
                 }
             }else{
                 u8 Direction = 0.0f < GlobalManager.Player->dP.X;
@@ -88,7 +115,6 @@ UpdateAndRenderMainGame(){
                     PlayAnimation(GlobalManager.Player, PlayerAnimation_IdleLeft+Direction);
                 }
             }
-            //PlayAnimation(GlobalManager.Player, PlayerAnimation_JumpingRight);
             
             MovePlayer(ddP, v2{0.7f, 1.0f});
             
@@ -100,9 +126,80 @@ UpdateAndRenderMainGame(){
         
         UpdateAndRenderAnimation(&RenderGroup, GlobalManager.Player, GlobalInput.dTimeForFrame);
     }
-    //END_BLOCK(PlayerUpdate);
     
+    // NOTE(Tyler): Exit
+    {
+        v2 P = {15.25f, 3.25f};
+        v2 Radius = {0.25f, 0.25f};
+        RenderRectangle(&RenderGroup, P-GlobalCameraP-Radius, P-GlobalCameraP+Radius, 0.0f, GREEN);
+        v2 PlayerMin = GlobalManager.Player->P-(GlobalManager.Player->Size/2);
+        v2 PlayerMax = GlobalManager.Player->P+(GlobalManager.Player->Size/2);
+        if((P.X-Radius.X <= PlayerMax.X) &&
+           (PlayerMin.X  <= P.X+Radius.X) &&
+           (P.Y-Radius.Y <= PlayerMax.Y) &&
+           (PlayerMin.Y  <= P.Y+Radius.Y)){
+            u32 RequiredCoins = GlobalLevelData[GlobalCurrentLevel].CoinsRequiredToComplete;
+            if((u32)GlobalScore >= RequiredCoins){
+                if(GlobalCompletionCooldown == 0.0f){
+                    GlobalCompletionCooldown = 3.0f;
+                }
+            }else{
+                // TODO(Tyler): This should be factored! Strings are wanted centered,
+                // quite commonly
+                f32 Advance =
+                    GetFormatStringAdvance(&GlobalMainFont, 
+                                           "You need: %u more coins!", 
+                                           RequiredCoins-GlobalScore);
+                v2 TopCenter = v2{
+                    GlobalInput.WindowSize.Width/2, GlobalInput.WindowSize.Height/2
+                };
+                RenderFormatString(&RenderGroup, &GlobalMainFont, GREEN, 
+                                   TopCenter.X-(0.5f*Advance), TopCenter.Y, 0.0f,
+                                   "You need: %u more coins!", 
+                                   RequiredCoins-GlobalScore);
+            }
+        }
+    }
     
+    if(GlobalCompletionCooldown > 0.0f){
+        f32 Advance =
+            GetFormatStringAdvance(&GlobalMainFont, 
+                                   "Level completed");
+        v2 TopCenter = v2{
+            GlobalInput.WindowSize.Width/2, GlobalInput.WindowSize.Height/2
+        };
+        color Color = GREEN;
+        if(GlobalCompletionCooldown > 0.5f*3.0f){
+            Color.A = 2.0f*(1.0f - GlobalCompletionCooldown/3.0f);
+        }else if(GlobalCompletionCooldown < 0.3f*3.0f){
+            Color.A = 2.0f * GlobalCompletionCooldown/3.0f;
+        }
+        RenderFormatString(&RenderGroup, &GlobalMainFont, Color, 
+                           TopCenter.X-(0.5f*Advance), TopCenter.Y, 0.0f,
+                           "Level completed!");
+        
+        GlobalCompletionCooldown -= GlobalInput.dTimeForFrame;
+        if(GlobalCompletionCooldown < 0.00001f){
+            ChangeState(GameMode_Overworld, 0);
+            GlobalCompletionCooldown = 0.0f;
+            GlobalLevelData[GlobalCurrentLevel].IsCompleted = true;
+        }
+    }
+    
+    // NOTE(Tyler): Sprint bar
+    {
+        v2 Min = v2{0.1f, 0.1f};
+        v2 Max = Min;
+        f32 Percent = 0.0f;
+        if(GlobalManager.Player->SprintTime < 2.0f){
+            Percent = (1.0f - GlobalManager.Player->SprintTime/2.0f);
+        }
+        Max.X += 4.0f*Percent;
+        Max.Y += 0.2f;
+        RenderRectangle(&RenderGroup, Min, Max, -1.0f, color{0.0f, 0.5f, 0.2f, 0.9f});
+    }
+    
+    //~ Debug UI
     layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
                                  30, GlobalDebugFont.Size);
     LayoutString(&RenderGroup, &Layout, &GlobalMainFont,

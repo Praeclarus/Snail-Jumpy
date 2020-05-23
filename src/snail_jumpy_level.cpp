@@ -203,3 +203,14 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex,
         
     }
 }
+
+internal b8
+IsLevelCompleted(const char *LevelName){
+    b8 Result = false;
+    u32 Level = (u32)FindInHashTable(&GlobalLevelTable, LevelName);
+    if(Level){
+        Result = GlobalLevelData[Level-1].IsCompleted;
+    }
+    
+    return(Result);
+}

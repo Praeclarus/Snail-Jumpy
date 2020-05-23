@@ -1,10 +1,11 @@
 TODOS:
 -----------------------------------------------
 
+ - Formalize triggers in the collisions system
  - Perhaps make entity ids fixed point, where the first few bits specify the entity type,
    and then the next few bits specify the index
 
- - Improve user input
+ - Improve user input, it could be done way better! Maybe not have user input be global?
  - Cleanup editor
 
  - Improve framerate independence, it is almost there but the integration when there isn't

@@ -19,6 +19,10 @@ struct font {
     f32 Size, Ascent, Descent;
 };
 
+// TODO(Tyler): I don't like having to have this allocated first, maybe like push this on
+// to a stack and make a more proper immediate mode GUI. Though I don't see much benefit,
+// to doing this as there isn't really a need for a text box, however this may change in
+// the future.
 struct text_box_data {
     // TODO(Tyler): Maybe not make this fixed size?
     char Buffer[512];
