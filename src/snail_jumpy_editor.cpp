@@ -470,7 +470,6 @@ UpdateAndRenderOverworldEditor(){
         GlobalCameraP.Y = 0.0f;
     }
     
-    
     render_group RenderGroup;
     InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
     
@@ -494,11 +493,17 @@ UpdateAndRenderOverworldEditor(){
     
     if((GlobalEditor.Mode == EditMode_AddWall) || 
        (GlobalEditor.Mode == EditMode_AddTeleporter)){
-        v2 MouseP = (GlobalInput.MouseP/RenderGroup.MetersToPixels);
-        v2 TileP = v2{(f32)(s32)(MouseP.X/TileSize.X), (f32)(s32)(MouseP.Y/TileSize.Y)};
-        v2 ViewTileP = v2{TileP.X*TileSize.X, TileP.Y*TileSize.Y};
+        
+        v2 Offset = v2{
+            (GlobalCameraP.X-FloorF32(GlobalCameraP.X)),
+            (GlobalCameraP.Y-FloorF32(GlobalCameraP.Y)),
+        };
+        v2 MouseP = (GlobalInput.MouseP/RenderGroup.MetersToPixels) + GlobalCameraP;
+        v2 TileP = v2{FloorF32(MouseP.X/TileSize.X), FloorF32(MouseP.Y/TileSize.Y)};
+        v2 ViewTileP = v2{TileP.X*TileSize.X, TileP.Y*TileSize.Y} - GlobalCameraP;
         v2 Center = ViewTileP+(0.5f*TileSize);
         v2 Margin = {0.05f, 0.05f};
+        
         RenderRectangle(&RenderGroup, Center-TileSize/2, Center+TileSize/2,
                         -0.1f, BLACK);
         if(GlobalEditor.Mode == EditMode_AddWall){

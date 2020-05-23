@@ -111,7 +111,7 @@ LoadAssetFile(char *Path){
                 CopyMemory(Level->Name, Name, Length);
                 InsertIntoHashTable(&GlobalLevelTable, Level->Name, I+1);
                 
-                Level->CoinsRequiredToComplete = 0;
+                Level->CoinsRequiredToComplete = 60;
             }
         }else{
             Assert(0);

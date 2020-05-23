@@ -41,7 +41,7 @@ global platform_input GlobalInput;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_Overworld;
+global game_mode GlobalGameMode = GameMode_OverworldEditor;
 
 global editor    GlobalEditor;
 
