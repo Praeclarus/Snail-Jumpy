@@ -1,20 +1,5 @@
 
-global sub_arena GlobalEntityMemory;
-
-global wall_entity *GlobalWalls;
-global u32 GlobalWallCount;
-
-global coin_entity *GlobalCoins;
-global u32 GlobalCoinCount;
-global coin_data GlobalCoinData;
-
-global enemy_entity *GlobalEnemies;
-global u32 GlobalEnemyCount;
-
-global teleporter *GlobalTeleporters;
-global u32 GlobalTeleporterCount;
-
-global player_entity *GlobalPlayer;
+global entity_manager GlobalManager;
 
 internal void UpdateCoin(u32 Id);
 
@@ -40,19 +25,32 @@ PlayAnimationToEnd(entity *Entity, u32 AnimationIndex){
     Entity->AnimationState = 0.0f;
 }
 
-// TODO(Tyler): I am sure the rendering in this function can be simplified
 internal void
-UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame){
+ResetEntitySystem(){
+    GlobalManager.Memory.Used = 0;
+    GlobalManager.WallCount = 0;
+    GlobalManager.CoinCount = 0;
+    GlobalManager.EnemyCount = 0;
+    GlobalManager.TeleporterCount = 0;
+    GlobalManager.DoorCount = 0;
+}
+
+internal void
+UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame, 
+                         b8 Center=false){
     spritesheet_asset *Asset = &GlobalAssets[Entity->Asset];
     Entity->AnimationState += Asset->FpsArray[Entity->CurrentAnimation]*dTimeForFrame;
     Entity->AnimationCooldown -= dTimeForFrame;
-    Entity->AnimationState = ModF32(Entity->AnimationState,
-                                    (f32)Asset->FrameCounts[Entity->CurrentAnimation]);
+    if(Entity->AnimationState > Asset->FrameCounts[Entity->CurrentAnimation]){
+        Entity->AnimationState -= Asset->FrameCounts[Entity->CurrentAnimation];
+    }
     
     v2 P = Entity->P;
     P.X -= Asset->SizeInMeters.Width/2.0f;
     P.Y -= Asset->SizeInMeters.Height/2.0f;
-    P.Y += (Asset->SizeInMeters.Height-Entity->Height)/2.0f + Asset->YOffset;
+    if(!Center){
+        P.Y += (Asset->SizeInMeters.Height-Entity->Height)/2.0f + Asset->YOffset;
+    }
     
     v2 MinTexCoord = {
         FloorF32(Entity->AnimationState)*Asset->SizeInTexCoords.X,
@@ -62,10 +60,10 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         MinTexCoord.X += Asset->FrameCounts[Index]*Asset->SizeInTexCoords.X;
     }
     MinTexCoord.Y -= FloorF32(MinTexCoord.X)*Asset->SizeInTexCoords.Y;
-    MinTexCoord.X = ModF32(MinTexCoord.X, 1.0f);
+    MinTexCoord.X = MinTexCoord.X-FloorF32(MinTexCoord.X);
     f32 Epsilon = 0.000001f;
-    Assert((Epsilon <= MinTexCoord.Y) || (MinTexCoord.Y <= Epsilon));
-    Assert((Epsilon <= MinTexCoord.X) || (MinTexCoord.X <= Epsilon));
+    Assert(-Epsilon <= MinTexCoord.Y);
+    Assert(-Epsilon <= MinTexCoord.X);
     Assert(MinTexCoord.X < (1.0f-Asset->SizeInTexCoords.X)+0.001);
     
     v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
@@ -74,44 +72,63 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
                   Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
 }
 
+// TODO(Tyler): I don't really like this function
 internal void
 AllocateNEntities(u32 N, entity_type Type){
     switch(Type){
         case EntityType_Wall: {
-            GlobalWallCount = N;
-            GlobalWalls = PushArray(&GlobalEntityMemory, wall_entity, N);
+            GlobalManager.WallCount = N;
+            GlobalManager.Walls = PushArray(&GlobalManager.Memory, wall_entity, N);
         }break;
         case EntityType_Coin: {
-            GlobalCoinCount = N;
-            GlobalCoins = PushArray(&GlobalEntityMemory, coin_entity, N);
+            GlobalManager.CoinCount = N;
+            GlobalManager.Coins = PushArray(&GlobalManager.Memory, coin_entity, N);
         }break;
-        case EntityType_Snail:
+        case EntityType_Snail: 
+        case EntityType_Speedy:
         case EntityType_Dragonfly: {
-            GlobalEnemyCount = N;
-            GlobalEnemies = PushArray(&GlobalEntityMemory, enemy_entity, N);
+            GlobalManager.EnemyCount = N;
+            GlobalManager.Enemies = PushArray(&GlobalManager.Memory, enemy_entity, N);
         }break;
         case EntityType_Player: {
             Assert(N == 1);
-            GlobalPlayer = PushArray(&GlobalEntityMemory, player_entity, N);
+            GlobalManager.Player = PushArray(&GlobalManager.Memory, player_entity, N);
         }break;
         case EntityType_Teleporter: {
-            GlobalTeleporterCount = N;
-            GlobalTeleporters = PushArray(&GlobalEntityMemory, teleporter, N);
+            GlobalManager.TeleporterCount = N;
+            GlobalManager.Teleporters = PushArray(&GlobalManager.Memory, teleporter, N);
+        }break;
+        case EntityType_Door: {
+            GlobalManager.DoorCount = N;
+            GlobalManager.Doors = PushArray(&GlobalManager.Memory, door_entity, N);
+        }break;
+        default: {
+            Assert(0);
         }break;
     }
 }
 
 internal void
+OpenDoor(u32 StaticId){
+    door_entity *Door = &GlobalManager.Doors[GlobalManager.DoorLookupTable[0]];
+    if(!Door->IsOpen){ Door->AnimationCooldown = 1.0f; }
+    Door->IsOpen = true;
+}
+
+internal void
 KillPlayer(){
-    GlobalPlayer->State |= EntityState_Dead;
+    //GlobalManager.Player->State |= EntityState_Dead;
     GlobalScore = 0;
-    PlayAnimationToEnd(GlobalPlayer, PlayerAnimation_Death);
+    //GlobalManager.Player->State &= ~EntityState_Dead;
+    GlobalManager.Player->P = {1.5, 1.5};
+    GlobalManager.Player->dP = {0, 0};
+    //PlayAnimationToEnd(GlobalManager.Player, PlayerAnimation_Death);
 }
 
 internal u8
 GetTileValue(u32 X, u32 Y){
     // NOTE(Tyler): We do not need to invert the Y as the Y in the actual map is inverted
-    u8 Result = *(GlobalCoinData.Tiles+(Y*GlobalCoinData.XTiles)+X);
+    u8 Result = *(GlobalManager.CoinData.Tiles+(Y*GlobalManager.CoinData.XTiles)+X);
     
     return(Result);
 }
@@ -120,27 +137,27 @@ internal void
 UpdateCoin(u32 Id){
     GlobalScore++;
     
-    if(GlobalCoinData.NumberOfCoinPs){
+    if(GlobalManager.CoinData.NumberOfCoinPs){
         // TODO(Tyler): Proper random number generation
         u32 RandomNumber = GlobalRandomNumberTable[(u32)(GlobalCounter*4132.0f + GlobalScore) % ArrayCount(GlobalRandomNumberTable)];
-        RandomNumber %= GlobalCoinData.NumberOfCoinPs;
+        RandomNumber %= GlobalManager.CoinData.NumberOfCoinPs;
         u32 CurrentCoinP = 0;
         v2 NewP = {};
-        for(f32 Y = 0; Y < GlobalCoinData.YTiles; Y++){
-            for(f32 X = 0; X < GlobalCoinData.XTiles; X++){
+        for(f32 Y = 0; Y < GlobalManager.CoinData.YTiles; Y++){
+            for(f32 X = 0; X < GlobalManager.CoinData.XTiles; X++){
                 u8 Tile = GetTileValue((u32)X, (u32)Y);
                 if(Tile == EntityType_Coin){
                     if(RandomNumber == CurrentCoinP++){
-                        NewP.X = (X+0.5f)*GlobalCoinData.TileSideInMeters;
-                        NewP.Y = (Y+0.5f)*GlobalCoinData.TileSideInMeters;
+                        NewP.X = (X+0.5f)*GlobalManager.CoinData.TileSideInMeters;
+                        NewP.Y = (Y+0.5f)*GlobalManager.CoinData.TileSideInMeters;
                         break;
                     }
                 }
             }
         }
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-        GlobalCoins[Id].P = NewP;
-        GlobalCoins[Id].AnimationCooldown = 1.0f;
+        GlobalManager.Coins[Id].P = NewP;
+        GlobalManager.Coins[Id].AnimationCooldown = 1.0f;
     }
 }
 
@@ -203,8 +220,8 @@ TestRectangle(v2 P1, v2 Size1, v2 Delta, v2 P2, v2 Size2,
 
 internal void
 TestWallCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
-        wall_entity *WallEntity = &GlobalWalls[WallId];
+    for(u32 WallId = 0; WallId < GlobalManager.WallCount; WallId++){
+        wall_entity *WallEntity = &GlobalManager.Walls[WallId];
         
         if(TestRectangle(P, Size, EntityDelta,
                          WallEntity->P, WallEntity->Size,
@@ -213,14 +230,28 @@ TestWallCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
             Event->EntityId = WallId;
         }
     }
-    
+}
+
+internal void
+TestDoorCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
+    for(u32 DoorId = 0; DoorId < GlobalManager.DoorCount; DoorId++){
+        door_entity *DoorEntity = &GlobalManager.Doors[DoorId];
+        if(!DoorEntity->IsOpen){
+            if(TestRectangle(P, Size, EntityDelta,
+                             DoorEntity->P, DoorEntity->Size,
+                             &Event->Time, &Event->Normal)){
+                Event->Type = CollisionType_Wall;
+                Event->EntityId = DoorId;
+            }
+        }
+    }
 }
 
 internal void
 TestPlayerCollision(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    if(!(GlobalPlayer->State & EntityState_Dead)){
+    if(!(GlobalManager.Player->State & EntityState_Dead)){
         if(TestRectangle(P, Size, EntityDelta,
-                         GlobalPlayer->P, GlobalPlayer->Size,
+                         GlobalManager.Player->P, GlobalManager.Player->Size,
                          &Event->Time, &Event->Normal)){
             Event->Type = CollisionType_Player;
             Event->EntityId = 0;
@@ -230,8 +261,8 @@ TestPlayerCollision(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
 
 internal void
 TestCoinCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 CoinId = 0; CoinId < GlobalCoinCount; CoinId++){
-        coin_entity *CoinEntity = &GlobalCoins[CoinId];
+    for(u32 CoinId = 0; CoinId < GlobalManager.CoinCount; CoinId++){
+        coin_entity *CoinEntity = &GlobalManager.Coins[CoinId];
         
         if(CoinEntity->AnimationCooldown > 0.0f){
             continue;
@@ -249,8 +280,8 @@ TestCoinCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
 
 internal void
 TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 Id = 0; Id < GlobalEnemyCount; Id++){
-        enemy_entity *Enemy = &GlobalEnemies[Id];
+    for(u32 Id = 0; Id < GlobalManager.EnemyCount; Id++){
+        enemy_entity *Enemy = &GlobalManager.Enemies[Id];
         
         if(!(Enemy->State&EntityState_Dead)){
             if(Enemy->Type == EntityType_Dragonfly){
@@ -326,7 +357,7 @@ internal void
 MoveEnemy(u32 EntityId, v2 ddP) {
     //TIMED_FUNCTION();
     
-    enemy_entity *Entity = &GlobalEnemies[EntityId];
+    enemy_entity *Entity = &GlobalManager.Enemies[EntityId];
     ddP += -2.5f*Entity->dP;
     
     v2 EntityDelta = {0};
@@ -412,12 +443,12 @@ MoveEnemy(u32 EntityId, v2 ddP) {
 
 internal void
 MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
-    player_entity *Entity = GlobalPlayer;
+    player_entity *Entity = GlobalManager.Player;
     ddP += -2.0f*Entity->dP;
     
     v2 dPOffset = {0};
     if(Entity->IsRidingDragonfly){
-        enemy_entity *Dragonfly = &GlobalEnemies[Entity->RidingDragonfly];
+        enemy_entity *Dragonfly = &GlobalManager.Enemies[Entity->RidingDragonfly];
         dPOffset = Dragonfly->dP;
         
         Entity->IsRidingDragonfly = false;
@@ -469,6 +500,7 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
         Event.Time = 1.0f;
         
         TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        TestDoorCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestCoinCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
@@ -481,15 +513,15 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
                 UpdateCoin(Event.EntityId);
                 DiscardCollision = true;
             }else if(Event.Type == CollisionType_Snail){
-                GlobalPlayer->State |= (EntityState_Dead);
+                GlobalManager.Player->State |= (EntityState_Dead);
                 KillPlayer();
             }else if(Event.Type == CollisionType_Dragonfly){
                 if(Event.IsFatal){
                     KillPlayer();
                 }else{
-                    GlobalPlayer->IsRidingDragonfly = true;
-                    GlobalPlayer->RidingDragonfly = Event.EntityId;
-                    GlobalPlayer->P += Event.StepMove;
+                    GlobalManager.Player->IsRidingDragonfly = true;
+                    GlobalManager.Player->RidingDragonfly = Event.EntityId;
+                    GlobalManager.Player->P += Event.StepMove;
                 }
             }else if(Event.Type == CollisionType_Wall){
             }else{
@@ -502,9 +534,9 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
             }
             
             if(Event.Normal.Y == 1.0f){
-                GlobalPlayer->JumpTime = 0.0f;
+                GlobalManager.Player->JumpTime = 0.0f;
             }else{
-                GlobalPlayer->JumpTime = 2.0f;
+                GlobalManager.Player->JumpTime = 2.0f;
             }
         }
         
@@ -519,8 +551,8 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
 
 internal void
 UpdateAndRenderWalls(render_group *RenderGroup){
-    for(u32 WallId = 0; WallId < GlobalWallCount; WallId++){
-        wall_entity *Entity = &GlobalWalls[WallId];
+    for(u32 WallId = 0; WallId < GlobalManager.WallCount; WallId++){
+        wall_entity *Entity = &GlobalManager.Walls[WallId];
         RenderRectangle(RenderGroup,
                         Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2), 0.0f,
                         WHITE);
@@ -529,8 +561,8 @@ UpdateAndRenderWalls(render_group *RenderGroup){
 
 internal void
 UpdateAndRenderCoins(render_group *RenderGroup){
-    for(u32 CoinId = 0; CoinId < GlobalCoinCount; CoinId++){
-        coin_entity *Coin = &GlobalCoins[CoinId];
+    for(u32 CoinId = 0; CoinId < GlobalManager.CoinCount; CoinId++){
+        coin_entity *Coin = &GlobalManager.Coins[CoinId];
         if(Coin->AnimationCooldown > 0.0f){
             Coin->AnimationCooldown -= GlobalInput.dTimeForFrame;
         }else{
@@ -541,60 +573,11 @@ UpdateAndRenderCoins(render_group *RenderGroup){
     }
 }
 
+
 internal void
-UpdateAndRenderEntities(render_group *RenderGroup){
-    TIMED_FUNCTION();
-    
-    UpdateAndRenderWalls(RenderGroup);
-    UpdateAndRenderCoins(RenderGroup);
-    
-    //BEGIN_BLOCK(PlayerUpdate);
-    {
-        if(GlobalPlayer->AnimationCooldown <= 0.0f){
-            v2 ddP = {0};
-            
-            if(GlobalPlayer->CurrentAnimation == PlayerAnimation_Death){
-                GlobalPlayer->State &= ~EntityState_Dead;
-                GlobalPlayer->P = {1.5, 1.5};
-                GlobalPlayer->dP = {0, 0};
-            }
-            
-            if((GlobalPlayer->JumpTime < 0.1f) &&
-               GlobalInput.Buttons[KeyCode_Space].EndedDown){
-                ddP.Y += 88.0f;
-                GlobalPlayer->JumpTime += GlobalInput.dTimeForFrame;
-            }else{
-                ddP.Y -= 17.0f;
-            }
-            
-            f32 MovementSpeed = 120;
-            if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
-               !GlobalInput.Buttons[KeyCode_Left].EndedDown){
-                ddP.X += MovementSpeed;
-                PlayAnimation(GlobalPlayer, PlayerAnimation_RunningRight);
-            }else if(GlobalInput.Buttons[KeyCode_Left].EndedDown &&
-                     !GlobalInput.Buttons[KeyCode_Right].EndedDown){
-                ddP.X -= MovementSpeed;
-                PlayAnimation(GlobalPlayer, PlayerAnimation_RunningLeft);
-            }else{
-                PlayAnimation(GlobalPlayer, PlayerAnimation_Idle);
-            }
-            
-            MovePlayer(ddP, v2{0.7f, 1.0f});
-            
-            if(GlobalPlayer->P.Y < -3.0f){
-                GlobalPlayer->P = {1.5f, 1.5f};
-                GlobalPlayer->dP = {0};
-            }
-        }
-        
-        UpdateAndRenderAnimation(RenderGroup, GlobalPlayer, GlobalInput.dTimeForFrame);
-    }
-    //END_BLOCK(PlayerUpdate);
-    
-    //BEGIN_BLOCK(SnailEntities);
-    for(u32 Id = 0; Id < GlobalEnemyCount; Id++){
-        enemy_entity *Enemy = &GlobalEnemies[Id];
+UpdateAndRenderEnemies(render_group *RenderGroup){
+    for(u32 Id = 0; Id < GlobalManager.EnemyCount; Id++){
+        enemy_entity *Enemy = &GlobalManager.Enemies[Id];
         
         if(Enemy->AnimationCooldown <= 0.0f){
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
@@ -644,5 +627,4 @@ UpdateAndRenderEntities(render_group *RenderGroup){
         RenderRectangle(RenderGroup, Enemy->PathEnd-Radius, Enemy->PathEnd+Radius,
                         -1.0f, Color);
     }
-    //END_BLOCK(SnailEntities);
 }

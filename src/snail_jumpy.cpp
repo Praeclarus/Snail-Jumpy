@@ -11,7 +11,8 @@
 
 #include "snail_jumpy.h"
 
-global_constant f32 FIXED_TIME_STEP = (1.0f/120.0f);
+global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
+global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
 
 global font GlobalMainFont;
@@ -26,9 +27,9 @@ global spritesheet_asset *GlobalAssets;
 global memory_arena GlobalPermanentStorageArena;
 global memory_arena GlobalTransientStorageArena;
 
-global sub_arena GlobalLevelMemory;
-global sub_arena GlobalMapDataMemory;
-global sub_arena GlobalEnemyMemory;
+global memory_arena GlobalLevelMemory;
+global memory_arena GlobalMapDataMemory;
+global memory_arena GlobalEnemyMemory;
 
 hash_table GlobalLevelTable;
 global u32 GlobalLevelCount;
@@ -42,15 +43,15 @@ global state_change_data GlobalStateChangeData;
 // TODO(Tyler): Load this from a variables file at startup
 global game_mode GlobalGameMode = GameMode_Overworld;
 
-global edit_mode GlobalEditMode;
-global b32 GlobalHideEditorUi;
-global level_enemy *GlobalSelectedEnemy;
+global editor    GlobalEditor;
 
-global text_box_data GlobalLevelNameTextBox;
-
+global v2           GlobalCameraP;
+global memory_arena GlobalOverworldMapMemory;
+global u32          GlobalOverworldXTiles;
+global u32          GlobalOverworldYTiles;
 
 internal inline void
-ChangeState(game_mode NewMode, char *NewLevel);
+ChangeState(game_mode NewMode, const char *NewLevel);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -115,17 +116,24 @@ InitializeGame(){
     
     GlobalLogFile = OpenFile("log.txt", OpenFile_Write);
     GlobalLogFileOffset = (u32)GetFileSize(GlobalLogFile);
-    // Not actually an error
+    // NOTE(Tyler): Not actually an error
     LogError("=======================================================================\n");
     
-    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEntityMemory, Kilobytes(64));
-    // TODO(Tyler): I don't quite like using three arenas for storing level info
-    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalLevelMemory, Kilobytes(4));
-    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalMapDataMemory, Kilobytes(64));
-    InitializeSubArena(&GlobalPermanentStorageArena, &GlobalEnemyMemory, Kilobytes(64));
-    InitializeHashTable(&GlobalPermanentStorageArena, &GlobalLevelTable, 1024);
+    // NOTE(Tyler): Entity memory
+    GlobalManager.Memory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
     
-    LoadAssetFile("test_assets.sja");
+    // NOTE(Tyler): Level memory
+    GlobalLevelMemory   = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(4));
+    GlobalMapDataMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
+    GlobalEnemyMemory   = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
+    GlobalLevelTable    = PushHashTable(&GlobalPermanentStorageArena, 1024);
+    
+    // NOTE(Tyler): Overworld memory
+    GlobalOverworldMapMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(8));
+    
+    // NOTE(Tyler): Initialize worlds
+    LoadAssetFile("test_assets.sja"); 
+    InitializeOverworld(); // TODO(Tyler): This should be loaded from the asset file 
     
     if(GlobalGameMode == GameMode_Overworld){
         LoadOverworld();
@@ -142,11 +150,11 @@ InitializeGame(){
         f32 MetersToPixels = 60.0f/0.5f;
         
         asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
-            {"test_avatar_spritesheet.png",      64, 10,  { 10, 10, 7, 6 }, { 15, 15, 6, 3 }, 0.0f },
-            {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 3, 3 }, {  7,  7, 7, 7 },-0.07f},
-            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, {  7,  7, 7, 7 }, 0.0f},
-            {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, {  7,  7, 7, 7 }, 0.0f },
-            {"test_speedy_spritesheet.png",      80, 10,  {  4,  4, 3, 3 }, {  7,  7, 7, 7 },-0.07f },
+            {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 5, 5, 1, 1, 2, 2 }, { 7, 7, 7, 7, 7, 7, 7, 7}, 0.0f },
+            {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 },-0.07f},
+            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 }, 0.0f},
+            {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 7, 7, 7, 7 }, 0.0f },
+            {"test_speedy_spritesheet.png",      80,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 },-0.07f },
             //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },      -0.02f},
             //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },      -0.04f},
             //{"test_dragonfly_spritesheet.png", 128, 10,  { 10, 10, 5, 5 }, {  7,  7, 7, 7 }, 0.0f },
@@ -176,15 +184,10 @@ InitializeGame(){
             stbi_image_free(LoadedImage);
             
             CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
-            CurrentAnimation->FrameCounts[0] = AssetInfo->FrameCounts[0];
-            CurrentAnimation->FrameCounts[1] = AssetInfo->FrameCounts[1];
-            CurrentAnimation->FrameCounts[2] = AssetInfo->FrameCounts[2];
-            CurrentAnimation->FrameCounts[3] = AssetInfo->FrameCounts[3];
-            
-            CurrentAnimation->FpsArray[0] = AssetInfo->FpsArray[0];
-            CurrentAnimation->FpsArray[1] = AssetInfo->FpsArray[1];
-            CurrentAnimation->FpsArray[2] = AssetInfo->FpsArray[2];
-            CurrentAnimation->FpsArray[3] = AssetInfo->FpsArray[3];
+            for(u32 I = 0; I < 9; I++){
+                CurrentAnimation->FrameCounts[I] = AssetInfo->FrameCounts[I];
+                CurrentAnimation->FpsArray[I] = AssetInfo->FpsArray[I];
+            }
             
             CurrentAnimation->YOffset = AssetInfo->YOffset;
         }
@@ -202,8 +205,8 @@ InitializeGame(){
 }
 
 internal inline void
-ChangeState(game_mode NewMode, char *NewLevel){
-    GlobalStateChangeData.DidChange= true;
+ChangeState(game_mode NewMode, const char *NewLevel){
+    GlobalStateChangeData.DidChange = true;
     GlobalStateChangeData.NewMode = NewMode;
     GlobalStateChangeData.NewLevel = NewLevel;
 }
@@ -222,11 +225,14 @@ GameUpdateAndRender(){
         case GameMode_Menu: {
             UpdateAndRenderMenu();
         }break;
-        case GameMode_Editor: {
-            UpdateAndRenderEditor();
+        case GameMode_LevelEditor: {
+            UpdateAndRenderLevelEditor();
         }break;
         case GameMode_Overworld: {
             UpdateAndRenderOverworld();
+        }break;
+        case GameMode_OverworldEditor: {
+            UpdateAndRenderOverworldEditor();
         }break;
     }
     
@@ -242,8 +248,10 @@ GameUpdateAndRender(){
         }else if(GlobalStateChangeData.NewMode == GameMode_Overworld){
             GlobalGameMode = GameMode_Overworld;
             LoadOverworld();
-        }else if(GlobalStateChangeData.NewMode == GameMode_Editor){
-            GlobalGameMode = GameMode_Editor;
+        }else if(GlobalStateChangeData.NewMode == GameMode_LevelEditor){
+            GlobalGameMode = GameMode_LevelEditor;
+        }else if(GlobalStateChangeData.NewMode == GameMode_OverworldEditor){
+            GlobalGameMode = GameMode_OverworldEditor;
         }
         
         GlobalStateChangeData = {0};

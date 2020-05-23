@@ -4,18 +4,18 @@
 internal void
 AddPlayer(v2 P){
     AllocateNEntities(1, EntityType_Player);
-    *GlobalPlayer = {0};
+    *GlobalManager.Player = {0};
     
-    GlobalPlayer->Width = 0.25f;
-    GlobalPlayer->Height = 0.5f;
+    GlobalManager.Player->Width = 0.25f;
+    GlobalManager.Player->Height = 0.5f;
     
-    GlobalPlayer->P = P;
-    GlobalPlayer->ZLayer = -0.8f;
+    GlobalManager.Player->P = P;
+    GlobalManager.Player->ZLayer = -0.8f;
     
-    GlobalPlayer->CurrentAnimation = PlayerAnimation_Idle;
-    GlobalPlayer->Asset = Asset_Player;
-    GlobalPlayer->AnimationState = 0.0f;
-    GlobalPlayer->JumpTime = 1.0f;
+    GlobalManager.Player->CurrentAnimation = PlayerAnimation_IdleLeft;
+    GlobalManager.Player->Asset = Asset_Player;
+    GlobalManager.Player->AnimationState = 0.0f;
+    GlobalManager.Player->JumpTime = 1.0f;
 }
 
 internal void
@@ -28,27 +28,26 @@ LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
         for(u32 X = 0; X < WidthInTiles; X++){
             u8 TileId = MapData[(Y*WidthInTiles)+X];
             if(TileId == EntityType_Coin){
-                GlobalCoinData.NumberOfCoinPs++;
+                GlobalManager.CoinData.NumberOfCoinPs++;
                 continue;
             }else if(TileId == EntityType_Wall){
-                GlobalWalls[CurrentWallId] = {0};
-                GlobalWalls[CurrentWallId].P = {
+                GlobalManager.Walls[CurrentWallId] = {0};
+                GlobalManager.Walls[CurrentWallId].P = {
                     ((f32)X+0.5f)*TileSideInMeters, ((f32)Y+0.5f)*TileSideInMeters
                 };
-                GlobalWalls[CurrentWallId].Size = {TileSideInMeters, TileSideInMeters};
+                GlobalManager.Walls[CurrentWallId].Size = {
+                    TileSideInMeters, TileSideInMeters
+                };
                 CurrentWallId++;
             }
         }
     }
-    Assert(CurrentWallId == GlobalWallCount);
+    Assert(CurrentWallId == GlobalManager.WallCount);
 }
 
 internal void
-LoadLevel(char *LevelName){
-    if(GlobalEntityMemory.Used != 0){ GlobalEntityMemory.Used = 0; }
-    
-    // TODO(Tyler): Do this more properly?
-    GlobalTeleporterCount = 0;
+LoadLevel(const char *LevelName){
+    ResetEntitySystem();
     
     if(LevelName){
         u64 LevelIndex = FindInHashTable(&GlobalLevelTable, LevelName);
@@ -56,11 +55,11 @@ LoadLevel(char *LevelName){
             GlobalCurrentLevel = (u32)LevelIndex-1;
             
             f32 TileSideInMeters = 0.5f;
-            GlobalCoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
-            GlobalCoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
-            GlobalCoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
-            GlobalCoinData.TileSideInMeters = TileSideInMeters;
-            GlobalCoinData.NumberOfCoinPs = 0;
+            GlobalManager.CoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
+            GlobalManager.CoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
+            GlobalManager.CoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
+            GlobalManager.CoinData.TileSideInMeters = TileSideInMeters;
+            GlobalManager.CoinData.NumberOfCoinPs = 0;
             
             level_data *CurrentLevel = &GlobalLevelData[GlobalCurrentLevel];
             LoadWallsFromMap(CurrentLevel->MapData, CurrentLevel->WallCount,
@@ -68,12 +67,12 @@ LoadLevel(char *LevelName){
                              TileSideInMeters);
             
             {
-                u32 N = Minimum(7, GlobalCoinData.NumberOfCoinPs);
+                u32 N = Minimum(7, GlobalManager.CoinData.NumberOfCoinPs);
                 AllocateNEntities(N, EntityType_Coin);
                 for(u32 I = 0; I < N; I++){
-                    GlobalCoins[I].Size = { 0.3f, 0.3f };
+                    GlobalManager.Coins[I].Size = { 0.3f, 0.3f };
                     UpdateCoin(I);
-                    GlobalCoins[I].AnimationCooldown = 0.0f;
+                    GlobalManager.Coins[I].AnimationCooldown = 0.0f;
                 }
                 GlobalScore = 0; // HACK: UpdateCoin changes this value
             }
@@ -85,37 +84,37 @@ LoadLevel(char *LevelName){
                 AllocateNEntities(GlobalLevelData[GlobalCurrentLevel].EnemyCount, EntityType_Snail);
                 for(u32 I = 0; I < GlobalLevelData[GlobalCurrentLevel].EnemyCount; I ++){
                     level_enemy *Enemy = &GlobalLevelData[GlobalCurrentLevel].Enemies[I];
-                    GlobalEnemies[I] = {0};
-                    GlobalEnemies[I].Type = Enemy->Type;
-                    Assert(GlobalEnemies[I].Type);
+                    GlobalManager.Enemies[I] = {0};
+                    GlobalManager.Enemies[I].Type = Enemy->Type;
+                    Assert(GlobalManager.Enemies[I].Type);
                     
-                    GlobalEnemies[I].P = Enemy->P;
+                    GlobalManager.Enemies[I].P = Enemy->P;
                     
-                    GlobalEnemies[I].CurrentAnimation = EnemyAnimation_Left;
-                    GlobalEnemies[I].ZLayer = -1.0f;
+                    GlobalManager.Enemies[I].CurrentAnimation = EnemyAnimation_Left;
+                    GlobalManager.Enemies[I].ZLayer = -1.0f;
                     
-                    GlobalEnemies[I].Speed = 1.0f;
+                    GlobalManager.Enemies[I].Speed = 1.0f;
                     if(Enemy->Type == EntityType_Snail){
-                        GlobalEnemies[I].Asset = Asset_Snail; // For clarity
-                        GlobalEnemies[I].Size = { 0.4f, 0.4f };
+                        GlobalManager.Enemies[I].Asset = Asset_Snail; // For clarity
+                        GlobalManager.Enemies[I].Size = { 0.4f, 0.4f };
                     }else if(Enemy->Type == EntityType_Sally){
-                        GlobalEnemies[I].Asset = Asset_Sally;
-                        GlobalEnemies[I].Size = { 0.8f, 0.8f };
-                        GlobalEnemies[I].P.Y += 0.2f;
+                        GlobalManager.Enemies[I].Asset = Asset_Sally;
+                        GlobalManager.Enemies[I].Size = { 0.8f, 0.8f };
+                        GlobalManager.Enemies[I].P.Y += 0.2f;
                     }else if(Enemy->Type == EntityType_Dragonfly){
-                        GlobalEnemies[I].Asset = Asset_Dragonfly;
-                        GlobalEnemies[I].Size = { 1.0f, 0.5f };
-                        GlobalEnemies[I].ZLayer = -0.9f;
-                        GlobalEnemies[I].Speed *= 2.0f;
+                        GlobalManager.Enemies[I].Asset = Asset_Dragonfly;
+                        GlobalManager.Enemies[I].Size = { 1.0f, 0.5f };
+                        GlobalManager.Enemies[I].ZLayer = -0.9f;
+                        GlobalManager.Enemies[I].Speed *= 2.0f;
                     }else if(Enemy->Type == EntityType_Speedy){
-                        GlobalEnemies[I].Asset = Asset_Speedy;
-                        GlobalEnemies[I].Size = { 0.4f, 0.4f };
-                        GlobalEnemies[I].Speed *= 7.5f;
+                        GlobalManager.Enemies[I].Asset = Asset_Speedy;
+                        GlobalManager.Enemies[I].Size = { 0.4f, 0.4f };
+                        GlobalManager.Enemies[I].Speed *= 7.5f;
                     }
                     
-                    GlobalEnemies[I].Direction = Enemy->Direction;
-                    GlobalEnemies[I].PathStart = Enemy->PathStart;
-                    GlobalEnemies[I].PathEnd = Enemy->PathEnd;
+                    GlobalManager.Enemies[I].Direction = Enemy->Direction;
+                    GlobalManager.Enemies[I].PathStart = Enemy->PathStart;
+                    GlobalManager.Enemies[I].PathEnd = Enemy->PathEnd;
                 }
             }
         }else{
@@ -127,7 +126,7 @@ LoadLevel(char *LevelName){
 //~
 
 internal inline void
-RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex, \
+RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex, 
                           v2 TileSize, v2 P=v2{0, 0}, f32 ZOffset=0.0f){
     TIMED_FUNCTION();
     for(f32 Y = 0; Y < GlobalLevelData[LevelIndex].HeightInTiles; Y++){
@@ -137,11 +136,11 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex, \
             v2 Center = TileP + 0.5f*TileSize;
             if(TileId == EntityType_Wall){
                 RenderRectangle(RenderGroup, TileP, TileP+TileSize,
-                                0.0f+ZOffset, WHITE);
+                                ZOffset, WHITE);
             }else if(TileId == EntityType_Coin){
                 v2 Size = v2{0.3f*(2*TileSize.X), 0.3f*(2*TileSize.Y)};
                 RenderRectangle(RenderGroup, Center-Size/2, Center+Size/2,
-                                0.0f+ZOffset, {1.0f, 1.0f, 0.0f, 1.0f});
+                                ZOffset, {1.0f, 1.0f, 0.0f, 1.0f});
             }
         }
     }
@@ -175,23 +174,24 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex, \
         YOffset *= (2*TileSize.Y);
         v2 Min = v2{EnemyP.X, EnemyP.Y+YOffset}-Size/2;
         v2 Max = v2{EnemyP.X, EnemyP.Y+YOffset}+Size/2;
-        if(Enemy->Direction > 0){
+        if(Enemy->Direction > 0){ 
             RenderTexture(RenderGroup,
-                          Min, Max, -0.5f, Asset->SpriteSheet,
+                          Min, Max, ZOffset-0.01f, Asset->SpriteSheet,
                           {0.0f, 1.0f-2*Asset->SizeInTexCoords.Y},
                           {Asset->SizeInTexCoords.X, 1.0f-Asset->SizeInTexCoords.Y});
         }else if(Enemy->Direction < 0){
             RenderTexture(RenderGroup,
-                          Min, Max, -0.5f, Asset->SpriteSheet,
+                          Min, Max, ZOffset-0.01f, Asset->SpriteSheet,
                           {0.0f, 1.0f-Asset->SizeInTexCoords.Y},
                           {Asset->SizeInTexCoords.X, 1.0f});
         }
         
-        if(GlobalGameMode == GameMode_Editor){
-            if((GlobalEditMode == EditMode_Snail) ||
-               (GlobalEditMode == EditMode_Sally) ||
-               (GlobalEditMode == EditMode_Dragonfly) ||
-               (GlobalEditMode == EditMode_Speedy)){
+        
+        if(GlobalGameMode == GameMode_LevelEditor){
+            if((GlobalEditor.Mode == EditMode_Snail) ||
+               (GlobalEditor.Mode == EditMode_Sally) ||
+               (GlobalEditor.Mode == EditMode_Dragonfly) ||
+               (GlobalEditor.Mode == EditMode_Speedy)){
                 v2 Radius = {0.1f, 0.1f};
                 color Color = {1.0f, 0.0f, 0.0f, 1.0f};
                 RenderRectangle(RenderGroup, Enemy->PathStart-Radius, Enemy->PathStart+Radius,

@@ -13,10 +13,14 @@ enum asset_type {
 };
 
 enum asset_animations {
-    PlayerAnimation_RunningLeft  = 0,
-    PlayerAnimation_RunningRight = 1,
-    PlayerAnimation_Death        = 2,
-    PlayerAnimation_Idle         = 3,
+    PlayerAnimation_IdleLeft     = 0,
+    PlayerAnimation_IdleRight    = 1,
+    PlayerAnimation_RunningLeft  = 2,
+    PlayerAnimation_RunningRight = 3,
+    PlayerAnimation_JumpingLeft  = 4,
+    PlayerAnimation_JumpingRight = 5,
+    PlayerAnimation_FallingLeft  = 6,
+    PlayerAnimation_FallingRight = 7,
     
     EnemyAnimation_Left  = 0,
     EnemyAnimation_Right = 1,
@@ -30,8 +34,8 @@ struct spritesheet_asset {
     render_texture_handle SpriteSheet;
     u32 FramesPerRow;
     // TODO(Tyler): Find a better way to make this array instead of having them fixed length
-    u32 FrameCounts[4];
-    u32 FpsArray[4];
+    u32 FrameCounts[9];
+    u32 FpsArray[9];
     f32 YOffset;
 };
 
@@ -39,31 +43,9 @@ struct asset_descriptor {
     const char *Path;
     u32 SizeInPixels;
     u32 FramesPerRow;
-    u32 FrameCounts[4];
-    u32 FpsArray[4];
+    u32 FrameCounts[9];
+    u32 FpsArray[9];
     f32 YOffset;
-};
-
-struct level_enemy {
-    // TODO(Tyler): I don't like using a u32 here but declaration order is a nightmare
-    // in C++
-    u32 Type;
-    v2 P;
-    v2 PathStart, PathEnd;
-    f32 Direction;
-};
-
-struct level_data {
-    u32 WidthInTiles;
-    u32 HeightInTiles;
-    u32 WallCount;
-    u8 *MapData;
-    
-    u32 MaxEnemyCount;
-    u32 EnemyCount;
-    level_enemy *Enemies;
-    
-    char *Name;
 };
 
 #pragma pack(push, 1)
@@ -73,6 +55,7 @@ struct asset_file_header {
     u32 LevelCount;
 };
 
+// TODO(Tyler): Maybe remove the WallCount member?
 struct asset_file_level {
     u32 WidthInTiles;
     u32 HeightInTiles;

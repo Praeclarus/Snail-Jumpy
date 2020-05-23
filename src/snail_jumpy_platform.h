@@ -21,7 +21,7 @@ internal CLOSE_FILE(CloseFile);
 #define READ_FILE(Name) b32 Name(platform_file *File, u64 FileOffset, void *Buffer, umw BufferSize)
 internal READ_FILE(ReadFile);
 
-#define WRITE_TO_FILE(Name) u64 Name(platform_file *File, u64 FileOffset, void *Buffer, umw BufferSize)
+#define WRITE_TO_FILE(Name) u64 Name(platform_file *File, u64 FileOffset, const void *Buffer, umw BufferSize)
 internal WRITE_TO_FILE(WriteToFile);
 
 #define GET_FILE_SIZE(Name) u64 Name(platform_file *File)

@@ -4,15 +4,16 @@
 enum entity_type {
     EntityType_None = 0,
     
-    EntityType_Wall = 1,
-    EntityType_Coin = 2, // Possible CoinP
-    EntityType_Snail = 3,
-    EntityType_Sally = 4,
+    EntityType_Wall      = 1,
+    EntityType_Coin      = 2, // Possible CoinP
+    EntityType_Snail     = 3,
+    EntityType_Sally     = 4,
     EntityType_Dragonfly = 5,
-    EntityType_Speedy = 6,
-    EntityType_Player = 7,
+    EntityType_Speedy    = 6,
+    EntityType_Player    = 7,
     
     EntityType_Teleporter = 8,
+    EntityType_Door       = 9,
 };
 
 enum collision_type {
@@ -91,7 +92,7 @@ struct teleporter {
         v2 Size;
     };
     
-    char *Level;
+    const char *Level;
 };
 
 struct entity {
@@ -124,6 +125,40 @@ struct player_entity : public entity {
     // TODO(Tyler): There is likely a better way to do this
     b8 IsRidingDragonfly;
     u32 RidingDragonfly;
+};
+
+struct door_entity {
+    v2 P;
+    union {
+        struct { f32 Width; f32 Height; };
+        v2 Size;
+    };
+    b8 IsOpen;
+    
+    f32 AnimationCooldown;
+};
+
+struct entity_manager {
+    memory_arena Memory;
+    
+    wall_entity *Walls;
+    u32 WallCount;
+    
+    coin_data CoinData;
+    coin_entity *Coins;
+    u32 CoinCount;
+    
+    enemy_entity *Enemies;
+    u32 EnemyCount;
+    
+    teleporter *Teleporters;
+    u32 TeleporterCount;
+    
+    player_entity *Player;
+    
+    u32 *DoorLookupTable;
+    door_entity *Doors;
+    u32 DoorCount;
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H

@@ -105,8 +105,9 @@ LoadAssetFile(char *Path){
                 u64 Length = CStringLength(Name);
                 // TODO(Tyler): I am not sure if I like using the permanent storage arena
                 // for this
-                Level->Name = PushArray(&GlobalPermanentStorageArena, char, Length+1);
-                Level->Name[Length] = '\0';
+                char *LevelName = PushArray(&GlobalPermanentStorageArena, char, Length+1);
+                LevelName[Length] = '\0';
+                Level->Name = LevelName;
                 CopyMemory(Level->Name, Name, Length);
                 InsertIntoHashTable(&GlobalLevelTable, Level->Name, I+1);
             }

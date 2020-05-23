@@ -79,22 +79,6 @@ PushMemory(memory_arena *Arena, umw Size) {
     return(Result);
 }
 
-internal void
-CopyMemory(void *To, void *From, umw Size) {
-    for (umw I = 0; I < Size; I++)
-    {
-        *((u8*)To+I) = *((u8*)From+I);
-    }
-}
-
-internal void
-ZeroMemory(void *Memory, umw Size) {
-    for (umw I = 0; I < Size; I++)
-    {
-        *((u8*)Memory+I) = 0;
-    }
-}
-
 struct temp_memory {
     u8 *Memory;
     umw Used;
@@ -131,26 +115,14 @@ EndTempMemory(memory_arena *Arena, temp_memory *TempMemory){
     Arena->Used -= TempMemory->Size;
 }
 
-struct sub_arena {
-    u8 *Memory;
-    umw Used;
-    umw Size;
-};
-
-internal void
-InitializeSubArena(memory_arena *Arena, sub_arena *SubArena, umw Size){
+internal memory_arena
+PushNewArena(memory_arena *Arena, umw Size){
     Assert((Arena->Used+Size) < Arena->Size);
-    SubArena->Memory = Arena->Memory+Arena->Used;
+    memory_arena Result;
+    Result.Memory = Arena->Memory+Arena->Used;
     Arena->Used += Size;
-    SubArena->Size = Size;
-    SubArena->Used = 0;
-}
-
-internal void *
-PushMemory(sub_arena *Arena, umw Size) {
-    Assert((Arena->Used + Size) < Arena->Size);
-    void *Result = Arena->Memory+Arena->Used;
-    Arena->Used += Size;
+    Result.Size = Size;
+    Result.Used = 0;
     return(Result);
 }
 
@@ -159,13 +131,13 @@ struct hash_table {
     u32 BucketsUsed;
     u32 MaxBuckets;
     u64 *Keys;
-    char **Strings;
+    const char **Strings;
     u64 *Values;
 };
 
 // TODO(Tyler): Better hash functio
 internal u64
-HashString(char *String) {
+HashString(const char *String) {
     u64 Result = 71984823;
     while(s32 Char = *String++) {
         Result += (Char << 5) * 3;
@@ -175,7 +147,7 @@ HashString(char *String) {
 }
 
 internal b32
-CompareStrings(char *A, char *B){
+CompareStrings(const char *A, const char *B){
     b32 Result = true;
     while(*A && *B){
         if(*A++ != *B++){
@@ -186,17 +158,18 @@ CompareStrings(char *A, char *B){
     return(Result);
 }
 
-internal void
-InitializeHashTable(memory_arena *Arena, hash_table *Table, u32 MaxBuckets){
-    Table->BucketsUsed = 0;
-    Table->MaxBuckets = MaxBuckets;
-    Table->Keys = PushArray(Arena, u64, MaxBuckets);
-    Table->Strings = PushArray(Arena, char *, MaxBuckets);
-    Table->Values = PushArray(Arena, u64, MaxBuckets);
+internal hash_table
+PushHashTable(memory_arena *Arena, u32 MaxBuckets){
+    hash_table Result = {0};
+    Result.MaxBuckets = MaxBuckets;
+    Result.Keys = PushArray(Arena, u64, MaxBuckets);
+    Result.Strings = PushArray(Arena, const char *, MaxBuckets);
+    Result.Values = PushArray(Arena, u64, MaxBuckets);
+    return(Result);
 }
 
 internal void
-InsertIntoHashTable(hash_table *Table, char *String, u64 Value){
+InsertIntoHashTable(hash_table *Table, const char *String, u64 Value){
     u64 Hash = HashString(String);
     if(Hash == 0){Hash++;}
     
@@ -222,7 +195,7 @@ InsertIntoHashTable(hash_table *Table, char *String, u64 Value){
 }
 
 internal u64
-FindInHashTable(hash_table *Table, char *String){
+FindInHashTable(hash_table *Table, const char *String){
     u64 Hash = HashString(String);
     if(Hash == 0){Hash++;}
     
@@ -246,8 +219,24 @@ FindInHashTable(hash_table *Table, char *String){
 }
 
 //~ Helpers
+internal void
+CopyMemory(const void *To, const void *From, umw Size) {
+    for (umw I = 0; I < Size; I++)
+    {
+        *((u8*)To+I) = *((u8*)From+I);
+    }
+}
+
+internal void
+ZeroMemory(void *Memory, umw Size) {
+    for (umw I = 0; I < Size; I++)
+    {
+        *((u8*)Memory+I) = 0;
+    }
+}
+
 internal u32
-CStringLength(char *String){
+CStringLength(const char *String){
     u32 Result = 0;
     for(char C = *String; C; C = *(++String)){
         Result++;

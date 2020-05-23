@@ -131,7 +131,7 @@ RenderTextureWithColor(render_group *RenderGroup,
 
 internal void
 RenderString(render_group *RenderGroup,
-             font *Font, color Color, f32 X, f32 Y, f32 Z, char *String){
+             font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String){
     Y = RenderGroup->OutputSize.Y - Y;
     
     // TODO(Tyler): Compare performance difference after changes
@@ -192,14 +192,14 @@ RenderString(render_group *RenderGroup,
 
 internal inline void
 RenderString(render_group *RenderGroup,
-             font *Font, color Color, v2 P, f32 Z, char *String){
+             font *Font, color Color, v2 P, f32 Z, const char *String){
     RenderString(RenderGroup, Font, Color, P.X, P.Y, Z, String);
 }
 
 // TODO(Tyler): Figure out a better way to do the buffer
 internal inline void
 VRenderFormatString(render_group *RenderGroup,
-                    font *Font, color Color, f32 X, f32 Y, f32 Z, char *Format, va_list VarArgs){
+                    font *Font, color Color, f32 X, f32 Y, f32 Z, const char *Format, va_list VarArgs){
     char Buffer[1024];
     stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
     RenderString(RenderGroup, Font,
@@ -208,7 +208,7 @@ VRenderFormatString(render_group *RenderGroup,
 
 internal inline void
 RenderFormatString(render_group *RenderGroup,
-                   font *Font, color Color, f32 X, f32 Y, f32 Z, char *Format, ...){
+                   font *Font, color Color, f32 X, f32 Y, f32 Z, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
     VRenderFormatString(RenderGroup, Font, Color, X, Y, Z, Format, VarArgs);
@@ -217,7 +217,7 @@ RenderFormatString(render_group *RenderGroup,
 
 internal inline void
 RenderFormatString(render_group *RenderGroup,
-                   font *Font, color Color, v2 P, f32 Z, char *Format, ...){
+                   font *Font, color Color, v2 P, f32 Z, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
     VRenderFormatString(RenderGroup, Font, Color, P.X, P.Y, Z, Format, VarArgs);
@@ -225,7 +225,7 @@ RenderFormatString(render_group *RenderGroup,
 }
 
 internal f32
-GetStringAdvance(font *Font, char *String){
+GetStringAdvance(font *Font, const char *String){
     f32 Result = 0;
     f32 X = 0.0f;
     f32 Y = 0.0f;
@@ -241,7 +241,7 @@ GetStringAdvance(font *Font, char *String){
 }
 
 internal inline f32
-VGetFormatStringAdvance(font *Font, char *Format, va_list VarArgs){
+VGetFormatStringAdvance(font *Font, const char *Format, va_list VarArgs){
     char Buffer[1024];
     stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
     f32 Result = GetStringAdvance(Font, Buffer);
@@ -249,7 +249,7 @@ VGetFormatStringAdvance(font *Font, char *Format, va_list VarArgs){
 }
 
 internal inline f32
-GetFormatStringAdvance(font *Font, char *Format, ...){
+GetFormatStringAdvance(font *Font, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
     f32 Result = VGetFormatStringAdvance(Font, Format, VarArgs);

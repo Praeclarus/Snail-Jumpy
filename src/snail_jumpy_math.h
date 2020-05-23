@@ -102,16 +102,17 @@ ToPowerOf(f32 Base, f32 Exponent){
 
 //~ Vectors
 
-typedef union v2 v2;
 union v2
 {
     struct
     {
-        f32 X, Y;
+        f32 X;
+        f32 Y;
     };
     struct
     {
-        f32 Width, Height;
+        f32 Width;
+        f32 Height;
     };
 };
 
@@ -121,11 +122,13 @@ union v2s
 {
     struct
     {
-        s32 X, Y;
+        s32 X;
+        s32 Y;
     };
     struct
     {
-        s32 Width, Height;
+        s32 Width;
+        s32 Height;
     };
 };
 

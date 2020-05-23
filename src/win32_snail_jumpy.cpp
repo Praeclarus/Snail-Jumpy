@@ -84,7 +84,7 @@ Win32MainWindowProc(HWND Window,
         case WM_DESTROY: {
             Running = false;
         }break;
-        //case WM_SYSKEYDOWN: case WM_SYSKEYUP:
+        case WM_SYSKEYDOWN: case WM_SYSKEYUP:
         case WM_KEYDOWN: case WM_KEYUP: {
             u32 VkCode = (u32)WParam;
             
@@ -119,6 +119,8 @@ Win32MainWindowProc(HWND Window,
                 if(IsDown){
                     if(VkCode == VK_F11){
                         ToggleFullscreen(Window);
+                    }else if((VkCode == VK_F4) && (LParam & (1<<29))){
+                        Running = false;
                     }
                 }
             }
@@ -167,8 +169,8 @@ Win32LoadOpenGlFunctions(){
     b32 Result = true;
     s32 CurrentFunction = 0;
 #define X(Name) Name = (type_##Name *)wglGetProcAddress(#Name); \
-    if(!Name) { Assert(0); Result = false; } \
-    CurrentFunction++;
+if(!Name) { Assert(0); Result = false; } \
+CurrentFunction++;
     
     OPENGL_FUNCTIONS;
     
@@ -235,16 +237,11 @@ Win32InitOpenGl(HINSTANCE Instance, HWND *Window){
                 
                 s32 PixelFormat;
                 u32 TotalFormats;
-                if(wglChoosePixelFormatARB(DeviceContext,
-                                           AttributeList,
-                                           0,
-                                           1,
-                                           &PixelFormat,
+                if(wglChoosePixelFormatARB(DeviceContext, AttributeList, 0, 1, &PixelFormat,
                                            &TotalFormats)){
                     PIXELFORMATDESCRIPTOR PixelFormatDescriptor;
-                    DescribePixelFormat(DeviceContext,
-                                        PixelFormat,
-                                        sizeof(PixelFormatDescriptor),
+                    DescribePixelFormat(DeviceContext, PixelFormat, 
+                                        sizeof(PixelFormatDescriptor), 
                                         &PixelFormatDescriptor);
                     if(SetPixelFormat(DeviceContext, PixelFormat, &PixelFormatDescriptor)){
                         const s32 OpenGLAttributes[] = {
@@ -418,8 +415,7 @@ WinMain(HINSTANCE Instance,
             GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
             
             LARGE_INTEGER LastCounter = Win32GetWallClock();
-            f32 TargetSecondsPerFrame = 1.0f/60.0f;
-            GlobalInput.dTimeForFrame = TargetSecondsPerFrame;
+            GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
             
             Running = true;
             while(Running){
@@ -458,15 +454,15 @@ WinMain(HINSTANCE Instance,
                 }
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
-                if(SecondsElapsed < TargetSecondsPerFrame)
+                if(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
                 {
-                    while(SecondsElapsed < TargetSecondsPerFrame)
+                    while(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
                     {
-                        DWORD SleepMS = (DWORD)(1000.0f * (TargetSecondsPerFrame-SecondsElapsed));
+                        DWORD SleepMS = (DWORD)(1000.0f * (TARGET_SECONDS_PER_FRAME-SecondsElapsed));
                         Sleep(SleepMS);
                         SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                     }
-                    GlobalInput.dTimeForFrame = TargetSecondsPerFrame;
+                    GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
                 }
                 else
                 {
