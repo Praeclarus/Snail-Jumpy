@@ -45,13 +45,15 @@ ToggleFullscreen(HWND Window){
 }
 
 internal void
-Win32ProcessKeyboardInput(platform_button *Button, b8 IsDown)
+Win32ProcessKeyboardInput(os_button *Button, b8 IsDown)
 {
+#if 0
     if (Button->EndedDown != IsDown)
     {
         Button->EndedDown = IsDown;
         Button->HalfTransitionCount++;
     }
+#endif
 }
 
 LRESULT CALLBACK
@@ -63,10 +65,6 @@ Win32MainWindowProc(HWND Window,
     LRESULT Result = 0;
     switch (Message)
     {
-        // TODO(Tyler): Is this needed?
-        case WM_ACTIVATEAPP: {
-            
-        }break;
         case WM_SETCURSOR: {
             HCURSOR Cursor = LoadCursorA(0, IDC_ARROW);
             SetCursor(Cursor);
@@ -303,10 +301,10 @@ OPEN_FILE(OpenFile){
         Access |= GENERIC_WRITE;
     }
     
-    platform_file *Result;
+    os_file *Result;
     HANDLE File = CreateFileA(Path, Access, FILE_SHARE_READ, 0, OPEN_ALWAYS, 0, 0);
     if(File != INVALID_HANDLE_VALUE){
-        Result = (platform_file *)File;
+        Result = (os_file *)File;
     }else{
         // TODO(Tyler): Logging
         Result = 0;
@@ -421,14 +419,129 @@ WinMain(HINSTANCE Instance,
             while(Running){
                 MSG Message;
                 while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
-                    if (Message.message == WM_QUIT)
-                    {
+                    // TODO(Tyler): This may not actually be needed here
+                    if(Message.message == WM_QUIT){
                         Running = false;
                     }
-                    
                     TranslateMessage(&Message);
-                    DispatchMessage(&Message);
+                    
+                    os_event Event = {0};
+                    switch(Message.message){
+                        case WM_SETCURSOR: {
+                            HCURSOR Cursor = LoadCursorA(0, IDC_ARROW);
+                            SetCursor(Cursor);
+                        }break;
+                        case WM_SIZE: {
+                            RECT ClientRect;
+                            GetClientRect(Window, &ClientRect);
+                            int Width = ClientRect.right - ClientRect.left;
+                            int Height = ClientRect.bottom - ClientRect.top;
+                            GlobalInput.WindowSize = {(f32)Width, (f32)Height};
+                        }break;
+                        case WM_CLOSE: {
+                            Running = false;
+                        }break;
+                        case WM_DESTROY: {
+                            Running = false;
+                        }break;
+                        case WM_SYSKEYDOWN: case WM_SYSKEYUP: 
+                        case WM_KEYDOWN: case WM_KEYUP: {
+                            u32 VkCode = (u32)Message.wParam;
+                            
+                            b8 WasDown = ((Message.lParam & (1 << 30)) != 0);
+                            b8 IsDown = ((Message.lParam & (1UL << 31)) == 0);
+                            if(WasDown != IsDown){
+                                Event.JustDown = true;
+                                if(IsDown){
+                                    if(VkCode == VK_F11){
+                                        ToggleFullscreen(Window);
+                                    }else if((VkCode == VK_F4) && (Message.lParam & (1<<29))){
+                                        Running = false;
+                                    }
+                                }
+                            }
+                            
+                            if(VkCode == VK_UP){
+                                Event.Key = KeyCode_Up;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Up], IsDown);
+                            }else if(VkCode == VK_DOWN){
+                                Event.Key = KeyCode_Down;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Down], IsDown);
+                            }else if(VkCode == VK_LEFT){
+                                Event.Key = KeyCode_Left;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Left], IsDown);
+                            }else if(VkCode == VK_RIGHT){
+                                Event.Key = KeyCode_Right;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Right], IsDown);
+                            }else if(VkCode == VK_SPACE){
+                                Event.Key = KeyCode_Space;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Space], IsDown);
+                            }else if(VkCode == VK_TAB){
+                                Event.Key = KeyCode_Tab;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Tab], IsDown);
+                            }else if(VkCode == VK_SHIFT){
+                                Event.Key = KeyCode_Shift;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Shift], IsDown);
+                            }else if(VkCode == VK_ESCAPE){
+                                Event.Key = KeyCode_Escape;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Escape], IsDown);
+                            }else if(('0' <= VkCode) && (VkCode <= 'Z')){
+                                Event.Key = (os_key_code)VkCode;;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[VkCode], IsDown);
+                            }else if(VkCode == VK_BACK){
+                                Event.Key = KeyCode_BackSpace;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_BackSpace], IsDown);
+                            }else if(VkCode == VK_OEM_MINUS){
+                                Event.Key = KeyCode_Minus;
+                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons['-'], IsDown);
+                            }
+                            
+                            if(IsDown){
+                                Event.Kind = OSEventKind_KeyDown;
+                            }else{
+                                Event.Kind = OSEventKind_KeyUp;
+                            }
+                            ProcessInput(&Event);
+                            
+                            
+                        }break;
+                        case WM_LBUTTONDOWN: 
+                        case WM_MBUTTONDOWN: 
+                        case WM_RBUTTONDOWN: {
+                            u32 Button = (u32)Message.wParam;
+                            if(Button == MK_LBUTTON){
+                                Event.Button = KeyCode_LeftMouse;
+                            }else if(Button == MK_MBUTTON){
+                                Event.Button = KeyCode_MiddleMouse;
+                            }else if(Button == MK_RBUTTON){
+                                Event.Button = KeyCode_RightMouse;
+                            }
+                            Event.Kind = OSEventKind_MouseDown;
+                            ProcessInput(&Event);
+                        }break;
+                        {
+                            case WM_LBUTTONUP: {
+                                Event.Key = KeyCode_LeftMouse;
+                            }goto process_mouse_up;
+                            case WM_MBUTTONUP: {
+                                Event.Key = KeyCode_MiddleMouse;
+                            }goto process_mouse_up;
+                            case WM_RBUTTONUP: {
+                                Event.Key = KeyCode_RightMouse;
+                            }goto process_mouse_up;
+                            
+                            process_mouse_up:;
+                            Event.Kind = OSEventKind_MouseDown;
+                            ProcessInput(&Event);
+                        }break;
+                        default: {
+                            DefWindowProcA(Window, Message.message, 
+                                           Message.wParam, Message.lParam);
+                        }break;
+                    }
                 }
+                
+                //DispatchMessageA(&Message);
                 
                 RECT ClientRect;
                 GetClientRect(Window, &ClientRect);
@@ -438,20 +551,23 @@ WinMain(HINSTANCE Instance,
                 };
                 POINT MouseP;
                 GetCursorPos(&MouseP);
-                GlobalInput.MouseP = {
+                GlobalMouseP = {
                     (f32)MouseP.x,
                     (f32)(GlobalInput.WindowSize.Height-MouseP.y)
                 };
                 
-                // TODO(Tyler): Multithreading
+                // TODO(Tyler): Multithreading?
+                GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
                 GameUpdateAndRender();
                 
+#if 0                
                 GlobalInput.LeftMouseButton.HalfTransitionCount = 0;
                 GlobalInput.MiddleMouseButton.HalfTransitionCount = 0;
                 GlobalInput.RightMouseButton.HalfTransitionCount = 0;
                 for(u32 I = 0; I < KeyCode_TOTAL; I++){
                     GlobalInput.Buttons[I].HalfTransitionCount = 0;
                 }
+#endif
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                 if(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
@@ -503,7 +619,7 @@ WinMain(HINSTANCE Instance,
     
 #if 1
     // TODO(Tyler): Do this more formally
-    WriteAssetFile("test_assets.sja");
+    WriteAssetFile("assets.sja");
 #endif
     
     return(0);

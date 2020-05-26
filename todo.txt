@@ -1,6 +1,7 @@
 TODOS:
 -----------------------------------------------
 
+ - BAKE FONTS AT COMPILE TIME!
  - Formalize triggers in the collisions system
  - Perhaps make entity ids fixed point, where the first few bits specify the entity type,
    and then the next few bits specify the index

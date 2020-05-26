@@ -30,9 +30,10 @@ internal void
 UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame, 
                          b8 Center=false){
     spritesheet_asset *Asset = &GlobalAssets[Entity->Asset];
+    u32 FrameCount = Asset->FrameCounts[Entity->CurrentAnimation];
     Entity->AnimationState += Asset->FpsArray[Entity->CurrentAnimation]*dTimeForFrame;
     Entity->AnimationCooldown -= dTimeForFrame;
-    if(Entity->AnimationState > Asset->FrameCounts[Entity->CurrentAnimation]){
+    if(Entity->AnimationState >= FrameCount){
         Entity->AnimationState -= Asset->FrameCounts[Entity->CurrentAnimation];
     }
     
@@ -43,23 +44,23 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         P.Y += (Asset->SizeInMeters.Height-Entity->Height)/2.0f + Asset->YOffset;
     }
     
-    v2 MinTexCoord = {
-        FloorF32(Entity->AnimationState)*Asset->SizeInTexCoords.X,
-        1.0f-Asset->SizeInTexCoords.Y
-    };
+    u32 FrameInSpriteSheet = 0;
+    u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
+    FrameInSpriteSheet += (u32)Entity->AnimationState;
     for(u32 Index = 0; Index < Entity->CurrentAnimation; Index++){
-        MinTexCoord.X += Asset->FrameCounts[Index]*Asset->SizeInTexCoords.X;
+        FrameInSpriteSheet += Asset->FrameCounts[Index];
     }
-    MinTexCoord.Y -= FloorF32(MinTexCoord.X)*Asset->SizeInTexCoords.Y;
-    MinTexCoord.X = MinTexCoord.X-FloorF32(MinTexCoord.X);
-    f32 Epsilon = 0.000001f;
-    Assert(-Epsilon <= MinTexCoord.Y);
-    Assert(-Epsilon <= MinTexCoord.X);
-    Assert(MinTexCoord.X < (1.0f-Asset->SizeInTexCoords.X)+0.001);
+    if(FrameInSpriteSheet >= Asset->FramesPerRow){
+        RowInSpriteSheet -= (FrameInSpriteSheet / Asset->FramesPerRow);
+        FrameInSpriteSheet %= Asset->FramesPerRow;
+    }
     
+    v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
+    MinTexCoord.X *= Asset->SizeInTexCoords.X;
+    MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
     v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
     
-    RenderTexture(RenderGroup, P, P+Asset->SizeInMeters, Entity->ZLayer,
+    RenderTexture(RenderGroup, P, P+Asset->SizeInMeters, -1.0f,
                   Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
 }
 
@@ -165,12 +166,10 @@ UpdateCoin(u32 Id){
 }
 
 
-//~ Collision detection
+//~ Collision system
 
 // TODO(Tyler): ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS!
 // the collision system is not very robust or good at all!!!
-// TODO(Tyler): Fix the bug where high values for dTimeForFrame causes
-// entities to pass through
 internal b32
 TestWall(f32 WallX,
          f32 PlayerX, f32 PlayerY,

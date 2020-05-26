@@ -5,7 +5,7 @@
 #include "snail_jumpy_types.cpp"
 #include "snail_jumpy_math.h"
 #include "snail_jumpy_render.h"
-#include "snail_jumpy_platform.h"
+#include "snail_jumpy_os.h"
 #include "snail_jumpy_opengl.h"
 
 struct win32_backbuffer {

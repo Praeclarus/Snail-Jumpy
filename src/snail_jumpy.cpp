@@ -27,21 +27,12 @@ global spritesheet_asset *GlobalAssets;
 global memory_arena GlobalPermanentStorageArena;
 global memory_arena GlobalTransientStorageArena;
 
-global memory_arena GlobalLevelMemory;
-global memory_arena GlobalMapDataMemory;
-global memory_arena GlobalEnemyMemory;
-
-hash_table GlobalLevelTable;
-global u32 GlobalLevelCount;
-global u32 GlobalCurrentLevel;
-global level_data *GlobalLevelData;
-
-global platform_input GlobalInput;
+global ui_manager GlobalUIManager;
 
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_OverworldEditor;
+global game_mode GlobalGameMode = GameMode_MainGame;
 
 global editor    GlobalEditor;
 
@@ -50,6 +41,15 @@ global v2           GlobalLastOverworldPlayerP;
 global memory_arena GlobalOverworldMapMemory;
 global u32          GlobalOverworldXTiles;
 global u32          GlobalOverworldYTiles;
+global array<teleporter_data> GlobalTeleporterData;
+
+global memory_arena GlobalMapDataMemory;
+global memory_arena GlobalEnemyMemory;
+
+global hash_table        GlobalLevelTable;
+global array<level_data> GlobalLevelData;
+global level_data       *GlobalCurrentLevel;
+global u32               GlobalCurrentLevelIndex;
 
 internal inline void
 ChangeState(game_mode NewMode, const char *NewLevel);
@@ -68,10 +68,11 @@ ChangeState(game_mode NewMode, const char *NewLevel);
 #include "snail_jumpy_game.cpp"
 #include "snail_jumpy_overworld.cpp"
 
+// TODO(Tyler): This should be done at compile time
 internal void
 LoadFont(memory_arena *Arena,
          font *Font, const char *FontPath, f32 Size, u32 Width, u32 Height){
-    platform_file *File = OpenFile(FontPath, OpenFile_Read);
+    os_file *File = OpenFile(FontPath, OpenFile_Read);
     u64 FileSize = GetFileSize(File);
     u8 *FileData = PushArray(Arena, u8, FileSize);
     ReadFile(File, 0, FileData, FileSize);
@@ -100,6 +101,24 @@ LoadFont(memory_arena *Arena,
 }
 
 internal void
+ProcessInput(os_event *Event){
+    if((GlobalGameMode == GameMode_LevelEditor) ||
+       (GlobalGameMode == GameMode_LevelEditor)){
+        ProcessEditorInput(Event);
+    }else{
+        switch(Event->Kind){
+            case OSEventKind_KeyDown: {
+                GlobalButtonMap[Event->Key].JustDown = Event->JustDown;
+                GlobalButtonMap[Event->Key].IsDown = true;
+            }break;
+            case OSEventKind_KeyUp: {
+                GlobalButtonMap[Event->Key].IsDown = false;
+            }break;
+        }
+    }
+}
+
+internal void
 InitializeGame(){
     stbi_set_flip_vertically_on_load(true);
     
@@ -124,21 +143,26 @@ InitializeGame(){
     GlobalManager.Memory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
     
     // NOTE(Tyler): Level memory
-    GlobalLevelMemory   = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(4));
+    // TODO(Tyler): It might be a better idea to use a few pool allocators for this, or a 
+    // different allocator
+    GlobalLevelData = CreateNewArray<level_data>(&GlobalPermanentStorageArena, 512);
     GlobalMapDataMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
     GlobalEnemyMemory   = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
     GlobalLevelTable    = PushHashTable(&GlobalPermanentStorageArena, 1024);
     
     // NOTE(Tyler): Overworld memory
     GlobalOverworldMapMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(8));
+    GlobalTeleporterData = CreateNewArray<teleporter_data>(&GlobalPermanentStorageArena, 512);
     
     // NOTE(Tyler): Initialize worlds
-    LoadAssetFile("test_assets.sja"); 
+    LoadAssetFile("assets.sja"); 
     InitializeOverworld(); // TODO(Tyler): This should be loaded from the asset file 
     
-    if(GlobalGameMode == GameMode_Overworld){
+    if((GlobalGameMode == GameMode_Overworld) ||
+       (GlobalGameMode == GameMode_OverworldEditor)){
         LoadOverworld();
-    }else if(GlobalGameMode == GameMode_MainGame){
+    }else if((GlobalGameMode == GameMode_MainGame) ||
+             (GlobalGameMode == GameMode_LevelEditor)){
         LoadLevel("Test_Level");
     }
     
@@ -151,11 +175,11 @@ InitializeGame(){
         f32 MetersToPixels = 60.0f/0.5f;
         
         asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
-            {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 6, 6, 5, 5, 1, 1, 2, 2 }, { 7, 7, 7, 7, 7, 7, 7, 7, 7, 7}, 0.0f },
-            {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 },-0.07f},
-            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 }, 0.0f},
-            {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 7, 7, 7, 7 }, 0.0f },
-            {"test_speedy_spritesheet.png",      80,  5,  {  4,  4, 3, 3 }, { 7, 7, 7, 7 },-0.07f },
+            {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 6, 6, 5, 5, 1, 1, 2, 2 }, { 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0f },
+            {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 },-0.07f},
+            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 }, 0.0f},
+            {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 8, 8, 8, 8 }, 0.0f },
+            {"test_speedy_spritesheet.png",      80,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 },-0.07f },
             //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },      -0.02f},
             //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },      -0.04f},
             //{"test_dragonfly_spritesheet.png", 128, 10,  { 10, 10, 5, 5 }, {  7,  7, 7, 7 }, 0.0f },
@@ -165,7 +189,7 @@ InitializeGame(){
             asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
             spritesheet_asset *CurrentAnimation = &GlobalAssets[Index];
             
-            platform_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
+            os_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
             u64 FileSize = GetFileSize(TestFile);
             u8 *TestFileData = PushArray(&GlobalTransientStorageArena, u8, FileSize);
             ReadFile(TestFile, 0, TestFileData, FileSize);
@@ -185,7 +209,7 @@ InitializeGame(){
             stbi_image_free(LoadedImage);
             
             CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
-            for(u32 I = 0; I < 9; I++){
+            for(u32 I = 0; I < ArrayCount(spritesheet_asset::FrameCounts); I++){
                 CurrentAnimation->FrameCounts[I] = AssetInfo->FrameCounts[I];
                 CurrentAnimation->FpsArray[I] = AssetInfo->FpsArray[I];
             }
@@ -216,6 +240,7 @@ internal void
 GameUpdateAndRender(){
     GlobalTransientStorageArena.Used = 0;
     GlobalProfileData.CurrentBlockIndex = 0;
+    GlobalUIManager.FirstPrimitive = 0;
     
     TIMED_FUNCTION();
     
@@ -263,4 +288,7 @@ GameUpdateAndRender(){
         GlobalStateChangeData = {0};
     }
     
+    for(u32 I = 0; I < KeyCode_TOTAL; I++){
+        GlobalButtonMap[I].JustDown = false;
+    }
 }

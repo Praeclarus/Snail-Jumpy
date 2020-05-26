@@ -127,6 +127,9 @@ PushNewArena(memory_arena *Arena, umw Size){
 }
 
 //~ Simple hash table
+// TODO(Tyler): Despite how bad C++ templates, maybe it would be best to templatize 
+// hash_table, and to create a templated array type
+
 struct hash_table {
     u32 BucketsUsed;
     u32 MaxBuckets;
@@ -218,6 +221,100 @@ FindInHashTable(hash_table *Table, const char *String){
     return(Result);
 }
 
+internal b8
+RemoveFromHashTable(hash_table *Table, const char *String){
+    u64 Hash = HashString(String);
+    if(Hash == 0){ Hash++; }
+    
+    u32 Index = Hash % Table->MaxBuckets;
+    if(Index == 0){ Index++; }
+    while(u64 TestHash = Table->Keys[Index]) {
+        if(Index == 0){ Index++; }
+        if((TestHash == Hash) &&
+           CompareStrings(String, Table->Strings[Index])){
+            break;
+        }else if(TestHash == 0){
+            break;
+        }else{
+            Index++;
+            Index %= Table->MaxBuckets;
+        }
+    }
+    
+    b8 Result;
+    if(Index != 0){
+        Table->BucketsUsed--;
+        Table->Keys[Index] = 0; 
+        Table->Strings[Index] = 0; 
+        Table->Values[Index] = 0; 
+        Result = true;
+    }else{
+        Result = false;
+    }
+    return(Result);
+}
+
+//~ Array
+// TODO(Tyler): This is one of the only places where templates are used
+
+// NOTE(Tyler): This is a simple static array, not really a dynamic one
+template<typename T>
+struct array {
+    T *Items;
+    u32 Count;
+    u32 MaxCount;
+    
+    inline T &operator[](s64 Index){
+        Assert(Index < Count);
+        return(Items[Index]);
+    }
+};
+
+template<typename T>
+internal inline void
+PushItemOntoArray(array<T> *Array, T Item){
+    if(Array->Count+1 < Array->MaxCount){
+        Array->Items[Array->Count++] = Item;
+    }else{
+        Assert(0);
+    }
+}
+
+template<typename T>
+internal inline T *
+PushNewArrayItem(array<T> *Array){
+    T *Result = 0;
+    if(Array->Count+1 < Array->MaxCount){
+        Result = &Array->Items[Array->Count++];
+    }else{
+        Assert(0);
+    }
+    return(Result);
+}
+
+template<typename T>
+internal inline T *
+PushNArrayItems(array<T> *Array, u32 N){
+    T *Result = 0;
+    if(Array->Count+N < Array->MaxCount){
+        Result = &Array->Items[Array->Count];
+        Array->Count += N;
+    }else{
+        Assert(0);
+    }
+    return(Result);
+}
+
+template<typename T>
+internal inline array<T>
+CreateNewArray(memory_arena *Arena, u32 MaxCount){
+    array<T> Result = {0};;
+    Result.Items = PushArray(Arena, T, MaxCount);
+    Result.MaxCount = MaxCount;
+    
+    return(Result);
+}
+
 //~ Helpers
 internal void
 CopyMemory(const void *To, const void *From, umw Size) {
@@ -225,6 +322,11 @@ CopyMemory(const void *To, const void *From, umw Size) {
     {
         *((u8*)To+I) = *((u8*)From+I);
     }
+}
+
+internal void
+MoveMemory(const void *To, const void *From, umw Size) {
+    memmove((void *)To, (void *)From, Size);
 }
 
 internal void
@@ -242,6 +344,16 @@ CStringLength(const char *String){
         Result++;
     }
     return(Result);
+}
+
+internal void
+CopyCString(char *To, char *From, u32 MaxSize){
+    u32 I = 0;
+    while(From[I] && (I < MaxSize-1)){
+        To[I] = From[I];
+        I++;
+    }
+    To[I] = '\0';
 }
 
 #endif

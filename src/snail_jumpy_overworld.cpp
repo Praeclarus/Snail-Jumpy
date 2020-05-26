@@ -60,6 +60,12 @@ InitializeOverworld(){
         {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     };
     
+    {
+        PushItemOntoArray(&GlobalTeleporterData, {"Test_Level", 0});
+        PushItemOntoArray(&GlobalTeleporterData, {"Test_Level2", 0});
+        PushItemOntoArray(&GlobalTeleporterData, {"Test_Level3", "Test_Level2"});
+    }
+    
     PushMemory(&GlobalOverworldMapMemory, sizeof(TemplateMap));
     for(u32 I = 0; I < sizeof(TemplateMap); I++){
         GlobalOverworldMapMemory.Memory[I] = ((u8 *)TemplateMap)[I];
@@ -112,14 +118,6 @@ LoadOverworld(){
     
     // NOTE(Tyler): Load teleporters
     {
-        local_constant struct {
-            const char *Level;
-            const char *RequiredLevelToUnlock;
-        }TeleporterDataTable[] = {
-            {"Test_Level", 0},
-            {"Test_Level2", 0},
-            {"Test_Level3", "Test_Level2"},
-        };
         AllocateNEntities(TeleporterCount, EntityType_Teleporter);
         u32 CurrentId = 0;
         for(u32 Y = 0; Y < GlobalOverworldYTiles; Y++){
@@ -127,7 +125,7 @@ LoadOverworld(){
                 u8 TileId = Map[Y*GlobalOverworldXTiles + X];
                 if(TileId == EntityType_Teleporter){
                     Assert(CurrentId < TeleporterCount);
-                    Assert(CurrentId < ArrayCount(TeleporterDataTable));
+                    Assert(CurrentId < GlobalTeleporterData.Count);
                     
                     GlobalManager.Teleporters[CurrentId] = {0};
                     GlobalManager.Teleporters[CurrentId].P = v2{
@@ -137,16 +135,11 @@ LoadOverworld(){
                         TileSideInMeters, TileSideInMeters
                     };
                     GlobalManager.Teleporters[CurrentId].Level = 
-                        TeleporterDataTable[CurrentId].Level;
+                        GlobalTeleporterData[CurrentId].Level;
                     GlobalManager.Teleporters[CurrentId].IsLocked = true;
                     
-                    if(TeleporterDataTable[CurrentId].RequiredLevelToUnlock){
-                        if(IsLevelCompleted(TeleporterDataTable[CurrentId].RequiredLevelToUnlock)){
-                            GlobalManager.Teleporters[CurrentId].IsLocked = false;
-                        }
-                    }else{
-                        GlobalManager.Teleporters[CurrentId].IsLocked = false;
-                    }
+                    GlobalManager.Teleporters[CurrentId].IsLocked = 
+                        !IsLevelCompleted(GlobalTeleporterData[CurrentId].RequiredLevelToUnlock);
                     
                     CurrentId++;
                 }
@@ -165,8 +158,8 @@ LoadOverworld(){
 internal void
 UpdateAndRenderOverworld(){
     
-    if(IsButtonJustPressed(&GlobalInput.Buttons['E'])){
-        ChangeState(GameMode_OverworldEditor, 0);
+    if(IsKeyJustPressed('E')){
+        ToggleEditor();
     }
     
     render_group RenderGroup;
@@ -255,7 +248,7 @@ UpdateAndRenderOverworld(){
                     RenderRectangle(&RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.11f, Color);
                 }
                 
-                if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Space])){
+                if(IsKeyJustPressed(KeyCode_Space)){
                     ChangeState(GameMode_MainGame, Teleporter->Level);
                 }
             }
@@ -271,15 +264,13 @@ UpdateAndRenderOverworld(){
         v2 ddP = {0};
         
         f32 MovementSpeed = 100;
-        if(GlobalInput.Buttons[KeyCode_Shift].EndedDown){
+        if(IsKeyDown(KeyCode_Shift)){
             MovementSpeed = 200;
         }
-        if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
-           !GlobalInput.Buttons[KeyCode_Left].EndedDown){
+        if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
             ddP.X += MovementSpeed;
             PlayAnimation(GlobalManager.Player, PlayerAnimation_RunningRight);
-        }else if(GlobalInput.Buttons[KeyCode_Left].EndedDown &&
-                 !GlobalInput.Buttons[KeyCode_Right].EndedDown){
+        }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
             ddP.X -= MovementSpeed;
             PlayAnimation(GlobalManager.Player, PlayerAnimation_RunningLeft);
         }else{
@@ -290,11 +281,9 @@ UpdateAndRenderOverworld(){
             }
         }
         
-        if(GlobalInput.Buttons[KeyCode_Up].EndedDown &&
-           !GlobalInput.Buttons[KeyCode_Down].EndedDown){
+        if(IsKeyDown(KeyCode_Up) && !IsKeyDown(KeyCode_Down)){
             ddP.Y += MovementSpeed;
-        }else if(GlobalInput.Buttons[KeyCode_Down].EndedDown &&
-                 !GlobalInput.Buttons[KeyCode_Up].EndedDown){
+        }else if(IsKeyDown(KeyCode_Down) && !IsKeyDown(KeyCode_Up)){
             ddP.Y -= MovementSpeed;
         }
         
@@ -312,7 +301,7 @@ UpdateAndRenderOverworld(){
                         GlobalManager.Player->P+GlobalManager.Player->Size/2.0f, 0.0f,
                         YELLOW);
         
-        GlobalManager.Player->P= ActualPlayerP;
+        GlobalManager.Player->P = ActualPlayerP;
         
         SetCameraCenterP(GlobalManager.Player->P, 0.5f);
     }
@@ -320,9 +309,8 @@ UpdateAndRenderOverworld(){
     
     layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
                                  30, GlobalDebugFont.Size);
-    LayoutFps(&RenderGroup, &Layout);
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont, BLACK,
-                 "DoorCount: %u", GlobalManager.DoorCount);
+    LayoutFps(&Layout);
+    RenderAllUIPrimitives(&RenderGroup);
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);

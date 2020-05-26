@@ -1,4 +1,4 @@
-global platform_file *GlobalLogFile;
+global os_file *GlobalLogFile;
 global u32 GlobalLogFileOffset;
 
 internal void

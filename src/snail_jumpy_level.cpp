@@ -52,18 +52,25 @@ LoadLevel(const char *LevelName){
     if(LevelName){
         u64 LevelIndex = FindInHashTable(&GlobalLevelTable, LevelName);
         if(LevelIndex){
-            GlobalCurrentLevel = (u32)LevelIndex-1;
+            GlobalCurrentLevelIndex = (u32)LevelIndex-1;
+            GlobalCurrentLevel = &GlobalLevelData[GlobalCurrentLevelIndex];
             
             f32 TileSideInMeters = 0.5f;
-            GlobalManager.CoinData.Tiles = GlobalLevelData[GlobalCurrentLevel].MapData;
-            GlobalManager.CoinData.XTiles = GlobalLevelData[GlobalCurrentLevel].WidthInTiles;
-            GlobalManager.CoinData.YTiles = GlobalLevelData[GlobalCurrentLevel].HeightInTiles;
+            GlobalManager.CoinData.Tiles = GlobalCurrentLevel->MapData;
+            GlobalManager.CoinData.XTiles = GlobalCurrentLevel->WidthInTiles;
+            GlobalManager.CoinData.YTiles = GlobalCurrentLevel->HeightInTiles;
             GlobalManager.CoinData.TileSideInMeters = TileSideInMeters;
             GlobalManager.CoinData.NumberOfCoinPs = 0;
             
-            level_data *CurrentLevel = &GlobalLevelData[GlobalCurrentLevel];
-            LoadWallsFromMap(CurrentLevel->MapData, CurrentLevel->WallCount,
-                             CurrentLevel->WidthInTiles, CurrentLevel->HeightInTiles,
+            u32 WallCount = 0;
+            for(u32 I = 0; I < GlobalCurrentLevel->WidthInTiles*GlobalCurrentLevel->HeightInTiles; I++){
+                u8 Tile = GlobalCurrentLevel->MapData[I];
+                if(Tile == EntityType_Wall){
+                    WallCount++;
+                }
+            }
+            LoadWallsFromMap(GlobalCurrentLevel->MapData, WallCount,
+                             GlobalCurrentLevel->WidthInTiles, GlobalCurrentLevel->HeightInTiles,
                              TileSideInMeters);
             
             {
@@ -81,9 +88,9 @@ LoadLevel(const char *LevelName){
             AddPlayer({1.5f, 1.5f});
             
             {
-                AllocateNEntities(GlobalLevelData[GlobalCurrentLevel].EnemyCount, EntityType_Snail);
-                for(u32 I = 0; I < GlobalLevelData[GlobalCurrentLevel].EnemyCount; I ++){
-                    level_enemy *Enemy = &GlobalLevelData[GlobalCurrentLevel].Enemies[I];
+                AllocateNEntities(GlobalCurrentLevel->EnemyCount, EntityType_Snail);
+                for(u32 I = 0; I < GlobalCurrentLevel->EnemyCount; I ++){
+                    level_enemy *Enemy = &GlobalCurrentLevel->Enemies[I];
                     GlobalManager.Enemies[I] = {0};
                     GlobalManager.Enemies[I].Type = Enemy->Type;
                     Assert(GlobalManager.Enemies[I].Type);
@@ -91,7 +98,7 @@ LoadLevel(const char *LevelName){
                     GlobalManager.Enemies[I].P = Enemy->P;
                     
                     GlobalManager.Enemies[I].CurrentAnimation = EnemyAnimation_Left;
-                    GlobalManager.Enemies[I].ZLayer = -1.0f;
+                    GlobalManager.Enemies[I].ZLayer = -0.7f;
                     
                     GlobalManager.Enemies[I].Speed = 1.0f;
                     if(Enemy->Type == EntityType_Snail){
@@ -104,7 +111,7 @@ LoadLevel(const char *LevelName){
                     }else if(Enemy->Type == EntityType_Dragonfly){
                         GlobalManager.Enemies[I].Asset = Asset_Dragonfly;
                         GlobalManager.Enemies[I].Size = { 1.0f, 0.5f };
-                        GlobalManager.Enemies[I].ZLayer = -0.9f;
+                        GlobalManager.Enemies[I].ZLayer = -0.71f;
                         GlobalManager.Enemies[I].Speed *= 2.0f;
                     }else if(Enemy->Type == EntityType_Speedy){
                         GlobalManager.Enemies[I].Asset = Asset_Speedy;
@@ -207,10 +214,15 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex,
 internal b8
 IsLevelCompleted(const char *LevelName){
     b8 Result = false;
-    u32 Level = (u32)FindInHashTable(&GlobalLevelTable, LevelName);
-    if(Level){
-        Result = GlobalLevelData[Level-1].IsCompleted;
-    }
+    
+    if(LevelName[0] == '\0'){
+        Result = true;
+    }else if(LevelName){
+        u32 Level = (u32)FindInHashTable(&GlobalLevelTable, LevelName);
+        if(Level){
+            Result = GlobalLevelData[Level-1].IsCompleted;
+        }
+    } 
     
     return(Result);
 }

@@ -6,7 +6,7 @@ struct entire_file {
 
 internal entire_file
 ReadEntireFile(memory_arena *Arena, char *Path) {
-    platform_file *File = 0;
+    os_file *File = 0;
     File = OpenFile(Path, OpenFile_Read);
     
     u64 FileSize = GetFileSize(File);
@@ -30,11 +30,9 @@ LoadAssetFile(char *Path){
         
         asset_file_header *Header = ConsumeType(&Stream, asset_file_header);
         if(Header->Version == 1){
-            GlobalLevelCount = Header->LevelCount;
+            PushNArrayItems(&GlobalLevelData, Header->LevelCount);
             
-            GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
-            
-            for(u32 I = 0; I < GlobalLevelCount; I++){
+            for(u32 I = 0; I < GlobalLevelData.Count; I++){
                 asset_file_level *Level = ConsumeType(&Stream, asset_file_level);
                 GlobalLevelData[I].WidthInTiles = Level->WidthInTiles;
                 GlobalLevelData[I].HeightInTiles = Level->HeightInTiles;
@@ -42,14 +40,14 @@ LoadAssetFile(char *Path){
                 GlobalLevelData[I].EnemyCount = Level->EnemyCount;
             }
             
-            for(u32 I = 0; I < GlobalLevelCount; I++){
+            for(u32 I = 0; I < GlobalLevelData.Count; I++){
                 u32 MapSize = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
                 GlobalLevelData[I].MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
                 u8 *Map = ConsumeArray(&Stream, u8, MapSize);
                 CopyMemory(GlobalLevelData[I].MapData, Map, MapSize);
             }
             
-            for(u32 I = 0; I < GlobalLevelCount; I++){
+            for(u32 I = 0; I < GlobalLevelData.Count; I++){
                 GlobalLevelData[I].MaxEnemyCount = 50;
                 GlobalLevelData[I].Enemies = PushArray(&GlobalEnemyMemory,
                                                        level_enemy,
@@ -64,11 +62,9 @@ LoadAssetFile(char *Path){
                 }
             }
         }else if(Header->Version == 2){
-            GlobalLevelCount = Header->LevelCount;
+            PushNArrayItems(&GlobalLevelData, Header->LevelCount);
             
-            GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
-            
-            for(u32 I = 0; I < GlobalLevelCount; I++){
+            for(u32 I = 0; I < GlobalLevelData.Count; I++){
                 asset_file_level *Level = ConsumeType(&Stream, asset_file_level);
                 GlobalLevelData[I].WidthInTiles = Level->WidthInTiles;
                 GlobalLevelData[I].HeightInTiles = Level->HeightInTiles;
@@ -76,14 +72,14 @@ LoadAssetFile(char *Path){
                 GlobalLevelData[I].EnemyCount = Level->EnemyCount;
             }
             
-            for(u32 I = 0; I < GlobalLevelCount; I++){
+            for(u32 I = 0; I < GlobalLevelData.Count; I++){
                 u32 MapSize = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
                 GlobalLevelData[I].MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
                 u8 *Map = ConsumeArray(&Stream, u8, MapSize);
                 CopyMemory(GlobalLevelData[I].MapData, Map, MapSize);
             }
             
-            for(u32 I = 0; I < GlobalLevelCount; I++){
+            for(u32 I = 0; I < GlobalLevelData.Count; I++){
                 GlobalLevelData[I].MaxEnemyCount = 50;
                 GlobalLevelData[I].Enemies = PushArray(&GlobalEnemyMemory,
                                                        level_enemy,
@@ -98,17 +94,11 @@ LoadAssetFile(char *Path){
                 }
             }
             
-            for(u32 I = 0; I < GlobalLevelCount; I++){
+            for(u32 I = 0; I < GlobalLevelData.Count; I++){
                 level_data *Level = &GlobalLevelData[I];
                 char *Name = ConsumeString(&Stream);
                 
-                u64 Length = CStringLength(Name);
-                // TODO(Tyler): I am not sure if I like using the permanent storage arena
-                // for this
-                char *LevelName = PushArray(&GlobalPermanentStorageArena, char, Length+1);
-                LevelName[Length] = '\0';
-                Level->Name = LevelName;
-                CopyMemory(Level->Name, Name, Length);
+                CopyCString(Level->Name, Name, 512);
                 InsertIntoHashTable(&GlobalLevelTable, Level->Name, I+1);
                 
                 Level->CoinsRequiredToComplete = 60;
@@ -117,8 +107,7 @@ LoadAssetFile(char *Path){
             Assert(0);
         }
     }else{
-        GlobalLevelCount = 1;
-        GlobalLevelData = PushArray(&GlobalLevelMemory, level_data, GlobalLevelCount);
+        PushNewArrayItem(&GlobalLevelData);
         GlobalLevelData[0].WidthInTiles = 32;
         GlobalLevelData[0].HeightInTiles = 18;
         GlobalLevelData[0].WallCount = 0;
@@ -129,13 +118,16 @@ LoadAssetFile(char *Path){
         GlobalLevelData[0].Enemies = PushArray(&GlobalPermanentStorageArena,
                                                level_enemy,
                                                GlobalLevelData[0].MaxEnemyCount);
+        char *LevelName = "Test_Level";
+        CopyCString(GlobalLevelData[0].Name, LevelName, 512);
+        InsertIntoHashTable(&GlobalLevelTable, GlobalLevelData[0].Name, 0+1);
     }
 }
 
 // TODO(Tyler): Perhaps make backups???
 internal inline void
 WriteAssetFile(char *Path){
-    platform_file *File = OpenFile(Path, OpenFile_Write);
+    os_file *File = OpenFile(Path, OpenFile_Write);
     temp_memory Buffer;
     BeginTempMemory(&GlobalTransientStorageArena, &Buffer, Kilobytes(16));
     
@@ -144,9 +136,9 @@ WriteAssetFile(char *Path){
     Header->Header[1] = 'j';
     Header->Header[2] = 'a';
     Header->Version = 2;
-    Header->LevelCount = GlobalLevelCount;
+    Header->LevelCount = GlobalLevelData.Count;
     
-    for(u32 I = 0; I < GlobalLevelCount; I++){
+    for(u32 I = 0; I < GlobalLevelData.Count; I++){
         asset_file_level *Level = PushTempStruct(&Buffer, asset_file_level);
         Level->WidthInTiles = GlobalLevelData[I].WidthInTiles;
         Level->HeightInTiles = GlobalLevelData[I].HeightInTiles;
@@ -156,14 +148,14 @@ WriteAssetFile(char *Path){
     WriteToFile(File, 0, Buffer.Memory, Buffer.Used);
     
     u32 Offset = (u32)Buffer.Used;
-    for(u32 I = 0; I < GlobalLevelCount; I++){
+    for(u32 I = 0; I < GlobalLevelData.Count; I++){
         u32 MapSize = GlobalLevelData[I].WidthInTiles*GlobalLevelData[I].HeightInTiles;
         WriteToFile(File, Offset, GlobalLevelData[I].MapData, MapSize);
         Offset += MapSize;
     }
     
     Buffer.Used = 0;
-    for(u32 I = 0; I < GlobalLevelCount; I++){
+    for(u32 I = 0; I < GlobalLevelData.Count; I++){
         level_data *Level = &GlobalLevelData[I];
         for(u32 J = 0; J < Level->EnemyCount; J++){
             level_enemy *LevelEnemy = &Level->Enemies[J];
@@ -179,10 +171,10 @@ WriteAssetFile(char *Path){
     WriteToFile(File, Offset, Buffer.Memory, Buffer.Used);
     Offset += (u32)Buffer.Used;
     
-    for(u32 I = 0; I < GlobalLevelCount; I++){
+    for(u32 I = 0; I < GlobalLevelData.Count; I++){
         level_data *Level = &GlobalLevelData[I];
         u32 Length = CStringLength(Level->Name);
-        WriteToFile(File, Offset, Level->Name, Length);
+        WriteToFile(File, Offset, Level->Name, Length+1);
         Offset += Length+1; // +1 for NULL terminator
     }
     

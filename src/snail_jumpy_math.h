@@ -230,7 +230,11 @@ LengthSquared(v2 V)
 
 internal inline v2
 Normalize(v2 V){
-    v2 Result = V/SquareRoot(LengthSquared(V));
+    f32 Length = SquareRoot(LengthSquared(V));
+    v2 Result = {0};
+    if(Length > 0.0f){
+        Result = V/Length;
+    }
     return(Result);
 }
 

@@ -8,25 +8,34 @@ UpdateAndRenderMainGame(){
     //TIMED_FUNCTION();
     
     // TODO(Tyler): User input should be handled better
-    if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Up])){
-        GlobalCurrentLevel++;
-        if(GlobalCurrentLevel == GlobalLevelCount){
-            GlobalCurrentLevel = 0;
+    if(IsKeyJustPressed(KeyCode_Up)){
+        u32 Index = GlobalCurrentLevelIndex;
+        Index++;
+        if(Index == GlobalLevelData.Count){
+            Index = 0;
         }
-        ChangeState(GameMode_None, GlobalLevelData[GlobalCurrentLevel].Name);
-    }else if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Down])){
+        ChangeState(GameMode_None, GlobalLevelData[Index].Name);
+    }else if(IsKeyJustPressed(KeyCode_Down)){
+        u32 Index = GlobalCurrentLevelIndex;
+        if(Index == 0){
+            Index = GlobalLevelData.Count-1;
+        }else{
+            Index--;
+        }
+        ChangeState(GameMode_None, GlobalLevelData[Index].Name);
         GlobalCurrentLevel--;
-        if(GlobalCurrentLevel == U32_MAX){
-            GlobalCurrentLevel = GlobalLevelCount-1;
-        }
-        ChangeState(GameMode_None, GlobalLevelData[GlobalCurrentLevel].Name);
     }
     
-    if(IsButtonJustPressed(&GlobalInput.Buttons['E'])){
-        ChangeState(GameMode_LevelEditor, 0);
+    if(IsKeyJustPressed('E')){
+        ToggleEditor();
     }
     
-    if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Escape])){
+    if(IsKeyJustPressed(KeyCode_Escape)){
+        ChangeState(GameMode_Overworld, 0);
+    }
+    
+    if(IsKeyJustPressed('C')){
+        GlobalCurrentLevel->IsCompleted = true;
         ChangeState(GameMode_Overworld, 0);
     }
     
@@ -47,7 +56,6 @@ UpdateAndRenderMainGame(){
     {
         if(GlobalManager.Player->AnimationCooldown <= 0.0f){
             v2 ddP = {0};
-            
 #if 0            
             if(GlobalManager.Player->CurrentAnimation == PlayerAnimation_Death){
                 GlobalManager.Player->State &= ~EntityState_Dead;
@@ -55,12 +63,12 @@ UpdateAndRenderMainGame(){
                 GlobalManager.Player->dP = {0, 0};
             }
 #endif
-            if((GlobalManager.Player->JumpTime < 0.1f) &&
-               GlobalInput.Buttons[KeyCode_Space].EndedDown){
+            
+            if((GlobalManager.Player->JumpTime < 0.1f) && IsKeyDown(KeyCode_Space)){
                 ddP.Y += 88.0f;
                 GlobalManager.Player->JumpTime += GlobalInput.dTimeForFrame;
-                GlobalManager.Player->IsGrounded= false;
-            }else if(!GlobalInput.Buttons[KeyCode_Space].EndedDown){
+                GlobalManager.Player->IsGrounded = false;
+            }else if(!IsKeyDown(KeyCode_Space)){
                 GlobalManager.Player->JumpTime = 2.0f;
                 ddP.Y -= 17.0f;
             }else{
@@ -69,30 +77,25 @@ UpdateAndRenderMainGame(){
             
             b8 IsRunning = false;
             f32 MovementSpeed = 120;
-            if(GlobalInput.Buttons[KeyCode_Shift].EndedDown && 
-               (GlobalManager.Player->SprintTime < 2.0f)){
+            if(IsKeyDown(KeyCode_Shift) && (GlobalManager.Player->SprintTime < 2.0f)){
                 IsRunning = true;
-                MovementSpeed = 240;
+                MovementSpeed = 180;
                 GlobalManager.Player->SprintTime += GlobalInput.dTimeForFrame;
             }else{
                 if(GlobalManager.Player->SprintTime == 0.0f){
                 }else if(GlobalManager.Player->SprintTime < 0.0f){
                     GlobalManager.Player->SprintTime = 0.0f;
-                }else if(!GlobalInput.Buttons[KeyCode_Shift].EndedDown &&
-                         GlobalManager.Player->IsGrounded){
+                }else if(!IsKeyDown(KeyCode_Shift)){
                     GlobalManager.Player->SprintTime -= GlobalInput.dTimeForFrame;
                 }
             }
             
-            if(GlobalInput.Buttons[KeyCode_Right].EndedDown &&
-               !GlobalInput.Buttons[KeyCode_Left].EndedDown){
+            if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
                 ddP.X += MovementSpeed;
-            }else if(GlobalInput.Buttons[KeyCode_Left].EndedDown &&
-                     !GlobalInput.Buttons[KeyCode_Right].EndedDown){
+            }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
                 ddP.X -= MovementSpeed;
             }
             
-            // TODO(Tyler): It might be a better idea to use an espilon here
             if(ddP.X != 0.0f){
                 u8 Direction = 0.0f < ddP.X;
                 if(0.0f < GlobalManager.Player->dP.Y){
@@ -139,7 +142,7 @@ UpdateAndRenderMainGame(){
            (PlayerMin.X  <= P.X+Radius.X) &&
            (P.Y-Radius.Y <= PlayerMax.Y) &&
            (PlayerMin.Y  <= P.Y+Radius.Y)){
-            u32 RequiredCoins = GlobalLevelData[GlobalCurrentLevel].CoinsRequiredToComplete;
+            u32 RequiredCoins = GlobalCurrentLevel->CoinsRequiredToComplete;
             if((u32)GlobalScore >= RequiredCoins){
                 if(GlobalCompletionCooldown == 0.0f){
                     GlobalCompletionCooldown = 3.0f;
@@ -155,7 +158,7 @@ UpdateAndRenderMainGame(){
                     GlobalInput.WindowSize.Width/2, GlobalInput.WindowSize.Height/2
                 };
                 RenderFormatString(&RenderGroup, &GlobalMainFont, GREEN, 
-                                   TopCenter.X-(0.5f*Advance), TopCenter.Y, 0.0f,
+                                   TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
                                    "You need: %u more coins!", 
                                    RequiredCoins-GlobalScore);
             }
@@ -176,14 +179,14 @@ UpdateAndRenderMainGame(){
             Color.A = 2.0f * GlobalCompletionCooldown/3.0f;
         }
         RenderFormatString(&RenderGroup, &GlobalMainFont, Color, 
-                           TopCenter.X-(0.5f*Advance), TopCenter.Y, 0.0f,
+                           TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
                            "Level completed!");
         
         GlobalCompletionCooldown -= GlobalInput.dTimeForFrame;
         if(GlobalCompletionCooldown < 0.00001f){
-            ChangeState(GameMode_Overworld, 0);
+            GlobalCurrentLevel->IsCompleted = true;
             GlobalCompletionCooldown = 0.0f;
-            GlobalLevelData[GlobalCurrentLevel].IsCompleted = true;
+            ChangeState(GameMode_Overworld, 0);
         }
     }
     
@@ -203,33 +206,41 @@ UpdateAndRenderMainGame(){
     //~ Debug UI
     layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
                                  30, GlobalDebugFont.Size);
-    LayoutString(&RenderGroup, &Layout, &GlobalMainFont,
+    LayoutString(&Layout, &GlobalMainFont,
                  GREEN, "Score: %u", GlobalScore);
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+    LayoutString(&Layout, &GlobalDebugFont,
                  BLACK, "Counter: %.2f", GlobalCounter);
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+    LayoutString(&Layout, &GlobalDebugFont,
                  BLACK, "TransientMemory:  %'jd", GlobalTransientStorageArena.Used);
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+    LayoutString(&Layout, &GlobalDebugFont,
                  BLACK, "PermanentMemory:  %'jd", GlobalPermanentStorageArena.Used);
+    
+    local_persist u32 Counter = 0;
+    if(GlobalButtonMap['T'].IsDown && GlobalButtonMap['T'].JustDown){
+        Counter++;
+    }
+    LayoutString(&Layout, &GlobalDebugFont, BLACK,
+                 "Counter: %u", Counter);
     
     {
         layout Layout = CreateLayout(GlobalInput.WindowSize.Width-500, GlobalInput.WindowSize.Height-100,
                                      30, GlobalDebugFont.Size);
-        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
-                     BLACK, "Current level: %u", GlobalCurrentLevel);
-        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+        LayoutString(&Layout, &GlobalDebugFont,
+                     BLACK, "Current level: %u %s", GlobalCurrentLevelIndex, 
+                     GlobalCurrentLevel->Name);
+        LayoutString(&Layout, &GlobalDebugFont,
                      BLACK, "Use up and down arrows to change levels");
-        LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+        LayoutString(&Layout, &GlobalDebugFont,
                      BLACK, "Use 'e' to open the editor");
     }
     
-    LayoutFps(&RenderGroup, &Layout);
+    LayoutFps(&Layout);
     
     Layout.CurrentP.X += Layout.Advance.X;
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+    LayoutString(&Layout, &GlobalDebugFont,
                  BLACK, "Player velocity: %.2f %.2f",
                  GlobalManager.Player->dP.X, GlobalManager.Player->dP.Y);
-    LayoutString(&RenderGroup, &Layout, &GlobalDebugFont,
+    LayoutString(&Layout, &GlobalDebugFont,
                  BLACK, "Player animation: %u %f %f",
                  GlobalManager.Player->CurrentAnimation,
                  GlobalManager.Player->AnimationState,
@@ -237,6 +248,7 @@ UpdateAndRenderMainGame(){
     
     Layout.CurrentP.X -= Layout.Advance.X;
     
+    RenderAllUIPrimitives(&RenderGroup);
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);
