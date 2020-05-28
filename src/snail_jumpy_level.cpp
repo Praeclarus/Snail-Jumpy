@@ -10,7 +10,7 @@ AddPlayer(v2 P){
     GlobalManager.Player->Height = 0.5f;
     
     GlobalManager.Player->P = P;
-    GlobalManager.Player->ZLayer = -0.8f;
+    GlobalManager.Player->ZLayer = -0.7f;
     
     GlobalManager.Player->CurrentAnimation = PlayerAnimation_IdleLeft;
     GlobalManager.Player->Asset = Asset_Player;
@@ -47,6 +47,8 @@ LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
 
 internal void
 LoadLevel(const char *LevelName){
+    TIMED_FUNCTION();
+    
     ResetEntitySystem();
     
     if(LevelName){

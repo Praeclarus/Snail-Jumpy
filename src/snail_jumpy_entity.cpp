@@ -60,7 +60,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
     MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
     v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
     
-    RenderTexture(RenderGroup, P, P+Asset->SizeInMeters, -1.0f,
+    RenderTexture(RenderGroup, P, P+Asset->SizeInMeters, Entity->ZLayer,
                   Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
 }
 
@@ -585,7 +585,11 @@ UpdateAndRenderCoins(render_group *RenderGroup){
 
 internal void
 UpdateAndRenderEnemies(render_group *RenderGroup){
+    TIMED_FUNCTION();
+    
     for(u32 Id = 0; Id < GlobalManager.EnemyCount; Id++){
+        TIMED_SCOPE(UpdateAndRenderSingleEnemy);
+        
         enemy_entity *Enemy = &GlobalManager.Enemies[Id];
         
         if(Enemy->AnimationCooldown <= 0.0f){
@@ -632,8 +636,8 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
         v2 Radius = {0.1f, 0.1f};
         color Color = {1.0f, 0.0f, 0.0f, 1.0f};
         RenderRectangle(RenderGroup, Enemy->PathStart-Radius, Enemy->PathStart+Radius,
-                        -1.0f, Color);
+                        Enemy->ZLayer, Color);
         RenderRectangle(RenderGroup, Enemy->PathEnd-Radius, Enemy->PathEnd+Radius,
-                        -1.0f, Color);
+                        Enemy->ZLayer, Color);
     }
 }

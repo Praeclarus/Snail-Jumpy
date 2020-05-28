@@ -494,6 +494,8 @@ WinMain(HINSTANCE Instance,
                             }else if(VkCode == VK_OEM_MINUS){
                                 Event.Key = KeyCode_Minus;
                                 //Win32ProcessKeyboardInput(&GlobalInput.Buttons['-'], IsDown);
+                            }else{
+                                continue;
                             }
                             
                             if(IsDown){
@@ -531,7 +533,7 @@ WinMain(HINSTANCE Instance,
                             }goto process_mouse_up;
                             
                             process_mouse_up:;
-                            Event.Kind = OSEventKind_MouseDown;
+                            Event.Kind = OSEventKind_MouseUp;
                             ProcessInput(&Event);
                         }break;
                         default: {
@@ -557,7 +559,7 @@ WinMain(HINSTANCE Instance,
                 };
                 
                 // TODO(Tyler): Multithreading?
-                GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+                //GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
                 GameUpdateAndRender();
                 
 #if 0                

@@ -65,7 +65,7 @@ internal void
 UISlider(f32 X, f32 Y,
          f32 Width, f32 Height, f32 CursorWidth,
          f32 *SliderPercent){
-    v2 MouseP = GlobalInput.MouseP;
+    v2 MouseP = GlobalMouseP;
     f32 XMargin = 10;
     f32 YMargin = 30;
     f32 CursorX = *SliderPercent*(Width-CursorWidth);
@@ -76,8 +76,8 @@ UISlider(f32 X, f32 Y,
        (GlobalInput.LastMouseP.Y < Y+Height+YMargin)){
         
         CursorColor = {0.5f, 0.8f, 0.6f, 0.9f};
-        if(GlobalInput.LeftMouseButton.IsDown){
-            GlobalUIManager.JustHandledUIInput = true;
+        if(IsKeyDown(KeyCode_LeftMouse)){
+            GlobalUIManager.HandledInput = true;
             CursorX = MouseP.X-X-(CursorWidth/2);
             if((CursorX+CursorWidth) > (Width)){
                 CursorX = Width-CursorWidth;
@@ -108,14 +108,17 @@ UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text){
     
     color ButtonColor = color{0.1f, 0.3f, 0.2f, 0.9f};
     b32 Result = false;
-    if((X < GlobalInput.MouseP.X) && (GlobalInput.MouseP.X < X+Width) &&
-       (Y < GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y < Y+Height)){
-        if(IsButtonJustPressed(&GlobalInput.LeftMouseButton)){
-            GlobalUIManager.JustHandledUIInput = true;
+    if((X < GlobalMouseP.X) && (GlobalMouseP.X < X+Width) &&
+       (Y < GlobalMouseP.Y) && (GlobalMouseP.Y < Y+Height)){
+        if(IsKeyJustPressed(KeyCode_LeftMouse)){
             ButtonColor = color{0.5f, 0.8f, 0.6f, 0.9f};
             Result = true;
         }else{
             ButtonColor = color{0.25f, 0.4f, 0.3f, 0.9f};
+        }
+        
+        if(IsKeyDown(KeyCode_LeftMouse)){
+            GlobalUIManager.HandledInput = true;
         }
     }
     
@@ -134,11 +137,11 @@ internal void
 UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height, u32 Id){
     if(GlobalUIManager.SelectedWidgetId == Id){
         for(u8 I = 0; I < KeyCode_ASCIICOUNT; I++){
-            if(IsButtonJustPressed(&GlobalInput.Buttons[I])){
-                GlobalUIManager.JustHandledUIInput = true;
+            if(IsKeyJustPressed(I)){
+                GlobalUIManager.HandledInput = true;
                 
                 char Char = I;
-                if(GlobalInput.Buttons[KeyCode_Shift].IsDown){
+                if(IsKeyDown(KeyCode_Shift)){
                     if(Char == '-'){
                         Char = '_';
                     }
@@ -153,27 +156,16 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
                 TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
             }
         }
-        if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_BackSpace])){
-            GlobalUIManager.JustHandledUIInput = true;
+        if(IsKeyJustPressed(KeyCode_BackSpace)){
+            GlobalUIManager.HandledInput = true;
             if(TextBoxData->BufferIndex > 0){
                 TextBoxData->BufferIndex--;
                 TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
             }
-        }else if(GlobalInput.Buttons[KeyCode_BackSpace].IsDown &&
-                 (TextBoxData->BackSpaceHoldTime <= 0.3f)){
-            TextBoxData->BackSpaceHoldTime += GlobalInput.dTimeForFrame;
-        }else if(GlobalInput.Buttons[KeyCode_BackSpace].IsDown &&
-                 (TextBoxData->BackSpaceHoldTime > 0.3f)){
-            if(TextBoxData->BufferIndex > 0){
-                TextBoxData->BufferIndex--;
-                TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
-            }
-        }else{
-            TextBoxData->BackSpaceHoldTime = 0.0f;
         }
         
-        if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Escape])){
-            GlobalUIManager.JustHandledUIInput = true;
+        if(IsKeyJustPressed(KeyCode_Escape)){
+            GlobalUIManager.HandledInput = true;
             GlobalUIManager.SelectedWidgetId = 0;
         }
     }
@@ -191,14 +183,15 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
         TextColor = WHITE;
     }
     
-    if((Min.X <= GlobalInput.MouseP.X) && (GlobalInput.MouseP.X <= Max.X) &&
-       (Min.Y <= GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y <= Max.Y)){
-        if(IsButtonJustPressed(&GlobalInput.LeftMouseButton)){
+    if((Min.X <= GlobalMouseP.X) && (GlobalMouseP.X <= Max.X) &&
+       (Min.Y <= GlobalMouseP.Y) && (GlobalMouseP.Y <= Max.Y)){
+        if(IsKeyJustPressed(KeyCode_LeftMouse)){
             GlobalUIManager.SelectedWidgetId = Id;
         }else if(GlobalUIManager.SelectedWidgetId != Id){
             Color = color{0.25f, 0.4f, 0.3f, 0.9f};
         }
-    }else if(IsButtonJustPressed(&GlobalInput.LeftMouseButton)){
+    }else if(IsKeyJustPressed(KeyCode_LeftMouse) && 
+             (GlobalUIManager.SelectedWidgetId == Id)){
         GlobalUIManager.SelectedWidgetId = 0;
     }
     
@@ -210,6 +203,14 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
     v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - GlobalNormalFont.Ascent/2};
     PushUIString(v2{P.X, P.Y}, Z-.03f, &GlobalNormalFont, TextColor, 
                  "%s", TextBoxData->Buffer);
+}
+
+internal inline void
+TransferAndResetTextBoxInput(char *Buffer, text_box_data *Data, u32 BufferSize){
+    CopyCString(Buffer, Data->Buffer, 
+                Minimum(BufferSize, sizeof(Data->Buffer)));
+    Data->Buffer[0] = '\0';
+    Data->BufferIndex = 0;
 }
 
 //~ Layout

@@ -32,7 +32,7 @@ global ui_manager GlobalUIManager;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_MainGame;
+global game_mode GlobalGameMode = GameMode_OverworldEditor;
 
 global editor    GlobalEditor;
 
@@ -42,6 +42,7 @@ global memory_arena GlobalOverworldMapMemory;
 global u32          GlobalOverworldXTiles;
 global u32          GlobalOverworldYTiles;
 global array<teleporter_data> GlobalTeleporterData;
+global array<door_data> GlobalDoorData;
 
 global memory_arena GlobalMapDataMemory;
 global memory_arena GlobalEnemyMemory;
@@ -53,6 +54,7 @@ global u32               GlobalCurrentLevelIndex;
 
 internal inline void
 ChangeState(game_mode NewMode, const char *NewLevel);
+internal inline void SetCameraCenterP(v2 P, f32 TileSide);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -102,19 +104,21 @@ LoadFont(memory_arena *Arena,
 
 internal void
 ProcessInput(os_event *Event){
-    if((GlobalGameMode == GameMode_LevelEditor) ||
-       (GlobalGameMode == GameMode_LevelEditor)){
-        ProcessEditorInput(Event);
-    }else{
-        switch(Event->Kind){
-            case OSEventKind_KeyDown: {
-                GlobalButtonMap[Event->Key].JustDown = Event->JustDown;
-                GlobalButtonMap[Event->Key].IsDown = true;
-            }break;
-            case OSEventKind_KeyUp: {
-                GlobalButtonMap[Event->Key].IsDown = false;
-            }break;
-        }
+    switch(Event->Kind){
+        case OSEventKind_KeyDown: {
+            GlobalButtonMap[Event->Key].JustDown = Event->JustDown;
+            GlobalButtonMap[Event->Key].IsDown = true;
+        }break;
+        case OSEventKind_KeyUp: {
+            GlobalButtonMap[Event->Key].IsDown = false;
+        }break;
+        case OSEventKind_MouseDown: {
+            GlobalButtonMap[Event->Button].JustDown = true;
+            GlobalButtonMap[Event->Button].IsDown = true;
+        }break;
+        case OSEventKind_MouseUp: {
+            GlobalButtonMap[Event->Button].IsDown = false;
+        }break;
     }
 }
 
@@ -153,6 +157,7 @@ InitializeGame(){
     // NOTE(Tyler): Overworld memory
     GlobalOverworldMapMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(8));
     GlobalTeleporterData = CreateNewArray<teleporter_data>(&GlobalPermanentStorageArena, 512);
+    GlobalDoorData = CreateNewArray<door_data>(&GlobalPermanentStorageArena, 512);
     
     // NOTE(Tyler): Initialize worlds
     LoadAssetFile("assets.sja"); 
@@ -229,18 +234,12 @@ InitializeGame(){
     InitializeRenderer();
 }
 
-internal inline void
-ChangeState(game_mode NewMode, const char *NewLevel){
-    GlobalStateChangeData.DidChange = true;
-    GlobalStateChangeData.NewMode = NewMode;
-    GlobalStateChangeData.NewLevel = NewLevel;
-}
-
 internal void
 GameUpdateAndRender(){
     GlobalTransientStorageArena.Used = 0;
     GlobalProfileData.CurrentBlockIndex = 0;
     GlobalUIManager.FirstPrimitive = 0;
+    GlobalUIManager.HandledInput = false;
     
     TIMED_FUNCTION();
     
@@ -290,5 +289,29 @@ GameUpdateAndRender(){
     
     for(u32 I = 0; I < KeyCode_TOTAL; I++){
         GlobalButtonMap[I].JustDown = false;
+    }
+}
+
+
+internal inline void
+ChangeState(game_mode NewMode, const char *NewLevel){
+    GlobalStateChangeData.DidChange = true;
+    GlobalStateChangeData.NewMode = NewMode;
+    GlobalStateChangeData.NewLevel = NewLevel;
+}
+
+internal inline void
+SetCameraCenterP(v2 P, f32 TileSide){
+    v2 MapSize = TileSide*v2{(f32)GlobalOverworldXTiles, (f32)GlobalOverworldYTiles};
+    GlobalCameraP = P - 0.5f*0.5f*MapSize;
+    if((GlobalCameraP.X+0.5f*MapSize.X) > MapSize.X){
+        GlobalCameraP.X = 0.5f*MapSize.X;
+    }else if((GlobalCameraP.X) < 0.0f){
+        GlobalCameraP.X = 0.0f;
+    }
+    if((GlobalCameraP.Y+0.5f*MapSize.Y) > MapSize.Y){
+        GlobalCameraP.Y = 0.5f*MapSize.Y;
+    }else if((GlobalCameraP.Y) < 0.0f){
+        GlobalCameraP.Y = 0.0f;
     }
 }

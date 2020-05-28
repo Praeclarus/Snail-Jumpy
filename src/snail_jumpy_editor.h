@@ -23,20 +23,24 @@ enum editor_popup {
     EditorPopup_RenameLevel,
     EditorPopup_ResizeLevel,
     EditorPopup_AddTeleporter,
+    EditorPopup_AddDoor,
 };
 
 struct editor {
     editor_popup Popup;
     v2 CursorP;
+    b8 IsDragging;
+    text_box_data TextInput;
+    text_box_data TextInput2;
     
     // Level editor
     edit_mode Mode;
     level_enemy *SelectedEnemy;
-    text_box_data TextInput;
     b8 HideUI;
     
     // Overworld editor
-    v2 NewTeleporterP;
+    u32 SelectedTeleporter;
+    v2 CursorP2; // Box dragging first P
 };
 
 #endif //SNAIL_JUMPY_EDITOR_H

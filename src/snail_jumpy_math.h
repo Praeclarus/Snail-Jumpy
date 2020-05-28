@@ -38,6 +38,21 @@ FloorF32(f32 A){
     return(floorf(A));
 }
 
+internal inline f32
+RoundF32(f32 A)
+{
+    f32 Result;
+    if(A < 0)
+    {
+        Result = FloorF32((A - 0.5f));
+    }
+    else
+    {
+        Result = FloorF32((A + 0.5f));
+    }
+    return(Result);
+}
+
 internal inline u32
 CeilF32ToS32(f32 A)
 {

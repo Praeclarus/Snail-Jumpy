@@ -1,6 +1,8 @@
 #if !defined(SNAIL_JUMPY_H)
 #define SNAIL_JUMPY_H
 
+#include "snail_jumpy_primitive_types.h"
+#include "snail_jumpy_debug.h"
 #include "snail_jumpy_types.cpp"
 #include "snail_jumpy_math.h"
 #include "snail_jumpy_render.h"
@@ -9,7 +11,6 @@
 #include "snail_jumpy_asset.h"
 #include "snail_jumpy_entity.h"
 #include "snail_jumpy_random.h"
-#include "snail_jumpy_debug.h"
 #include "snail_jumpy_ui.h"
 #include "snail_jumpy_level.h"
 #include "snail_jumpy_editor.h"

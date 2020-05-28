@@ -9,12 +9,8 @@ struct font {
 };
 
 struct text_box_data {
-    // TODO(Tyler): Maybe not make this fixed size?
     char Buffer[512];
     u32 BufferIndex;
-    
-    // TODO(Tyler): These could probably be made more formal
-    f32 BackSpaceHoldTime;
 };
 
 enum ui_primitive_type {
@@ -55,7 +51,7 @@ struct ui_manager {
     u32 SelectedWidgetId;
     
     // TODO(Tyler): Perhaps this should be part of the os_input structure?
-    b8 JustHandledUIInput;
+    b8 HandledInput;
 };
 
 #endif //SNAIL_JUMPY_UI_H

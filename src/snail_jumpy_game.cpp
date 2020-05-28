@@ -1,6 +1,4 @@
 
-internal void LoadOverworld();
-
 global f32 GlobalCompletionCooldown;
 
 internal void
@@ -205,7 +203,7 @@ UpdateAndRenderMainGame(){
     
     //~ Debug UI
     layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
-                                 30, GlobalDebugFont.Size);
+                                 30, GlobalDebugFont.Size, 100, -0.9f);
     LayoutString(&Layout, &GlobalMainFont,
                  GREEN, "Score: %u", GlobalScore);
     LayoutString(&Layout, &GlobalDebugFont,
@@ -215,12 +213,8 @@ UpdateAndRenderMainGame(){
     LayoutString(&Layout, &GlobalDebugFont,
                  BLACK, "PermanentMemory:  %'jd", GlobalPermanentStorageArena.Used);
     
-    local_persist u32 Counter = 0;
-    if(GlobalButtonMap['T'].IsDown && GlobalButtonMap['T'].JustDown){
-        Counter++;
-    }
     LayoutString(&Layout, &GlobalDebugFont, BLACK,
-                 "Counter: %u", Counter);
+                 "Enemy count: %u", GlobalManager.EnemyCount);
     
     {
         layout Layout = CreateLayout(GlobalInput.WindowSize.Width-500, GlobalInput.WindowSize.Height-100,

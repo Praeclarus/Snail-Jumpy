@@ -105,8 +105,6 @@ struct door_entity {
     b8 IsOpen;
     
     f32 AnimationCooldown;
-    
-    const char *RequiredLevelToOpen;
 };
 
 struct entity {

@@ -1,20 +1,3 @@
-
-internal inline void
-SetCameraCenterP(v2 P, f32 TileSide){
-    v2 MapSize = TileSide*v2{(f32)GlobalOverworldXTiles, (f32)GlobalOverworldYTiles};
-    GlobalCameraP = P - 0.5f*0.5f*MapSize;
-    if((GlobalCameraP.X+0.5f*MapSize.X) > MapSize.X){
-        GlobalCameraP.X = 0.5f*MapSize.X;
-    }else if((GlobalCameraP.X) < 0.0f){
-        GlobalCameraP.X = 0.0f;
-    }
-    if((GlobalCameraP.Y+0.5f*MapSize.Y) > MapSize.Y){
-        GlobalCameraP.Y = 0.5f*MapSize.Y;
-    }else if((GlobalCameraP.Y) < 0.0f){
-        GlobalCameraP.Y = 0.0f;
-    }
-}
-
 internal void
 InitializeOverworld(){
     local_constant u32 XTiles = 64;
@@ -75,6 +58,8 @@ InitializeOverworld(){
 
 internal void
 LoadOverworld(){
+    TIMED_FUNCTION();
+    
     ResetEntitySystem();
     u8 *Map = GlobalOverworldMapMemory.Memory;
     
@@ -97,20 +82,14 @@ LoadOverworld(){
     
     // NOTE(Tyler): Load doors
     {
-        AllocateNEntities(2, EntityType_Door);
-        v2 P = {20*TileSideInMeters, 4*TileSideInMeters};
-        GlobalManager.Doors[0].Size = v2{1*TileSideInMeters, 3*TileSideInMeters};
-        GlobalManager.Doors[0].P = P+(GlobalManager.Doors[0].Size/2.0f);
-        GlobalManager.Doors[0].RequiredLevelToOpen = "Test_Level";
-        
-        P = {39*TileSideInMeters, 6.f*TileSideInMeters};
-        GlobalManager.Doors[1].Size = v2{1*TileSideInMeters, 2*TileSideInMeters};
-        GlobalManager.Doors[1].P = P+(GlobalManager.Doors[1].Size/2.0f);
-        GlobalManager.Doors[1].RequiredLevelToOpen = "Test_Level3";
-        
-        for(u32 DoorId = 0; DoorId < GlobalManager.DoorCount; DoorId++){
-            door_entity *Door = &GlobalManager.Doors[DoorId];
-            if(IsLevelCompleted(Door->RequiredLevelToOpen)){
+        AllocateNEntities(GlobalDoorData.Count, EntityType_Door);
+        for(u32 I = 0; I < GlobalDoorData.Count; I++){
+            door_data *Data = &GlobalDoorData[I];
+            door_entity *Door = &GlobalManager.Doors[I];
+            Door->P = Data->P;
+            Door->Size = Data->Size;
+            
+            if(IsLevelCompleted(Data->RequiredLevelToOpen)){
                 OpenDoor(Door);
             }
         }
@@ -153,6 +132,24 @@ LoadOverworld(){
     GlobalManager.Player->ZLayer = -0.5f;
     
     SetCameraCenterP(GlobalManager.Player->P, TileSideInMeters);
+    
+    {
+        door_data *Door = PushNewArrayItem(&GlobalDoorData);
+        Door->P.X = 20.5f*TileSideInMeters;
+        Door->P.Y = 5.5f*TileSideInMeters;
+        Door->Width = 1*TileSideInMeters;
+        Door->Height = 3*TileSideInMeters;
+        CopyCString(Door->RequiredLevelToOpen, "Test_Level", 512);
+    }
+    
+    {
+        door_data *Door = PushNewArrayItem(&GlobalDoorData);
+        Door->P.X = 39.5f*TileSideInMeters;
+        Door->P.Y = 7.0f*TileSideInMeters;
+        Door->Width = 1*TileSideInMeters;
+        Door->Height = 2*TileSideInMeters;
+        CopyCString(Door->RequiredLevelToOpen, "Test_Level3", 512);
+    }
 }
 
 internal void

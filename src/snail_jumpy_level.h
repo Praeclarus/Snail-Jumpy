@@ -26,9 +26,19 @@ struct level_data {
     b8 IsCompleted;
 };
 
+
 struct teleporter_data {
     char Level[512];
     char RequiredLevelToUnlock[512];
+};
+
+struct door_data {
+    v2 P;
+    union {
+        struct { f32 Width, Height; };
+        v2 Size;
+    };
+    char RequiredLevelToOpen[512];
 };
 
 #endif //SNAIL_JUMPY_LEVEL_H

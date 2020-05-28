@@ -256,3 +256,20 @@ GetFormatStringAdvance(font *Font, const char *Format, ...){
     va_end(VarArgs);
     return(Result);
 }
+
+internal inline void 
+RenderCenteredString(render_group *RenderGroup, font *Font, color Color, v2 Center,
+                     f32 Z, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    f32 Advance = VGetFormatStringAdvance(Font, Format, VarArgs);
+    Center.X -= Advance/2.0f;
+    VRenderFormatString(RenderGroup, Font, Color, Center.X, Center.Y, Z, Format, VarArgs);
+    va_end(VarArgs);
+}
+
+internal inline void
+RenderCenteredRectangle(render_group *RenderGroup, 
+                        v2 Center, v2 Size, f32 Z, color Color){
+    RenderRectangle(RenderGroup, Center-Size/2, Center+Size/2, Z, Color);
+}

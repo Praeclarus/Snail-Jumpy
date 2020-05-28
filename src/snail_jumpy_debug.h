@@ -48,8 +48,9 @@ struct timed_scope {
     }
 };
 
-#define TIMED_SCOPE(Id, Name) timed_scope TimedScope##Id(Name);
-#define TIMED_FUNCTION() TIMED_SCOPE(FUNC, __FUNCTION__)
+#define _TIMED_SCOPE(Id, Name) timed_scope TimedScope##Id(Name);
+#define TIMED_SCOPE(Id) timed_scope TimedScope##Id(#Id);
+#define TIMED_FUNCTION() _TIMED_SCOPE(FUNC, __FUNCTION__)
 
 #define GetCycles(Id) \
 SafeRatio0(GlobalProfileData.TotalCycleCounts[ProfilerIndex##Id], GlobalProfileData.ProfileCounts[ProfilerIndex##Id])
