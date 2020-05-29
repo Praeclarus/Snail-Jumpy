@@ -39,6 +39,7 @@ global editor    GlobalEditor;
 
 global v2           GlobalCameraP;
 global v2           GlobalLastOverworldPlayerP;
+
 global memory_arena GlobalOverworldMapMemory;
 global u32          GlobalOverworldXTiles;
 global u32          GlobalOverworldYTiles;
@@ -161,9 +162,8 @@ InitializeGame(){
     GlobalDoorData = CreateNewArray<door_data>(&GlobalPermanentStorageArena, 512);
     
     // NOTE(Tyler): Initialize worlds
-    //LoadAssetFile("assets.sja"); 
-    //LoadLevelFromFile("Test_Level");
-    InitializeOverworld(); // TODO(Tyler): This should be loaded from the asset file 
+    LoadOverworldFromFile();
+    //InitializeOverworld(); // TODO(Tyler): This should be loaded from the asset file 
     
     if((GlobalGameMode == GameMode_Overworld) ||
        (GlobalGameMode == GameMode_OverworldEditor)){

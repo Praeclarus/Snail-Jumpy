@@ -229,6 +229,7 @@ IsLevelCompleted(const char *LevelName){
     return(Result);
 }
 
+// TODO(Tyler): This could be made more ROBUST!!!
 internal level_data *
 LoadLevelFromFile(const char *Name){
     TIMED_FUNCTION();
@@ -273,9 +274,8 @@ LoadLevelFromFile(const char *Name){
         u32 Size = NewData->WidthInTiles*NewData->HeightInTiles;
         NewData->MapData = PushArray(&GlobalMapDataMemory, u8, Size);
         NewData->Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
-        char *LevelName = "Test_Level";
-        CopyCString(NewData->Name, LevelName, 512);
-        InsertIntoHashTable(&GlobalLevelTable, GlobalLevelData[0].Name, 0+1);
+        CopyCString(NewData->Name, (char *)Name, 512);
+        InsertIntoHashTable(&GlobalLevelTable, NewData->Name, 0+1);
     }
     return(NewData);
 }
@@ -288,21 +288,20 @@ SaveLevelsToFile(){
         char Path[512];
         stbsp_snprintf(Path, 512, "levels/%s.sjl", Level->Name);
         os_file *File = OpenFile(Path, OpenFile_Write);
-        temp_memory Buffer;
-        BeginTempMemory(&GlobalTransientStorageArena, &Buffer, 1024);
+        Assert(File);
         
-        level_file_header *Header = PushTempStruct(&Buffer, level_file_header);
-        Header->Header[0] = 'S';
-        Header->Header[1] = 'J';
-        Header->Header[2] = 'L';
+        level_file_header Header = {0};;
+        Header.Header[0] = 'S';
+        Header.Header[1] = 'J';
+        Header.Header[2] = 'L';
         
-        Header->Version = 1;
-        Header->WidthInTiles = Level->WidthInTiles;
-        Header->HeightInTiles = Level->HeightInTiles;
-        Header->EnemyCount = Level->Enemies.Count;
+        Header.Version = 1;
+        Header.WidthInTiles = Level->WidthInTiles;
+        Header.HeightInTiles = Level->HeightInTiles;
+        Header.EnemyCount = Level->Enemies.Count;
         
-        WriteToFile(File, 0, Buffer.Memory, sizeof(level_file_header));
-        u32 Offset = (u32)Buffer.Used;
+        WriteToFile(File, 0, &Header, sizeof(Header));
+        u32 Offset = sizeof(Header);
         
         u32 NameLength = CStringLength(Level->Name);
         WriteToFile(File, Offset, Level->Name, NameLength+1);
@@ -312,11 +311,8 @@ SaveLevelsToFile(){
         WriteToFile(File, Offset, Level->MapData, MapSize);
         Offset += MapSize;
         
-        EndTempMemory(&GlobalTransientStorageArena, &Buffer);
-        
         WriteToFile(File, Offset, Level->Enemies.Items, 
-                    Level->Enemies.Count*sizeof(level_enemy));
-        
+                    Level->Enemies.Count*sizeof(*Level->Enemies.Items));
         CloseFile(File);
     }
 }

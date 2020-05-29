@@ -218,6 +218,12 @@ TransferAndResetTextBoxInput(char *Buffer, text_box_data *Data, u32 BufferSize){
     Data->BufferIndex = 0;
 }
 
+internal inline void
+ResetTextBoxInput(text_box_data *Data){
+    Data->Buffer[0] = '\0';
+    Data->BufferIndex = 0;
+}
+
 //~ Layout
 // TODO(Tyler): The layout system is really bad, it needs to be improved!
 
@@ -272,7 +278,7 @@ LayoutString(layout *Layout, font *Font, color Color, char *Format, ...){
 }
 
 //~ Panel
-internal void
+internal b32
 PanelString(panel *Panel, char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
@@ -280,7 +286,11 @@ PanelString(panel *Panel, char *Format, ...){
     if((Advance+(2*Panel->Margin.X)) > Panel->Size.X){
         Panel->Size.X = (Advance+(2*Panel->Margin.X));
     }
-    // TODO(Tyler): Do this differently! Perhaps put it in a list/array inside P
+    v2 Min, Max;
+    Min.X = Panel->CurrentP.X;
+    Max.Y = Panel->CurrentP.Y;
+    
+    // TODO(Tyler): Do this differently! Perhaps put it in a list/array inside Panel
     Panel->CurrentP.Y -= Panel->NormalFont->Size+Panel->Margin.Y;
     Panel->Size.Y += Panel->NormalFont->Size+Panel->Margin.Y;
     v2 P = Panel->CurrentP;
@@ -292,6 +302,20 @@ PanelString(panel *Panel, char *Format, ...){
     P.Y -= Panel->Margin.Y;
     PushUIRectangle(P, v2{P.X+Panel->Size.X, P.Y+2}, Panel->Z-0.01f, Panel->SeparatorColor);
     va_end(VarArgs);
+    
+    Min.Y = Panel->CurrentP.Y;
+    Max.X = Panel->CurrentP.X + Panel->Size.X;
+    
+    b32 Clicked = false;
+    if((Min.X < GlobalMouseP.X) && (GlobalMouseP.X < Max.X) &&
+       (Min.Y < GlobalMouseP.Y) && (GlobalMouseP.Y < Max.Y)){
+        if(IsKeyJustPressed(KeyCode_LeftMouse)){
+            GlobalUIManager.HandledInput = true;
+            Clicked = true;
+        }
+    }
+    
+    return(Clicked);
 }
 
 internal void

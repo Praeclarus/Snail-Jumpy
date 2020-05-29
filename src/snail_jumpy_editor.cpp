@@ -22,6 +22,7 @@ CreateDefaultEditorPanel(){
     
     return(Panel);
 }
+
 internal void
 ToggleEditor(){
     if(GlobalGameMode == GameMode_LevelEditor){
@@ -59,33 +60,6 @@ GetTeleporterIndexFromP(v2 P){
     return(Index);
 }
 
-struct asset_info {
-    spritesheet_asset *Asset;
-    f32 YOffset;
-};
-internal inline asset_info
-GetAssetInfoFromEntityType(u32 Type){
-    asset_info Result = {0};
-    f32 YOffset = 0;
-    if(Type == EditMode_Snail){
-        Result.Asset = &GlobalAssets[Asset_Snail];
-        Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y;
-    }else if(Type == EditMode_Sally){
-        Result.Asset = &GlobalAssets[Asset_Sally];
-        Result.YOffset = 0.3f*Result.Asset->SizeInMeters.Y;
-    }else if(Type == EditMode_Dragonfly){
-        Result.Asset = &GlobalAssets[Asset_Dragonfly];
-        Result.YOffset = 0.25f*Result.Asset->SizeInMeters.Y;
-    }else if(Type == EditMode_Speedy){
-        Result.Asset = &GlobalAssets[Asset_Speedy];
-        Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y;
-    }else{
-        Assert(0);
-    }
-    
-    return(Result);
-}
-
 internal void
 RenderAddDoorPopup(render_group *RenderGroup){
     f32 TileSideInMeters = 0.5f;
@@ -100,16 +74,6 @@ RenderAddDoorPopup(render_group *RenderGroup){
               GlobalInput.WindowSize.Width/2.0f-Width/2.0f, 
               Y, -0.81f, Width, Height, 1);
     Y -= 30+Margin;
-    
-#if 0        
-    PushUIString(v2{GlobalInput.WindowSize.Width/2.0f-Width/2.0f, Y},
-                 -0.81f, &GlobalMainFont, BLACK, "Please enter level name:");
-    Y -= Height+Margin;
-    UITextBox(&GlobalEditor.TextInput2, 
-              GlobalInput.WindowSize.Width/2.0f-Width/2.0f, 
-              Y, -0.81f, Width, Height, 2);
-    Y -= 30+Margin;
-#endif
     
     if(UIButton(GlobalInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
                 100, 30, "Submit")){
@@ -132,6 +96,8 @@ RenderAddDoorPopup(render_group *RenderGroup){
     if(UIButton(GlobalInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
                 100, 30, "Abort")){
         GlobalEditor.Popup = EditorPopup_None;
+        ResetTextBoxInput(&GlobalEditor.TextInput);
+        ResetTextBoxInput(&GlobalEditor.TextInput2);
     }
     
     if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Escape])){
@@ -143,7 +109,7 @@ RenderAddDoorPopup(render_group *RenderGroup){
 }
 
 internal void
-RenderAddTeleporterPopup(render_group *RenderGroup){
+RenderTeleporterPopup(render_group *RenderGroup){
     f32 TileSideInMeters = 0.5f;
     f32 Width = 800;
     f32 Height = 30;
@@ -168,24 +134,35 @@ RenderAddTeleporterPopup(render_group *RenderGroup){
     
     if(UIButton(GlobalInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
                 100, 30, "Submit")){
-        v2 TileP = GlobalEditor.CursorP;
-        u32 Index = GetTeleporterIndexFromP(TileP);
-        GlobalEditor.SelectedThingType = EntityType_Teleporter;
-        GlobalEditor.SelectedThing = Index;
-        
-        teleporter_data *NewData = InsertNewArrayItem(&GlobalTeleporterData, 
-                                                      Index);
-        TransferAndResetTextBoxInput(NewData->Level, &GlobalEditor.TextInput, 
-                                     512);
-        TransferAndResetTextBoxInput(NewData->RequiredLevelToUnlock,
-                                     &GlobalEditor.TextInput2, 512);
-        
-        GlobalEditor.Popup = EditorPopup_None;
+        if(GlobalEditor.Popup == EditorPopup_AddTeleporter){
+            v2 TileP = GlobalEditor.CursorP;
+            u32 Index = GetTeleporterIndexFromP(TileP);
+            GlobalEditor.SelectedThingType = EntityType_Teleporter;
+            GlobalEditor.SelectedThing = Index;
+            
+            teleporter_data *NewData = InsertNewArrayItem(&GlobalTeleporterData, 
+                                                          Index);
+            TransferAndResetTextBoxInput(NewData->Level, &GlobalEditor.TextInput, 
+                                         512);
+            TransferAndResetTextBoxInput(NewData->RequiredLevelToUnlock,
+                                         &GlobalEditor.TextInput2, 512);
+            
+            GlobalEditor.Popup = EditorPopup_None;
+        }else if(GlobalEditor.Popup == EditorPopup_EditTeleporter){
+            Assert(GlobalEditor.SelectedThingType == EntityType_Teleporter);
+            teleporter_data *Data = &GlobalTeleporterData[GlobalEditor.SelectedThing];
+            TransferAndResetTextBoxInput(Data->Level, &GlobalEditor.TextInput, 
+                                         512);
+            TransferAndResetTextBoxInput(Data->RequiredLevelToUnlock,
+                                         &GlobalEditor.TextInput2, 512);
+        }
     }
     
     if(UIButton(GlobalInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
                 100, 30, "Abort")){
         GlobalEditor.Popup = EditorPopup_None;
+        ResetTextBoxInput(&GlobalEditor.TextInput);
+        ResetTextBoxInput(&GlobalEditor.TextInput2);
     }
     
     if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Escape])){
@@ -254,6 +231,9 @@ RenderEditorPopup(render_group *RenderGroup){
                 }else{
                     Assert(0);
                 }
+                
+                GlobalEditor.SelectedThingType = EntityType_None;
+                GlobalEditor.SelectedThing = 0;
             }else{
                 Assert(0);
             }
@@ -262,6 +242,8 @@ RenderEditorPopup(render_group *RenderGroup){
         if(UIButton(GlobalInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
                     100, 30, "Abort")){
             GlobalEditor.Popup = EditorPopup_None;
+            ResetTextBoxInput(&GlobalEditor.TextInput);
+            ResetTextBoxInput(&GlobalEditor.TextInput2);
         }
         
         if(IsButtonJustPressed(&GlobalInput.Buttons[KeyCode_Escape])){
@@ -270,8 +252,9 @@ RenderEditorPopup(render_group *RenderGroup){
         
         PushUIRectangle(v2{0,0}, GlobalInput.WindowSize, -0.8f, 
                         color{0.5f, 0.5f, 0.5f, 0.9f});
-    }else if(GlobalEditor.Popup == EditorPopup_AddTeleporter){
-        RenderAddTeleporterPopup(RenderGroup);
+    }else if((GlobalEditor.Popup == EditorPopup_AddTeleporter) ||
+             (GlobalEditor.Popup == EditorPopup_EditTeleporter)){
+        RenderTeleporterPopup(RenderGroup);
     }else if(GlobalEditor.Popup == EditorPopup_AddDoor){
         RenderAddDoorPopup(RenderGroup);
     }
@@ -319,8 +302,25 @@ RenderEditorThingUI(render_group *RenderGroup, panel *Panel){
         case EntityType_Teleporter: {
             teleporter_data *Data = &GlobalTeleporterData[GlobalEditor.SelectedThing];
             
-            PanelString(Panel, "%s", Data->Level);
-            PanelString(Panel, "%s", Data->RequiredLevelToUnlock);
+            if(PanelString(Panel, "Level: %s", Data->Level)){
+                CopyCString(GlobalEditor.TextInput.Buffer, Data->Level, 512);
+                CopyCString(GlobalEditor.TextInput2.Buffer, 
+                            Data->RequiredLevelToUnlock, 512);
+                GlobalEditor.Popup = EditorPopup_EditTeleporter;
+            }
+            if(Data->RequiredLevelToUnlock[0]){
+                if(PanelString(Panel, "Required level: %s", Data->RequiredLevelToUnlock)){
+                    CopyCString(GlobalEditor.TextInput.Buffer, Data->Level, 512);
+                    CopyCString(GlobalEditor.TextInput2.Buffer, 
+                                Data->RequiredLevelToUnlock, 512);
+                    GlobalEditor.Popup = EditorPopup_EditTeleporter;
+                }
+            }
+        }break;
+        case EntityType_Door: {
+            door_data *Data = &GlobalDoorData[GlobalEditor.SelectedThing];
+            
+            PanelString(Panel, "Required level: %s", Data->RequiredLevelToOpen);
         }break;
     }
 }
@@ -705,19 +705,14 @@ UpdateOverworldEditor(f32 MetersToPixels){
                 GlobalEditor.IsDragging = true;
             }
             
+            // TODO(Tyler): THIS IS HIDEOUS
             u8 *Map = GlobalOverworldMapMemory.Memory;
             u8 *TileId = &Map[((u32)TileP.Y*GlobalOverworldXTiles)+(u32)TileP.X];
             if(IsKeyDown(KeyCode_LeftMouse) && GlobalEditor.IsDragging){
                 if(*TileId == 0){
                     if(GlobalEditor.Mode == EditMode_AddTeleporter){
-                        if(*TileId == EntityType_Teleporter){
-                            u32 Index = GetTeleporterIndexFromP(TileP);
-                            GlobalEditor.SelectedThingType = EntityType_Teleporter;
-                            GlobalEditor.SelectedThing = Index;
-                        }else{ 
-                            GlobalEditor.Popup = EditorPopup_AddTeleporter;
-                            GlobalEditor.IsDragging = false;
-                        }
+                        GlobalEditor.Popup = EditorPopup_AddTeleporter;
+                        GlobalEditor.IsDragging = false;
                     }else{
                         *TileId = (u8)GlobalEditor.Mode;
                     }
@@ -741,10 +736,23 @@ UpdateOverworldEditor(f32 MetersToPixels){
             
         }else if(GlobalEditor.Mode == EditMode_AddDoor){
             if(IsKeyJustPressed(KeyCode_LeftMouse)){
-                GlobalEditor.IsDragging = true;
-                
                 v2 MouseP = (GlobalMouseP/MetersToPixels) + GlobalCameraP;
-                GlobalEditor.MouseP = MouseP;
+                v2 TileP = v2{
+                    FloorF32(MouseP.X/TileSize.X), 
+                    FloorF32(MouseP.Y/TileSize.Y)
+                };
+                
+                u8 *Map = GlobalOverworldMapMemory.Memory;
+                u8 *TileId = &Map[((u32)TileP.Y*GlobalOverworldXTiles)+(u32)TileP.X];
+                if(*TileId == EntityType_Teleporter){
+                    u32 Index = GetTeleporterIndexFromP(TileP);
+                    GlobalEditor.SelectedThingType = EntityType_Teleporter;
+                    GlobalEditor.SelectedThing = Index;
+                }else{
+                    GlobalEditor.IsDragging = true;
+                    
+                    GlobalEditor.MouseP = MouseP;
+                }
             }
             
             if(IsKeyDown(KeyCode_LeftMouse) && GlobalEditor.IsDragging){
@@ -784,15 +792,17 @@ UpdateOverworldEditor(f32 MetersToPixels){
                     GlobalEditor.CursorP.Y = CeilF32(MouseP.Y/TileSize.Y);
                 }
                 GlobalEditor.MouseP2 = MouseP2;
-                
+                f32 TileSideInMeters = TileSize.X;
                 
                 b8 DoorAlreadyExists = false;
                 v2 NewDoorMin = {0};
                 NewDoorMin.X = Minimum(GlobalEditor.CursorP.X, GlobalEditor.CursorP.Y);
                 NewDoorMin.Y = Minimum(GlobalEditor.CursorP.Y, GlobalEditor.CursorP.Y);
+                NewDoorMin *= TileSideInMeters;
                 v2 NewDoorMax = {0};
                 NewDoorMax.X = Maximum(GlobalEditor.CursorP.X, GlobalEditor.CursorP.Y);
                 NewDoorMax.Y = Maximum(GlobalEditor.CursorP.Y, GlobalEditor.CursorP.Y);
+                NewDoorMax *= TileSideInMeters;
                 u32 DoorIndex;
                 for(DoorIndex = 0; DoorIndex < GlobalDoorData.Count; DoorIndex++){
                     door_data *Door = &GlobalDoorData[DoorIndex];
@@ -850,9 +860,6 @@ UpdateAndRenderOverworldEditor(){
     };
     PanelString(&Panel, "Current mode: %s", ModeTable[GlobalEditor.Mode]);
     PanelString(&Panel, "CameraP: %f %f", GlobalCameraP.X, GlobalCameraP.Y);
-    PanelString(&Panel, "CursorP: %f %f", GlobalEditor.CursorP.X, GlobalEditor.CursorP.Y);
-    PanelString(&Panel, "CursorP2: %f %f", GlobalEditor.CursorP2.X, GlobalEditor.CursorP2.Y);
-    PanelString(&Panel, "Dragging: %u", GlobalEditor.IsDragging);
     RenderEditorThingUI(&RenderGroup, &Panel);
     DrawPanel(&Panel);
     
@@ -876,7 +883,7 @@ UpdateAndRenderOverworldEditor(){
                             v2{P.X+0.5f*TileSize.X, P.Y+TileSize.Y};
                         PInPixels *= RenderGroup.MetersToPixels;
                         PInPixels.Y += 5;
-                        RenderCenteredString(&RenderGroup, &GlobalNormalFont, GREEN, 
+                        RenderCenteredString(&RenderGroup, &GlobalNormalFont, BLACK, 
                                              PInPixels, -0.5f, Data->Level);
                         
                         v2 Center = P+(0.5f*TileSize);
@@ -899,7 +906,15 @@ UpdateAndRenderOverworldEditor(){
     for(u32 I = 0; I < GlobalDoorData.Count; I++){
         door_data *Door = &GlobalDoorData[I];
         v2 P = Door->P - GlobalCameraP;
-        RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, BROWN);
+        if((GlobalEditor.SelectedThingType == EntityType_Door) &&
+           (GlobalEditor.SelectedThing == I)){
+            v2 Margin = v2{0.1f, 0.1f};
+            v2 Size = Door->Size-Margin;
+            RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, BLACK);
+            RenderRectangle(&RenderGroup, P-(Size/2), P+(Size/2), -0.01f, BROWN);
+        }else{
+            RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, BROWN);
+        }
     }
     
     if((GlobalEditor.Mode == EditMode_AddWall) || 

@@ -315,3 +315,105 @@ UpdateAndRenderOverworld(){
     
     RenderGroupToScreen(&RenderGroup);
 }
+
+// TODO(Tyler): This could be made more ROBUST!!!
+internal void
+LoadOverworldFromFile(){
+    entire_file File = ReadEntireFile(&GlobalTransientStorageArena, "overworld.sjo");
+    if(File.Size){
+        stream Stream = CreateReadStream(File.Data, File.Size);
+        overworld_file_header *Header = ConsumeType(&Stream, overworld_file_header);
+        Assert((Header->Header[0] == 'S') && 
+               (Header->Header[1] == 'J') && 
+               (Header->Header[2] == 'O'));
+        Assert(Header->Version == 1);
+        
+        GlobalOverworldXTiles = Header->WidthInTiles;
+        GlobalOverworldYTiles = Header->HeightInTiles;
+        u32 MapSize = GlobalOverworldXTiles*GlobalOverworldYTiles;
+        u8 *MapData = PushArray(&GlobalOverworldMapMemory, u8, MapSize);
+        u8 *FileMapData = ConsumeBytes(&Stream, MapSize);
+        CopyMemory(MapData, FileMapData, MapSize);
+        
+        PushNArrayItems(&GlobalTeleporterData, Header->TeleporterCount);
+        for(u32 I = 0; I < Header->TeleporterCount; I++){
+            char *Level = ConsumeString(&Stream);
+            CopyCString(GlobalTeleporterData[I].Level, Level, 512);
+            char *RequiredLevelToUnlock = ConsumeString(&Stream);
+            CopyCString(GlobalTeleporterData[I].RequiredLevelToUnlock, 
+                        RequiredLevelToUnlock, 512);
+        }
+        
+        PushNArrayItems(&GlobalDoorData, Header->DoorCount);
+        for(u32 I = 0; I < Header->DoorCount; I++){
+            v2 *P = ConsumeType(&Stream, v2);
+            v2 *Size = ConsumeType(&Stream, v2);
+            GlobalDoorData[I].P = *P;
+            GlobalDoorData[I].Size = *Size;
+            char *RequiredLevelToOpen = ConsumeString(&Stream);
+            CopyCString(GlobalDoorData[I].RequiredLevelToOpen, 
+                        RequiredLevelToOpen, 512);
+        }
+        
+        
+        GlobalLastOverworldPlayerP = v2{1.5f, 1.5f};
+    }else{
+        // TODO(Tyler): Create default overworld
+        InitializeOverworld();
+        Assert(0);
+    }
+}
+
+internal void
+SaveOverworldToFile(){
+    os_file *File = OpenFile("overworld.sjo", OpenFile_Write);
+    Assert(File);
+    
+    overworld_file_header Header = {0};
+    Header.Header[0] = 'S';
+    Header.Header[1] = 'J';
+    Header.Header[2] = 'O';
+    
+    Header.Version = 1;
+    Header.WidthInTiles = GlobalOverworldXTiles;
+    Header.HeightInTiles = GlobalOverworldYTiles;
+    Header.TeleporterCount = GlobalTeleporterData.Count;
+    Header.DoorCount = GlobalDoorData.Count;
+    
+    WriteToFile(File, 0, &Header, sizeof(Header));
+    u32 Offset = sizeof(Header);
+    
+    u32 MapSize = GlobalOverworldXTiles*GlobalOverworldYTiles;
+    WriteToFile(File, Offset, GlobalOverworldMapMemory.Memory, MapSize);
+    Offset += MapSize;
+    
+    for(u32 I = 0; I < GlobalTeleporterData.Count; I++){
+        teleporter_data *Data = &GlobalTeleporterData[I];
+        {
+            u32 Length = CStringLength(Data->Level);
+            WriteToFile(File, Offset, Data->Level, Length+1);
+            Offset += Length+1;
+        }{
+            u32 Length = CStringLength(Data->RequiredLevelToUnlock);
+            WriteToFile(File, Offset, Data->RequiredLevelToUnlock, Length+1);
+            Offset += Length+1;
+        }
+    }
+    
+    for(u32 I = 0; I < GlobalDoorData.Count; I++){
+        door_data *Data = &GlobalDoorData[I];
+        {
+            WriteToFile(File, Offset, &Data->P, sizeof(Data->P));
+            Offset += sizeof(Data->P);
+        }{
+            WriteToFile(File, Offset, &Data->Size, sizeof(Data->Size));
+            Offset += sizeof(Data->Size);
+        }{
+            u32 Length = CStringLength(Data->RequiredLevelToOpen);
+            WriteToFile(File, Offset, Data->RequiredLevelToOpen, Length+1);
+            Offset += Length+1;
+        }
+    }
+    
+    CloseFile(File);
+}

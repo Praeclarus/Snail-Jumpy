@@ -3,7 +3,6 @@ struct entire_file {
     u8 *Data;
     u64 Size;
 };
-
 internal entire_file
 ReadEntireFile(memory_arena *Arena, char *Path) {
     os_file *File = 0;
@@ -20,9 +19,29 @@ ReadEntireFile(memory_arena *Arena, char *Path) {
     return(Result);
 }
 
-#if 0
-internal inline void
-LoadAssetFile(char *Path){
+struct asset_info {
+    spritesheet_asset *Asset;
+    f32 YOffset;
+};
+internal inline asset_info
+GetAssetInfoFromEntityType(u32 Type){
+    asset_info Result = {0};
+    f32 YOffset = 0;
+    if(Type == EditMode_Snail){
+        Result.Asset = &GlobalAssets[Asset_Snail];
+        Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y;
+    }else if(Type == EditMode_Sally){
+        Result.Asset = &GlobalAssets[Asset_Sally];
+        Result.YOffset = 0.3f*Result.Asset->SizeInMeters.Y;
+    }else if(Type == EditMode_Dragonfly){
+        Result.Asset = &GlobalAssets[Asset_Dragonfly];
+        Result.YOffset = 0.25f*Result.Asset->SizeInMeters.Y;
+    }else if(Type == EditMode_Speedy){
+        Result.Asset = &GlobalAssets[Asset_Speedy];
+        Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y;
+    }else{
+        Assert(0);
+    }
     
+    return(Result);
 }
-#endif

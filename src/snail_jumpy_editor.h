@@ -23,6 +23,7 @@ enum editor_popup {
     EditorPopup_RenameLevel,
     EditorPopup_ResizeLevel,
     EditorPopup_AddTeleporter,
+    EditorPopup_EditTeleporter,
     EditorPopup_AddDoor,
 };
 

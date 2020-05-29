@@ -30,4 +30,16 @@ struct state_change_data {
     const char *NewLevel;
 };
 
+
+#pragma pack(push, 1)
+struct overworld_file_header {
+    char Header[3]; // 'S', 'J', 'O'
+    u32 Version;
+    u32 WidthInTiles;
+    u32 HeightInTiles;
+    u32 TeleporterCount;
+    u32 DoorCount;
+};
+#pragma pack(pop)
+
 #endif
