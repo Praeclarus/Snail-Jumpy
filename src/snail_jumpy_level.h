@@ -16,16 +16,12 @@ struct level_data {
     u32 WallCount;
     u8 *MapData;
     
-    u32 MaxEnemyCount;
-    u32 EnemyCount;
-    level_enemy *Enemies;
-    
+    array<level_enemy> Enemies;
     char Name[512];
     
     u32 CoinsRequiredToComplete;
     b8 IsCompleted;
 };
-
 
 struct teleporter_data {
     char Level[512];
@@ -40,5 +36,15 @@ struct door_data {
     };
     char RequiredLevelToOpen[512];
 };
+
+#pragma pack(push, 1)
+struct level_file_header {
+    char Header[3];
+    u32 Version;
+    u32 WidthInTiles;
+    u32 HeightInTiles;
+    u32 EnemyCount;
+};
+#pragma pack(pop)
 
 #endif //SNAIL_JUMPY_LEVEL_H

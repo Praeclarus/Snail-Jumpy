@@ -17,6 +17,7 @@ global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
 
 global font GlobalMainFont;
 global font GlobalNormalFont;
+global font GlobalTitleFont;
 global font GlobalDebugFont;
 
 global s32 GlobalScore;
@@ -32,7 +33,7 @@ global ui_manager GlobalUIManager;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_OverworldEditor;
+global game_mode GlobalGameMode = GameMode_Overworld;
 
 global editor    GlobalEditor;
 
@@ -160,7 +161,8 @@ InitializeGame(){
     GlobalDoorData = CreateNewArray<door_data>(&GlobalPermanentStorageArena, 512);
     
     // NOTE(Tyler): Initialize worlds
-    LoadAssetFile("assets.sja"); 
+    //LoadAssetFile("assets.sja"); 
+    //LoadLevelFromFile("Test_Level");
     InitializeOverworld(); // TODO(Tyler): This should be loaded from the asset file 
     
     if((GlobalGameMode == GameMode_Overworld) ||
@@ -226,6 +228,8 @@ InitializeGame(){
     
     LoadFont(&GlobalTransientStorageArena, &GlobalDebugFont,
              "c:/windows/fonts/Arial.ttf", 20, 512, 512);
+    LoadFont(&GlobalTransientStorageArena, &GlobalTitleFont,
+             "c:/windows/fonts/Arial.ttf", 30, 512, 512);
     LoadFont(&GlobalTransientStorageArena, &GlobalNormalFont,
              "Press-Start-2P.ttf", 12, 512, 512);
     LoadFont(&GlobalTransientStorageArena, &GlobalMainFont,

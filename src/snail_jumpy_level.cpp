@@ -90,8 +90,8 @@ LoadLevel(const char *LevelName){
             AddPlayer({1.5f, 1.5f});
             
             {
-                AllocateNEntities(GlobalCurrentLevel->EnemyCount, EntityType_Snail);
-                for(u32 I = 0; I < GlobalCurrentLevel->EnemyCount; I ++){
+                AllocateNEntities(GlobalCurrentLevel->Enemies.Count, EntityType_Snail);
+                for(u32 I = 0; I < GlobalCurrentLevel->Enemies.Count; I ++){
                     level_enemy *Enemy = &GlobalCurrentLevel->Enemies[I];
                     GlobalManager.Enemies[I] = {0};
                     GlobalManager.Enemies[I].Type = Enemy->Type;
@@ -154,7 +154,7 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex,
         }
     }
     
-    for(u32 I = 0; I < GlobalLevelData[LevelIndex].EnemyCount; I++){
+    for(u32 I = 0; I < GlobalLevelData[LevelIndex].Enemies.Count; I++){
         level_enemy *Enemy = &GlobalLevelData[LevelIndex].Enemies[I];
         // TODO(Tyler): This could be factored in to something
         spritesheet_asset *Asset = 0;
@@ -227,4 +227,96 @@ IsLevelCompleted(const char *LevelName){
     } 
     
     return(Result);
+}
+
+internal level_data *
+LoadLevelFromFile(const char *Name){
+    TIMED_FUNCTION();
+    
+    level_data *NewData = PushNewArrayItem(&GlobalLevelData);
+    u32 Index = GlobalLevelData.Count-1;
+    char Path[512];
+    stbsp_snprintf(Path, 512, "levels/%s.sjl", Name);
+    entire_file File = ReadEntireFile(&GlobalTransientStorageArena, Path);
+    if(File.Size){
+        stream Stream = CreateReadStream(File.Data, File.Size);
+        
+        level_file_header *Header = ConsumeType(&Stream, level_file_header);
+        Assert((Header->Header[0] == 'S') && 
+               (Header->Header[1] == 'J') && 
+               (Header->Header[2] == 'L'));
+        Assert(Header->Version == 1);
+        NewData->WidthInTiles = Header->WidthInTiles;
+        NewData->HeightInTiles = Header->HeightInTiles;
+        NewData->Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
+        NewData->Enemies.Count = Header->EnemyCount;
+        
+        // TODO(Tyler): This probably is not needed and could be removed
+        char *String = ConsumeString(&Stream);
+        CopyCString(NewData->Name, String, 512);
+        
+        u32 MapSize = NewData->WidthInTiles*NewData->HeightInTiles;
+        u8 *Map = ConsumeBytes(&Stream, MapSize);
+        NewData->MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
+        CopyMemory(NewData->MapData, Map, MapSize);
+        
+        for(u32 I = 0; I < NewData->Enemies.Count; I++){
+            level_enemy *FileEnemy = ConsumeType(&Stream, level_enemy);
+            NewData->Enemies[I] = *FileEnemy;
+        }
+        
+        InsertIntoHashTable(&GlobalLevelTable, NewData->Name, Index+1);
+    }else{
+        NewData->WidthInTiles = 32;
+        NewData->HeightInTiles = 18;
+        NewData->WallCount = 0;
+        u32 Size = NewData->WidthInTiles*NewData->HeightInTiles;
+        NewData->MapData = PushArray(&GlobalMapDataMemory, u8, Size);
+        NewData->Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
+        char *LevelName = "Test_Level";
+        CopyCString(NewData->Name, LevelName, 512);
+        InsertIntoHashTable(&GlobalLevelTable, GlobalLevelData[0].Name, 0+1);
+    }
+    return(NewData);
+}
+
+internal void
+SaveLevelsToFile(){
+    for(u32 I = 0; I < GlobalLevelData.Count; I++){
+        level_data *Level = &GlobalLevelData[I];
+        
+        char Path[512];
+        stbsp_snprintf(Path, 512, "levels/%s.sjl", Level->Name);
+        os_file *File = OpenFile(Path, OpenFile_Write);
+        temp_memory Buffer;
+        BeginTempMemory(&GlobalTransientStorageArena, &Buffer, 1024);
+        
+        level_file_header *Header = PushTempStruct(&Buffer, level_file_header);
+        Header->Header[0] = 'S';
+        Header->Header[1] = 'J';
+        Header->Header[2] = 'L';
+        
+        Header->Version = 1;
+        Header->WidthInTiles = Level->WidthInTiles;
+        Header->HeightInTiles = Level->HeightInTiles;
+        Header->EnemyCount = Level->Enemies.Count;
+        
+        WriteToFile(File, 0, Buffer.Memory, sizeof(level_file_header));
+        u32 Offset = (u32)Buffer.Used;
+        
+        u32 NameLength = CStringLength(Level->Name);
+        WriteToFile(File, Offset, Level->Name, NameLength+1);
+        Offset += NameLength+1;
+        
+        u32 MapSize = Level->WidthInTiles*Level->HeightInTiles;
+        WriteToFile(File, Offset, Level->MapData, MapSize);
+        Offset += MapSize;
+        
+        EndTempMemory(&GlobalTransientStorageArena, &Buffer);
+        
+        WriteToFile(File, Offset, Level->Enemies.Items, 
+                    Level->Enemies.Count*sizeof(level_enemy));
+        
+        CloseFile(File);
+    }
 }

@@ -28,19 +28,22 @@ enum editor_popup {
 
 struct editor {
     editor_popup Popup;
-    v2 CursorP;
-    b8 IsDragging;
     text_box_data TextInput;
     text_box_data TextInput2;
     
+    v2 MouseP;
+    v2 MouseP2;
+    v2 CursorP;
+    v2 CursorP2; // First P
+    b8 IsDragging;
+    
+    entity_type SelectedThingType;
+    u32 SelectedThing;
+    
     // Level editor
     edit_mode Mode;
-    level_enemy *SelectedEnemy;
+    //level_enemy *SelectedEnemy;
     b8 HideUI;
-    
-    // Overworld editor
-    u32 SelectedTeleporter;
-    v2 CursorP2; // Box dragging first P
 };
 
 #endif //SNAIL_JUMPY_EDITOR_H

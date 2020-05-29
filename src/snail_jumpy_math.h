@@ -39,6 +39,11 @@ FloorF32(f32 A){
 }
 
 internal inline f32
+CeilF32(f32 A){
+    return(ceilf(A));
+}
+
+internal inline f32
 RoundF32(f32 A)
 {
     f32 Result;

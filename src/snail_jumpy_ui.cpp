@@ -104,17 +104,22 @@ UISlider(f32 X, f32 Y,
 }
 
 internal b32
-UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text){
+UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text,
+         color Base=color{0.2f, 0.4f, 0.3f, 0.5f}, 
+         color Hovered=color{0.25f, 0.4f, 0.3f, 0.9f},
+         color Clicked=color{0.5f, 0.8f, 0.6f, 0.9f},
+         color TextColor=color{1.0f, 1.0f, 1.0f, 0.9f},
+         font *Font=&GlobalNormalFont){
     
-    color ButtonColor = color{0.1f, 0.3f, 0.2f, 0.9f};
+    color ButtonColor = Base;
     b32 Result = false;
     if((X < GlobalMouseP.X) && (GlobalMouseP.X < X+Width) &&
        (Y < GlobalMouseP.Y) && (GlobalMouseP.Y < Y+Height)){
         if(IsKeyJustPressed(KeyCode_LeftMouse)){
-            ButtonColor = color{0.5f, 0.8f, 0.6f, 0.9f};
+            ButtonColor = Clicked;
             Result = true;
         }else{
-            ButtonColor = color{0.25f, 0.4f, 0.3f, 0.9f};
+            ButtonColor = Hovered;
         }
         
         if(IsKeyDown(KeyCode_LeftMouse)){
@@ -124,10 +129,10 @@ UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text){
     
     PushUIRectangle({X, Y}, {X+Width, Y+Height},
                     Z-0.01f, ButtonColor);
-    f32 TextWidth = GetStringAdvance(&GlobalNormalFont, Text);
-    f32 HeightOffset = (GlobalNormalFont.Ascent/2);
+    f32 TextWidth = GetStringAdvance(Font, Text);
+    f32 HeightOffset = (Font->Ascent/2);
     PushUIString(v2{X+(Width/2)-(TextWidth/2), Y+(Height/2)-HeightOffset}, Z-0.02f,
-                 &GlobalNormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
+                 Font, TextColor,
                  Text);
     
     return(Result);
@@ -214,13 +219,7 @@ TransferAndResetTextBoxInput(char *Buffer, text_box_data *Data, u32 BufferSize){
 }
 
 //~ Layout
-struct layout {
-    v2 BaseP;
-    v2 CurrentP;
-    v2 Advance;
-    f32 Z;
-    f32 Width;
-};
+// TODO(Tyler): The layout system is really bad, it needs to be improved!
 
 internal inline layout
 CreateLayout(f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance, 
@@ -272,7 +271,118 @@ LayoutString(layout *Layout, font *Font, color Color, char *Format, ...){
     Layout->CurrentP.Y -= Font->Size;
 }
 
+//~ Panel
+internal void
+PanelString(panel *Panel, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    f32 Advance = VGetFormatStringAdvance(Panel->NormalFont, Format, VarArgs);
+    if((Advance+(2*Panel->Margin.X)) > Panel->Size.X){
+        Panel->Size.X = (Advance+(2*Panel->Margin.X));
+    }
+    // TODO(Tyler): Do this differently! Perhaps put it in a list/array inside P
+    Panel->CurrentP.Y -= Panel->NormalFont->Size+Panel->Margin.Y;
+    Panel->Size.Y += Panel->NormalFont->Size+Panel->Margin.Y;
+    v2 P = Panel->CurrentP;
+    P.X += Panel->Margin.X;
+    VPushUIString(P, Panel->Z-0.01f, Panel->NormalFont, Panel->NormalColor,
+                  Format, VarArgs);
+    
+    P.X = Panel->CurrentP.X;
+    P.Y -= Panel->Margin.Y;
+    PushUIRectangle(P, v2{P.X+Panel->Size.X, P.Y+2}, Panel->Z-0.01f, Panel->SeparatorColor);
+    va_end(VarArgs);
+}
 
+internal void
+PanelTitle(panel *Panel, char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    
+    f32 Advance = VGetFormatStringAdvance(Panel->TitleFont, Format, VarArgs);
+    if((Advance+(2*Panel->Margin.X)) > Panel->Size.X){
+        Panel->Size.X = (Advance+(2*Panel->Margin.X));
+    }
+    // TODO(Tyler): Do this differently! Perhaps put it in a list/array inside P
+    Panel->CurrentP.Y -= Panel->TitleFont->Size+Panel->Margin.Y;
+    Panel->Size.Y += Panel->TitleFont->Size+Panel->Margin.Y;
+    v2 P = Panel->CurrentP;
+    P.X += Panel->Margin.X;
+    VPushUIString(P, Panel->Z-0.01f, Panel->TitleFont, Panel->NormalColor,
+                  Format, VarArgs);
+    
+    P.X = Panel->CurrentP.X;
+    P.Y -= Panel->Margin.Y;
+    PushUIRectangle(P, v2{P.X+Panel->Size.X, P.Y+2}, Panel->Z-0.01f, Panel->SeparatorColor);
+    
+    va_end(VarArgs);
+}
+
+internal b32
+PanelButton(panel *Panel, char *Text){
+    
+    Panel->CurrentP.Y -= Panel->NormalFont->Size+3*Panel->Margin.Y;
+    Panel->Size.Y += Panel->NormalFont->Size+3*Panel->Margin.Y;
+    v2 P = Panel->CurrentP;
+    P.X += Panel->Margin.X;
+    v2 Size;
+    // TODO(Tyler): I don't like this
+    Size.X = Panel->Size.X - 2*Panel->Margin.X;
+    Size.Y = Panel->NormalFont->Size + 2*Panel->Margin.Y;
+    b32 Result = 
+        UIButton(P.X, P.Y, Panel->Z-0.01f, Size.X, Size.Y, Text,
+                 Panel->ButtonBaseColor, Panel->ButtonHoveredColor, 
+                 Panel->ButtonClickedColor, Panel->NormalColor, Panel->NormalFont);
+    
+    return(Result);
+}
+
+internal u32
+Panel2Buttons(panel *Panel, char *Text1, char *Text2){
+    
+    Panel->CurrentP.Y -= Panel->NormalFont->Size+3*Panel->Margin.Y;
+    Panel->Size.Y += Panel->NormalFont->Size+3*Panel->Margin.Y;
+    v2 P = Panel->CurrentP;
+    P.X += Panel->Margin.X;
+    v2 Size;
+    Size.X = Panel->Size.X - Panel->Margin.X;
+    Size.X /= 2.0f;
+    Size.X -= Panel->Margin.X/2.0f;
+    Size.Y = Panel->NormalFont->Size + 2*Panel->Margin.Y;
+    u32 Result = 0;
+    if(UIButton(P.X, P.Y, Panel->Z-0.01f, Size.X, Size.Y, Text1,
+                Panel->ButtonBaseColor, Panel->ButtonHoveredColor, 
+                Panel->ButtonClickedColor, Panel->NormalColor, Panel->NormalFont)){
+        Result = 1;
+    }
+    P.X += Size.X;
+    if(UIButton(P.X, P.Y, Panel->Z-0.01f, Size.X, Size.Y, Text2,
+                Panel->ButtonBaseColor, Panel->ButtonHoveredColor, 
+                Panel->ButtonClickedColor, Panel->NormalColor, Panel->NormalFont)){
+        Result = 2;
+    }
+    
+    return(Result);
+}
+
+internal void
+DrawPanel(panel *Panel){
+    f32 T = 3;
+    v2 Min = v2{Panel->BaseP.X, Panel->BaseP.Y-Panel->Size.Y};
+    v2 Max = Min + Panel->Size; 
+    Max.Y -= T;
+    Min.Y -= Panel->Margin.Y;
+    PushUIRectangle(Min, Max, Panel->Z, Panel->BackgroundColor);
+    
+    PushUIRectangle(v2{Min.X-T, Min.Y}, v2{Min.X, Max.Y+T}, 
+                    Panel->Z-0.01f, Panel->SeparatorColor);
+    PushUIRectangle(v2{Min.X, Max.Y}, v2{Max.X+T, Max.Y+T}, 
+                    Panel->Z-0.01f, Panel->SeparatorColor);
+    PushUIRectangle(v2{Max.X, Min.Y-T}, v2{Max.X+T, Max.Y}, 
+                    Panel->Z-0.01f, Panel->SeparatorColor);
+    PushUIRectangle(v2{Min.X-T, Min.Y-T}, v2{Max.X, Min.Y}, 
+                    Panel->Z-0.01f, Panel->SeparatorColor);
+}
 
 //~ Helpers
 internal void

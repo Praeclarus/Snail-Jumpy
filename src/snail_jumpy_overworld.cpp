@@ -54,6 +54,25 @@ InitializeOverworld(){
         GlobalOverworldMapMemory.Memory[I] = ((u8 *)TemplateMap)[I];
     }
     GlobalLastOverworldPlayerP = v2{1.5f, 1.5f};
+    
+    f32 TileSideInMeters = 0.5f;
+    {
+        door_data *Door = PushNewArrayItem(&GlobalDoorData);
+        Door->P.X = 20.5f*TileSideInMeters;
+        Door->P.Y = 5.5f*TileSideInMeters;
+        Door->Width = 1*TileSideInMeters;
+        Door->Height = 3*TileSideInMeters;
+        CopyCString(Door->RequiredLevelToOpen, "Test_Level", 512);
+    }
+    
+    {
+        door_data *Door = PushNewArrayItem(&GlobalDoorData);
+        Door->P.X = 39.5f*TileSideInMeters;
+        Door->P.Y = 7.0f*TileSideInMeters;
+        Door->Width = 1*TileSideInMeters;
+        Door->Height = 2*TileSideInMeters;
+        CopyCString(Door->RequiredLevelToOpen, "Test_Level3", 512);
+    }
 }
 
 internal void
@@ -132,24 +151,6 @@ LoadOverworld(){
     GlobalManager.Player->ZLayer = -0.5f;
     
     SetCameraCenterP(GlobalManager.Player->P, TileSideInMeters);
-    
-    {
-        door_data *Door = PushNewArrayItem(&GlobalDoorData);
-        Door->P.X = 20.5f*TileSideInMeters;
-        Door->P.Y = 5.5f*TileSideInMeters;
-        Door->Width = 1*TileSideInMeters;
-        Door->Height = 3*TileSideInMeters;
-        CopyCString(Door->RequiredLevelToOpen, "Test_Level", 512);
-    }
-    
-    {
-        door_data *Door = PushNewArrayItem(&GlobalDoorData);
-        Door->P.X = 39.5f*TileSideInMeters;
-        Door->P.Y = 7.0f*TileSideInMeters;
-        Door->Width = 1*TileSideInMeters;
-        Door->Height = 2*TileSideInMeters;
-        CopyCString(Door->RequiredLevelToOpen, "Test_Level3", 512);
-    }
 }
 
 internal void
@@ -205,7 +206,7 @@ UpdateAndRenderOverworld(){
             v2 PlayerMin = GlobalManager.Player->P-(GlobalManager.Player->Size/2);
             v2 PlayerMax = GlobalManager.Player->P+(GlobalManager.Player->Size/2);
             if((Teleporter->P.X-Radius.X <= PlayerMax.X) &&
-               (PlayerMin.X  <= Teleporter->P.X+Radius.X) &&
+               (PlayerMin.X <= Teleporter->P.X+Radius.X) &&
                (Teleporter->P.Y-Radius.Y <= PlayerMax.Y) &&
                (PlayerMin.Y  <= Teleporter->P.Y+Radius.Y)){
                 v2 TileSize = v2{0.1f, 0.1f};
@@ -243,6 +244,8 @@ UpdateAndRenderOverworld(){
                     RenderRectangle(&RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, -0.11f, Color);
                     RenderRectangle(&RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.11f, Color);
                     RenderRectangle(&RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.11f, Color);
+                }else{
+                    LoadLevelFromFile(Teleporter->Level);
                 }
                 
                 if(IsKeyJustPressed(KeyCode_Space)){

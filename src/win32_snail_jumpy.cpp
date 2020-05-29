@@ -621,7 +621,8 @@ WinMain(HINSTANCE Instance,
     
 #if 1
     // TODO(Tyler): Do this more formally
-    WriteAssetFile("assets.sja");
+    //WriteAssetFile("assets.sja");
+    SaveLevelsToFile();
 #endif
     
     return(0);

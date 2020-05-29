@@ -50,27 +50,4 @@ struct asset_descriptor {
     f32 YOffset;
 };
 
-#pragma pack(push, 1)
-struct asset_file_header {
-    char Header[3];
-    u32 Version;
-    u32 LevelCount;
-};
-
-// TODO(Tyler): Maybe remove the WallCount member?
-struct asset_file_level {
-    u32 WidthInTiles;
-    u32 HeightInTiles;
-    u32 WallCount;
-    u32 EnemyCount;
-};
-
-struct asset_file_enemy {
-    u32 Type; // Not yet used
-    v2 P;
-    v2 PathStart, PathEnd;
-    f32 Direction;
-};
-#pragma pack(pop)
-
 #endif //SNAIL_JUMPY_ASSET_H

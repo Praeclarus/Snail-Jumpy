@@ -19,6 +19,33 @@ enum ui_primitive_type {
     PrimitiveType_String,
 };
 
+struct layout {
+    v2 BaseP;
+    v2 CurrentP;
+    v2 Advance;
+    f32 Z;
+    f32 Width;
+};
+
+struct panel {
+    font *TitleFont;
+    font *NormalFont;
+    
+    color TitleColor;
+    color NormalColor;
+    color BackgroundColor;
+    color SeparatorColor;
+    color ButtonBaseColor;
+    color ButtonHoveredColor;
+    color ButtonClickedColor;
+    
+    v2 BaseP;
+    v2 CurrentP;
+    v2 Size;
+    v2 Margin;
+    f32 Z;
+};
+
 // TODO(Tyler): I don't think the cache performance on this would be too bad, as each
 // item is almost contiguous, if it proves a problem, it might be best to allocate a bunch 
 // of these from a block of temporary memory
