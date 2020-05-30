@@ -25,7 +25,7 @@ struct level_data {
 
 struct teleporter_data {
     char Level[512];
-    char RequiredLevelToUnlock[512];
+    char RequiredLevel[512];
 };
 
 struct door_data {
@@ -34,7 +34,7 @@ struct door_data {
         struct { f32 Width, Height; };
         v2 Size;
     };
-    char RequiredLevelToOpen[512];
+    char RequiredLevel[512];
 };
 
 #pragma pack(push, 1)

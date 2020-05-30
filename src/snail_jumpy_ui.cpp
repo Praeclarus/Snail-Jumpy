@@ -219,6 +219,13 @@ TransferAndResetTextBoxInput(char *Buffer, text_box_data *Data, u32 BufferSize){
 }
 
 internal inline void
+SetTextBoxInput(char *String, text_box_data *Data){
+    CopyCString(Data->Buffer, String, 512);
+    u32 Length = CStringLength(String);
+    Data->BufferIndex = Length;
+}
+
+internal inline void
 ResetTextBoxInput(text_box_data *Data){
     Data->Buffer[0] = '\0';
     Data->BufferIndex = 0;

@@ -25,6 +25,7 @@ enum editor_popup {
     EditorPopup_AddTeleporter,
     EditorPopup_EditTeleporter,
     EditorPopup_AddDoor,
+    EditorPopup_EditDoor,
 };
 
 struct editor {

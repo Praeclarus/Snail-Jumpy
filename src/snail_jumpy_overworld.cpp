@@ -62,7 +62,7 @@ InitializeOverworld(){
         Door->P.Y = 5.5f*TileSideInMeters;
         Door->Width = 1*TileSideInMeters;
         Door->Height = 3*TileSideInMeters;
-        CopyCString(Door->RequiredLevelToOpen, "Test_Level", 512);
+        CopyCString(Door->RequiredLevel, "Test_Level", 512);
     }
     
     {
@@ -71,7 +71,7 @@ InitializeOverworld(){
         Door->P.Y = 7.0f*TileSideInMeters;
         Door->Width = 1*TileSideInMeters;
         Door->Height = 2*TileSideInMeters;
-        CopyCString(Door->RequiredLevelToOpen, "Test_Level3", 512);
+        CopyCString(Door->RequiredLevel, "Test_Level3", 512);
     }
 }
 
@@ -108,7 +108,7 @@ LoadOverworld(){
             Door->P = Data->P;
             Door->Size = Data->Size;
             
-            if(IsLevelCompleted(Data->RequiredLevelToOpen)){
+            if(IsLevelCompleted(Data->RequiredLevel)){
                 OpenDoor(Door);
             }
         }
@@ -137,7 +137,7 @@ LoadOverworld(){
                     GlobalManager.Teleporters[CurrentId].IsLocked = true;
                     
                     GlobalManager.Teleporters[CurrentId].IsLocked = 
-                        !IsLevelCompleted(GlobalTeleporterData[CurrentId].RequiredLevelToUnlock);
+                        !IsLevelCompleted(GlobalTeleporterData[CurrentId].RequiredLevel);
                     
                     CurrentId++;
                 }
@@ -339,9 +339,9 @@ LoadOverworldFromFile(){
         for(u32 I = 0; I < Header->TeleporterCount; I++){
             char *Level = ConsumeString(&Stream);
             CopyCString(GlobalTeleporterData[I].Level, Level, 512);
-            char *RequiredLevelToUnlock = ConsumeString(&Stream);
-            CopyCString(GlobalTeleporterData[I].RequiredLevelToUnlock, 
-                        RequiredLevelToUnlock, 512);
+            char *RequiredLevel = ConsumeString(&Stream);
+            CopyCString(GlobalTeleporterData[I].RequiredLevel, 
+                        RequiredLevel, 512);
         }
         
         PushNArrayItems(&GlobalDoorData, Header->DoorCount);
@@ -350,9 +350,9 @@ LoadOverworldFromFile(){
             v2 *Size = ConsumeType(&Stream, v2);
             GlobalDoorData[I].P = *P;
             GlobalDoorData[I].Size = *Size;
-            char *RequiredLevelToOpen = ConsumeString(&Stream);
-            CopyCString(GlobalDoorData[I].RequiredLevelToOpen, 
-                        RequiredLevelToOpen, 512);
+            char *RequiredLevel = ConsumeString(&Stream);
+            CopyCString(GlobalDoorData[I].RequiredLevel, 
+                        RequiredLevel, 512);
         }
         
         
@@ -394,8 +394,8 @@ SaveOverworldToFile(){
             WriteToFile(File, Offset, Data->Level, Length+1);
             Offset += Length+1;
         }{
-            u32 Length = CStringLength(Data->RequiredLevelToUnlock);
-            WriteToFile(File, Offset, Data->RequiredLevelToUnlock, Length+1);
+            u32 Length = CStringLength(Data->RequiredLevel);
+            WriteToFile(File, Offset, Data->RequiredLevel, Length+1);
             Offset += Length+1;
         }
     }
@@ -409,8 +409,8 @@ SaveOverworldToFile(){
             WriteToFile(File, Offset, &Data->Size, sizeof(Data->Size));
             Offset += sizeof(Data->Size);
         }{
-            u32 Length = CStringLength(Data->RequiredLevelToOpen);
-            WriteToFile(File, Offset, Data->RequiredLevelToOpen, Length+1);
+            u32 Length = CStringLength(Data->RequiredLevel);
+            WriteToFile(File, Offset, Data->RequiredLevel, Length+1);
             Offset += Length+1;
         }
     }

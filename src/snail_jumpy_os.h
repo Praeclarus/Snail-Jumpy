@@ -96,6 +96,8 @@ global os_input GlobalInput;
 
 global os_button GlobalButtonMap[KeyCode_TOTAL];
 global v2        GlobalMouseP;
+typedef void (*process_input_override_proc)(os_event *Event);
+global process_input_override_proc GlobalProcessInputOverrideProc;
 
 internal inline b32
 IsButtonJustPressed(os_button *Button){

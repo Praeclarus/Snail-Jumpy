@@ -33,7 +33,7 @@ global ui_manager GlobalUIManager;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_Overworld;
+global game_mode GlobalGameMode = GameMode_LevelEditor;
 
 global editor    GlobalEditor;
 
@@ -106,21 +106,25 @@ LoadFont(memory_arena *Arena,
 
 internal void
 ProcessInput(os_event *Event){
-    switch(Event->Kind){
-        case OSEventKind_KeyDown: {
-            GlobalButtonMap[Event->Key].JustDown = Event->JustDown;
-            GlobalButtonMap[Event->Key].IsDown = true;
-        }break;
-        case OSEventKind_KeyUp: {
-            GlobalButtonMap[Event->Key].IsDown = false;
-        }break;
-        case OSEventKind_MouseDown: {
-            GlobalButtonMap[Event->Button].JustDown = true;
-            GlobalButtonMap[Event->Button].IsDown = true;
-        }break;
-        case OSEventKind_MouseUp: {
-            GlobalButtonMap[Event->Button].IsDown = false;
-        }break;
+    if(GlobalProcessInputOverrideProc){
+        GlobalProcessInputOverrideProc(Event);
+    }else{
+        switch(Event->Kind){
+            case OSEventKind_KeyDown: {
+                GlobalButtonMap[Event->Key].JustDown = Event->JustDown;
+                GlobalButtonMap[Event->Key].IsDown = true;
+            }break;
+            case OSEventKind_KeyUp: {
+                GlobalButtonMap[Event->Key].IsDown = false;
+            }break;
+            case OSEventKind_MouseDown: {
+                GlobalButtonMap[Event->Button].JustDown = true;
+                GlobalButtonMap[Event->Button].IsDown = true;
+            }break;
+            case OSEventKind_MouseUp: {
+                GlobalButtonMap[Event->Button].IsDown = false;
+            }break;
+        }
     }
 }
 
@@ -170,6 +174,7 @@ InitializeGame(){
         LoadOverworld();
     }else if((GlobalGameMode == GameMode_MainGame) ||
              (GlobalGameMode == GameMode_LevelEditor)){
+        LoadLevelFromFile("Test_Level");
         LoadLevel("Test_Level");
     }
     
@@ -225,7 +230,6 @@ InitializeGame(){
         }
     }
     
-    
     LoadFont(&GlobalTransientStorageArena, &GlobalDebugFont,
              "c:/windows/fonts/Arial.ttf", 20, 512, 512);
     LoadFont(&GlobalTransientStorageArena, &GlobalTitleFont,
@@ -255,13 +259,13 @@ GameUpdateAndRender(){
             UpdateAndRenderMenu();
         }break;
         case GameMode_LevelEditor: {
-            UpdateAndRenderLevelEditor();
+            UpdateAndRenderEditor();
         }break;
         case GameMode_Overworld: {
             UpdateAndRenderOverworld();
         }break;
         case GameMode_OverworldEditor: {
-            UpdateAndRenderOverworldEditor();
+            UpdateAndRenderEditor();
         }break;
     }
     

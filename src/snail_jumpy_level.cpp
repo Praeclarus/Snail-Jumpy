@@ -195,7 +195,6 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex,
                           {Asset->SizeInTexCoords.X, 1.0f});
         }
         
-        
         if(GlobalGameMode == GameMode_LevelEditor){
             if((GlobalEditor.Mode == EditMode_Snail) ||
                (GlobalEditor.Mode == EditMode_Sally) ||
