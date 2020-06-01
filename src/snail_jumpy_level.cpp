@@ -250,6 +250,7 @@ LoadLevelFromFile(const char *Name){
         NewData->HeightInTiles = Header->HeightInTiles;
         NewData->Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
         NewData->Enemies.Count = Header->EnemyCount;
+        NewData->CoinsRequiredToComplete = 30;
         
         // TODO(Tyler): This probably is not needed and could be removed
         char *String = ConsumeString(&Stream);
@@ -257,7 +258,8 @@ LoadLevelFromFile(const char *Name){
         
         u32 MapSize = NewData->WidthInTiles*NewData->HeightInTiles;
         u8 *Map = ConsumeBytes(&Stream, MapSize);
-        NewData->MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
+        //NewData->MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
+        NewData->MapData = (u8 *)DefaultAlloc(MapSize);
         CopyMemory(NewData->MapData, Map, MapSize);
         
         for(u32 I = 0; I < NewData->Enemies.Count; I++){
@@ -270,8 +272,9 @@ LoadLevelFromFile(const char *Name){
         NewData->WidthInTiles = 32;
         NewData->HeightInTiles = 18;
         NewData->WallCount = 0;
-        u32 Size = NewData->WidthInTiles*NewData->HeightInTiles;
-        NewData->MapData = PushArray(&GlobalMapDataMemory, u8, Size);
+        u32 MapSize = NewData->WidthInTiles*NewData->HeightInTiles;
+        //NewData->MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
+        NewData->MapData = (u8 *)DefaultAlloc(MapSize);
         NewData->Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
         CopyCString(NewData->Name, (char *)Name, 512);
         InsertIntoHashTable(&GlobalLevelTable, NewData->Name, 0+1);

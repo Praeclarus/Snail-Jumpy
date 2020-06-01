@@ -76,6 +76,8 @@ struct ui_manager {
     ui_primitive *FirstPrimitive;
     
     u32 SelectedWidgetId;
+    text_box_data SelectedTextBox;
+    b8 ShiftIsDown;
     
     // TODO(Tyler): Perhaps this should be part of the os_input structure?
     b8 HandledInput;

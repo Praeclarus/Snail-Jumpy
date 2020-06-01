@@ -37,7 +37,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         Entity->AnimationState -= Asset->FrameCounts[Entity->CurrentAnimation];
     }
     
-    v2 P = Entity->P;
+    v2 P = Entity->P - GlobalCameraP;
     P.X -= Asset->SizeInMeters.Width/2.0f;
     P.Y -= Asset->SizeInMeters.Height/2.0f;
     if(!Center){
@@ -561,11 +561,18 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
 //~ Entity updating and rendering
 internal void
 UpdateAndRenderWalls(render_group *RenderGroup){
+    TIMED_FUNCTION();
     for(u32 WallId = 0; WallId < GlobalManager.WallCount; WallId++){
         wall_entity *Entity = &GlobalManager.Walls[WallId];
+        v2 P = Entity->P - GlobalCameraP;
+        if(16.0f < P.X-Entity->Width/2) continue;
+        if(P.X+Entity->Width/2 < 0.0f) continue;
+        if(9.0f < P.Y-Entity->Height/2) continue;
+        if(P.Y+Entity->Height/2 < 0.0f) continue;
         RenderRectangle(RenderGroup,
-                        Entity->P-(Entity->Size/2), Entity->P+(Entity->Size/2), 0.0f,
+                        P-(Entity->Size/2), P+(Entity->Size/2), 0.0f,
                         WHITE);
+        
     }
 }
 
@@ -573,11 +580,16 @@ internal void
 UpdateAndRenderCoins(render_group *RenderGroup){
     for(u32 CoinId = 0; CoinId < GlobalManager.CoinCount; CoinId++){
         coin_entity *Coin = &GlobalManager.Coins[CoinId];
+        v2 P = Coin->P - GlobalCameraP;
+        if(16.0f < P.X-Coin->Width/2) continue;
+        if(P.X+Coin->Width/2 < 0.0f) continue;
+        if(9.0f < P.Y-Coin->Height/2) continue;
+        if(P.Y+Coin->Height/2 < 0.0f) continue;
         if(Coin->AnimationCooldown > 0.0f){
             Coin->AnimationCooldown -= GlobalInput.dTimeForFrame;
         }else{
             RenderRectangle(RenderGroup,
-                            Coin->P-(Coin->Size/2), Coin->P+(Coin->Size/2), 0.0f,
+                            P-(Coin->Size/2), P+(Coin->Size/2), 0.0f,
                             {1.0f, 1.0f, 0.0f, 1.0f});
         }
     }
@@ -588,9 +600,14 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
     TIMED_FUNCTION();
     
     for(u32 Id = 0; Id < GlobalManager.EnemyCount; Id++){
-        TIMED_SCOPE(UpdateAndRenderSingleEnemy);
+        //TIMED_SCOPE(UpdateAndRenderSingleEnemy);
         
         enemy_entity *Enemy = &GlobalManager.Enemies[Id];
+        v2 P = Enemy->P - GlobalCameraP;
+        if(16.0f < P.X-Enemy->Width/2) continue;
+        if(P.X+Enemy->Width/2 < 0.0f) continue;
+        if(9.0f < P.Y-Enemy->Height/2) continue;
+        if(P.Y+Enemy->Height/2 < 0.0f) continue;
         
         if(Enemy->AnimationCooldown <= 0.0f){
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
@@ -633,11 +650,5 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
         }
         
         UpdateAndRenderAnimation(RenderGroup, Enemy, GlobalInput.dTimeForFrame);
-        v2 Radius = {0.1f, 0.1f};
-        color Color = {1.0f, 0.0f, 0.0f, 1.0f};
-        RenderRectangle(RenderGroup, Enemy->PathStart-Radius, Enemy->PathStart+Radius,
-                        Enemy->ZLayer, Color);
-        RenderRectangle(RenderGroup, Enemy->PathEnd-Radius, Enemy->PathEnd+Radius,
-                        Enemy->ZLayer, Color);
     }
 }

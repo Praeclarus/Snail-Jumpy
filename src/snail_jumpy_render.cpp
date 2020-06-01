@@ -44,7 +44,6 @@ AddIndices(render_group *RenderGroup, u32 Count){
 internal void
 RenderRectangle(render_group *RenderGroup,
                 v2 MinCorner, v2 MaxCorner, f32 Z, color Color, b8 UsePixelSpace = false){
-    
     if(!UsePixelSpace){
         MinCorner *= RenderGroup->MetersToPixels;
         MaxCorner *= RenderGroup->MetersToPixels;

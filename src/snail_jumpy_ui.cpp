@@ -60,12 +60,69 @@ RenderAllUIPrimitives(render_group *RenderGroup){
     }
 }
 
+internal void
+ProcessUIInput(os_event *Event){
+    switch(Event->Kind){
+        case OSEventKind_KeyDown: {
+            GlobalUIManager.HandledInput = true;
+            
+            if(Event->Key == KeyCode_Shift){
+                GlobalUIManager.ShiftIsDown = true;
+                break;
+            }
+            
+            text_box_data *TextBoxData = &GlobalUIManager.SelectedTextBox;
+            if(('0' <= Event->Key) && (Event->Key <= 'Z')){
+                char Char = (char)Event->Key;
+                if(GlobalUIManager.ShiftIsDown){
+                }else{
+                    if(('A' <= Char) && (Char <= 'Z')){
+                        Char += 'a'-'A';
+                    }
+                }
+                
+                Assert((TextBoxData->BufferIndex+1) < ArrayCount(TextBoxData->Buffer));
+                TextBoxData->Buffer[TextBoxData->BufferIndex++] = Char;
+                TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
+            }else if(Event->Key == '-'){
+                char Char = (char)Event->Key;
+                if(GlobalUIManager.ShiftIsDown){
+                    Char = '_';
+                }
+                Assert((TextBoxData->BufferIndex+1) < ArrayCount(TextBoxData->Buffer));
+                TextBoxData->Buffer[TextBoxData->BufferIndex++] = Char;
+                TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
+            }else if(Event->Key == KeyCode_BackSpace){
+                if(TextBoxData->BufferIndex > 0){
+                    TextBoxData->BufferIndex--;
+                    TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
+                }
+            }else if(Event->Key == KeyCode_Escape){
+                GlobalUIManager.SelectedWidgetId = 0;
+            }
+        }break;
+        case OSEventKind_KeyUp: {
+            if(Event->Key == KeyCode_Shift){
+                GlobalUIManager.ShiftIsDown = false;
+            }
+        }break;
+        case OSEventKind_MouseDown: {
+            GlobalInput.Buttons[Event->Button].JustDown = true;
+            GlobalInput.Buttons[Event->Button].IsDown = true;
+        }break;
+        case OSEventKind_MouseUp: {
+            GlobalInput.Buttons[Event->Button].IsDown = false;
+        }break;
+    }
+    
+}
+
 //~ Basic widgets
 internal void
 UISlider(f32 X, f32 Y,
          f32 Width, f32 Height, f32 CursorWidth,
          f32 *SliderPercent){
-    v2 MouseP = GlobalMouseP;
+    v2 MouseP = GlobalInput.MouseP;
     f32 XMargin = 10;
     f32 YMargin = 30;
     f32 CursorX = *SliderPercent*(Width-CursorWidth);
@@ -113,8 +170,8 @@ UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text,
     
     color ButtonColor = Base;
     b32 Result = false;
-    if((X < GlobalMouseP.X) && (GlobalMouseP.X < X+Width) &&
-       (Y < GlobalMouseP.Y) && (GlobalMouseP.Y < Y+Height)){
+    if((X < GlobalInput.MouseP.X) && (GlobalInput.MouseP.X < X+Width) &&
+       (Y < GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y < Y+Height)){
         if(IsKeyJustPressed(KeyCode_LeftMouse)){
             ButtonColor = Clicked;
             Result = true;
@@ -142,7 +199,7 @@ internal void
 UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height, u32 Id){
     if(GlobalUIManager.SelectedWidgetId == Id){
         for(u8 I = 0; I < KeyCode_ASCIICOUNT; I++){
-            if(IsKeyJustPressed(I)){
+            if(IsKeyRepeated(I)){
                 GlobalUIManager.HandledInput = true;
                 
                 char Char = I;
@@ -161,7 +218,7 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
                 TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
             }
         }
-        if(IsKeyJustPressed(KeyCode_BackSpace)){
+        if(IsKeyRepeated(KeyCode_BackSpace)){
             GlobalUIManager.HandledInput = true;
             if(TextBoxData->BufferIndex > 0){
                 TextBoxData->BufferIndex--;
@@ -169,7 +226,7 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
             }
         }
         
-        if(IsKeyJustPressed(KeyCode_Escape)){
+        if(IsKeyRepeated(KeyCode_Escape)){
             GlobalUIManager.HandledInput = true;
             GlobalUIManager.SelectedWidgetId = 0;
         }
@@ -188,8 +245,8 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
         TextColor = WHITE;
     }
     
-    if((Min.X <= GlobalMouseP.X) && (GlobalMouseP.X <= Max.X) &&
-       (Min.Y <= GlobalMouseP.Y) && (GlobalMouseP.Y <= Max.Y)){
+    if((Min.X <= GlobalInput.MouseP.X) && (GlobalInput.MouseP.X <= Max.X) &&
+       (Min.Y <= GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y <= Max.Y)){
         if(IsKeyJustPressed(KeyCode_LeftMouse)){
             GlobalUIManager.SelectedWidgetId = Id;
         }else if(GlobalUIManager.SelectedWidgetId != Id){
@@ -314,8 +371,8 @@ PanelString(panel *Panel, char *Format, ...){
     Max.X = Panel->CurrentP.X + Panel->Size.X;
     
     b32 Clicked = false;
-    if((Min.X < GlobalMouseP.X) && (GlobalMouseP.X < Max.X) &&
-       (Min.Y < GlobalMouseP.Y) && (GlobalMouseP.Y < Max.Y)){
+    if((Min.X < GlobalInput.MouseP.X) && (GlobalInput.MouseP.X < Max.X) &&
+       (Min.Y < GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y < Max.Y)){
         if(IsKeyJustPressed(KeyCode_LeftMouse)){
             GlobalUIManager.HandledInput = true;
             Clicked = true;

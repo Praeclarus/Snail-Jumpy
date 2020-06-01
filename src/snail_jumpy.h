@@ -2,6 +2,7 @@
 #define SNAIL_JUMPY_H
 
 #include "snail_jumpy_primitive_types.h"
+#include "snail_jumpy_allocators.cpp"
 #include "snail_jumpy_debug.h"
 #include "snail_jumpy_types.cpp"
 #include "snail_jumpy_math.h"

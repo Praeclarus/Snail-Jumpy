@@ -49,9 +49,10 @@ InitializeOverworld(){
         PushItemOntoArray(&GlobalTeleporterData, {"Test_Level3", "Test_Level2"});
     }
     
-    PushMemory(&GlobalOverworldMapMemory, sizeof(TemplateMap));
+    //PushMemory(&GlobalOverworldMapMemory, sizeof(TemplateMap));
+    GlobalOverworldMap = (u8 *)DefaultAlloc(sizeof(TemplateMap));
     for(u32 I = 0; I < sizeof(TemplateMap); I++){
-        GlobalOverworldMapMemory.Memory[I] = ((u8 *)TemplateMap)[I];
+        GlobalOverworldMap[I] = ((u8 *)TemplateMap)[I];
     }
     GlobalLastOverworldPlayerP = v2{1.5f, 1.5f};
     
@@ -80,7 +81,7 @@ LoadOverworld(){
     TIMED_FUNCTION();
     
     ResetEntitySystem();
-    u8 *Map = GlobalOverworldMapMemory.Memory;
+    u8 *Map = GlobalOverworldMap;
     
     u32 WallCount = 0; 
     u32 TeleporterCount = 0;
@@ -150,7 +151,7 @@ LoadOverworld(){
     GlobalManager.Player->Size = v2{0.45f, 0.45f};
     GlobalManager.Player->ZLayer = -0.5f;
     
-    SetCameraCenterP(GlobalManager.Player->P, TileSideInMeters);
+    SetCameraCenterP(GlobalManager.Player->P, GlobalOverworldXTiles, GlobalOverworldYTiles);
 }
 
 internal void
@@ -168,94 +169,106 @@ UpdateAndRenderOverworld(){
     //RenderGroup.MetersToPixels = 60.0f / 0.5f;
     RenderGroup.MetersToPixels = Minimum((GlobalInput.WindowSize.Width/32.0f), (GlobalInput.WindowSize.Height/18.0f)) / 0.5f;
     
-    // NOTE(Tyler): Walls
-    for(u32 WallId = 0; WallId < GlobalManager.WallCount; WallId++){
-        wall_entity *Entity = &GlobalManager.Walls[WallId];
-        v2 P = Entity->P - GlobalCameraP;
-        RenderRectangle(&RenderGroup,
-                        P-(Entity->Size/2), P+(Entity->Size/2), 0.0f,
-                        WHITE);
-    }
+    UpdateAndRenderWalls(&RenderGroup);
     
     // NOTE(Tyler): Doors
-    for(u32 DoorId = 0; DoorId < GlobalManager.DoorCount; DoorId++){
-        door_entity *Door = &GlobalManager.Doors[DoorId];
-        v2 P = Door->P - GlobalCameraP;
-        if(!Door->IsOpen){
-            RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, BROWN);
-        }else{
-            color Color = BROWN;
-            Color.A = Door->AnimationCooldown;
-            if(Color.A < 0.3f){
-                Color.A = 0.3f;
+    {
+        TIMED_SCOPE(RenderDoors);
+        for(u32 DoorId = 0; DoorId < GlobalManager.DoorCount; DoorId++){
+            door_entity *Door = &GlobalManager.Doors[DoorId];
+            v2 P = Door->P - GlobalCameraP;
+            if(16.0f < P.X-Door->Width/2) continue;
+            if(P.X+Door->Width/2 < 0.0f) continue;
+            if(9.0f < P.Y-Door->Height/2) continue;
+            if(P.Y+Door->Height/2 < 0.0f) continue;
+            if(!Door->IsOpen){
+                RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, BROWN);
+            }else{
+                color Color = BROWN;
+                Color.A = Door->AnimationCooldown;
+                if(Color.A < 0.3f){
+                    Color.A = 0.3f;
+                }
+                Door->AnimationCooldown -= GlobalInput.dTimeForFrame;
+                RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, Color);
             }
-            Door->AnimationCooldown -= GlobalInput.dTimeForFrame;
-            RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, Color);
         }
     }
     
-    // NOTE(Tyler): Teleporters
-    for(u32 Id = 0; Id < GlobalManager.TeleporterCount; Id++){
-        teleporter *Teleporter = &GlobalManager.Teleporters[Id];
-        v2 P = Teleporter->P - GlobalCameraP;
-        if(!Teleporter->IsLocked){
-            RenderRectangle(&RenderGroup, P-(Teleporter->Size/2), 
-                            P+(Teleporter->Size/2), 0.0f, BLUE);
-            
-            v2 Radius = Teleporter->Size/2;
-            v2 PlayerMin = GlobalManager.Player->P-(GlobalManager.Player->Size/2);
-            v2 PlayerMax = GlobalManager.Player->P+(GlobalManager.Player->Size/2);
-            if((Teleporter->P.X-Radius.X <= PlayerMax.X) &&
-               (PlayerMin.X <= Teleporter->P.X+Radius.X) &&
-               (Teleporter->P.Y-Radius.Y <= PlayerMax.Y) &&
-               (PlayerMin.Y  <= Teleporter->P.Y+Radius.Y)){
-                v2 TileSize = v2{0.1f, 0.1f};
-                v2 MapSize = v2{32*TileSize.X, 18*TileSize.Y};
-                v2 StringP = v2{
-                    P.X,
-                    P.Y + Teleporter->Size.Y/2 + MapSize.Y + 0.07f
-                };
+    {
+        TIMED_SCOPE(UpdateAndRenderTeleporters);
+        // NOTE(Tyler): Teleporters
+        for(u32 Id = 0; Id < GlobalManager.TeleporterCount; Id++){
+            teleporter *Teleporter = &GlobalManager.Teleporters[Id];
+            v2 P = Teleporter->P - GlobalCameraP;
+            if(16.0f < P.X-Teleporter->Width/2) continue;
+            if(P.X+Teleporter->Width/2 < 0.0f) continue;
+            if(9.0f < P.Y-Teleporter->Height/2) continue;
+            if(P.Y+Teleporter->Height/2 < 0.0f) continue;
+            if(!Teleporter->IsLocked){
+                RenderRectangle(&RenderGroup, P-(Teleporter->Size/2), 
+                                P+(Teleporter->Size/2), 0.0f, BLUE);
                 
-                StringP *= RenderGroup.MetersToPixels;
-                f32 Advance = GetStringAdvance(&GlobalMainFont, Teleporter->Level);
-                StringP.X -= Advance/2;
-                RenderString(&RenderGroup, &GlobalMainFont, GREEN,
-                             StringP.X, StringP.Y, -1.0f, Teleporter->Level);
-                
-                // TODO(Tyler): I don't know how efficient FindInHashTable actually, it
-                // could likely be improved, and probably should be
-                u32 Level = (u32)FindInHashTable(&GlobalLevelTable, Teleporter->Level);
-                if(Level){
-                    v2 MapP = v2{
-                        P.X-MapSize.X/2,
-                        P.Y+Teleporter->Size.Y/2
-                    };
-                    RenderRectangle(&RenderGroup, MapP, MapP+MapSize, -0.1f,
-                                    {0.5f, 0.5f, 0.5f, 1.0f});
+                v2 Radius = Teleporter->Size/2;
+                v2 PlayerMin = GlobalManager.Player->P-(GlobalManager.Player->Size/2);
+                v2 PlayerMax = GlobalManager.Player->P+(GlobalManager.Player->Size/2);
+                if((Teleporter->P.X-Radius.X <= PlayerMax.X) &&
+                   (PlayerMin.X <= Teleporter->P.X+Radius.X) &&
+                   (Teleporter->P.Y-Radius.Y <= PlayerMax.Y) &&
+                   (PlayerMin.Y  <= Teleporter->P.Y+Radius.Y)){
                     
-                    RenderLevelMapAndEntities(&RenderGroup, Level-1, TileSize,
-                                              MapP, -0.11f);
+                    // TODO(Tyler): I don't know how efficient FindInHashTable actually, it
+                    // could likely be improved, and probably should be
+                    u32 Level = (u32)FindInHashTable(&GlobalLevelTable, Teleporter->Level);
+                    if(Level){
+                        
+                        level_data *LevelData = &GlobalLevelData[Level-1];
+                        
+                        v2 TileSize = v2{0.1f, 0.1f};
+                        v2 MapSize = TileSize.X * v2{(f32)LevelData->WidthInTiles, (f32)LevelData->HeightInTiles};
+                        
+                        v2 MapP = v2{
+                            P.X-MapSize.X/2,
+                            P.Y+Teleporter->Size.Y/2
+                        };
+                        
+                        RenderRectangle(&RenderGroup, MapP, MapP+MapSize, -0.1f,
+                                        {0.5f, 0.5f, 0.5f, 1.0f});
+                        RenderLevelMapAndEntities(&RenderGroup, Level-1, TileSize,
+                                                  MapP, -0.11f);
+                        
+                        v2 StringP = v2{
+                            P.X,
+                            P.Y + Teleporter->Size.Y/2 + MapSize.Y + 0.07f
+                        };
+                        
+                        StringP *= RenderGroup.MetersToPixels;
+                        f32 Advance = GetStringAdvance(&GlobalMainFont, Teleporter->Level);
+                        StringP.X -= Advance/2;
+                        RenderString(&RenderGroup, &GlobalMainFont, GREEN,
+                                     StringP.X, StringP.Y, -1.0f, Teleporter->Level);
+                        
+                        f32 Thickness = 0.03f;
+                        v2 Min = MapP-v2{Thickness, Thickness};
+                        v2 Max = MapP+MapSize+v2{Thickness, Thickness};
+                        color Color = color{0.2f, 0.5f, 0.2f, 1.0f};
+                        RenderRectangle(&RenderGroup, Min, {Max.X, Min.Y+Thickness}, -0.11f, Color);
+                        RenderRectangle(&RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, -0.11f, Color);
+                        RenderRectangle(&RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.11f, Color);
+                        RenderRectangle(&RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.11f, Color);
+                    }else{
+                        LoadLevelFromFile(Teleporter->Level);
+                    }
                     
-                    f32 Thickness = 0.03f;
-                    v2 Min = MapP-v2{Thickness, Thickness};
-                    v2 Max = MapP+MapSize+v2{Thickness, Thickness};
-                    color Color = color{0.2f, 0.5f, 0.2f, 1.0f};
-                    RenderRectangle(&RenderGroup, Min, {Max.X, Min.Y+Thickness}, -0.11f, Color);
-                    RenderRectangle(&RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, -0.11f, Color);
-                    RenderRectangle(&RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.11f, Color);
-                    RenderRectangle(&RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.11f, Color);
-                }else{
-                    LoadLevelFromFile(Teleporter->Level);
+                    if(IsKeyJustPressed(KeyCode_Space)){
+                        ChangeState(GameMode_MainGame, Teleporter->Level);
+                    }
                 }
+            }else{
+                RenderRectangle(&RenderGroup, P-(Teleporter->Size/2), 
+                                P+(Teleporter->Size/2), 0.0f, color{0.0f, 0.0f, 1.0f, 0.5f});
                 
-                if(IsKeyJustPressed(KeyCode_Space)){
-                    ChangeState(GameMode_MainGame, Teleporter->Level);
-                }
             }
-        }else{
-            RenderRectangle(&RenderGroup, P-(Teleporter->Size/2), 
-                            P+(Teleporter->Size/2), 0.0f, color{0.0f, 0.0f, 1.0f, 0.5f});
-            
         }
     }
     
@@ -291,19 +304,15 @@ UpdateAndRenderOverworld(){
         
         MovePlayer(ddP);
         
-        // TODO(Tyler): TEMPORARY, do this more properly, DO NOT KEEP THIS!!!
-        v2 ActualPlayerP = GlobalManager.Player->P;
-        GlobalManager.Player->P = GlobalManager.Player->P - GlobalCameraP;
+        v2 P = GlobalManager.Player->P - GlobalCameraP;
         UpdateAndRenderAnimation(&RenderGroup, GlobalManager.Player, 
                                  GlobalInput.dTimeForFrame, true);
         RenderRectangle(&RenderGroup, 
-                        GlobalManager.Player->P-GlobalManager.Player->Size/2.0f,
-                        GlobalManager.Player->P+GlobalManager.Player->Size/2.0f, 0.0f,
+                        P-GlobalManager.Player->Size/2.0f,
+                        P+GlobalManager.Player->Size/2.0f, 0.0f,
                         YELLOW);
-        
-        GlobalManager.Player->P = ActualPlayerP;
-        
-        SetCameraCenterP(GlobalManager.Player->P, 0.5f);
+        SetCameraCenterP(GlobalManager.Player->P, GlobalOverworldXTiles, 
+                         GlobalOverworldYTiles);
     }
     
     
@@ -331,9 +340,10 @@ LoadOverworldFromFile(){
         GlobalOverworldXTiles = Header->WidthInTiles;
         GlobalOverworldYTiles = Header->HeightInTiles;
         u32 MapSize = GlobalOverworldXTiles*GlobalOverworldYTiles;
-        u8 *MapData = PushArray(&GlobalOverworldMapMemory, u8, MapSize);
+        GlobalOverworldMap = (u8 *)DefaultAlloc(MapSize);
+        //GlobalOverworldMap = PushArray(&GlobalOverworldMapMemory, u8, MapSize);
         u8 *FileMapData = ConsumeBytes(&Stream, MapSize);
-        CopyMemory(MapData, FileMapData, MapSize);
+        CopyMemory(GlobalOverworldMap, FileMapData, MapSize);
         
         PushNArrayItems(&GlobalTeleporterData, Header->TeleporterCount);
         for(u32 I = 0; I < Header->TeleporterCount; I++){
@@ -358,9 +368,8 @@ LoadOverworldFromFile(){
         
         GlobalLastOverworldPlayerP = v2{1.5f, 1.5f};
     }else{
-        // TODO(Tyler): Create default overworld
         InitializeOverworld();
-        Assert(0);
+        //Assert(0);
     }
 }
 
@@ -384,7 +393,7 @@ SaveOverworldToFile(){
     u32 Offset = sizeof(Header);
     
     u32 MapSize = GlobalOverworldXTiles*GlobalOverworldYTiles;
-    WriteToFile(File, Offset, GlobalOverworldMapMemory.Memory, MapSize);
+    WriteToFile(File, Offset, GlobalOverworldMap, MapSize);
     Offset += MapSize;
     
     for(u32 I = 0; I < GlobalTeleporterData.Count; I++){

@@ -50,6 +50,45 @@ UpdateAndRenderMainGame(){
     UpdateAndRenderCoins(&RenderGroup);
     UpdateAndRenderEnemies(&RenderGroup);
     
+    
+    
+    // NOTE(Tyler): Exit
+    {
+        v2 P = v2{15.25f, 3.25f};
+        v2 DrawP = P-GlobalCameraP;
+        v2 Radius = {0.25f, 0.25f};
+        RenderRectangle(&RenderGroup, DrawP-Radius, DrawP+Radius, 0.0f, GREEN);
+        v2 PlayerMin = GlobalManager.Player->P-(GlobalManager.Player->Size/2);
+        v2 PlayerMax = GlobalManager.Player->P+(GlobalManager.Player->Size/2);
+        if((P.X-Radius.X <= PlayerMax.X) &&
+           (PlayerMin.X  <= P.X+Radius.X) &&
+           (P.Y-Radius.Y <= PlayerMax.Y) &&
+           (PlayerMin.Y  <= P.Y+Radius.Y)){
+            u32 RequiredCoins = GlobalCurrentLevel->CoinsRequiredToComplete;
+            if((u32)GlobalScore >= RequiredCoins){
+                if(GlobalCompletionCooldown == 0.0f){
+                    GlobalCompletionCooldown = 3.0f;
+                }
+            }else{
+                // TODO(Tyler): This should be factored! Strings are wanted centered,
+                // quite commonly
+                f32 Advance =
+                    GetFormatStringAdvance(&GlobalMainFont, 
+                                           "You need: %u more coins!", 
+                                           RequiredCoins-GlobalScore);
+                v2 TopCenter = v2{
+                    GlobalInput.WindowSize.Width/2, GlobalInput.WindowSize.Height/2
+                };
+                RenderFormatString(&RenderGroup, &GlobalMainFont, GREEN, 
+                                   TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
+                                   "You need: %u more coins!", 
+                                   RequiredCoins-GlobalScore);
+            }
+        }
+    }
+    
+    
+    
     // NOTE(Tyler): Update player
     {
         if(GlobalManager.Player->AnimationCooldown <= 0.0f){
@@ -124,43 +163,12 @@ UpdateAndRenderMainGame(){
                 GlobalManager.Player->P = {1.5f, 1.5f};
                 GlobalManager.Player->dP = {0};
             }
+            
+            SetCameraCenterP(GlobalManager.Player->P, GlobalCurrentLevel->WidthInTiles, 
+                             GlobalCurrentLevel->HeightInTiles);
         }
         
         UpdateAndRenderAnimation(&RenderGroup, GlobalManager.Player, GlobalInput.dTimeForFrame);
-    }
-    
-    // NOTE(Tyler): Exit
-    {
-        v2 P = {15.25f, 3.25f};
-        v2 Radius = {0.25f, 0.25f};
-        RenderRectangle(&RenderGroup, P-GlobalCameraP-Radius, P-GlobalCameraP+Radius, 0.0f, GREEN);
-        v2 PlayerMin = GlobalManager.Player->P-(GlobalManager.Player->Size/2);
-        v2 PlayerMax = GlobalManager.Player->P+(GlobalManager.Player->Size/2);
-        if((P.X-Radius.X <= PlayerMax.X) &&
-           (PlayerMin.X  <= P.X+Radius.X) &&
-           (P.Y-Radius.Y <= PlayerMax.Y) &&
-           (PlayerMin.Y  <= P.Y+Radius.Y)){
-            u32 RequiredCoins = GlobalCurrentLevel->CoinsRequiredToComplete;
-            if((u32)GlobalScore >= RequiredCoins){
-                if(GlobalCompletionCooldown == 0.0f){
-                    GlobalCompletionCooldown = 3.0f;
-                }
-            }else{
-                // TODO(Tyler): This should be factored! Strings are wanted centered,
-                // quite commonly
-                f32 Advance =
-                    GetFormatStringAdvance(&GlobalMainFont, 
-                                           "You need: %u more coins!", 
-                                           RequiredCoins-GlobalScore);
-                v2 TopCenter = v2{
-                    GlobalInput.WindowSize.Width/2, GlobalInput.WindowSize.Height/2
-                };
-                RenderFormatString(&RenderGroup, &GlobalMainFont, GREEN, 
-                                   TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
-                                   "You need: %u more coins!", 
-                                   RequiredCoins-GlobalScore);
-            }
-        }
     }
     
     if(GlobalCompletionCooldown > 0.0f){

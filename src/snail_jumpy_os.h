@@ -30,6 +30,12 @@ internal GET_FILE_SIZE(GetFileSize);
 #define ALLOCATE_VIRTUAL_MEMORY(Name) void *Name(umw Size)
 internal ALLOCATE_VIRTUAL_MEMORY(AllocateVirtualMemory);
 
+#define FREE_VIRTUAL_MEMORY(Name) void Name(void *Pointer)
+internal FREE_VIRTUAL_MEMORY(FreeVirtualMemory);
+
+internal void *DefaultAlloc(umw Size);
+internal void DefaultFree(void *Pointer);
+
 enum os_key_code {
     KeyCode_NULL = 0,
     KeyCode_Tab = '\t',
@@ -54,6 +60,7 @@ struct os_button {
     //u8 HalfTransitionCount;
     b8 IsDown;
     b8 JustDown;
+    b8 Repeat;
 };
 
 struct os_input {
@@ -94,11 +101,6 @@ struct os_event {
 // TODO(Tyler): Find a better home for these  procedures and variables
 global os_input GlobalInput;
 
-global os_button GlobalButtonMap[KeyCode_TOTAL];
-global v2        GlobalMouseP;
-typedef void (*process_input_override_proc)(os_event *Event);
-global process_input_override_proc GlobalProcessInputOverrideProc;
-
 internal inline b32
 IsButtonJustPressed(os_button *Button){
     b32 Result = Button->IsDown && Button->JustDown;
@@ -108,16 +110,25 @@ IsButtonJustPressed(os_button *Button){
 
 internal inline b32
 IsKeyJustPressed(u32 Key){
-    os_button *Button = &GlobalButtonMap[Key];
+    os_button *Button = &GlobalInput.Buttons[Key];
     //b32 Result = Button->EndedDown && (Button->HalfTransitionCount%2 == 1);
     b32 Result = Button->IsDown && Button->JustDown;
     return(Result);
 }
 
 internal inline b32
-IsKeyDown(u32 Key){
-    b32 Result = (GlobalButtonMap[Key].IsDown);
+IsKeyRepeated(u32 Key){
+    os_button *Button = &GlobalInput.Buttons[Key];
+    //b32 Result = Button->EndedDown && (Button->HalfTransitionCount%2 == 1);
+    b32 Result = Button->IsDown && Button->Repeat;
     return(Result);
 }
+
+internal inline b32
+IsKeyDown(u32 Key){
+    b32 Result = (GlobalInput.Buttons[Key].IsDown);
+    return(Result);
+}
+
 
 #endif

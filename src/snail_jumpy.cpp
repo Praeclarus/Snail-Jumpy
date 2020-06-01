@@ -37,16 +37,15 @@ global game_mode GlobalGameMode = GameMode_LevelEditor;
 
 global editor    GlobalEditor;
 
-global v2           GlobalCameraP;
-global v2           GlobalLastOverworldPlayerP;
+global v2 GlobalCameraP;
+global v2 GlobalLastOverworldPlayerP;
 
-global memory_arena GlobalOverworldMapMemory;
-global u32          GlobalOverworldXTiles;
-global u32          GlobalOverworldYTiles;
+global u8 *GlobalOverworldMap;
+global u32 GlobalOverworldXTiles;
+global u32 GlobalOverworldYTiles;
 global array<teleporter_data> GlobalTeleporterData;
 global array<door_data> GlobalDoorData;
 
-global memory_arena GlobalMapDataMemory;
 global memory_arena GlobalEnemyMemory;
 
 global hash_table        GlobalLevelTable;
@@ -56,7 +55,7 @@ global u32               GlobalCurrentLevelIndex;
 
 internal inline void
 ChangeState(game_mode NewMode, const char *NewLevel);
-internal inline void SetCameraCenterP(v2 P, f32 TileSide);
+internal inline void SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -106,25 +105,22 @@ LoadFont(memory_arena *Arena,
 
 internal void
 ProcessInput(os_event *Event){
-    if(GlobalProcessInputOverrideProc){
-        GlobalProcessInputOverrideProc(Event);
-    }else{
-        switch(Event->Kind){
-            case OSEventKind_KeyDown: {
-                GlobalButtonMap[Event->Key].JustDown = Event->JustDown;
-                GlobalButtonMap[Event->Key].IsDown = true;
-            }break;
-            case OSEventKind_KeyUp: {
-                GlobalButtonMap[Event->Key].IsDown = false;
-            }break;
-            case OSEventKind_MouseDown: {
-                GlobalButtonMap[Event->Button].JustDown = true;
-                GlobalButtonMap[Event->Button].IsDown = true;
-            }break;
-            case OSEventKind_MouseUp: {
-                GlobalButtonMap[Event->Button].IsDown = false;
-            }break;
-        }
+    switch(Event->Kind){
+        case OSEventKind_KeyDown: {
+            GlobalInput.Buttons[Event->Key].JustDown = Event->JustDown;
+            GlobalInput.Buttons[Event->Key].IsDown = true;
+            GlobalInput.Buttons[Event->Key].Repeat = true;
+        }break;
+        case OSEventKind_KeyUp: {
+            GlobalInput.Buttons[Event->Key].IsDown = false;
+        }break;
+        case OSEventKind_MouseDown: {
+            GlobalInput.Buttons[Event->Button].JustDown = true;
+            GlobalInput.Buttons[Event->Button].IsDown = true;
+        }break;
+        case OSEventKind_MouseUp: {
+            GlobalInput.Buttons[Event->Button].IsDown = false;
+        }break;
     }
 }
 
@@ -146,28 +142,25 @@ InitializeGame(){
     
     GlobalLogFile = OpenFile("log.txt", OpenFile_Write);
     GlobalLogFileOffset = (u32)GetFileSize(GlobalLogFile);
-    // NOTE(Tyler): Not actually an error
     LogError("=======================================================================\n");
     
     // NOTE(Tyler): Entity memory
     GlobalManager.Memory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
     
-    // NOTE(Tyler): Level memory
+    // NOTE(Tyler): Initialize levels
     // TODO(Tyler): It might be a better idea to use a few pool allocators for this, or a 
     // different allocator
     GlobalLevelData = CreateNewArray<level_data>(&GlobalPermanentStorageArena, 512);
-    GlobalMapDataMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
+    //GlobalMapDataMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
     GlobalEnemyMemory   = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
     GlobalLevelTable    = PushHashTable(&GlobalPermanentStorageArena, 1024);
     
-    // NOTE(Tyler): Overworld memory
-    GlobalOverworldMapMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(8));
+    // NOTE(Tyler): Initialize overworld
+    //GlobalOverworldMapMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(8));
+    //GlobalOverworldMap = GlobalOverworldMapMemory.Memory;
     GlobalTeleporterData = CreateNewArray<teleporter_data>(&GlobalPermanentStorageArena, 512);
     GlobalDoorData = CreateNewArray<door_data>(&GlobalPermanentStorageArena, 512);
-    
-    // NOTE(Tyler): Initialize worlds
     LoadOverworldFromFile();
-    //InitializeOverworld(); // TODO(Tyler): This should be loaded from the asset file 
     
     if((GlobalGameMode == GameMode_Overworld) ||
        (GlobalGameMode == GameMode_OverworldEditor)){
@@ -176,6 +169,14 @@ InitializeGame(){
              (GlobalGameMode == GameMode_LevelEditor)){
         LoadLevelFromFile("Test_Level");
         LoadLevel("Test_Level");
+    }
+    
+    if(GlobalGameMode == GameMode_LevelEditor){
+        GlobalGameMode = GameMode_MainGame;
+        ToggleEditor();
+    }else if(GlobalGameMode == GameMode_OverworldEditor){
+        GlobalGameMode = GameMode_Overworld;
+        ToggleEditor();
     }
     
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
@@ -296,10 +297,10 @@ GameUpdateAndRender(){
     }
     
     for(u32 I = 0; I < KeyCode_TOTAL; I++){
-        GlobalButtonMap[I].JustDown = false;
+        GlobalInput.Buttons[I].JustDown = false;
+        GlobalInput.Buttons[I].Repeat = false;
     }
 }
-
 
 internal inline void
 ChangeState(game_mode NewMode, const char *NewLevel){
@@ -309,17 +310,18 @@ ChangeState(game_mode NewMode, const char *NewLevel){
 }
 
 internal inline void
-SetCameraCenterP(v2 P, f32 TileSide){
-    v2 MapSize = TileSide*v2{(f32)GlobalOverworldXTiles, (f32)GlobalOverworldYTiles};
-    GlobalCameraP = P - 0.5f*0.5f*MapSize;
-    if((GlobalCameraP.X+0.5f*MapSize.X) > MapSize.X){
-        GlobalCameraP.X = 0.5f*MapSize.X;
-    }else if((GlobalCameraP.X) < 0.0f){
+SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles){
+    f32 TileSide = 0.5f;
+    v2 MapSize = TileSide*v2{(f32)XTiles, (f32)YTiles};
+    GlobalCameraP = P - 0.5f*v2{32.0f, 18.0f}*TileSide;
+    if((GlobalCameraP.X+32.0f*TileSide) > MapSize.X){
+        GlobalCameraP.X = MapSize.X - 32.0f*TileSide;
+    }else if(GlobalCameraP.X < 0.0f){
         GlobalCameraP.X = 0.0f;
     }
-    if((GlobalCameraP.Y+0.5f*MapSize.Y) > MapSize.Y){
-        GlobalCameraP.Y = 0.5f*MapSize.Y;
-    }else if((GlobalCameraP.Y) < 0.0f){
+    if((GlobalCameraP.Y+18.0f*TileSide) > MapSize.Y){
+        GlobalCameraP.Y = MapSize.Y - 18.0f*TileSide;
+    }else if(GlobalCameraP.Y < 0.0f){
         GlobalCameraP.Y = 0.0f;
     }
 }

@@ -375,6 +375,22 @@ ALLOCATE_VIRTUAL_MEMORY(AllocateVirtualMemory){
     return(Memory);
 }
 
+internal
+FREE_VIRTUAL_MEMORY(FreeVirtualMemory){
+    VirtualFree(Pointer, 0, MEM_RELEASE);
+}
+
+internal void *
+DefaultAlloc(umw Size){
+    void *Result = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, Size);
+    return(Result);
+}
+
+internal void
+DefaultFree(void *Pointer){
+    Assert(HeapFree(GetProcessHeap(), 0, Pointer));
+}
+
 int CALLBACK
 WinMain(HINSTANCE Instance,
         HINSTANCE PrevInstance,
@@ -553,7 +569,7 @@ WinMain(HINSTANCE Instance,
                 };
                 POINT MouseP;
                 GetCursorPos(&MouseP);
-                GlobalMouseP = {
+                GlobalInput.MouseP = {
                     (f32)MouseP.x,
                     (f32)(GlobalInput.WindowSize.Height-MouseP.y)
                 };

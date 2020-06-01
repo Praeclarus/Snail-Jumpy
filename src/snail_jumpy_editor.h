@@ -36,16 +36,18 @@ struct editor {
     v2 MouseP;
     v2 MouseP2;
     v2 CursorP;
-    v2 CursorP2; // First P
-    b8 IsDragging;
+    v2 CursorP2;
     
     entity_type SelectedThingType;
     u32 SelectedThing;
     
-    // Level editor
+    u8 *Map;
+    u32 WidthInTiles;
+    u32 HeightInTiles;
+    
     edit_mode Mode;
-    //level_enemy *SelectedEnemy;
     b8 HideUI;
+    b8 IsDragging;
 };
 
 #endif //SNAIL_JUMPY_EDITOR_H
