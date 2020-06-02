@@ -10,19 +10,6 @@ struct level_enemy {
     f32 Direction;
 };
 
-struct level_data {
-    u32 WidthInTiles;
-    u32 HeightInTiles;
-    u32 WallCount;
-    u8 *MapData;
-    
-    array<level_enemy> Enemies;
-    char Name[512];
-    
-    u32 CoinsRequiredToComplete;
-    b8 IsCompleted;
-};
-
 struct teleporter_data {
     char Level[512];
     char RequiredLevel[512];
@@ -35,6 +22,23 @@ struct door_data {
         v2 Size;
     };
     char RequiredLevel[512];
+};
+
+struct world_data {
+    u8 *Map;
+    u32 Width;
+    u32 Height;
+    array<level_enemy> Enemies;
+    array<teleporter_data> Teleporters;
+    array<door_data> Doors;
+};
+
+struct level_data {
+    char Name[512];
+    world_data World;
+    
+    u32 CoinsRequiredToComplete;
+    b8 IsCompleted;
 };
 
 #pragma pack(push, 1)

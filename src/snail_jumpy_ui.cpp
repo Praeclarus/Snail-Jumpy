@@ -60,63 +60,6 @@ RenderAllUIPrimitives(render_group *RenderGroup){
     }
 }
 
-internal void
-ProcessUIInput(os_event *Event){
-    switch(Event->Kind){
-        case OSEventKind_KeyDown: {
-            GlobalUIManager.HandledInput = true;
-            
-            if(Event->Key == KeyCode_Shift){
-                GlobalUIManager.ShiftIsDown = true;
-                break;
-            }
-            
-            text_box_data *TextBoxData = &GlobalUIManager.SelectedTextBox;
-            if(('0' <= Event->Key) && (Event->Key <= 'Z')){
-                char Char = (char)Event->Key;
-                if(GlobalUIManager.ShiftIsDown){
-                }else{
-                    if(('A' <= Char) && (Char <= 'Z')){
-                        Char += 'a'-'A';
-                    }
-                }
-                
-                Assert((TextBoxData->BufferIndex+1) < ArrayCount(TextBoxData->Buffer));
-                TextBoxData->Buffer[TextBoxData->BufferIndex++] = Char;
-                TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
-            }else if(Event->Key == '-'){
-                char Char = (char)Event->Key;
-                if(GlobalUIManager.ShiftIsDown){
-                    Char = '_';
-                }
-                Assert((TextBoxData->BufferIndex+1) < ArrayCount(TextBoxData->Buffer));
-                TextBoxData->Buffer[TextBoxData->BufferIndex++] = Char;
-                TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
-            }else if(Event->Key == KeyCode_BackSpace){
-                if(TextBoxData->BufferIndex > 0){
-                    TextBoxData->BufferIndex--;
-                    TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
-                }
-            }else if(Event->Key == KeyCode_Escape){
-                GlobalUIManager.SelectedWidgetId = 0;
-            }
-        }break;
-        case OSEventKind_KeyUp: {
-            if(Event->Key == KeyCode_Shift){
-                GlobalUIManager.ShiftIsDown = false;
-            }
-        }break;
-        case OSEventKind_MouseDown: {
-            GlobalInput.Buttons[Event->Button].JustDown = true;
-            GlobalInput.Buttons[Event->Button].IsDown = true;
-        }break;
-        case OSEventKind_MouseUp: {
-            GlobalInput.Buttons[Event->Button].IsDown = false;
-        }break;
-    }
-    
-}
-
 //~ Basic widgets
 internal void
 UISlider(f32 X, f32 Y,

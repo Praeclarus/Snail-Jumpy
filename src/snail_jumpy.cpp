@@ -33,21 +33,15 @@ global ui_manager GlobalUIManager;
 global state_change_data GlobalStateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_LevelEditor;
+global game_mode GlobalGameMode = GameMode_Overworld;
 
 global editor    GlobalEditor;
 
 global v2 GlobalCameraP;
 global v2 GlobalLastOverworldPlayerP;
 
-global u8 *GlobalOverworldMap;
-global u32 GlobalOverworldXTiles;
-global u32 GlobalOverworldYTiles;
-global array<teleporter_data> GlobalTeleporterData;
-global array<door_data> GlobalDoorData;
-
+global world_data GlobalOverworldWorld;
 global memory_arena GlobalEnemyMemory;
-
 global hash_table        GlobalLevelTable;
 global array<level_data> GlobalLevelData;
 global level_data       *GlobalCurrentLevel;
@@ -158,8 +152,8 @@ InitializeGame(){
     // NOTE(Tyler): Initialize overworld
     //GlobalOverworldMapMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(8));
     //GlobalOverworldMap = GlobalOverworldMapMemory.Memory;
-    GlobalTeleporterData = CreateNewArray<teleporter_data>(&GlobalPermanentStorageArena, 512);
-    GlobalDoorData = CreateNewArray<door_data>(&GlobalPermanentStorageArena, 512);
+    GlobalOverworldWorld.Teleporters = CreateNewArray<teleporter_data>(&GlobalPermanentStorageArena, 512);
+    GlobalOverworldWorld.Doors = CreateNewArray<door_data>(&GlobalPermanentStorageArena, 512);
     LoadOverworldFromFile();
     
     if((GlobalGameMode == GameMode_Overworld) ||
@@ -193,9 +187,7 @@ InitializeGame(){
             {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 }, 0.0f},
             {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 8, 8, 8, 8 }, 0.0f },
             {"test_speedy_spritesheet.png",      80,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 },-0.07f },
-            //{"test_snail_spritesheet.png",   64,  4,  {  4,  4 },       {  8,  8 },      -0.02f},
-            //{"test_sally_spritesheet.png",  120,  4,  {  4,  4 },       {  8,  8 },      -0.04f},
-            //{"test_dragonfly_spritesheet.png", 128, 10,  { 10, 10, 5, 5 }, {  7,  7, 7, 7 }, 0.0f },
+            {"overworld_avatar_spritesheet.png", 64, 10,  {  3,  3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 4, 5, 5, 5 }, { 2, 2, 2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0 },
         };
         
         for(u32 Index = 0; Index < Asset_TOTAL; Index++){

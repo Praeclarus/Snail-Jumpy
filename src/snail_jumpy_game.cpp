@@ -164,8 +164,8 @@ UpdateAndRenderMainGame(){
                 GlobalManager.Player->dP = {0};
             }
             
-            SetCameraCenterP(GlobalManager.Player->P, GlobalCurrentLevel->WidthInTiles, 
-                             GlobalCurrentLevel->HeightInTiles);
+            SetCameraCenterP(GlobalManager.Player->P, GlobalEditor.World->Width, 
+                             GlobalEditor.World->Height);
         }
         
         UpdateAndRenderAnimation(&RenderGroup, GlobalManager.Player, GlobalInput.dTimeForFrame);

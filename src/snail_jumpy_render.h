@@ -7,6 +7,7 @@ struct vertex {
     f32 TexCoord[2];
 };
 
+// TODO(Tyler): SORT THE RENDER ITEMS!!!
 typedef u32 render_texture_handle;
 struct render_item {
     u32 VertexOffset;

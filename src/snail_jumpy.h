@@ -31,7 +31,6 @@ struct state_change_data {
     const char *NewLevel;
 };
 
-
 #pragma pack(push, 1)
 struct overworld_file_header {
     char Header[3]; // 'S', 'J', 'O'

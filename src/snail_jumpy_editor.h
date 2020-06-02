@@ -41,9 +41,7 @@ struct editor {
     entity_type SelectedThingType;
     u32 SelectedThing;
     
-    u8 *Map;
-    u32 WidthInTiles;
-    u32 HeightInTiles;
+    world_data *World;
     
     edit_mode Mode;
     b8 HideUI;

@@ -113,7 +113,6 @@ Win32MainWindowProc(HWND Window,
                 }else if(VkCode == VK_OEM_MINUS){
                     Win32ProcessKeyboardInput(&GlobalInput.Buttons['-'], IsDown);
                 }
-                
                 if(IsDown){
                     if(VkCode == VK_F11){
                         ToggleFullscreen(Window);
@@ -510,7 +509,10 @@ WinMain(HINSTANCE Instance,
                             }else if(VkCode == VK_OEM_MINUS){
                                 Event.Key = KeyCode_Minus;
                                 //Win32ProcessKeyboardInput(&GlobalInput.Buttons['-'], IsDown);
-                            }else{
+                            }else if(VkCode == VK_RETURN){
+                                Event.Key = KeyCode_Return;
+                            }
+                            else{
                                 continue;
                             }
                             

@@ -2,8 +2,8 @@ internal void
 InitializeOverworld(){
     local_constant u32 XTiles = 64;
     local_constant u32 YTiles = 36;
-    GlobalOverworldXTiles = XTiles;
-    GlobalOverworldYTiles = YTiles;
+    GlobalOverworldWorld.Width = XTiles;
+    GlobalOverworldWorld.Height = YTiles;
     u8 TemplateMap[YTiles][XTiles] = {
         {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -44,21 +44,21 @@ InitializeOverworld(){
     };
     
     {
-        PushItemOntoArray(&GlobalTeleporterData, {"Test_Level", 0});
-        PushItemOntoArray(&GlobalTeleporterData, {"Test_Level2", 0});
-        PushItemOntoArray(&GlobalTeleporterData, {"Test_Level3", "Test_Level2"});
+        PushItemOntoArray(&GlobalOverworldWorld.Teleporters, {"Test_Level", 0});
+        PushItemOntoArray(&GlobalOverworldWorld.Teleporters, {"Test_Level2", 0});
+        PushItemOntoArray(&GlobalOverworldWorld.Teleporters, {"Test_Level3", "Test_Level2"});
     }
     
     //PushMemory(&GlobalOverworldMapMemory, sizeof(TemplateMap));
-    GlobalOverworldMap = (u8 *)DefaultAlloc(sizeof(TemplateMap));
+    GlobalOverworldWorld.Map= (u8 *)DefaultAlloc(sizeof(TemplateMap));
     for(u32 I = 0; I < sizeof(TemplateMap); I++){
-        GlobalOverworldMap[I] = ((u8 *)TemplateMap)[I];
+        GlobalOverworldWorld.Map[I] = ((u8 *)TemplateMap)[I];
     }
     GlobalLastOverworldPlayerP = v2{1.5f, 1.5f};
     
     f32 TileSideInMeters = 0.5f;
     {
-        door_data *Door = PushNewArrayItem(&GlobalDoorData);
+        door_data *Door = PushNewArrayItem(&GlobalOverworldWorld.Doors);
         Door->P.X = 20.5f*TileSideInMeters;
         Door->P.Y = 5.5f*TileSideInMeters;
         Door->Width = 1*TileSideInMeters;
@@ -67,7 +67,7 @@ InitializeOverworld(){
     }
     
     {
-        door_data *Door = PushNewArrayItem(&GlobalDoorData);
+        door_data *Door = PushNewArrayItem(&GlobalOverworldWorld.Doors);
         Door->P.X = 39.5f*TileSideInMeters;
         Door->P.Y = 7.0f*TileSideInMeters;
         Door->Width = 1*TileSideInMeters;
@@ -81,11 +81,11 @@ LoadOverworld(){
     TIMED_FUNCTION();
     
     ResetEntitySystem();
-    u8 *Map = GlobalOverworldMap;
+    u8 *Map = GlobalOverworldWorld.Map;
     
     u32 WallCount = 0; 
     u32 TeleporterCount = 0;
-    for(u32 I = 0; I < GlobalOverworldXTiles*GlobalOverworldYTiles; I++){
+    for(u32 I = 0; I < GlobalOverworldWorld.Width*GlobalOverworldWorld.Height; I++){
         u8 Tile = Map[I];
         if(Tile == EntityType_Wall){
             WallCount++;
@@ -96,18 +96,19 @@ LoadOverworld(){
     
     f32 TileSideInMeters = 0.5f;
     if(GlobalManager.Memory.Used != 0){ GlobalManager.Memory.Used = 0; }
-    LoadWallsFromMap((u8*)Map, WallCount, GlobalOverworldXTiles, GlobalOverworldYTiles, 
-                     TileSideInMeters);
+    LoadWallsFromMap((u8*)Map, WallCount, GlobalOverworldWorld.Width, 
+                     GlobalOverworldWorld.Height, TileSideInMeters);
     
     
     // NOTE(Tyler): Load doors
     {
-        AllocateNEntities(GlobalDoorData.Count, EntityType_Door);
-        for(u32 I = 0; I < GlobalDoorData.Count; I++){
-            door_data *Data = &GlobalDoorData[I];
+        AllocateNEntities(GlobalOverworldWorld.Doors.Count, EntityType_Door);
+        for(u32 I = 0; I < GlobalOverworldWorld.Doors.Count; I++){
+            door_data *Data = &GlobalOverworldWorld.Doors[I];
             door_entity *Door = &GlobalManager.Doors[I];
             Door->P = Data->P;
             Door->Size = Data->Size;
+            Door->IsOpen = false;
             
             if(IsLevelCompleted(Data->RequiredLevel)){
                 OpenDoor(Door);
@@ -119,12 +120,12 @@ LoadOverworld(){
     {
         AllocateNEntities(TeleporterCount, EntityType_Teleporter);
         u32 CurrentId = 0;
-        for(u32 Y = 0; Y < GlobalOverworldYTiles; Y++){
-            for(u32 X = 0; X < GlobalOverworldXTiles; X++){
-                u8 TileId = Map[Y*GlobalOverworldXTiles + X];
+        for(u32 Y = 0; Y < GlobalOverworldWorld.Height; Y++){
+            for(u32 X = 0; X < GlobalOverworldWorld.Width; X++){
+                u8 TileId = Map[Y*GlobalOverworldWorld.Width + X];
                 if(TileId == EntityType_Teleporter){
                     Assert(CurrentId < TeleporterCount);
-                    Assert(CurrentId < GlobalTeleporterData.Count);
+                    Assert(CurrentId < GlobalOverworldWorld.Teleporters.Count);
                     
                     GlobalManager.Teleporters[CurrentId] = {0};
                     GlobalManager.Teleporters[CurrentId].P = v2{
@@ -134,11 +135,11 @@ LoadOverworld(){
                         TileSideInMeters, TileSideInMeters
                     };
                     GlobalManager.Teleporters[CurrentId].Level = 
-                        GlobalTeleporterData[CurrentId].Level;
+                        GlobalOverworldWorld.Teleporters[CurrentId].Level;
                     GlobalManager.Teleporters[CurrentId].IsLocked = true;
                     
                     GlobalManager.Teleporters[CurrentId].IsLocked = 
-                        !IsLevelCompleted(GlobalTeleporterData[CurrentId].RequiredLevel);
+                        !IsLevelCompleted(GlobalOverworldWorld.Teleporters[CurrentId].RequiredLevel);
                     
                     CurrentId++;
                 }
@@ -146,12 +147,19 @@ LoadOverworld(){
         }
     }
     
-    AddPlayer({1.5f, 1.5f});
+    AllocateNEntities(1, EntityType_Player);
+    *GlobalManager.Player = {0};
+    
     GlobalManager.Player->P = GlobalLastOverworldPlayerP;
-    GlobalManager.Player->Size = v2{0.45f, 0.45f};
+    GlobalManager.Player->ZLayer = -0.7f;
+    
+    GlobalManager.Player->CurrentAnimation = PlayerAnimation_IdleLeft;
+    GlobalManager.Player->Asset = Asset_TopdownPlayer;
+    GlobalManager.Player->AnimationState = 0.0f;
+    GlobalManager.Player->Size = v2{0.3f, 0.2f};
     GlobalManager.Player->ZLayer = -0.5f;
     
-    SetCameraCenterP(GlobalManager.Player->P, GlobalOverworldXTiles, GlobalOverworldYTiles);
+    SetCameraCenterP(GlobalManager.Player->P, GlobalOverworldWorld.Width, GlobalOverworldWorld.Height);
 }
 
 internal void
@@ -221,11 +229,10 @@ UpdateAndRenderOverworld(){
                     // could likely be improved, and probably should be
                     u32 Level = (u32)FindInHashTable(&GlobalLevelTable, Teleporter->Level);
                     if(Level){
-                        
                         level_data *LevelData = &GlobalLevelData[Level-1];
                         
                         v2 TileSize = v2{0.1f, 0.1f};
-                        v2 MapSize = TileSize.X * v2{(f32)LevelData->WidthInTiles, (f32)LevelData->HeightInTiles};
+                        v2 MapSize = TileSize.X * v2{(f32)LevelData->World.Width, (f32)LevelData->World.Height};
                         
                         v2 MapP = v2{
                             P.X-MapSize.X/2,
@@ -276,48 +283,75 @@ UpdateAndRenderOverworld(){
     {
         v2 ddP = {0};
         
+        if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
+            ddP.X += 1;
+        }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
+            ddP.X -= 1;
+        }
+        
+        if(IsKeyDown(KeyCode_Up) && !IsKeyDown(KeyCode_Down)){
+            ddP.Y += 1;
+        }else if(IsKeyDown(KeyCode_Down) && !IsKeyDown(KeyCode_Up)){
+            ddP.Y -= 1;
+        }
+        
+        player_entity *Player = GlobalManager.Player;
+        if((ddP.X != 0.0f) && (ddP.Y != 0.0f)) ddP /= SquareRoot(LengthSquared(ddP));
+        
+        if((ddP.X == 0.0f) && (ddP.Y > 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningNorth);
+        }else if((ddP.X > 0.0f) && (ddP.Y > 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningNorthEast);
+        }else if((ddP.X > 0.0f) && (ddP.Y == 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningEast);
+        }else if((ddP.X > 0.0f) && (ddP.Y < 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningSouthEast);
+        }else if((ddP.X == 0.0f) && (ddP.Y < 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningSouth);
+        }else if((ddP.X < 0.0f) && (ddP.Y < 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningSouthWest);
+        }else if((ddP.X < 0.0f) && (ddP.Y == 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningWest);
+        }else if((ddP.X < 0.0f) && (ddP.Y > 0.0f)){
+            PlayAnimation(Player, TopdownPlayerAnimation_RunningNorthWest);
+        }else {
+            switch(Player->CurrentAnimation){
+                case TopdownPlayerAnimation_RunningNorth:     PlayAnimation(Player, TopdownPlayerAnimation_IdleNorth); break;
+                case TopdownPlayerAnimation_RunningNorthEast: PlayAnimation(Player, TopdownPlayerAnimation_IdleNorthEast); break;
+                case TopdownPlayerAnimation_RunningEast:      PlayAnimation(Player, TopdownPlayerAnimation_IdleEast); break;
+                case TopdownPlayerAnimation_RunningSouthEast: PlayAnimation(Player, TopdownPlayerAnimation_IdleSouthEast); break;
+                case TopdownPlayerAnimation_RunningSouth:     PlayAnimation(Player, TopdownPlayerAnimation_IdleSouth); break;
+                case TopdownPlayerAnimation_RunningSouthWest: PlayAnimation(Player, TopdownPlayerAnimation_IdleSouthWest); break;
+                case TopdownPlayerAnimation_RunningWest:      PlayAnimation(Player, TopdownPlayerAnimation_IdleWest); break;
+                case TopdownPlayerAnimation_RunningNorthWest: PlayAnimation(Player, TopdownPlayerAnimation_IdleNorthWest); break;
+            }
+        }
+        
+        
         f32 MovementSpeed = 100;
         if(IsKeyDown(KeyCode_Shift)){
             MovementSpeed = 200;
         }
-        if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
-            ddP.X += MovementSpeed;
-            PlayAnimation(GlobalManager.Player, PlayerAnimation_RunningRight);
-        }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
-            ddP.X -= MovementSpeed;
-            PlayAnimation(GlobalManager.Player, PlayerAnimation_RunningLeft);
-        }else{
-            if(GlobalManager.Player->dP.X < 0.0f){
-                PlayAnimation(GlobalManager.Player, PlayerAnimation_IdleLeft);
-            }else if(0.0f < GlobalManager.Player->dP.X){
-                PlayAnimation(GlobalManager.Player, PlayerAnimation_IdleRight);
-            }
-        }
-        
-        if(IsKeyDown(KeyCode_Up) && !IsKeyDown(KeyCode_Down)){
-            ddP.Y += MovementSpeed;
-        }else if(IsKeyDown(KeyCode_Down) && !IsKeyDown(KeyCode_Up)){
-            ddP.Y -= MovementSpeed;
-        }
+        ddP *= MovementSpeed;
         
         //ddP.X = 120;
         
         MovePlayer(ddP);
         
-        v2 P = GlobalManager.Player->P - GlobalCameraP;
         UpdateAndRenderAnimation(&RenderGroup, GlobalManager.Player, 
-                                 GlobalInput.dTimeForFrame, true);
-        RenderRectangle(&RenderGroup, 
-                        P-GlobalManager.Player->Size/2.0f,
-                        P+GlobalManager.Player->Size/2.0f, 0.0f,
-                        YELLOW);
-        SetCameraCenterP(GlobalManager.Player->P, GlobalOverworldXTiles, 
-                         GlobalOverworldYTiles);
+                                 GlobalInput.dTimeForFrame);
+        v2 P = GlobalManager.Player->P - GlobalCameraP;
+        RenderRectangle(&RenderGroup, P-0.5f*Player->Size, P+0.5f*Player->Size,
+                        Player->ZLayer, YELLOW);
+        SetCameraCenterP(GlobalManager.Player->P, GlobalOverworldWorld.Width, 
+                         GlobalOverworldWorld.Height);
     }
     
     
     layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
                                  30, GlobalDebugFont.Size);
+    LayoutString(&Layout, &GlobalDebugFont, BLACK, "CameraP: %f %f", 
+                 GlobalCameraP.X, GlobalCameraP.Y);
     LayoutFps(&Layout);
     RenderAllUIPrimitives(&RenderGroup);
     DebugRenderAllProfileData(&RenderGroup, &Layout);
@@ -337,31 +371,31 @@ LoadOverworldFromFile(){
                (Header->Header[2] == 'O'));
         Assert(Header->Version == 1);
         
-        GlobalOverworldXTiles = Header->WidthInTiles;
-        GlobalOverworldYTiles = Header->HeightInTiles;
-        u32 MapSize = GlobalOverworldXTiles*GlobalOverworldYTiles;
-        GlobalOverworldMap = (u8 *)DefaultAlloc(MapSize);
+        GlobalOverworldWorld.Width = Header->WidthInTiles;
+        GlobalOverworldWorld.Height = Header->HeightInTiles;
+        u32 MapSize = GlobalOverworldWorld.Width*GlobalOverworldWorld.Height;
+        GlobalOverworldWorld.Map = (u8 *)DefaultAlloc(MapSize);
         //GlobalOverworldMap = PushArray(&GlobalOverworldMapMemory, u8, MapSize);
         u8 *FileMapData = ConsumeBytes(&Stream, MapSize);
-        CopyMemory(GlobalOverworldMap, FileMapData, MapSize);
+        CopyMemory(GlobalOverworldWorld.Map, FileMapData, MapSize);
         
-        PushNArrayItems(&GlobalTeleporterData, Header->TeleporterCount);
+        PushNArrayItems(&GlobalOverworldWorld.Teleporters, Header->TeleporterCount);
         for(u32 I = 0; I < Header->TeleporterCount; I++){
             char *Level = ConsumeString(&Stream);
-            CopyCString(GlobalTeleporterData[I].Level, Level, 512);
+            CopyCString(GlobalOverworldWorld.Teleporters[I].Level, Level, 512);
             char *RequiredLevel = ConsumeString(&Stream);
-            CopyCString(GlobalTeleporterData[I].RequiredLevel, 
+            CopyCString(GlobalOverworldWorld.Teleporters[I].RequiredLevel, 
                         RequiredLevel, 512);
         }
         
-        PushNArrayItems(&GlobalDoorData, Header->DoorCount);
+        PushNArrayItems(&GlobalOverworldWorld.Doors, Header->DoorCount);
         for(u32 I = 0; I < Header->DoorCount; I++){
             v2 *P = ConsumeType(&Stream, v2);
             v2 *Size = ConsumeType(&Stream, v2);
-            GlobalDoorData[I].P = *P;
-            GlobalDoorData[I].Size = *Size;
+            GlobalOverworldWorld.Doors[I].P = *P;
+            GlobalOverworldWorld.Doors[I].Size = *Size;
             char *RequiredLevel = ConsumeString(&Stream);
-            CopyCString(GlobalDoorData[I].RequiredLevel, 
+            CopyCString(GlobalOverworldWorld.Doors[I].RequiredLevel, 
                         RequiredLevel, 512);
         }
         
@@ -384,20 +418,20 @@ SaveOverworldToFile(){
     Header.Header[2] = 'O';
     
     Header.Version = 1;
-    Header.WidthInTiles = GlobalOverworldXTiles;
-    Header.HeightInTiles = GlobalOverworldYTiles;
-    Header.TeleporterCount = GlobalTeleporterData.Count;
-    Header.DoorCount = GlobalDoorData.Count;
+    Header.WidthInTiles = GlobalOverworldWorld.Width;
+    Header.HeightInTiles = GlobalOverworldWorld.Height;
+    Header.TeleporterCount = GlobalOverworldWorld.Teleporters.Count;
+    Header.DoorCount = GlobalOverworldWorld.Doors.Count;
     
     WriteToFile(File, 0, &Header, sizeof(Header));
     u32 Offset = sizeof(Header);
     
-    u32 MapSize = GlobalOverworldXTiles*GlobalOverworldYTiles;
-    WriteToFile(File, Offset, GlobalOverworldMap, MapSize);
+    u32 MapSize = GlobalOverworldWorld.Width*GlobalOverworldWorld.Height;
+    WriteToFile(File, Offset, GlobalOverworldWorld.Map, MapSize);
     Offset += MapSize;
     
-    for(u32 I = 0; I < GlobalTeleporterData.Count; I++){
-        teleporter_data *Data = &GlobalTeleporterData[I];
+    for(u32 I = 0; I < GlobalOverworldWorld.Teleporters.Count; I++){
+        teleporter_data *Data = &GlobalOverworldWorld.Teleporters[I];
         {
             u32 Length = CStringLength(Data->Level);
             WriteToFile(File, Offset, Data->Level, Length+1);
@@ -409,8 +443,8 @@ SaveOverworldToFile(){
         }
     }
     
-    for(u32 I = 0; I < GlobalDoorData.Count; I++){
-        door_data *Data = &GlobalDoorData[I];
+    for(u32 I = 0; I < GlobalOverworldWorld.Doors.Count; I++){
+        door_data *Data = &GlobalOverworldWorld.Doors[I];
         {
             WriteToFile(File, Offset, &Data->P, sizeof(Data->P));
             Offset += sizeof(Data->P);

@@ -58,21 +58,23 @@ LoadLevel(const char *LevelName){
             GlobalCurrentLevel = &GlobalLevelData[GlobalCurrentLevelIndex];
             
             f32 TileSideInMeters = 0.5f;
-            GlobalManager.CoinData.Tiles = GlobalCurrentLevel->MapData;
-            GlobalManager.CoinData.XTiles = GlobalCurrentLevel->WidthInTiles;
-            GlobalManager.CoinData.YTiles = GlobalCurrentLevel->HeightInTiles;
+            GlobalManager.CoinData.Tiles = GlobalCurrentLevel->World.Map;
+            GlobalManager.CoinData.XTiles = GlobalCurrentLevel->World.Width;
+            GlobalManager.CoinData.YTiles = GlobalCurrentLevel->World.Height;
             GlobalManager.CoinData.TileSideInMeters = TileSideInMeters;
             GlobalManager.CoinData.NumberOfCoinPs = 0;
             
             u32 WallCount = 0;
-            for(u32 I = 0; I < GlobalCurrentLevel->WidthInTiles*GlobalCurrentLevel->HeightInTiles; I++){
-                u8 Tile = GlobalCurrentLevel->MapData[I];
+            for(u32 I = 0; 
+                I < GlobalCurrentLevel->World.Width*GlobalCurrentLevel->World.Height; 
+                I++){
+                u8 Tile = GlobalCurrentLevel->World.Map[I];
                 if(Tile == EntityType_Wall){
                     WallCount++;
                 }
             }
-            LoadWallsFromMap(GlobalCurrentLevel->MapData, WallCount,
-                             GlobalCurrentLevel->WidthInTiles, GlobalCurrentLevel->HeightInTiles,
+            LoadWallsFromMap(GlobalCurrentLevel->World.Map, WallCount,
+                             GlobalCurrentLevel->World.Width, GlobalCurrentLevel->World.Height,
                              TileSideInMeters);
             
             {
@@ -90,9 +92,9 @@ LoadLevel(const char *LevelName){
             AddPlayer({1.5f, 1.5f});
             
             {
-                AllocateNEntities(GlobalCurrentLevel->Enemies.Count, EntityType_Snail);
-                for(u32 I = 0; I < GlobalCurrentLevel->Enemies.Count; I ++){
-                    level_enemy *Enemy = &GlobalCurrentLevel->Enemies[I];
+                AllocateNEntities(GlobalCurrentLevel->World.Enemies.Count, EntityType_Snail);
+                for(u32 I = 0; I < GlobalCurrentLevel->World.Enemies.Count; I ++){
+                    level_enemy *Enemy = &GlobalCurrentLevel->World.Enemies[I];
                     GlobalManager.Enemies[I] = {0};
                     GlobalManager.Enemies[I].Type = Enemy->Type;
                     Assert(GlobalManager.Enemies[I].Type);
@@ -138,9 +140,10 @@ internal inline void
 RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex, 
                           v2 TileSize, v2 P=v2{0, 0}, f32 ZOffset=0.0f){
     TIMED_FUNCTION();
-    for(f32 Y = 0; Y < GlobalLevelData[LevelIndex].HeightInTiles; Y++){
-        for(f32 X = 0; X < GlobalLevelData[LevelIndex].WidthInTiles; X++){
-            u8 TileId = GlobalLevelData[LevelIndex].MapData[((u32)Y*GlobalLevelData[LevelIndex].WidthInTiles)+(u32)X];
+    world_data *World = &GlobalLevelData[LevelIndex].World;
+    for(f32 Y = 0; Y < World->Height; Y++){
+        for(f32 X = 0; X < World->Width; X++){
+            u8 TileId = World->Map[((u32)Y*World->Width)+(u32)X];
             v2 TileP = v2{TileSize.Width*X, TileSize.Height*Y} + P;
             v2 Center = TileP + 0.5f*TileSize;
             if(TileId == EntityType_Wall){
@@ -154,8 +157,8 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex,
         }
     }
     
-    for(u32 I = 0; I < GlobalLevelData[LevelIndex].Enemies.Count; I++){
-        level_enemy *Enemy = &GlobalLevelData[LevelIndex].Enemies[I];
+    for(u32 I = 0; I < World->Enemies.Count; I++){
+        level_enemy *Enemy = &World->Enemies[I];
         // TODO(Tyler): This could be factored in to something
         spritesheet_asset *Asset = 0;
         f32 YOffset = 0;
@@ -246,38 +249,37 @@ LoadLevelFromFile(const char *Name){
                (Header->Header[1] == 'J') && 
                (Header->Header[2] == 'L'));
         Assert(Header->Version == 1);
-        NewData->WidthInTiles = Header->WidthInTiles;
-        NewData->HeightInTiles = Header->HeightInTiles;
-        NewData->Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
-        NewData->Enemies.Count = Header->EnemyCount;
+        NewData->World.Width = Header->WidthInTiles;
+        NewData->World.Height = Header->HeightInTiles;
+        NewData->World.Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
+        NewData->World.Enemies.Count = Header->EnemyCount;
         NewData->CoinsRequiredToComplete = 30;
         
         // TODO(Tyler): This probably is not needed and could be removed
         char *String = ConsumeString(&Stream);
         CopyCString(NewData->Name, String, 512);
         
-        u32 MapSize = NewData->WidthInTiles*NewData->HeightInTiles;
+        u32 MapSize = NewData->World.Width*NewData->World.Height;
         u8 *Map = ConsumeBytes(&Stream, MapSize);
         //NewData->MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
-        NewData->MapData = (u8 *)DefaultAlloc(MapSize);
-        CopyMemory(NewData->MapData, Map, MapSize);
+        NewData->World.Map = (u8 *)DefaultAlloc(MapSize);
+        CopyMemory(NewData->World.Map, Map, MapSize);
         
-        for(u32 I = 0; I < NewData->Enemies.Count; I++){
+        for(u32 I = 0; I < NewData->World.Enemies.Count; I++){
             level_enemy *FileEnemy = ConsumeType(&Stream, level_enemy);
-            NewData->Enemies[I] = *FileEnemy;
+            NewData->World.Enemies[I] = *FileEnemy;
         }
         
         InsertIntoHashTable(&GlobalLevelTable, NewData->Name, Index+1);
     }else{
-        NewData->WidthInTiles = 32;
-        NewData->HeightInTiles = 18;
-        NewData->WallCount = 0;
-        u32 MapSize = NewData->WidthInTiles*NewData->HeightInTiles;
+        NewData->World.Width = 32;
+        NewData->World.Height = 18;
+        u32 MapSize = NewData->World.Width*NewData->World.Height;
         //NewData->MapData = PushArray(&GlobalMapDataMemory, u8, MapSize);
-        NewData->MapData = (u8 *)DefaultAlloc(MapSize);
-        NewData->Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
+        NewData->World.Map = (u8 *)DefaultAlloc(MapSize);
+        NewData->World.Enemies = CreateNewArray<level_enemy>(&GlobalEnemyMemory, 64);
         CopyCString(NewData->Name, (char *)Name, 512);
-        InsertIntoHashTable(&GlobalLevelTable, NewData->Name, 0+1);
+        InsertIntoHashTable(&GlobalLevelTable, NewData->Name, Index+1);
     }
     return(NewData);
 }
@@ -298,9 +300,9 @@ SaveLevelsToFile(){
         Header.Header[2] = 'L';
         
         Header.Version = 1;
-        Header.WidthInTiles = Level->WidthInTiles;
-        Header.HeightInTiles = Level->HeightInTiles;
-        Header.EnemyCount = Level->Enemies.Count;
+        Header.WidthInTiles = Level->World.Width;
+        Header.HeightInTiles = Level->World.Height;
+        Header.EnemyCount = Level->World.Enemies.Count;
         
         WriteToFile(File, 0, &Header, sizeof(Header));
         u32 Offset = sizeof(Header);
@@ -309,12 +311,12 @@ SaveLevelsToFile(){
         WriteToFile(File, Offset, Level->Name, NameLength+1);
         Offset += NameLength+1;
         
-        u32 MapSize = Level->WidthInTiles*Level->HeightInTiles;
-        WriteToFile(File, Offset, Level->MapData, MapSize);
+        u32 MapSize = Level->World.Width*Level->World.Height;
+        WriteToFile(File, Offset, Level->World.Map, MapSize);
         Offset += MapSize;
         
-        WriteToFile(File, Offset, Level->Enemies.Items, 
-                    Level->Enemies.Count*sizeof(*Level->Enemies.Items));
+        WriteToFile(File, Offset, Level->World.Enemies.Items, 
+                    Level->World.Enemies.Count*sizeof(*Level->World.Enemies.Items));
         CloseFile(File);
     }
 }

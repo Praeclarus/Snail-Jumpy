@@ -49,9 +49,10 @@ enum os_key_code {
     KeyCode_Right = 100,
     KeyCode_BackSpace  = 101,
     KeyCode_Escape     = 102,
-    KeyCode_LeftMouse  = 103,
-    KeyCode_MiddleMouse = 104,
-    KeyCode_RightMouse = 105,
+    KeyCode_Return     = 103,
+    KeyCode_LeftMouse  = 104,
+    KeyCode_MiddleMouse = 105,
+    KeyCode_RightMouse = 106,
     
     KeyCode_TOTAL,
 };
@@ -76,7 +77,6 @@ struct os_input {
     
     os_button Buttons[KeyCode_TOTAL];
 };
-
 
 enum os_event_kind {
     OSEventKind_None,

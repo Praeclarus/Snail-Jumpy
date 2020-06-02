@@ -150,7 +150,13 @@ struct array {
         Assert(Index < Count);
         return(Items[Index]);
     }
+    
+    inline operator b8(){ return(Items); }
+    inline operator b16(){ return(Items); }
+    inline operator b32(){ return(Items); }
+    inline operator b64(){ return(Items); }
 };
+
 
 template<typename T>
 internal inline void
