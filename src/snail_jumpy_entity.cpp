@@ -1,6 +1,3 @@
-
-global entity_manager GlobalManager;
-
 internal void UpdateCoin(u32 Id);
 
 //~ Animation rendering
@@ -16,12 +13,12 @@ PlayAnimation(entity *Entity, u32 AnimationIndex){
 
 internal void
 PlayAnimationToEnd(entity *Entity, u32 AnimationIndex){
-    spritesheet_asset *Asset = &GlobalAssets[Entity->Asset];
+    spritesheet_asset *Asset = &Assets[Entity->Asset];
     f32 FrameCount = (f32)Asset->FrameCounts[AnimationIndex];
     f32 Fps = (f32)Asset->FpsArray[AnimationIndex];
     // NOTE(Tyler): - dTimeForFrame is so that the animation doesn't flash the starting
     // frame of the animation for a single timestep
-    Entity->AnimationCooldown = (FrameCount/Fps) - GlobalInput.dTimeForFrame;
+    Entity->AnimationCooldown = (FrameCount/Fps) - OSInput.dTimeForFrame;
     Entity->CurrentAnimation = AnimationIndex;
     Entity->AnimationState = 0.0f;
 }
@@ -29,7 +26,7 @@ PlayAnimationToEnd(entity *Entity, u32 AnimationIndex){
 internal void
 UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame, 
                          b8 Center=false){
-    spritesheet_asset *Asset = &GlobalAssets[Entity->Asset];
+    spritesheet_asset *Asset = &Assets[Entity->Asset];
     u32 FrameCount = Asset->FrameCounts[Entity->CurrentAnimation];
     Entity->AnimationState += Asset->FpsArray[Entity->CurrentAnimation]*dTimeForFrame;
     Entity->AnimationCooldown -= dTimeForFrame;
@@ -37,7 +34,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         Entity->AnimationState -= Asset->FrameCounts[Entity->CurrentAnimation];
     }
     
-    v2 P = Entity->P - GlobalCameraP;
+    v2 P = Entity->P - CameraP;
     P.X -= Asset->SizeInMeters.Width/2.0f;
     P.Y -= Asset->SizeInMeters.Height/2.0f;
     if(!Center){
@@ -68,12 +65,12 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
 //~ Entity allocation and management
 internal void
 ResetEntitySystem(){
-    GlobalManager.Memory.Used = 0;
-    GlobalManager.WallCount = 0;
-    GlobalManager.CoinCount = 0;
-    GlobalManager.EnemyCount = 0;
-    GlobalManager.TeleporterCount = 0;
-    GlobalManager.DoorCount = 0;
+    EntityManager.Memory.Used = 0;
+    EntityManager.WallCount = 0;
+    EntityManager.CoinCount = 0;
+    EntityManager.EnemyCount = 0;
+    EntityManager.TeleporterCount = 0;
+    EntityManager.DoorCount = 0;
 }
 
 // TODO(Tyler): I don't really like this function
@@ -81,30 +78,34 @@ internal void
 AllocateNEntities(u32 N, entity_type Type){
     switch(Type){
         case EntityType_Wall: {
-            GlobalManager.WallCount = N;
-            GlobalManager.Walls = PushArray(&GlobalManager.Memory, wall_entity, N);
+            EntityManager.WallCount = N;
+            EntityManager.Walls = PushArray(&EntityManager.Memory, wall_entity, N);
         }break;
         case EntityType_Coin: {
-            GlobalManager.CoinCount = N;
-            GlobalManager.Coins = PushArray(&GlobalManager.Memory, coin_entity, N);
+            EntityManager.CoinCount = N;
+            EntityManager.Coins = PushArray(&EntityManager.Memory, coin_entity, N);
         }break;
         case EntityType_Snail: 
         case EntityType_Speedy:
         case EntityType_Dragonfly: {
-            GlobalManager.EnemyCount = N;
-            GlobalManager.Enemies = PushArray(&GlobalManager.Memory, enemy_entity, N);
+            EntityManager.EnemyCount = N;
+            EntityManager.Enemies = PushArray(&EntityManager.Memory, enemy_entity, N);
+        }break;
+        case EntityType_Teleporter: {
+            EntityManager.TeleporterCount = N;
+            EntityManager.Teleporters = PushArray(&EntityManager.Memory, teleporter, N);
+        }break;
+        case EntityType_Door: {
+            EntityManager.DoorCount = N;
+            EntityManager.Doors = PushArray(&EntityManager.Memory, door_entity, N);
         }break;
         case EntityType_Player: {
             Assert(N == 1);
-            GlobalManager.Player = PushArray(&GlobalManager.Memory, player_entity, N);
+            EntityManager.Player = PushArray(&EntityManager.Memory, player_entity, N);
         }break;
-        case EntityType_Teleporter: {
-            GlobalManager.TeleporterCount = N;
-            GlobalManager.Teleporters = PushArray(&GlobalManager.Memory, teleporter, N);
-        }break;
-        case EntityType_Door: {
-            GlobalManager.DoorCount = N;
-            GlobalManager.Doors = PushArray(&GlobalManager.Memory, door_entity, N);
+        case EntityType_Projectile: {
+            EntityManager.ProjectileCount = N;
+            EntityManager.Projectiles = PushArray(&EntityManager.Memory, projectile_entity, N);
         }break;
         default: {
             Assert(0);
@@ -121,47 +122,47 @@ OpenDoor(door_entity *Door){
 
 internal inline void
 KillPlayer(){
-    //GlobalManager.Player->State |= EntityState_Dead;
-    //GlobalScore = 0;
-    //GlobalManager.Player->State &= ~EntityState_Dead;
-    GlobalManager.Player->P = {1.5, 1.5};
-    GlobalManager.Player->dP = {0, 0};
-    //PlayAnimationToEnd(GlobalManager.Player, PlayerAnimation_Death);
+    //EntityManager.Player->State |= EntityState_Dead;
+    //Score = 0;
+    //EntityManager.Player->State &= ~EntityState_Dead;
+    EntityManager.Player->P = {1.5, 1.5};
+    EntityManager.Player->dP = {0, 0};
+    //PlayAnimationToEnd(EntityManager.Player, PlayerAnimation_Death);
 }
 
 internal inline u8
 GetCoinTileValue(u32 X, u32 Y){
     // NOTE(Tyler): We do not need to invert the Y as the Y in the actual map is inverted
-    u8 Result = *(GlobalManager.CoinData.Tiles+(Y*GlobalManager.CoinData.XTiles)+X);
+    u8 Result = *(EntityManager.CoinData.Tiles+(Y*EntityManager.CoinData.XTiles)+X);
     
     return(Result);
 }
 
 internal void
 UpdateCoin(u32 Id){
-    GlobalScore++;
+    Score++;
     
-    if(GlobalManager.CoinData.NumberOfCoinPs){
+    if(EntityManager.CoinData.NumberOfCoinPs){
         // TODO(Tyler): Proper random number generation
-        u32 RandomNumber = GlobalRandomNumberTable[(u32)(GlobalCounter*4132.0f + GlobalScore) % ArrayCount(GlobalRandomNumberTable)];
-        RandomNumber %= GlobalManager.CoinData.NumberOfCoinPs;
+        u32 RandomNumber = RANDOM_NUMBER_TABLE[(u32)(Counter*4132.0f + Score) % ArrayCount(RANDOM_NUMBER_TABLE)];
+        RandomNumber %= EntityManager.CoinData.NumberOfCoinPs;
         u32 CurrentCoinP = 0;
         v2 NewP = {};
-        for(f32 Y = 0; Y < GlobalManager.CoinData.YTiles; Y++){
-            for(f32 X = 0; X < GlobalManager.CoinData.XTiles; X++){
+        for(f32 Y = 0; Y < EntityManager.CoinData.YTiles; Y++){
+            for(f32 X = 0; X < EntityManager.CoinData.XTiles; X++){
                 u8 Tile = GetCoinTileValue((u32)X, (u32)Y);
                 if(Tile == EntityType_Coin){
                     if(RandomNumber == CurrentCoinP++){
-                        NewP.X = (X+0.5f)*GlobalManager.CoinData.TileSideInMeters;
-                        NewP.Y = (Y+0.5f)*GlobalManager.CoinData.TileSideInMeters;
+                        NewP.X = (X+0.5f)*EntityManager.CoinData.TileSideInMeters;
+                        NewP.Y = (Y+0.5f)*EntityManager.CoinData.TileSideInMeters;
                         break;
                     }
                 }
             }
         }
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-        GlobalManager.Coins[Id].P = NewP;
-        GlobalManager.Coins[Id].AnimationCooldown = 1.0f;
+        EntityManager.Coins[Id].P = NewP;
+        EntityManager.Coins[Id].AnimationCooldown = 1.0f;
     }
 }
 
@@ -225,8 +226,8 @@ TestRectangle(v2 P1, v2 Size1, v2 Delta, v2 P2, v2 Size2,
 
 internal void
 TestWallCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 WallId = 0; WallId < GlobalManager.WallCount; WallId++){
-        wall_entity *WallEntity = &GlobalManager.Walls[WallId];
+    for(u32 WallId = 0; WallId < EntityManager.WallCount; WallId++){
+        wall_entity *WallEntity = &EntityManager.Walls[WallId];
         
         if(TestRectangle(P, Size, EntityDelta,
                          WallEntity->P, WallEntity->Size,
@@ -239,8 +240,8 @@ TestWallCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
 
 internal void
 TestDoorCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 DoorId = 0; DoorId < GlobalManager.DoorCount; DoorId++){
-        door_entity *DoorEntity = &GlobalManager.Doors[DoorId];
+    for(u32 DoorId = 0; DoorId < EntityManager.DoorCount; DoorId++){
+        door_entity *DoorEntity = &EntityManager.Doors[DoorId];
         if(!DoorEntity->IsOpen){
             if(TestRectangle(P, Size, EntityDelta,
                              DoorEntity->P, DoorEntity->Size,
@@ -254,9 +255,9 @@ TestDoorCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
 
 internal void
 TestPlayerCollision(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    if(!(GlobalManager.Player->State & EntityState_Dead)){
+    if(!(EntityManager.Player->State & EntityState_Dead)){
         if(TestRectangle(P, Size, EntityDelta,
-                         GlobalManager.Player->P, GlobalManager.Player->Size,
+                         EntityManager.Player->P, EntityManager.Player->Size,
                          &Event->Time, &Event->Normal)){
             Event->Type = CollisionType_Player;
             Event->EntityId = 0;
@@ -265,9 +266,29 @@ TestPlayerCollision(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
 }
 
 internal void
-TestCoinCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 CoinId = 0; CoinId < GlobalManager.CoinCount; CoinId++){
-        coin_entity *CoinEntity = &GlobalManager.Coins[CoinId];
+TestCoinTriggers(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
+    for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
+        coin_entity *Coin = &EntityManager.Coins[CoinId];
+        
+        if(Coin->AnimationCooldown > 0.0f){
+            continue;
+        }
+        
+        f32 _DummyTime = 1.0f;
+        v2  _DummyNormal;
+        if(TestRectangle(P, Size, EntityDelta,
+                         Coin->P, Coin->Size,
+                         &_DummyTime, &_DummyNormal)){
+            UpdateCoin(CoinId);
+        }
+    }
+}
+
+internal void
+TestTeleporterTriggers(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
+#if 0
+    for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
+        coin_entity *CoinEntity = &EntityManager.Coins[CoinId];
         
         if(CoinEntity->AnimationCooldown > 0.0f){
             continue;
@@ -280,13 +301,13 @@ TestCoinCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
             Event->EntityId = CoinId;
         }
     }
-    
+#endif
 }
 
 internal void
 TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-    for(u32 Id = 0; Id < GlobalManager.EnemyCount; Id++){
-        enemy_entity *Enemy = &GlobalManager.Enemies[Id];
+    for(u32 Id = 0; Id < EntityManager.EnemyCount; Id++){
+        enemy_entity *Enemy = &EntityManager.Enemies[Id];
         
         if(!(Enemy->State&EntityState_Dead)){
             if(Enemy->Type == EntityType_Dragonfly){
@@ -336,7 +357,6 @@ TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
                         Event->IsFatal = false;
                     }
                     
-                    
                     if(TestWall(RectP1.Y+RectSize1.Y/2+Size.Y/2,
                                 P.Y, P.X, EntityDelta.Y, EntityDelta.X,
                                 (Enemy->P.X-0.5f), (Enemy->P.X+0.5f), &Event->Time)){
@@ -344,16 +364,30 @@ TestEnemyCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
                         Event->StepMove = {0.0f, Step.Y+0.01f};
                         Event->Normal = {0.0f, 1.0f};
                     }
-                    
                 }
-                
             }else{
                 if(TestRectangle(P, Size, EntityDelta,
                                  Enemy->P, Enemy->Size, &Event->Time, &Event->Normal)){
                     Event->Type = CollisionType_Snail;
                     Event->EntityId = Id;
+                    Event->IsFatal = !(Enemy->State & EntityState_Stunned);
                 }
             }
+        }
+    }
+}
+
+internal void
+TestProjectileCollisions(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
+    for(u32 Id = 0; Id < EntityManager.ProjectileCount; Id++){
+        projectile_entity *Projectile = &EntityManager.Projectiles[Id];
+        if(Projectile->RemainingLife <= 0.0f) continue; 
+        
+        if(TestRectangle(P, Size, EntityDelta,
+                         Projectile->P, Projectile->Size,
+                         &Event->Time, &Event->Normal)){
+            Event->Type = CollisionType_Projectile;
+            Event->EntityId = Id;
         }
     }
 }
@@ -362,11 +396,11 @@ internal void
 MoveEnemy(u32 EntityId, v2 ddP) {
     //TIMED_FUNCTION();
     
-    enemy_entity *Entity = &GlobalManager.Enemies[EntityId];
+    enemy_entity *Entity = &EntityManager.Enemies[EntityId];
     ddP += -2.5f*Entity->dP;
     
     v2 EntityDelta = {0};
-    f32 RemainingFrameTime = GlobalInput.dTimeForFrame;
+    f32 RemainingFrameTime = OSInput.dTimeForFrame;
     f32 Epsilon = 0.00001f;
     u32 Iterations = 0;
     while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
@@ -406,10 +440,13 @@ MoveEnemy(u32 EntityId, v2 ddP) {
         collision_event Event = {0};
         Event.Time = 1.0f;
         
+        // TODO(Tyler): Disabled for the time being this needs fixing, some math should 
+        // fix the problem where the dragonfly gets stuck when it hits a wall
+        
         if(Entity->Type == EntityType_Dragonfly){
             // Tail
             v2 RectP1 = {Entity->P.X+Entity->Direction*-0.225f, Entity->P.Y+0.1f};
-            v2 RectSize1 = {0.625f, 0.08f};
+            v2 RectSize1 = {0.5f, 0.08f};
             
             // Body
             v2 RectP2 = {Entity->P.X+Entity->Direction*0.29f, Entity->P.Y+0.07f};
@@ -433,7 +470,11 @@ MoveEnemy(u32 EntityId, v2 ddP) {
                     PlayAnimationToEnd(Entity, Animation);
                 }
             }else if(Event.Type == CollisionType_Player) {
-                KillPlayer();
+                if((Entity->Type == EntityType_Dragonfly) && 
+                   (Event.Normal.Y == 1.0f)){
+                }else{
+                    KillPlayer();
+                }
             }
         }
         
@@ -448,19 +489,19 @@ MoveEnemy(u32 EntityId, v2 ddP) {
 
 internal void
 MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
-    player_entity *Entity = GlobalManager.Player;
+    player_entity *Entity = EntityManager.Player;
     ddP += -2.0f*Entity->dP;
     
     v2 dPOffset = {0};
     if(Entity->IsRidingDragonfly){
-        enemy_entity *Dragonfly = &GlobalManager.Enemies[Entity->RidingDragonfly];
+        enemy_entity *Dragonfly = &EntityManager.Enemies[Entity->RidingDragonfly];
         dPOffset = Dragonfly->dP;
         
         Entity->IsRidingDragonfly = false;
     }
     
     v2 EntityDelta = {0};
-    f32 RemainingFrameTime = GlobalInput.dTimeForFrame;
+    f32 RemainingFrameTime = OSInput.dTimeForFrame;
     f32 Epsilon = 0.00001f;
     u32 Iterations = 0;
     while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
@@ -509,7 +550,7 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
         
         TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestDoorCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
-        TestCoinCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        //TestCoinCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
         
         if(Event.Time < 1.0f){
@@ -517,19 +558,23 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
             // a special collision with triggers?
             b32 DiscardCollision = false;
             
+#if 0
             if(Event.Type == CollisionType_Coin){
                 UpdateCoin(Event.EntityId);
                 DiscardCollision = true;
-            }else if(Event.Type == CollisionType_Snail){
-                GlobalManager.Player->State |= (EntityState_Dead);
-                KillPlayer();
+            }else 
+#endif
+            if(Event.Type == CollisionType_Snail){
+                if(Event.IsFatal){
+                    KillPlayer();
+                }
             }else if(Event.Type == CollisionType_Dragonfly){
                 if(Event.IsFatal){
                     KillPlayer();
                 }else{
-                    GlobalManager.Player->IsRidingDragonfly = true;
-                    GlobalManager.Player->RidingDragonfly = Event.EntityId;
-                    GlobalManager.Player->P += Event.StepMove;
+                    EntityManager.Player->IsRidingDragonfly = true;
+                    EntityManager.Player->RidingDragonfly = Event.EntityId;
+                    EntityManager.Player->P += Event.StepMove;
                 }
             }else if(Event.Type == CollisionType_Wall){
             }else{
@@ -542,10 +587,10 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
             }
             
             if(Event.Normal.Y == 1.0f){
-                GlobalManager.Player->JumpTime = 0.0f;
-                GlobalManager.Player->IsGrounded = true;
+                EntityManager.Player->JumpTime = 0.0f;
+                EntityManager.Player->IsGrounded = true;
             }else{
-                GlobalManager.Player->JumpTime = 2.0f;
+                EntityManager.Player->JumpTime = 2.0f;
                 Entity->IsGrounded = false;
             }
         }
@@ -558,35 +603,280 @@ MovePlayer(v2 ddP, v2 FrictionFactors=v2{0.7f, 0.7f}) {
     }
 }
 
+internal inline void
+MoveProjectile(u32 Id, v2 ddP){
+    projectile_entity *Entity = &EntityManager.Projectiles[Id];
+    
+    ddP += -1.0f*Entity->dP;
+    
+    v2 EntityDelta = {0};
+    f32 RemainingFrameTime = OSInput.dTimeForFrame;
+    f32 Epsilon = 0.00001f;
+    u32 Iterations = 0;
+    while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
+        EntityDelta = (EntityDelta +
+                       Entity->dP*FIXED_TIME_STEP +
+                       0.5f*ddP*Square(FIXED_TIME_STEP));
+        Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
+        
+        RemainingFrameTime -= FIXED_TIME_STEP;
+        Iterations++;
+        // TODO(Tyler): This might not be the best way to cap iterations, it can cause
+        // sliding backwards when riding dragonflies, there is a simple work around, that
+        // has been implemented, but it that work around physically slows down everything
+        // relative to running at the max FPS
+        if(Iterations > MAX_PHYSICS_ITERATIONS){
+            RemainingFrameTime = 0.0f; // NOTE(Tyler): Don't try to interpolate!
+            break;
+        }
+    }
+    
+    if(RemainingFrameTime > Epsilon){
+        v2 NextEntityDelta = (EntityDelta +
+                              Entity->dP*FIXED_TIME_STEP +
+                              0.5f*ddP*Square(FIXED_TIME_STEP));
+        v2 NextEntitydP = (Entity->dP + (ddP*FIXED_TIME_STEP));
+        
+        f32 Alpha = RemainingFrameTime / FIXED_TIME_STEP;
+        EntityDelta = ((1.0f-Alpha)*EntityDelta +
+                       Alpha*NextEntityDelta);
+        Entity->dP = ((1.0f-Alpha)*Entity->dP +
+                      Alpha*NextEntitydP);
+    }
+    
+    collision_type CollisionType = CollisionType_None;
+    f32 TimeRemaining = 1.0f;
+    for(u32 Iteration = 0;
+        (Iteration < 4) && (TimeRemaining > 0.0f);
+        Iteration++){
+        collision_event Event = {0};
+        Event.Time = 1.0f;
+        
+        TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        
+        if(Event.Time < 1.0f){
+            if(Event.Type == CollisionType_Snail){
+                enemy_entity *Enemy = &EntityManager.Enemies[Event.EntityId];
+                
+                Enemy->State |= EntityState_Stunned;
+                Enemy->StunCooldown = 3.0f;
+                asset_animations AnimationIndex = (Enemy->Direction > 0.0f) ? 
+                    EnemyAnimation_RetreatingRight : EnemyAnimation_RetreatingLeft;
+                PlayAnimationToEnd(Enemy, AnimationIndex);
+            }
+        }
+        
+        Entity->P += EntityDelta*Event.Time;
+        Entity->dP = (Entity->dP-1.3f*Inner(Entity->dP, Event.Normal)*Event.Normal);
+        EntityDelta = (EntityDelta-1.3f*Inner(EntityDelta, Event.Normal)*Event.Normal);
+        
+        TimeRemaining -= Event.Time*TimeRemaining;
+    }
+    
+}
+
+internal inline v2
+CalculateEntitydPAndDelta(entity *Entity, v2 ddP, f32 Drag=2.0f, 
+                          f32 XFriction=1.0f, f32 YFriction=1.0f){
+    ddP -= Drag*Entity->dP;
+    
+    v2 EntityDelta = {0};
+    f32 RemainingFrameTime = OSInput.dTimeForFrame;
+    f32 Epsilon = 0.00001f;
+    u32 Iterations = 0;
+    while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
+        EntityDelta = (EntityDelta +
+                       Entity->dP*FIXED_TIME_STEP +
+                       0.5f*ddP*Square(FIXED_TIME_STEP));
+        Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
+        Entity->dP.X *= XFriction;
+        Entity->dP.Y *= YFriction;
+        
+        RemainingFrameTime -= FIXED_TIME_STEP;
+        Iterations++;
+        // TODO(Tyler): This might not be the best way to cap iterations, it can cause
+        // sliding backwards when riding dragonflies, there is a simple work around, that
+        // has been implemented, but it that work around physically slows down everything
+        // relative to running at the max FPS
+        if(Iterations > MAX_PHYSICS_ITERATIONS){
+            RemainingFrameTime = 0.0f; // NOTE(Tyler): Don't try to interpolate!
+            break;
+        }
+    }
+    
+    if(RemainingFrameTime > Epsilon){
+        v2 NextEntityDelta = (EntityDelta +
+                              Entity->dP*FIXED_TIME_STEP +
+                              0.5f*ddP*Square(FIXED_TIME_STEP));
+        v2 NextEntitydP = (Entity->dP + (ddP*FIXED_TIME_STEP));
+        NextEntitydP.X *= XFriction;
+        NextEntitydP.Y *= YFriction;
+        
+        f32 Alpha = RemainingFrameTime / FIXED_TIME_STEP;
+        EntityDelta = ((1.0f-Alpha)*EntityDelta +
+                       Alpha*NextEntityDelta);
+        Entity->dP = ((1.0f-Alpha)*Entity->dP +
+                      Alpha*NextEntitydP);
+    }
+    
+    return(EntityDelta);
+}
+
+internal inline void
+HandleCollision(entity *Entity, collision_event *Event){
+    // NOTE(Tyler): This is to make sure that player is always on the left, 
+    entity *OtherEntity = 0;
+    if(Event->Type == CollisionType_Player){
+        OtherEntity = Entity;
+        Entity = EntityManager.Player;
+        
+        Event->Type = (OtherEntity->Type == EntityType_Dragonfly) ?
+            CollisionType_Dragonfly : CollisionType_Snail;
+        if((Event->Type == CollisionType_Dragonfly) && 
+           (Event->Normal.Y == 1.0f)){
+        }else{
+            Event->IsFatal = true;
+            //KillPlayer();
+        }
+        Event->Normal = v2{0,0}-Event->Normal;
+        
+    }else if((Entity->Type == EntityType_Projectile) &&
+             (Event->Type == CollisionType_Snail)){
+        OtherEntity = Entity;
+        Entity = &EntityManager.Enemies[Event->EntityId];
+        Event->Type = CollisionType_Projectile;
+        Event->Normal = v2{0,0}-Event->Normal;
+    }
+    
+    if(Entity->Type == EntityType_Player){
+        player_entity *Player = (player_entity *)Entity;
+        switch(Event->Type){
+            case CollisionType_Dragonfly:
+            case CollisionType_Snail:{
+                if(Event->IsFatal){
+                    KillPlayer();
+                }else{
+                    Player->IsRidingDragonfly = true;
+                    Player->RidingDragonfly = Event->EntityId;
+                    Player->P += Event->StepMove;
+                    if(Event->Normal.Y == 1.0f){
+                        Player->JumpTime = 0.0f;
+                        Player->IsGrounded = true;
+                    }
+                }
+            }break;
+            case CollisionType_Wall: {
+                if(Event->Normal.Y == 1.0f){
+                    Player->JumpTime = 0.0f;
+                    Player->IsGrounded = true;
+                }
+            }break;
+            case CollisionType_None: break;
+            default: {
+                Assert(0);
+            }break;
+        }
+    }else if((Entity->Type == EntityType_Snail) ||
+             (Entity->Type == EntityType_Speedy) ||
+             (Entity->Type == EntityType_Sally) ||
+             (Entity->Type == EntityType_Dragonfly)){
+        enemy_entity *Enemy = (enemy_entity *)Entity;
+        switch(Event->Type){
+            case CollisionType_Dragonfly:
+            case CollisionType_Snail:
+            case CollisionType_Wall: {
+                if(Event->Normal.Y == 0){
+                    Enemy->Direction = Event->Normal.X;
+                    u32 Animation = (Enemy->Direction > 0.0f) ?
+                        EnemyAnimation_TurningRight : EnemyAnimation_TurningLeft;
+                    PlayAnimationToEnd(Entity, Animation);
+                }
+            }break;
+            case CollisionType_Projectile: {
+                Enemy->State |= EntityState_Stunned;
+                Enemy->StunCooldown = 3.0f;
+                asset_animations AnimationIndex = (Enemy->Direction > 0.0f) ? 
+                    EnemyAnimation_RetreatingRight : EnemyAnimation_RetreatingLeft;
+                PlayAnimationToEnd(Enemy, AnimationIndex);
+            }break;
+            case CollisionType_None: break;
+            default: {
+                Assert(0);
+            }break;
+        }
+    }else if(Entity->Type == EntityType_Projectile){
+    }else{
+        Assert(0);
+    }
+}
+
+internal inline void
+MoveEntity(entity *Entity, v2 ddP, f32 Drag=2.0f, f32 COR=0.0f, 
+           f32 XFriction=1.0f, f32 YFriction=1.0f){
+    COR += 1.0f; // NOTE(Tyler): So that the COR is in the range of 0.0f-1.0f
+    v2 EntityDelta = 
+        CalculateEntitydPAndDelta(Entity, ddP, Drag, XFriction, YFriction);
+    
+    f32 TimeRemaining = 1.0f;
+    for(u32 Iteration = 0;
+        (Iteration < 4) && (TimeRemaining > 0.0f);
+        Iteration++){
+        collision_event Event = {0};
+        Event.Time = 1.0f;
+        
+        TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        TestDoorCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        
+        if(Entity->Type == EntityType_Player){
+            TestCoinTriggers(Entity->P, Entity->Size, EntityDelta, &Event);
+        }else if((Entity->Type == EntityType_Snail) ||
+                 (Entity->Type == EntityType_Speedy) ||
+                 (Entity->Type == EntityType_Sally) ||
+                 (Entity->Type == EntityType_Dragonfly)){
+            TestPlayerCollision(Entity->P, Entity->Size, EntityDelta, &Event);
+            TestProjectileCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
+        }
+        
+        HandleCollision(Entity, &Event);
+        
+        Entity->P += EntityDelta*Event.Time;
+        Entity->dP = (Entity->dP-COR*Inner(Entity->dP, Event.Normal)*Event.Normal);
+        EntityDelta = (EntityDelta-COR*Inner(EntityDelta, Event.Normal)*Event.Normal);
+        
+        TimeRemaining -= Event.Time*TimeRemaining;
+    }
+}
+
 //~ Entity updating and rendering
 internal void
 UpdateAndRenderWalls(render_group *RenderGroup){
     TIMED_FUNCTION();
-    for(u32 WallId = 0; WallId < GlobalManager.WallCount; WallId++){
-        wall_entity *Entity = &GlobalManager.Walls[WallId];
-        v2 P = Entity->P - GlobalCameraP;
+    for(u32 WallId = 0; WallId < EntityManager.WallCount; WallId++){
+        wall_entity *Entity = &EntityManager.Walls[WallId];
+        v2 P = Entity->P - CameraP;
         if(16.0f < P.X-Entity->Width/2) continue;
         if(P.X+Entity->Width/2 < 0.0f) continue;
         if(9.0f < P.Y-Entity->Height/2) continue;
         if(P.Y+Entity->Height/2 < 0.0f) continue;
         RenderRectangle(RenderGroup,
                         P-(Entity->Size/2), P+(Entity->Size/2), 0.0f,
-                        WHITE);
-        
+                        color{1.0f, 1.0f, 1.0f, 1.0f});
     }
 }
 
 internal void
 UpdateAndRenderCoins(render_group *RenderGroup){
-    for(u32 CoinId = 0; CoinId < GlobalManager.CoinCount; CoinId++){
-        coin_entity *Coin = &GlobalManager.Coins[CoinId];
-        v2 P = Coin->P - GlobalCameraP;
+    for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
+        coin_entity *Coin = &EntityManager.Coins[CoinId];
+        v2 P = Coin->P - CameraP;
         if(16.0f < P.X-Coin->Width/2) continue;
         if(P.X+Coin->Width/2 < 0.0f) continue;
         if(9.0f < P.Y-Coin->Height/2) continue;
         if(P.Y+Coin->Height/2 < 0.0f) continue;
         if(Coin->AnimationCooldown > 0.0f){
-            Coin->AnimationCooldown -= GlobalInput.dTimeForFrame;
+            Coin->AnimationCooldown -= OSInput.dTimeForFrame;
         }else{
             RenderRectangle(RenderGroup,
                             P-(Coin->Size/2), P+(Coin->Size/2), 0.0f,
@@ -599,17 +889,20 @@ internal void
 UpdateAndRenderEnemies(render_group *RenderGroup){
     TIMED_FUNCTION();
     
-    for(u32 Id = 0; Id < GlobalManager.EnemyCount; Id++){
+    for(u32 Id = 0; Id < EntityManager.EnemyCount; Id++){
         //TIMED_SCOPE(UpdateAndRenderSingleEnemy);
         
-        enemy_entity *Enemy = &GlobalManager.Enemies[Id];
-        v2 P = Enemy->P - GlobalCameraP;
+        enemy_entity *Enemy = &EntityManager.Enemies[Id];
+        v2 P = Enemy->P - CameraP;
+#if 0
         if(16.0f < P.X-Enemy->Width/2) continue;
         if(P.X+Enemy->Width/2 < 0.0f) continue;
         if(9.0f < P.Y-Enemy->Height/2) continue;
         if(P.Y+Enemy->Height/2 < 0.0f) continue;
+#endif
         
-        if(Enemy->AnimationCooldown <= 0.0f){
+        if((Enemy->AnimationCooldown <= 0.0f) &&
+           !(Enemy->State & EntityState_Stunned)){
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
             f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
             f32 PathSpeed = 1.0f;
@@ -645,10 +938,30 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
                 u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
                     EnemyAnimation_Right : EnemyAnimation_Left;
                 PlayAnimation(Enemy, AnimationIndex);
-                MoveEnemy(Id, ddP);
+                //MoveEnemy(Id, ddP);
+                MoveEntity(Enemy, ddP);
+            }
+        }else if(Enemy->State & EntityState_Stunned){
+            if(Enemy->AnimationCooldown <= 0.0f){
+                Enemy->StunCooldown -= OSInput.dTimeForFrame;
+                if(Enemy->StunCooldown <= 0.0f){
+                    if((Enemy->CurrentAnimation == EnemyAnimation_ReappearingLeft) ||
+                       (Enemy->CurrentAnimation == EnemyAnimation_ReappearingRight)){
+                        Enemy->State &= ~EntityState_Stunned;
+                    }else{
+                        u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
+                            EnemyAnimation_ReappearingRight : EnemyAnimation_ReappearingLeft;
+                        PlayAnimationToEnd(Enemy, AnimationIndex);
+                    }
+                }else{
+                    u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
+                        EnemyAnimation_HidingRight : EnemyAnimation_HidingLeft;
+                    PlayAnimation(Enemy, AnimationIndex);
+                }
+                
             }
         }
         
-        UpdateAndRenderAnimation(RenderGroup, Enemy, GlobalInput.dTimeForFrame);
+        UpdateAndRenderAnimation(RenderGroup, Enemy, OSInput.dTimeForFrame);
     }
 }

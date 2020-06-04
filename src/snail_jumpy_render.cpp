@@ -1,5 +1,5 @@
 
-render_texture_handle GlobalDefaultTexture;
+render_texture_handle DefaultTexture;
 
 internal inline void
 InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCount){
@@ -51,7 +51,7 @@ RenderRectangle(render_group *RenderGroup,
     
     render_item *RenderItem = AddRenderItem(RenderGroup);
     RenderItem->IndexCount = 6;
-    RenderItem->Texture = GlobalDefaultTexture;
+    RenderItem->Texture = DefaultTexture;
     
     vertex *Vertices = AddVertices(RenderGroup, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};

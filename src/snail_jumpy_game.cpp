@@ -1,28 +1,9 @@
 
-global f32 GlobalCompletionCooldown;
+global f32 CompletionCooldown;
 
 internal void
 UpdateAndRenderMainGame(){
     //TIMED_FUNCTION();
-    
-    // TODO(Tyler): User input should be handled better
-    if(IsKeyJustPressed(KeyCode_Up)){
-        u32 Index = GlobalCurrentLevelIndex;
-        Index++;
-        if(Index == GlobalLevelData.Count){
-            Index = 0;
-        }
-        ChangeState(GameMode_None, GlobalLevelData[Index].Name);
-    }else if(IsKeyJustPressed(KeyCode_Down)){
-        u32 Index = GlobalCurrentLevelIndex;
-        if(Index == 0){
-            Index = GlobalLevelData.Count-1;
-        }else{
-            Index--;
-        }
-        ChangeState(GameMode_None, GlobalLevelData[Index].Name);
-        GlobalCurrentLevel--;
-    }
     
     if(IsKeyJustPressed('E')){
         ToggleEditor();
@@ -32,81 +13,95 @@ UpdateAndRenderMainGame(){
         ChangeState(GameMode_Overworld, 0);
     }
     
-    if(IsKeyJustPressed('C')){
-        GlobalCurrentLevel->IsCompleted = true;
+    if(IsKeyJustPressed('P')){
+        CurrentLevel->IsCompleted = true;
         ChangeState(GameMode_Overworld, 0);
     }
     
     render_group RenderGroup;
     
-    InitializeRenderGroup(&GlobalTransientStorageArena, &RenderGroup, Kilobytes(16));
+    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    RenderGroup.OutputSize = GlobalInput.WindowSize;
+    RenderGroup.OutputSize = OSInput.WindowSize;
     //RenderGroup.MetersToPixels = 60.0f / 0.5f;
-    RenderGroup.MetersToPixels = Minimum((GlobalInput.WindowSize.Width/32.0f), (GlobalInput.WindowSize.Height/18.0f)) / 0.5f;
+    RenderGroup.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
     
     UpdateAndRenderWalls(&RenderGroup);
     UpdateAndRenderCoins(&RenderGroup);
     UpdateAndRenderEnemies(&RenderGroup);
     
-    
-    
     // NOTE(Tyler): Exit
     {
         v2 P = v2{15.25f, 3.25f};
-        v2 DrawP = P-GlobalCameraP;
+        v2 DrawP = P-CameraP;
         v2 Radius = {0.25f, 0.25f};
         RenderRectangle(&RenderGroup, DrawP-Radius, DrawP+Radius, 0.0f, GREEN);
-        v2 PlayerMin = GlobalManager.Player->P-(GlobalManager.Player->Size/2);
-        v2 PlayerMax = GlobalManager.Player->P+(GlobalManager.Player->Size/2);
+        v2 PlayerMin = EntityManager.Player->P-(EntityManager.Player->Size/2);
+        v2 PlayerMax = EntityManager.Player->P+(EntityManager.Player->Size/2);
         if((P.X-Radius.X <= PlayerMax.X) &&
            (PlayerMin.X  <= P.X+Radius.X) &&
            (P.Y-Radius.Y <= PlayerMax.Y) &&
            (PlayerMin.Y  <= P.Y+Radius.Y)){
-            u32 RequiredCoins = GlobalCurrentLevel->CoinsRequiredToComplete;
-            if((u32)GlobalScore >= RequiredCoins){
-                if(GlobalCompletionCooldown == 0.0f){
-                    GlobalCompletionCooldown = 3.0f;
+            u32 RequiredCoins = CurrentLevel->CoinsRequiredToComplete;
+            if((u32)Score >= RequiredCoins){
+                if(CompletionCooldown == 0.0f){
+                    CompletionCooldown = 3.0f;
                 }
             }else{
                 // TODO(Tyler): This should be factored! Strings are wanted centered,
                 // quite commonly
                 f32 Advance =
-                    GetFormatStringAdvance(&GlobalMainFont, 
+                    GetFormatStringAdvance(&MainFont, 
                                            "You need: %u more coins!", 
-                                           RequiredCoins-GlobalScore);
+                                           RequiredCoins-Score);
                 v2 TopCenter = v2{
-                    GlobalInput.WindowSize.Width/2, GlobalInput.WindowSize.Height/2
+                    OSInput.WindowSize.Width/2, OSInput.WindowSize.Height/2
                 };
-                RenderFormatString(&RenderGroup, &GlobalMainFont, GREEN, 
+                RenderFormatString(&RenderGroup, &MainFont, GREEN, 
                                    TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
                                    "You need: %u more coins!", 
-                                   RequiredCoins-GlobalScore);
+                                   RequiredCoins-Score);
             }
         }
     }
     
-    
+    // NOTE(Tyler): Update projectiles
+    {
+        projectile_entity *Projectile = EntityManager.Projectiles;
+        if(Projectile->RemainingLife > 0.0f){
+            Projectile->RemainingLife -= OSInput.dTimeForFrame;
+            
+            v2 ddP = v2{0.0f, -11.0f};
+            //MoveProjectile(0, ddP);
+            MoveEntity(Projectile, ddP);
+            
+            v2 P = Projectile->P - CameraP;
+            RenderRectangle(&RenderGroup, P-0.5f*Projectile->Size, P+0.5f*Projectile->Size, 
+                            0.7f, WHITE);
+        }
+    }
     
     // NOTE(Tyler): Update player
     {
-        if(GlobalManager.Player->AnimationCooldown <= 0.0f){
+        player_entity *Player = EntityManager.Player;
+        if(Player->AnimationCooldown <= 0.0f){
             v2 ddP = {0};
+            
 #if 0            
-            if(GlobalManager.Player->CurrentAnimation == PlayerAnimation_Death){
-                GlobalManager.Player->State &= ~EntityState_Dead;
-                GlobalManager.Player->P = {1.5, 1.5};
-                GlobalManager.Player->dP = {0, 0};
+            if(Player->CurrentAnimation == PlayerAnimation_Death){
+                Player->State &= ~EntityState_Dead;
+                Player->P = {1.5, 1.5};
+                Player->dP = {0, 0};
             }
 #endif
             
-            if((GlobalManager.Player->JumpTime < 0.1f) && IsKeyDown(KeyCode_Space)){
+            if((Player->JumpTime < 0.1f) && IsKeyDown(KeyCode_Space)){
                 ddP.Y += 88.0f;
-                GlobalManager.Player->JumpTime += GlobalInput.dTimeForFrame;
-                GlobalManager.Player->IsGrounded = false;
+                Player->JumpTime += OSInput.dTimeForFrame;
+                Player->IsGrounded = false;
             }else if(!IsKeyDown(KeyCode_Space)){
-                GlobalManager.Player->JumpTime = 2.0f;
+                Player->JumpTime = 2.0f;
                 ddP.Y -= 17.0f;
             }else{
                 ddP.Y -= 17.0f;
@@ -114,84 +109,119 @@ UpdateAndRenderMainGame(){
             
             b8 IsRunning = false;
             f32 MovementSpeed = 120;
-            if(IsKeyDown(KeyCode_Shift) && (GlobalManager.Player->SprintTime < 2.0f)){
+            if(IsKeyDown(KeyCode_Shift) && (Player->SprintTime < 2.0f)){
                 IsRunning = true;
                 MovementSpeed = 180;
-                GlobalManager.Player->SprintTime += GlobalInput.dTimeForFrame;
+                Player->SprintTime += OSInput.dTimeForFrame;
             }else{
-                if(GlobalManager.Player->SprintTime == 0.0f){
-                }else if(GlobalManager.Player->SprintTime < 0.0f){
-                    GlobalManager.Player->SprintTime = 0.0f;
+                if(Player->SprintTime == 0.0f){
+                }else if(Player->SprintTime < 0.0f){
+                    Player->SprintTime = 0.0f;
                 }else if(!IsKeyDown(KeyCode_Shift)){
-                    GlobalManager.Player->SprintTime -= GlobalInput.dTimeForFrame;
+                    Player->SprintTime -= OSInput.dTimeForFrame;
                 }
             }
             
             if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
                 ddP.X += MovementSpeed;
+                Player->Direction = Direction_Right;
             }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
                 ddP.X -= MovementSpeed;
+                Player->Direction = Direction_Left;
+            }
+            
+            if(IsKeyDown('X')){
+                Player->WeaponChargeTime+= OSInput.dTimeForFrame;
+                if(Player->WeaponChargeTime > 1.0f){
+                    Player->WeaponChargeTime = 1.0f;
+                }
+            }else if(Player->WeaponChargeTime > 0.0f){
+                projectile_entity *Projectile = EntityManager.Projectiles;
+                
+                if(Player->WeaponChargeTime < 0.1f){
+                    Player->WeaponChargeTime = 0.1f;
+                }else if(Player->WeaponChargeTime < 0.6f){
+                    Player->WeaponChargeTime = 0.6f;
+                }
+                
+                // TODO(Tyler): Hot loaded variables file for tweaking these values in 
+                // realtime
+                switch(Player->Direction){
+                    case Direction_UpLeft:    Projectile->dP = v2{ -3,  10}; break;
+                    case Direction_DownLeft:  Projectile->dP = v2{ -3, -10}; break;
+                    case Direction_Left:      Projectile->dP = v2{-13,   3}; break;
+                    case Direction_Right:     Projectile->dP = v2{ 13,   3}; break;
+                    case Direction_UpRight:   Projectile->dP = v2{  3,  10}; break;
+                    case Direction_DownRight: Projectile->dP = v2{  3, -10}; break;
+                }
+                
+                Projectile->Type = EntityType_Projectile;
+                Projectile->P = Player->P;
+                Projectile->dP *= Player->WeaponChargeTime;
+                Projectile->RemainingLife = 3.0f;
+                Projectile->Size = v2{0.1f, 0.1f};
+                Player->WeaponChargeTime = 0.0f;
             }
             
             if(ddP.X != 0.0f){
                 u8 Direction = 0.0f < ddP.X;
-                if(0.0f < GlobalManager.Player->dP.Y){
-                    PlayAnimation(GlobalManager.Player, PlayerAnimation_JumpingLeft+Direction);
-                }else if(GlobalManager.Player->dP.Y < 0.0f){
-                    PlayAnimation(GlobalManager.Player, PlayerAnimation_FallingLeft+Direction);
+                if(0.0f < Player->dP.Y){
+                    PlayAnimation(Player, PlayerAnimation_JumpingLeft+Direction);
+                }else if(Player->dP.Y < 0.0f){
+                    PlayAnimation(Player, PlayerAnimation_FallingLeft+Direction);
                 }else{
                     if(IsRunning){
-                        PlayAnimation(GlobalManager.Player, PlayerAnimation_RunningLeft+Direction);
+                        PlayAnimation(Player, PlayerAnimation_RunningLeft+Direction);
                     }else{
-                        PlayAnimation(GlobalManager.Player, PlayerAnimation_WalkingLeft+Direction);
+                        PlayAnimation(Player, PlayerAnimation_WalkingLeft+Direction);
                     }
                 }
             }else{
-                u8 Direction = 0.0f < GlobalManager.Player->dP.X;
-                if(0.0f < GlobalManager.Player->dP.Y){
-                    PlayAnimation(GlobalManager.Player, PlayerAnimation_JumpingLeft+Direction);
-                }else if(GlobalManager.Player->dP.Y < 0.0f){
-                    PlayAnimation(GlobalManager.Player, PlayerAnimation_FallingLeft+Direction);
+                u8 Direction = 0.0f < Player->dP.X;
+                if(0.0f < Player->dP.Y){
+                    PlayAnimation(Player, PlayerAnimation_JumpingLeft+Direction);
+                }else if(Player->dP.Y < 0.0f){
+                    PlayAnimation(Player, PlayerAnimation_FallingLeft+Direction);
                 }else{
-                    PlayAnimation(GlobalManager.Player, PlayerAnimation_IdleLeft+Direction);
+                    PlayAnimation(Player, PlayerAnimation_IdleLeft+Direction);
                 }
             }
             
-            MovePlayer(ddP, v2{0.7f, 1.0f});
+            MoveEntity(Player, ddP, 2.0f, 0.0f, 0.7f, 1.0f);
             
-            if(GlobalManager.Player->P.Y < -3.0f){
-                GlobalManager.Player->P = {1.5f, 1.5f};
-                GlobalManager.Player->dP = {0};
+            if(Player->P.Y < -3.0f){
+                Player->P = {1.5f, 1.5f};
+                Player->dP = {0};
             }
             
-            SetCameraCenterP(GlobalManager.Player->P, GlobalEditor.World->Width, 
-                             GlobalEditor.World->Height);
+            SetCameraCenterP(Player->P, CurrentLevel->World.Width, 
+                             CurrentLevel->World.Height);
         }
         
-        UpdateAndRenderAnimation(&RenderGroup, GlobalManager.Player, GlobalInput.dTimeForFrame);
+        UpdateAndRenderAnimation(&RenderGroup, Player, OSInput.dTimeForFrame);
     }
     
-    if(GlobalCompletionCooldown > 0.0f){
+    if(CompletionCooldown > 0.0f){
         f32 Advance =
-            GetFormatStringAdvance(&GlobalMainFont, 
+            GetFormatStringAdvance(&MainFont, 
                                    "Level completed");
         v2 TopCenter = v2{
-            GlobalInput.WindowSize.Width/2, GlobalInput.WindowSize.Height/2
+            OSInput.WindowSize.Width/2, OSInput.WindowSize.Height/2
         };
         color Color = GREEN;
-        if(GlobalCompletionCooldown > 0.5f*3.0f){
-            Color.A = 2.0f*(1.0f - GlobalCompletionCooldown/3.0f);
-        }else if(GlobalCompletionCooldown < 0.3f*3.0f){
-            Color.A = 2.0f * GlobalCompletionCooldown/3.0f;
+        if(CompletionCooldown > 0.5f*3.0f){
+            Color.A = 2.0f*(1.0f - CompletionCooldown/3.0f);
+        }else if(CompletionCooldown < 0.3f*3.0f){
+            Color.A = 2.0f * CompletionCooldown/3.0f;
         }
-        RenderFormatString(&RenderGroup, &GlobalMainFont, Color, 
+        RenderFormatString(&RenderGroup, &MainFont, Color, 
                            TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
                            "Level completed!");
         
-        GlobalCompletionCooldown -= GlobalInput.dTimeForFrame;
-        if(GlobalCompletionCooldown < 0.00001f){
-            GlobalCurrentLevel->IsCompleted = true;
-            GlobalCompletionCooldown = 0.0f;
+        CompletionCooldown -= OSInput.dTimeForFrame;
+        if(CompletionCooldown < 0.00001f){
+            CurrentLevel->IsCompleted = true;
+            CompletionCooldown = 0.0f;
             ChangeState(GameMode_Overworld, 0);
         }
     }
@@ -201,52 +231,62 @@ UpdateAndRenderMainGame(){
         v2 Min = v2{0.1f, 0.1f};
         v2 Max = Min;
         f32 Percent = 0.0f;
-        if(GlobalManager.Player->SprintTime < 2.0f){
-            Percent = (1.0f - GlobalManager.Player->SprintTime/2.0f);
+        if(EntityManager.Player->SprintTime < 2.0f){
+            Percent = (1.0f - EntityManager.Player->SprintTime/2.0f);
         }
         Max.X += 4.0f*Percent;
         Max.Y += 0.2f;
         RenderRectangle(&RenderGroup, Min, Max, -1.0f, color{0.0f, 0.5f, 0.2f, 0.9f});
     }
+    // NOTE(Tyler): Weapon charge bar
+    {
+        v2 Min = v2{0.1f, 0.4f};
+        v2 Max = Min;
+        f32 Percent = 0.0f;
+        Percent = EntityManager.Player->WeaponChargeTime;
+        Max.X += 4.0f*Percent;
+        Max.Y += 0.2f;
+        RenderRectangle(&RenderGroup, Min, Max, -1.0f, color{1.0f, 0.0f, 1.0f, 0.9f});
+    }
     
     //~ Debug UI
-    layout Layout = CreateLayout(100, GlobalInput.WindowSize.Height-100,
-                                 30, GlobalDebugFont.Size, 100, -0.9f);
-    LayoutString(&Layout, &GlobalMainFont,
-                 GREEN, "Score: %u", GlobalScore);
-    LayoutString(&Layout, &GlobalDebugFont,
-                 BLACK, "Counter: %.2f", GlobalCounter);
-    LayoutString(&Layout, &GlobalDebugFont,
-                 BLACK, "TransientMemory:  %'jd", GlobalTransientStorageArena.Used);
-    LayoutString(&Layout, &GlobalDebugFont,
-                 BLACK, "PermanentMemory:  %'jd", GlobalPermanentStorageArena.Used);
+    layout Layout = CreateLayout(100, OSInput.WindowSize.Height-100,
+                                 30, DebugFont.Size, 100, -0.9f);
+    LayoutString(&Layout, &MainFont,
+                 GREEN, "Score: %u", Score);
+    LayoutString(&Layout, &DebugFont,
+                 BLACK, "Counter: %.2f", Counter);
+    LayoutString(&Layout, &DebugFont,
+                 BLACK, "TransientMemory:  %'jd", TransientStorageArena.Used);
+    LayoutString(&Layout, &DebugFont,
+                 BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
     
-    LayoutString(&Layout, &GlobalDebugFont, BLACK,
-                 "Enemy count: %u", GlobalManager.EnemyCount);
+    LayoutString(&Layout, &DebugFont, BLACK,
+                 "Enemy count: %u", EntityManager.EnemyCount);
     
     {
-        layout Layout = CreateLayout(GlobalInput.WindowSize.Width-500, GlobalInput.WindowSize.Height-100,
-                                     30, GlobalDebugFont.Size);
-        LayoutString(&Layout, &GlobalDebugFont,
-                     BLACK, "Current level: %u %s", GlobalCurrentLevelIndex, 
-                     GlobalCurrentLevel->Name);
-        LayoutString(&Layout, &GlobalDebugFont,
+        layout Layout = CreateLayout(OSInput.WindowSize.Width-500, OSInput.WindowSize.Height-100,
+                                     30, DebugFont.Size);
+        LayoutString(&Layout, &DebugFont,
+                     BLACK, "Current level: %u %s", CurrentLevelIndex, 
+                     CurrentLevel->Name);
+        LayoutString(&Layout, &DebugFont,
                      BLACK, "Use up and down arrows to change levels");
-        LayoutString(&Layout, &GlobalDebugFont,
+        LayoutString(&Layout, &DebugFont,
                      BLACK, "Use 'e' to open the editor");
     }
     
     LayoutFps(&Layout);
     
     Layout.CurrentP.X += Layout.Advance.X;
-    LayoutString(&Layout, &GlobalDebugFont,
+    LayoutString(&Layout, &DebugFont,
                  BLACK, "Player velocity: %.2f %.2f",
-                 GlobalManager.Player->dP.X, GlobalManager.Player->dP.Y);
-    LayoutString(&Layout, &GlobalDebugFont,
+                 EntityManager.Player->dP.X, EntityManager.Player->dP.Y);
+    LayoutString(&Layout, &DebugFont,
                  BLACK, "Player animation: %u %f %f",
-                 GlobalManager.Player->CurrentAnimation,
-                 GlobalManager.Player->AnimationState,
-                 GlobalManager.Player->AnimationCooldown);
+                 EntityManager.Player->CurrentAnimation,
+                 EntityManager.Player->AnimationState,
+                 EntityManager.Player->AnimationCooldown);
     
     Layout.CurrentP.X -= Layout.Advance.X;
     

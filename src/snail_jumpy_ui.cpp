@@ -5,11 +5,11 @@
 
 internal void
 PushUIRectangle(v2 Min, v2 Max, f32 Z, color Color){
-    ui_primitive *Primitive = PushStruct(&GlobalTransientStorageArena, ui_primitive);
+    ui_primitive *Primitive = PushStruct(&TransientStorageArena, ui_primitive);
     
     Primitive->Type = PrimitiveType_Rectangle;
-    Primitive->Next = GlobalUIManager.FirstPrimitive;
-    GlobalUIManager.FirstPrimitive = Primitive;
+    Primitive->Next = UIManager.FirstPrimitive;
+    UIManager.FirstPrimitive = Primitive;
     
     Primitive->Color = Color;
     Primitive->Z     = Z;
@@ -19,11 +19,11 @@ PushUIRectangle(v2 Min, v2 Max, f32 Z, color Color){
 
 internal void
 VPushUIString(v2 P, f32 Z, font *Font, color Color, const char *Format, va_list VarArgs){
-    ui_primitive *Primitive = PushStruct(&GlobalTransientStorageArena, ui_primitive);
+    ui_primitive *Primitive = PushStruct(&TransientStorageArena, ui_primitive);
     
     Primitive->Type = PrimitiveType_String;
-    Primitive->Next = GlobalUIManager.FirstPrimitive;
-    GlobalUIManager.FirstPrimitive = Primitive;
+    Primitive->Next = UIManager.FirstPrimitive;
+    UIManager.FirstPrimitive = Primitive;
     
     Primitive->Z      = Z;
     Primitive->Color  = Color;
@@ -44,7 +44,7 @@ PushUIString(v2 P, f32 Z, font *Font, color Color, const char *Format, ...){
 internal void
 RenderAllUIPrimitives(render_group *RenderGroup){
     TIMED_FUNCTION();
-    for(ui_primitive *Primitive = GlobalUIManager.FirstPrimitive;
+    for(ui_primitive *Primitive = UIManager.FirstPrimitive;
         Primitive;
         Primitive = Primitive->Next){
         switch(Primitive->Type){
@@ -65,19 +65,19 @@ internal void
 UISlider(f32 X, f32 Y,
          f32 Width, f32 Height, f32 CursorWidth,
          f32 *SliderPercent){
-    v2 MouseP = GlobalInput.MouseP;
+    v2 MouseP = OSInput.MouseP;
     f32 XMargin = 10;
     f32 YMargin = 30;
     f32 CursorX = *SliderPercent*(Width-CursorWidth);
     color CursorColor = {0.33f, 0.6f, 0.4f, 0.9f};
-    if((X+CursorX-XMargin < GlobalInput.LastMouseP.X) &&
-       (GlobalInput.LastMouseP.X < X+CursorX+CursorWidth+XMargin) &&
-       (Y-YMargin < GlobalInput.LastMouseP.Y) &&
-       (GlobalInput.LastMouseP.Y < Y+Height+YMargin)){
+    if((X+CursorX-XMargin < OSInput.LastMouseP.X) &&
+       (OSInput.LastMouseP.X < X+CursorX+CursorWidth+XMargin) &&
+       (Y-YMargin < OSInput.LastMouseP.Y) &&
+       (OSInput.LastMouseP.Y < Y+Height+YMargin)){
         
         CursorColor = {0.5f, 0.8f, 0.6f, 0.9f};
         if(IsKeyDown(KeyCode_LeftMouse)){
-            GlobalUIManager.HandledInput = true;
+            UIManager.HandledInput = true;
             CursorX = MouseP.X-X-(CursorWidth/2);
             if((CursorX+CursorWidth) > (Width)){
                 CursorX = Width-CursorWidth;
@@ -96,10 +96,10 @@ UISlider(f32 X, f32 Y,
     
     // TODO(Tyler): Do the text printing differently in order to make it more flexible
     *SliderPercent = CursorX/(Width-CursorWidth);
-    f32 TextY = Y + (Height/2) - (GlobalNormalFont.Ascent/2);
-    f32 TextWidth = GetFormatStringAdvance(&GlobalNormalFont, "%.2f", *SliderPercent);
+    f32 TextY = Y + (Height/2) - (NormalFont.Ascent/2);
+    f32 TextWidth = GetFormatStringAdvance(&NormalFont, "%.2f", *SliderPercent);
     PushUIString(v2{X + (Width-TextWidth)/2, TextY}, -0.3f,
-                 &GlobalNormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
+                 &NormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
                  "%.2f", *SliderPercent);
 }
 
@@ -109,12 +109,12 @@ UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text,
          color Hovered=color{0.25f, 0.4f, 0.3f, 0.9f},
          color Clicked=color{0.5f, 0.8f, 0.6f, 0.9f},
          color TextColor=color{1.0f, 1.0f, 1.0f, 0.9f},
-         font *Font=&GlobalNormalFont){
+         font *Font=&NormalFont){
     
     color ButtonColor = Base;
     b32 Result = false;
-    if((X < GlobalInput.MouseP.X) && (GlobalInput.MouseP.X < X+Width) &&
-       (Y < GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y < Y+Height)){
+    if((X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
+       (Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y+Height)){
         if(IsKeyJustPressed(KeyCode_LeftMouse)){
             ButtonColor = Clicked;
             Result = true;
@@ -123,7 +123,7 @@ UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text,
         }
         
         if(IsKeyDown(KeyCode_LeftMouse)){
-            GlobalUIManager.HandledInput = true;
+            UIManager.HandledInput = true;
         }
     }
     
@@ -140,10 +140,10 @@ UIButton(f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text,
 
 internal void
 UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height, u32 Id){
-    if(GlobalUIManager.SelectedWidgetId == Id){
+    if(UIManager.SelectedWidgetId == Id){
         for(u8 I = 0; I < KeyCode_ASCIICOUNT; I++){
             if(IsKeyRepeated(I)){
-                GlobalUIManager.HandledInput = true;
+                UIManager.HandledInput = true;
                 
                 char Char = I;
                 if(IsKeyDown(KeyCode_Shift)){
@@ -162,7 +162,7 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
             }
         }
         if(IsKeyRepeated(KeyCode_BackSpace)){
-            GlobalUIManager.HandledInput = true;
+            UIManager.HandledInput = true;
             if(TextBoxData->BufferIndex > 0){
                 TextBoxData->BufferIndex--;
                 TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
@@ -170,8 +170,8 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
         }
         
         if(IsKeyRepeated(KeyCode_Escape)){
-            GlobalUIManager.HandledInput = true;
-            GlobalUIManager.SelectedWidgetId = 0;
+            UIManager.HandledInput = true;
+            UIManager.SelectedWidgetId = 0;
         }
     }
     
@@ -180,7 +180,7 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
     
     color Color;
     color TextColor;
-    if(GlobalUIManager.SelectedWidgetId == Id){
+    if(UIManager.SelectedWidgetId == Id){
         Color = color{0.5f, 0.8f, 0.6f, 0.9f};
         TextColor = BLACK;
     }else{
@@ -188,16 +188,16 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
         TextColor = WHITE;
     }
     
-    if((Min.X <= GlobalInput.MouseP.X) && (GlobalInput.MouseP.X <= Max.X) &&
-       (Min.Y <= GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y <= Max.Y)){
+    if((Min.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= Max.X) &&
+       (Min.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= Max.Y)){
         if(IsKeyJustPressed(KeyCode_LeftMouse)){
-            GlobalUIManager.SelectedWidgetId = Id;
-        }else if(GlobalUIManager.SelectedWidgetId != Id){
+            UIManager.SelectedWidgetId = Id;
+        }else if(UIManager.SelectedWidgetId != Id){
             Color = color{0.25f, 0.4f, 0.3f, 0.9f};
         }
     }else if(IsKeyJustPressed(KeyCode_LeftMouse) && 
-             (GlobalUIManager.SelectedWidgetId == Id)){
-        GlobalUIManager.SelectedWidgetId = 0;
+             (UIManager.SelectedWidgetId == Id)){
+        UIManager.SelectedWidgetId = 0;
     }
     
     f32 Margin = 10;
@@ -205,8 +205,8 @@ UITextBox(text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height
     
     PushUIRectangle(Min, Max, Z-0.01f, BLACK);
     PushUIRectangle(Min+BorderSize, Max-BorderSize, Z-0.02f, Color);
-    v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - GlobalNormalFont.Ascent/2};
-    PushUIString(v2{P.X, P.Y}, Z-.03f, &GlobalNormalFont, TextColor, 
+    v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - NormalFont.Ascent/2};
+    PushUIString(v2{P.X, P.Y}, Z-.03f, &NormalFont, TextColor, 
                  "%s", TextBoxData->Buffer);
 }
 
@@ -314,10 +314,10 @@ PanelString(panel *Panel, char *Format, ...){
     Max.X = Panel->CurrentP.X + Panel->Size.X;
     
     b32 Clicked = false;
-    if((Min.X < GlobalInput.MouseP.X) && (GlobalInput.MouseP.X < Max.X) &&
-       (Min.Y < GlobalInput.MouseP.Y) && (GlobalInput.MouseP.Y < Max.Y)){
+    if((Min.X < OSInput.MouseP.X) && (OSInput.MouseP.X < Max.X) &&
+       (Min.Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Max.Y)){
         if(IsKeyJustPressed(KeyCode_LeftMouse)){
-            GlobalUIManager.HandledInput = true;
+            UIManager.HandledInput = true;
             Clicked = true;
         }
     }
@@ -418,8 +418,8 @@ DrawPanel(panel *Panel){
 //~ Helpers
 internal void
 LayoutFps(layout *Layout){
-    LayoutString(Layout, &GlobalDebugFont,
-                 BLACK, "Milliseconds per frame: %f", 1000.0f*GlobalInput.dTimeForFrame);
-    LayoutString(Layout, &GlobalDebugFont,
-                 BLACK, "FPS: %f", 1.0f/GlobalInput.dTimeForFrame);
+    LayoutString(Layout, &DebugFont,
+                 BLACK, "Milliseconds per frame: %f", 1000.0f*OSInput.dTimeForFrame);
+    LayoutString(Layout, &DebugFont,
+                 BLACK, "FPS: %f", 1.0f/OSInput.dTimeForFrame);
 }

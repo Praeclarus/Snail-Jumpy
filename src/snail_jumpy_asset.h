@@ -46,6 +46,12 @@ enum asset_animations {
     EnemyAnimation_Right = 1,
     EnemyAnimation_TurningLeft = 2,
     EnemyAnimation_TurningRight = 3,
+    EnemyAnimation_RetreatingLeft = 4,
+    EnemyAnimation_RetreatingRight = 5,
+    EnemyAnimation_HidingLeft = 6,
+    EnemyAnimation_HidingRight = 7,
+    EnemyAnimation_ReappearingLeft = 8,
+    EnemyAnimation_ReappearingRight = 9,
 };
 
 struct spritesheet_asset {

@@ -74,7 +74,7 @@ Win32MainWindowProc(HWND Window,
             GetClientRect(Window, &ClientRect);
             int Width = ClientRect.right - ClientRect.left;
             int Height = ClientRect.bottom - ClientRect.top;
-            GlobalInput.WindowSize = {(f32)Width, (f32)Height};
+            OSInput.WindowSize = {(f32)Width, (f32)Height};
         }break;
         case WM_CLOSE: {
             Running = false;
@@ -91,27 +91,27 @@ Win32MainWindowProc(HWND Window,
             if (WasDown != IsDown)
             {
                 if(VkCode == VK_UP){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Up], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Up], IsDown);
                 }else if(VkCode == VK_DOWN){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Down], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Down], IsDown);
                 }else if(VkCode == VK_LEFT){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Left], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Left], IsDown);
                 }else if(VkCode == VK_RIGHT){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Right], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Right], IsDown);
                 }else if(VkCode == VK_SPACE){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Space], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Space], IsDown);
                 }else if(VkCode == VK_TAB){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Tab], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Tab], IsDown);
                 }else if(VkCode == VK_SHIFT){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Shift], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Shift], IsDown);
                 }else if(VkCode == VK_ESCAPE){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Escape], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Escape], IsDown);
                 }else if(('0' <= VkCode) && (VkCode <= 'Z')){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[VkCode], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[VkCode], IsDown);
                 }else if(VkCode == VK_BACK){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_BackSpace], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_BackSpace], IsDown);
                 }else if(VkCode == VK_OEM_MINUS){
-                    Win32ProcessKeyboardInput(&GlobalInput.Buttons['-'], IsDown);
+                    Win32ProcessKeyboardInput(&OSInput.Buttons['-'], IsDown);
                 }
                 if(IsDown){
                     if(VkCode == VK_F11){
@@ -123,22 +123,22 @@ Win32MainWindowProc(HWND Window,
             }
         }break;
         case WM_LBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&GlobalInput.LeftMouseButton, true);
+            Win32ProcessKeyboardInput(&OSInput.LeftMouseButton, true);
         }break;
         case WM_LBUTTONUP: {
-            Win32ProcessKeyboardInput(&GlobalInput.LeftMouseButton, false);
+            Win32ProcessKeyboardInput(&OSInput.LeftMouseButton, false);
         }break;
         case WM_MBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&GlobalInput.MiddleMouseButton, true);
+            Win32ProcessKeyboardInput(&OSInput.MiddleMouseButton, true);
         }break;
         case WM_MBUTTONUP: {
-            Win32ProcessKeyboardInput(&GlobalInput.MiddleMouseButton, false);
+            Win32ProcessKeyboardInput(&OSInput.MiddleMouseButton, false);
         }break;
         case WM_RBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&GlobalInput.RightMouseButton, true);
+            Win32ProcessKeyboardInput(&OSInput.RightMouseButton, true);
         }break;
         case WM_RBUTTONUP: {
-            Win32ProcessKeyboardInput(&GlobalInput.RightMouseButton, false);
+            Win32ProcessKeyboardInput(&OSInput.RightMouseButton, false);
         }break;
         default: {
             Result = DefWindowProcA(Window, Message, WParam, LParam);
@@ -290,14 +290,17 @@ Win32InitOpenGl(HINSTANCE Instance, HWND *Window){
     }
 }
 
-internal
-OPEN_FILE(OpenFile){
+internal os_file *
+OpenFile(const char *Path, open_file_flags Flags){
     DWORD Access = 0;
     if(Flags & OpenFile_Read){
         Access |= GENERIC_READ;
     }
     if(Flags & OpenFile_Write){
         Access |= GENERIC_WRITE;
+    }
+    if(Flags & OpenFile_Clear){
+        DeleteFileA(Path);
     }
     
     os_file *Result;
@@ -316,8 +319,8 @@ OPEN_FILE(OpenFile){
     return(Result);
 }
 
-internal
-GET_FILE_SIZE(GetFileSize){
+internal u64 
+GetFileSize(os_file *File){
     u64 Result = 0;
     LARGE_INTEGER FileSize = {0};
     if(GetFileSizeEx(File, &FileSize)){
@@ -329,8 +332,8 @@ GET_FILE_SIZE(GetFileSize){
     return(Result);
 }
 
-internal
-READ_FILE(ReadFile){
+internal b32 
+ReadFile(os_file *File, u64 FileOffset, void *Buffer, umw BufferSize){
     b32 Result = false;
     LARGE_INTEGER DistanceToMove;
     DistanceToMove.QuadPart = FileOffset;
@@ -351,14 +354,14 @@ READ_FILE(ReadFile){
     return(Result);
 }
 
-internal
-CLOSE_FILE(CloseFile){
+internal void 
+CloseFile(os_file *File){
     CloseHandle((HANDLE)File);
 }
 
 // TODO(Tyler): Proper WriteFile for 64-bits
-internal
-WRITE_TO_FILE(WriteToFile){
+internal u64 
+WriteToFile(os_file *File, u64 FileOffset, const void *Buffer, umw BufferSize){
     DWORD BytesWritten;
     LARGE_INTEGER DistanceToMove;
     DistanceToMove.QuadPart = FileOffset;
@@ -367,15 +370,15 @@ WRITE_TO_FILE(WriteToFile){
     return(BytesWritten);
 }
 
-internal
-ALLOCATE_VIRTUAL_MEMORY(AllocateVirtualMemory){
+internal void *
+AllocateVirtualMemory(umw Size){
     void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     DWORD Error = GetLastError();
     return(Memory);
 }
 
-internal
-FREE_VIRTUAL_MEMORY(FreeVirtualMemory){
+internal void 
+FreeVirtualMemory(void *Pointer){
     VirtualFree(Pointer, 0, MEM_RELEASE);
 }
 
@@ -428,7 +431,7 @@ WinMain(HINSTANCE Instance,
             GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
             
             LARGE_INTEGER LastCounter = Win32GetWallClock();
-            GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+            OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
             
             Running = true;
             while(Running){
@@ -451,7 +454,7 @@ WinMain(HINSTANCE Instance,
                             GetClientRect(Window, &ClientRect);
                             int Width = ClientRect.right - ClientRect.left;
                             int Height = ClientRect.bottom - ClientRect.top;
-                            GlobalInput.WindowSize = {(f32)Width, (f32)Height};
+                            OSInput.WindowSize = {(f32)Width, (f32)Height};
                         }break;
                         case WM_CLOSE: {
                             Running = false;
@@ -478,37 +481,37 @@ WinMain(HINSTANCE Instance,
                             
                             if(VkCode == VK_UP){
                                 Event.Key = KeyCode_Up;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Up], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Up], IsDown);
                             }else if(VkCode == VK_DOWN){
                                 Event.Key = KeyCode_Down;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Down], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Down], IsDown);
                             }else if(VkCode == VK_LEFT){
                                 Event.Key = KeyCode_Left;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Left], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Left], IsDown);
                             }else if(VkCode == VK_RIGHT){
                                 Event.Key = KeyCode_Right;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Right], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Right], IsDown);
                             }else if(VkCode == VK_SPACE){
                                 Event.Key = KeyCode_Space;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Space], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Space], IsDown);
                             }else if(VkCode == VK_TAB){
                                 Event.Key = KeyCode_Tab;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Tab], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Tab], IsDown);
                             }else if(VkCode == VK_SHIFT){
                                 Event.Key = KeyCode_Shift;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Shift], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Shift], IsDown);
                             }else if(VkCode == VK_ESCAPE){
                                 Event.Key = KeyCode_Escape;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_Escape], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Escape], IsDown);
                             }else if(('0' <= VkCode) && (VkCode <= 'Z')){
                                 Event.Key = (os_key_code)VkCode;;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[VkCode], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[VkCode], IsDown);
                             }else if(VkCode == VK_BACK){
                                 Event.Key = KeyCode_BackSpace;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons[KeyCode_BackSpace], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_BackSpace], IsDown);
                             }else if(VkCode == VK_OEM_MINUS){
                                 Event.Key = KeyCode_Minus;
-                                //Win32ProcessKeyboardInput(&GlobalInput.Buttons['-'], IsDown);
+                                //Win32ProcessKeyboardInput(&OSInput.Buttons['-'], IsDown);
                             }else if(VkCode == VK_RETURN){
                                 Event.Key = KeyCode_Return;
                             }
@@ -565,27 +568,27 @@ WinMain(HINSTANCE Instance,
                 
                 RECT ClientRect;
                 GetClientRect(Window, &ClientRect);
-                GlobalInput.WindowSize = {
+                OSInput.WindowSize = {
                     (f32)(ClientRect.right - ClientRect.left),
                     (f32)(ClientRect.bottom - ClientRect.top),
                 };
                 POINT MouseP;
                 GetCursorPos(&MouseP);
-                GlobalInput.MouseP = {
+                OSInput.MouseP = {
                     (f32)MouseP.x,
-                    (f32)(GlobalInput.WindowSize.Height-MouseP.y)
+                    (f32)(OSInput.WindowSize.Height-MouseP.y)
                 };
                 
                 // TODO(Tyler): Multithreading?
-                //GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+                //OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
                 GameUpdateAndRender();
                 
 #if 0                
-                GlobalInput.LeftMouseButton.HalfTransitionCount = 0;
-                GlobalInput.MiddleMouseButton.HalfTransitionCount = 0;
-                GlobalInput.RightMouseButton.HalfTransitionCount = 0;
+                OSInput.LeftMouseButton.HalfTransitionCount = 0;
+                OSInput.MiddleMouseButton.HalfTransitionCount = 0;
+                OSInput.RightMouseButton.HalfTransitionCount = 0;
                 for(u32 I = 0; I < KeyCode_TOTAL; I++){
-                    GlobalInput.Buttons[I].HalfTransitionCount = 0;
+                    OSInput.Buttons[I].HalfTransitionCount = 0;
                 }
 #endif
                 
@@ -598,17 +601,17 @@ WinMain(HINSTANCE Instance,
                         Sleep(SleepMS);
                         SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                     }
-                    GlobalInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+                    OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
                 }
                 else
                 {
                     // TODO(Tyler): Error logging
                     //Assert(0);
                     LogError("Missed FPS");
-                    GlobalInput.dTimeForFrame= SecondsElapsed;
+                    OSInput.dTimeForFrame= SecondsElapsed;
                     // TODO(Tyler): I don't know if this is a good solution
-                    if(GlobalInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
-                        GlobalInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
+                    if(OSInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
+                        OSInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
                     }
                 }
                 

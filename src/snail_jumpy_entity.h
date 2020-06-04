@@ -14,6 +14,7 @@ enum entity_type {
     
     EntityType_Teleporter = 8,
     EntityType_Door       = 9,
+    EntityType_Projectile = 10,
 };
 
 enum collision_type {
@@ -22,9 +23,10 @@ enum collision_type {
     CollisionType_Wall,
     CollisionType_Snail,
     CollisionType_Player,
-    CollisionType_Coin,
     CollisionType_Dragonfly,
-    CollisionType_Teleporter
+    CollisionType_Teleporter,
+    // TODO(Tyler): Implement projectile collision detection
+    CollisionType_Projectile,
 };
 
 struct collision_event {
@@ -47,12 +49,22 @@ struct collision_event {
     };
 };
 
+enum direction {
+    Direction_Left,
+    Direction_UpLeft,
+    Direction_DownLeft,
+    Direction_Right,
+    Direction_UpRight,
+    Direction_DownRight
+};
+
 // TODO(Tyler): Is this needed?
 typedef u32 entity_state;
 enum _entity_state {
     EntityState_None,
     
     EntityState_Dead    = (1<<0),
+    EntityState_Stunned = (1<<1),
 };
 
 struct wall_entity {
@@ -93,7 +105,8 @@ struct teleporter {
     };
     
     const char *Level;
-    b8          IsLocked;
+    b8 IsLocked;
+    b8 IsSelected;
 };
 
 struct door_entity {
@@ -127,6 +140,7 @@ struct entity {
 };
 
 struct enemy_entity : public entity {
+    f32 StunCooldown;
     f32 Direction;
     f32 Speed;
     v2 PathStart, PathEnd;
@@ -135,10 +149,16 @@ struct enemy_entity : public entity {
 struct player_entity : public entity {
     f32 JumpTime;
     f32 SprintTime;
+    f32 WeaponChargeTime;
     // TODO(Tyler): There is likely a better way to do this
     u32 RidingDragonfly;
     b8 IsRidingDragonfly;
     b8 IsGrounded;
+    direction Direction;
+};
+
+struct projectile_entity : public entity {
+    f32 RemainingLife;
 };
 
 struct entity_manager {
@@ -157,10 +177,13 @@ struct entity_manager {
     teleporter *Teleporters;
     u32 TeleporterCount;
     
-    player_entity *Player;
-    
     door_entity *Doors;
     u32 DoorCount;
+    
+    player_entity *Player;
+    
+    projectile_entity *Projectiles;
+    u32 ProjectileCount;
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H

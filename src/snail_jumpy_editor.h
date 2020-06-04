@@ -19,13 +19,13 @@ enum edit_mode {
 
 enum editor_popup {
     EditorPopup_None,
-    EditorPopup_AddLevel,
     EditorPopup_RenameLevel,
     EditorPopup_ResizeLevel,
     EditorPopup_AddTeleporter,
     EditorPopup_EditTeleporter,
     EditorPopup_AddDoor,
     EditorPopup_EditDoor,
+    EditorPopup_LoadLevel,
 };
 
 struct editor {

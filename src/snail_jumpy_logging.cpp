@@ -1,12 +1,16 @@
-global os_file *GlobalLogFile;
-global u32 GlobalLogFileOffset;
+
+// TODO(Tyler): This logger is pretty terrible and could be made more
+// effective
+
+global os_file *LogFile;
+global u32 LogFileOffset;
 
 internal void
 LogError(char *Message){
     u32 Length = CStringLength(Message);
-    WriteToFile(GlobalLogFile, GlobalLogFileOffset, Message, Length);
-    GlobalLogFileOffset += Length;
+    WriteToFile(LogFile, LogFileOffset, Message, Length);
+    LogFileOffset += Length;
     char End[] = "\n";
-    WriteToFile(GlobalLogFile, GlobalLogFileOffset, End, ArrayCount(End));
-    GlobalLogFileOffset += ArrayCount(End);
+    WriteToFile(LogFile, LogFileOffset, End, ArrayCount(End));
+    LogFileOffset += ArrayCount(End);
 }

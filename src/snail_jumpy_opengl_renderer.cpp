@@ -124,6 +124,9 @@ INITIALIZE_RENDERER(InitializeRenderer){
                           sizeof(vertex), (void*)offsetof(vertex, TexCoord));
     glEnableVertexAttribArray(2);
     
+    u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
+    DefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
+    
     b32 Result = true;
     return(Result);
 }
@@ -183,7 +186,7 @@ CREATE_RENDER_TEXTURE(CreateRenderTexture){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
     glBindTexture(GL_TEXTURE_2D, 0);
     return(Result);
 }

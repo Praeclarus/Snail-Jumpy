@@ -1,7 +1,7 @@
 #ifndef SNAIL_JUMPY_RANDOM_H
 #define SNAIL_JUMPY_RANDOM_H
 
-global_constant u32 GlobalRandomNumberTable[1024] = {
+global_constant u32 RANDOM_NUMBER_TABLE[1024] = {
     0xa984560e, 0x473e5245, 0x322585cc, 0x9f4b5ec3,
     0x1b3418a9, 0x8561cc2b, 0xf7e0a228, 0xccc5950f,
     0x32fd9f5f, 0xf2437b8e, 0xdaeeec08, 0xe235e295,

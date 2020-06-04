@@ -15,40 +15,41 @@ global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
 global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
 
-global font GlobalMainFont;
-global font GlobalNormalFont;
-global font GlobalTitleFont;
-global font GlobalDebugFont;
+global font MainFont;
+global font NormalFont;
+global font TitleFont;
+global font DebugFont;
 
-global s32 GlobalScore;
-global f32 GlobalCounter;
+global s32 Score;
+global f32 Counter;
 
-global spritesheet_asset *GlobalAssets;
+global spritesheet_asset *Assets;
 
-global memory_arena GlobalPermanentStorageArena;
-global memory_arena GlobalTransientStorageArena;
+global memory_arena PermanentStorageArena;
+global memory_arena TransientStorageArena;
 
-global ui_manager GlobalUIManager;
 
-global state_change_data GlobalStateChangeData;
+global entity_manager EntityManager;
+global ui_manager UIManager;
+
+global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GlobalGameMode = GameMode_Overworld;
+global game_mode GameMode = GameMode_MainGame;
 
-global editor    GlobalEditor;
+global editor    Editor;
 
-global v2 GlobalCameraP;
-global v2 GlobalLastOverworldPlayerP;
+global v2 CameraP;
+global v2 LastOverworldPlayerP;
 
-global world_data GlobalOverworldWorld;
-global memory_arena GlobalEnemyMemory;
-global hash_table        GlobalLevelTable;
-global array<level_data> GlobalLevelData;
-global level_data       *GlobalCurrentLevel;
-global u32               GlobalCurrentLevelIndex;
+global world_data OverworldWorld;
+global memory_arena EnemyMemory;
+global hash_table        LevelTable;
+global array<level_data> LevelData;
+global level_data       *CurrentLevel;
+global u32               CurrentLevelIndex;
 
-internal inline void
-ChangeState(game_mode NewMode, const char *NewLevel);
+internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
 internal inline void SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles);
 
 #include "snail_jumpy_logging.cpp"
@@ -98,27 +99,6 @@ LoadFont(memory_arena *Arena,
 }
 
 internal void
-ProcessInput(os_event *Event){
-    switch(Event->Kind){
-        case OSEventKind_KeyDown: {
-            GlobalInput.Buttons[Event->Key].JustDown = Event->JustDown;
-            GlobalInput.Buttons[Event->Key].IsDown = true;
-            GlobalInput.Buttons[Event->Key].Repeat = true;
-        }break;
-        case OSEventKind_KeyUp: {
-            GlobalInput.Buttons[Event->Key].IsDown = false;
-        }break;
-        case OSEventKind_MouseDown: {
-            GlobalInput.Buttons[Event->Button].JustDown = true;
-            GlobalInput.Buttons[Event->Button].IsDown = true;
-        }break;
-        case OSEventKind_MouseUp: {
-            GlobalInput.Buttons[Event->Button].IsDown = false;
-        }break;
-    }
-}
-
-internal void
 InitializeGame(){
     stbi_set_flip_vertically_on_load(true);
     
@@ -126,65 +106,60 @@ InitializeGame(){
         umw Size = Megabytes(4);
         void *Memory = AllocateVirtualMemory(Size);
         Assert(Memory);
-        InitializeArena(&GlobalPermanentStorageArena, Memory, Size);
+        InitializeArena(&PermanentStorageArena, Memory, Size);
     }{
         umw Size = Gigabytes(1);
         void *Memory = AllocateVirtualMemory(Size);
         Assert(Memory);
-        InitializeArena(&GlobalTransientStorageArena, Memory, Size);
+        InitializeArena(&TransientStorageArena, Memory, Size);
     }
     
-    GlobalLogFile = OpenFile("log.txt", OpenFile_Write);
-    GlobalLogFileOffset = (u32)GetFileSize(GlobalLogFile);
-    LogError("=======================================================================\n");
+    LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
     
     // NOTE(Tyler): Entity memory
-    GlobalManager.Memory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
+    EntityManager.Memory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
     
     // NOTE(Tyler): Initialize levels
     // TODO(Tyler): It might be a better idea to use a few pool allocators for this, or a 
     // different allocator
-    GlobalLevelData = CreateNewArray<level_data>(&GlobalPermanentStorageArena, 512);
-    //GlobalMapDataMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
-    GlobalEnemyMemory   = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(64));
-    GlobalLevelTable    = PushHashTable(&GlobalPermanentStorageArena, 1024);
+    LevelData = CreateNewArray<level_data>(&PermanentStorageArena, 512);
+    //MapDataMemory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
+    EnemyMemory   = PushNewArena(&PermanentStorageArena, Kilobytes(64));
+    LevelTable    = PushHashTable(&PermanentStorageArena, 1024);
     
     // NOTE(Tyler): Initialize overworld
-    //GlobalOverworldMapMemory = PushNewArena(&GlobalPermanentStorageArena, Kilobytes(8));
-    //GlobalOverworldMap = GlobalOverworldMapMemory.Memory;
-    GlobalOverworldWorld.Teleporters = CreateNewArray<teleporter_data>(&GlobalPermanentStorageArena, 512);
-    GlobalOverworldWorld.Doors = CreateNewArray<door_data>(&GlobalPermanentStorageArena, 512);
+    //OverworldMapMemory = PushNewArena(&PermanentStorageArena, Kilobytes(8));
+    //OverworldMap = OverworldMapMemory.Memory;
+    OverworldWorld.Teleporters = CreateNewArray<teleporter_data>(&PermanentStorageArena, 512);
+    OverworldWorld.Doors = CreateNewArray<door_data>(&PermanentStorageArena, 512);
     LoadOverworldFromFile();
     
-    if((GlobalGameMode == GameMode_Overworld) ||
-       (GlobalGameMode == GameMode_OverworldEditor)){
+    if((GameMode == GameMode_Overworld) ||
+       (GameMode == GameMode_OverworldEditor)){
         LoadOverworld();
-    }else if((GlobalGameMode == GameMode_MainGame) ||
-             (GlobalGameMode == GameMode_LevelEditor)){
+    }else if((GameMode == GameMode_MainGame) ||
+             (GameMode == GameMode_LevelEditor)){
         LoadLevelFromFile("Test_Level");
         LoadLevel("Test_Level");
     }
     
-    if(GlobalGameMode == GameMode_LevelEditor){
-        GlobalGameMode = GameMode_MainGame;
+    if(GameMode == GameMode_LevelEditor){
+        GameMode = GameMode_MainGame;
         ToggleEditor();
-    }else if(GlobalGameMode == GameMode_OverworldEditor){
-        GlobalGameMode = GameMode_Overworld;
+    }else if(GameMode == GameMode_OverworldEditor){
+        GameMode = GameMode_Overworld;
         ToggleEditor();
     }
     
-    u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
-    GlobalDefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
-    
     {
-        GlobalAssets =
-            PushArray(&GlobalPermanentStorageArena, spritesheet_asset, Asset_TOTAL);
+        Assets =
+            PushArray(&PermanentStorageArena, spritesheet_asset, Asset_TOTAL);
         f32 MetersToPixels = 60.0f/0.5f;
         
         asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
             {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 6, 6, 5, 5, 1, 1, 2, 2 }, { 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0f },
-            {"test_snail_spritesheet2.png",      80,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 },-0.07f},
-            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 }, 0.0f},
+            {"test_snail_spritesheet2.png",      64,  8,  {  4,  4, 3, 3, 4, 4, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0.0f},
+            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3, 3, 3, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0.0f},
             {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 8, 8, 8, 8 }, 0.0f },
             {"test_speedy_spritesheet.png",      80,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 },-0.07f },
             {"overworld_avatar_spritesheet.png", 64, 10,  {  3,  3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 4, 5, 5, 5 }, { 2, 2, 2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0 },
@@ -192,11 +167,11 @@ InitializeGame(){
         
         for(u32 Index = 0; Index < Asset_TOTAL; Index++){
             asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
-            spritesheet_asset *CurrentAnimation = &GlobalAssets[Index];
+            spritesheet_asset *CurrentAnimation = &Assets[Index];
             
             os_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
             u64 FileSize = GetFileSize(TestFile);
-            u8 *TestFileData = PushArray(&GlobalTransientStorageArena, u8, FileSize);
+            u8 *TestFileData = PushArray(&TransientStorageArena, u8, FileSize);
             ReadFile(TestFile, 0, TestFileData, FileSize);
             CloseFile(TestFile);
             s32 Width, Height, Components;
@@ -223,13 +198,13 @@ InitializeGame(){
         }
     }
     
-    LoadFont(&GlobalTransientStorageArena, &GlobalDebugFont,
+    LoadFont(&TransientStorageArena, &DebugFont,
              "c:/windows/fonts/Arial.ttf", 20, 512, 512);
-    LoadFont(&GlobalTransientStorageArena, &GlobalTitleFont,
+    LoadFont(&TransientStorageArena, &TitleFont,
              "c:/windows/fonts/Arial.ttf", 30, 512, 512);
-    LoadFont(&GlobalTransientStorageArena, &GlobalNormalFont,
+    LoadFont(&TransientStorageArena, &NormalFont,
              "Press-Start-2P.ttf", 12, 512, 512);
-    LoadFont(&GlobalTransientStorageArena, &GlobalMainFont,
+    LoadFont(&TransientStorageArena, &MainFont,
              "Press-Start-2P.ttf", 24, 512, 512);
     
     InitializeRenderer();
@@ -237,14 +212,14 @@ InitializeGame(){
 
 internal void
 GameUpdateAndRender(){
-    GlobalTransientStorageArena.Used = 0;
-    GlobalProfileData.CurrentBlockIndex = 0;
-    GlobalUIManager.FirstPrimitive = 0;
-    GlobalUIManager.HandledInput = false;
+    TransientStorageArena.Used = 0;
+    ProfileData.CurrentBlockIndex = 0;
+    UIManager.FirstPrimitive = 0;
+    UIManager.HandledInput = false;
     
     TIMED_FUNCTION();
     
-    switch(GlobalGameMode){
+    switch(GameMode){
         case GameMode_MainGame: {
             UpdateAndRenderMainGame();
         }break;
@@ -262,58 +237,79 @@ GameUpdateAndRender(){
         }break;
     }
     
-    GlobalInput.LastMouseP = GlobalInput.MouseP;
-    GlobalCounter += GlobalInput.dTimeForFrame;
+    OSInput.LastMouseP = OSInput.MouseP;
+    Counter += OSInput.dTimeForFrame;
     
-    if(GlobalStateChangeData.DidChange){
-        if(GlobalGameMode == GameMode_Overworld){
-            GlobalLastOverworldPlayerP = GlobalManager.Player->P;
+    if(StateChangeData.DidChange){
+        if(GameMode == GameMode_Overworld){
+            LastOverworldPlayerP = EntityManager.Player->P;
         }
         
-        if(GlobalStateChangeData.NewMode == GameMode_None){
-            LoadLevel(GlobalStateChangeData.NewLevel);
-        }else if(GlobalStateChangeData.NewMode == GameMode_MainGame){
-            GlobalGameMode = GameMode_MainGame;
-            LoadLevel(GlobalStateChangeData.NewLevel);
-        }else if(GlobalStateChangeData.NewMode == GameMode_Overworld){
-            GlobalGameMode = GameMode_Overworld;
+        if(StateChangeData.NewMode == GameMode_None){
+            LoadLevel(StateChangeData.NewLevel);
+        }else if(StateChangeData.NewMode == GameMode_MainGame){
+            GameMode = GameMode_MainGame;
+            LoadLevel(StateChangeData.NewLevel);
+        }else if(StateChangeData.NewMode == GameMode_Overworld){
+            GameMode = GameMode_Overworld;
             LoadOverworld();
-        }else if(GlobalStateChangeData.NewMode == GameMode_LevelEditor){
-            GlobalGameMode = GameMode_LevelEditor;
-        }else if(GlobalStateChangeData.NewMode == GameMode_OverworldEditor){
-            GlobalGameMode = GameMode_OverworldEditor;
+        }else if(StateChangeData.NewMode == GameMode_LevelEditor){
+            GameMode = GameMode_LevelEditor;
+        }else if(StateChangeData.NewMode == GameMode_OverworldEditor){
+            GameMode = GameMode_OverworldEditor;
         }
-        GlobalCameraP = {0};
+        CameraP = {0};
         
-        GlobalStateChangeData = {0};
+        StateChangeData = {0};
     }
     
     for(u32 I = 0; I < KeyCode_TOTAL; I++){
-        GlobalInput.Buttons[I].JustDown = false;
-        GlobalInput.Buttons[I].Repeat = false;
+        OSInput.Buttons[I].JustDown = false;
+        OSInput.Buttons[I].Repeat = false;
     }
 }
 
 internal inline void
 ChangeState(game_mode NewMode, const char *NewLevel){
-    GlobalStateChangeData.DidChange = true;
-    GlobalStateChangeData.NewMode = NewMode;
-    GlobalStateChangeData.NewLevel = NewLevel;
+    StateChangeData.DidChange = true;
+    StateChangeData.NewMode = NewMode;
+    StateChangeData.NewLevel = NewLevel;
 }
 
 internal inline void
 SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles){
     f32 TileSide = 0.5f;
     v2 MapSize = TileSide*v2{(f32)XTiles, (f32)YTiles};
-    GlobalCameraP = P - 0.5f*v2{32.0f, 18.0f}*TileSide;
-    if((GlobalCameraP.X+32.0f*TileSide) > MapSize.X){
-        GlobalCameraP.X = MapSize.X - 32.0f*TileSide;
-    }else if(GlobalCameraP.X < 0.0f){
-        GlobalCameraP.X = 0.0f;
+    CameraP = P - 0.5f*v2{32.0f, 18.0f}*TileSide;
+    if((CameraP.X+32.0f*TileSide) > MapSize.X){
+        CameraP.X = MapSize.X - 32.0f*TileSide;
+    }else if(CameraP.X < 0.0f){
+        CameraP.X = 0.0f;
     }
-    if((GlobalCameraP.Y+18.0f*TileSide) > MapSize.Y){
-        GlobalCameraP.Y = MapSize.Y - 18.0f*TileSide;
-    }else if(GlobalCameraP.Y < 0.0f){
-        GlobalCameraP.Y = 0.0f;
+    if((CameraP.Y+18.0f*TileSide) > MapSize.Y){
+        CameraP.Y = MapSize.Y - 18.0f*TileSide;
+    }else if(CameraP.Y < 0.0f){
+        CameraP.Y = 0.0f;
+    }
+}
+
+internal void
+ProcessInput(os_event *Event){
+    switch(Event->Kind){
+        case OSEventKind_KeyDown: {
+            OSInput.Buttons[Event->Key].JustDown = Event->JustDown;
+            OSInput.Buttons[Event->Key].IsDown = true;
+            OSInput.Buttons[Event->Key].Repeat = true;
+        }break;
+        case OSEventKind_KeyUp: {
+            OSInput.Buttons[Event->Key].IsDown = false;
+        }break;
+        case OSEventKind_MouseDown: {
+            OSInput.Buttons[Event->Button].JustDown = true;
+            OSInput.Buttons[Event->Button].IsDown = true;
+        }break;
+        case OSEventKind_MouseUp: {
+            OSInput.Buttons[Event->Button].IsDown = false;
+        }break;
     }
 }
