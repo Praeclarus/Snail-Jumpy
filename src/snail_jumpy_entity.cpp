@@ -677,8 +677,9 @@ MoveProjectile(u32 Id, v2 ddP){
 }
 
 internal inline v2
-CalculateEntitydPAndDelta(entity *Entity, v2 ddP, f32 Drag=2.0f, 
-                          f32 XFriction=1.0f, f32 YFriction=1.0f){
+CalculateEntitydPAndDelta(entity *Entity, v2 ddP, 
+                          f32 XFriction=1.0f, f32 YFriction=1.0f, f32 Drag=2.0f, 
+                          v2 dPOffset=v2{0, 0}){
     ddP -= Drag*Entity->dP;
     
     v2 EntityDelta = {0};
@@ -688,6 +689,7 @@ CalculateEntitydPAndDelta(entity *Entity, v2 ddP, f32 Drag=2.0f,
     while(RemainingFrameTime >= (FIXED_TIME_STEP-Epsilon)){
         EntityDelta = (EntityDelta +
                        Entity->dP*FIXED_TIME_STEP +
+                       dPOffset*FIXED_TIME_STEP +
                        0.5f*ddP*Square(FIXED_TIME_STEP));
         Entity->dP = Entity->dP + (ddP*FIXED_TIME_STEP);
         Entity->dP.X *= XFriction;
@@ -708,6 +710,7 @@ CalculateEntitydPAndDelta(entity *Entity, v2 ddP, f32 Drag=2.0f,
     if(RemainingFrameTime > Epsilon){
         v2 NextEntityDelta = (EntityDelta +
                               Entity->dP*FIXED_TIME_STEP +
+                              dPOffset*FIXED_TIME_STEP +
                               0.5f*ddP*Square(FIXED_TIME_STEP));
         v2 NextEntitydP = (Entity->dP + (ddP*FIXED_TIME_STEP));
         NextEntitydP.X *= XFriction;
@@ -812,11 +815,12 @@ HandleCollision(entity *Entity, collision_event *Event){
 }
 
 internal inline void
-MoveEntity(entity *Entity, v2 ddP, f32 Drag=2.0f, f32 COR=0.0f, 
-           f32 XFriction=1.0f, f32 YFriction=1.0f){
+MoveEntity(entity *Entity, v2 ddP, 
+           f32 XFriction=1.0f, f32 YFriction=1.0f, f32 Drag=2.0f, v2 dPOffset=v2{0, 0},
+           f32 COR=0.0f){
     COR += 1.0f; // NOTE(Tyler): So that the COR is in the range of 0.0f-1.0f
     v2 EntityDelta = 
-        CalculateEntitydPAndDelta(Entity, ddP, Drag, XFriction, YFriction);
+        CalculateEntitydPAndDelta(Entity, ddP, XFriction, YFriction, Drag, dPOffset);
     
     f32 TimeRemaining = 1.0f;
     for(u32 Iteration = 0;

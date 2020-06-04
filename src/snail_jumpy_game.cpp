@@ -187,7 +187,15 @@ UpdateAndRenderMainGame(){
                 }
             }
             
-            MoveEntity(Player, ddP, 2.0f, 0.0f, 0.7f, 1.0f);
+            
+            v2 dPOffset = {0};
+            if(Player->IsRidingDragonfly){
+                enemy_entity *Dragonfly = &EntityManager.Enemies[Player->RidingDragonfly];
+                dPOffset = Dragonfly->dP;
+                
+                Player->IsRidingDragonfly = false;
+            }
+            MoveEntity(Player, ddP, 0.7f, 1.0f, 2.0f, dPOffset);
             
             if(Player->P.Y < -3.0f){
                 Player->P = {1.5f, 1.5f};
