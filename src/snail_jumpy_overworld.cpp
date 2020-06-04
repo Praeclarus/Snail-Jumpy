@@ -336,7 +336,8 @@ UpdateAndRenderOverworld(){
         
         //ddP.X = 120;
         
-        MovePlayer(ddP);
+        MoveEntity(EntityManager.Player, ddP, 0.7f, 0.7f);
+        //MovePlayer(ddP);
         
         UpdateAndRenderAnimation(&RenderGroup, EntityManager.Player, 
                                  OSInput.dTimeForFrame);

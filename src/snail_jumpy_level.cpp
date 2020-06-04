@@ -108,8 +108,8 @@ LoadLevel(const char *LevelName){
                         EntityManager.Enemies[I].Size = { 0.4f, 0.4f };
                     }else if(Enemy->Type == EntityType_Sally){
                         EntityManager.Enemies[I].Asset = Asset_Sally;
-                        EntityManager.Enemies[I].Size = { 0.8f, 0.8f };
-                        EntityManager.Enemies[I].P.Y += 0.2f;
+                        EntityManager.Enemies[I].Size = { 1.0f, 1.0f };
+                        EntityManager.Enemies[I].P.Y += 0.3f;
                     }else if(Enemy->Type == EntityType_Dragonfly){
                         EntityManager.Enemies[I].Asset = Asset_Dragonfly;
                         EntityManager.Enemies[I].Size = { 1.0f, 0.5f };

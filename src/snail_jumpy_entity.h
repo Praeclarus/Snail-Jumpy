@@ -17,38 +17,6 @@ enum entity_type {
     EntityType_Projectile = 10,
 };
 
-enum collision_type {
-    CollisionType_None,
-    
-    CollisionType_Wall,
-    CollisionType_Snail,
-    CollisionType_Player,
-    CollisionType_Dragonfly,
-    CollisionType_Teleporter,
-    // TODO(Tyler): Implement projectile collision detection
-    CollisionType_Projectile,
-};
-
-struct collision_event {
-    collision_type Type;
-    f32 Time;
-    v2 Normal;
-    u32 EntityId;
-    
-    union {
-        // Dragonfly
-        struct {
-            b8 IsFatal;
-            v2 StepMove;
-        };
-        
-        // Teleporter
-        struct {
-            char *NewLevel;
-        };
-    };
-};
-
 enum direction {
     Direction_Left,
     Direction_UpLeft,

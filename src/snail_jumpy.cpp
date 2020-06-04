@@ -51,11 +51,14 @@ global u32               CurrentLevelIndex;
 
 internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
 internal inline void SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles);
+internal void UpdateCoin(u32 Id);
+internal void KillPlayer();
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
-#include "snail_jumpy_asset.cpp"
 #include "snail_jumpy_render.cpp"
+#include "snail_jumpy_asset.cpp"
+#include "snail_jumpy_physics.cpp"
 #include "snail_jumpy_entity.cpp"
 #include "snail_jumpy_ui.cpp"
 #include "snail_jumpy_debug_ui.cpp"

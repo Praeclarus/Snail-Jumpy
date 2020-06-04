@@ -15,6 +15,7 @@
 #include "snail_jumpy_ui.h"
 #include "snail_jumpy_level.h"
 #include "snail_jumpy_editor.h"
+#include "snail_jumpy_physics.h"
 
 //~ Big game things
 enum game_mode {
@@ -30,6 +31,8 @@ struct state_change_data {
     game_mode NewMode;
     const char *NewLevel;
 };
+
+//~  Things without a true home
 
 #pragma pack(push, 1)
 struct overworld_file_header {
