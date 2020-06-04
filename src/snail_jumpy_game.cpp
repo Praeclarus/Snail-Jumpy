@@ -155,7 +155,6 @@ UpdateAndRenderMainGame(){
                     case Direction_DownRight: Projectile->dP = v2{  3, -10}; break;
                 }
                 
-                Projectile->Type = EntityType_Projectile;
                 Projectile->P = Player->P;
                 Projectile->dP *= Player->WeaponChargeTime;
                 Projectile->RemainingLife = 3.0f;

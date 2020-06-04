@@ -130,7 +130,12 @@ LoadLevel(const char *LevelName){
             // TODO(Tyler): Formalize player starting position
             AddPlayer({1.5f, 1.5f});
             
-            AllocateNEntities(1, EntityType_Projectile);
+            {
+                AllocateNEntities(1, EntityType_Projectile);
+                projectile_entity *Projectile = EntityManager.Projectiles;
+                Projectile->Type = EntityType_Projectile;
+                Projectile->RemainingLife = 0.0f;
+            }
             
         }else{
             Assert(0);

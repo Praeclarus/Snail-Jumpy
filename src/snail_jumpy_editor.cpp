@@ -254,11 +254,13 @@ RenderEditorPopup(render_group *RenderGroup){
                 if(Editor.Popup == EditorPopup_LoadLevel){
                     if(!InLevelTable){
                         LoadLevelFromFile(Editor.TextInput.Buffer);
-                        LoadLevel(Editor.TextInput.Buffer);
                         InLevelTable = FindInHashTable(&LevelTable,
                                                        Editor.TextInput.Buffer);
-                        ResetTextBoxInput(&Editor.TextInput);
                     }
+                    
+                    LoadLevel(Editor.TextInput.Buffer);
+                    ResetTextBoxInput(&Editor.TextInput);
+                    
                     Editor.World = &LevelData[InLevelTable-1].World;
                     Editor.Popup = EditorPopup_None;
                 }else if(Editor.Popup == EditorPopup_RenameLevel){
