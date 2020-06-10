@@ -10,12 +10,12 @@
 #include "snail_jumpy_os.h"
 #include "snail_jumpy_intrinsics.h"
 #include "snail_jumpy_asset.h"
+#include "snail_jumpy_physics.h"
 #include "snail_jumpy_entity.h"
 #include "snail_jumpy_random.h"
 #include "snail_jumpy_ui.h"
 #include "snail_jumpy_level.h"
 #include "snail_jumpy_editor.h"
-#include "snail_jumpy_physics.h"
 
 //~ Big game things
 enum game_mode {

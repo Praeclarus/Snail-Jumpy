@@ -54,7 +54,7 @@ InitializeOverworld(){
     for(u32 I = 0; I < sizeof(TemplateMap); I++){
         OverworldWorld.Map[I] = ((u8 *)TemplateMap)[I];
     }
-    LastOverworldPlayerP = v2{1.5f, 1.5f};
+    LastOverworldPlayerP = v2{3.0f, 2.0f};
     
     f32 TileSideInMeters = 0.5f;
     {
@@ -106,8 +106,9 @@ LoadOverworld(){
         for(u32 I = 0; I < OverworldWorld.Doors.Count; I++){
             door_data *Data = &OverworldWorld.Doors[I];
             door_entity *Door = &EntityManager.Doors[I];
-            Door->P = Data->P;
-            Door->Size = Data->Size;
+            Door->Boundary.Type = BoundaryType_Rectangle;
+            Door->Boundary.P = Data->P;
+            Door->Boundary.Size = Data->Size;
             Door->IsOpen = false;
             
             if(IsLevelCompleted(Data->RequiredLevel)){
@@ -127,11 +128,11 @@ LoadOverworld(){
                     Assert(CurrentId < TeleporterCount);
                     Assert(CurrentId < OverworldWorld.Teleporters.Count);
                     
-                    EntityManager.Teleporters[CurrentId] = {0};
-                    EntityManager.Teleporters[CurrentId].P = v2{
+                    EntityManager.Teleporters[CurrentId] = {};
+                    EntityManager.Teleporters[CurrentId].Boundary.P = v2{
                         ((f32)X+0.5f)*TileSideInMeters, ((f32)Y+0.5f)*TileSideInMeters
                     };
-                    EntityManager.Teleporters[CurrentId].Size = v2{
+                    EntityManager.Teleporters[CurrentId].Boundary.Size = v2{
                         TileSideInMeters, TileSideInMeters
                     };
                     EntityManager.Teleporters[CurrentId].Level = 
@@ -150,13 +151,17 @@ LoadOverworld(){
     AllocateNEntities(1, EntityType_Player);
     *EntityManager.Player = {0};
     
+    EntityManager.Player->Type = EntityType_Player;
     EntityManager.Player->P = LastOverworldPlayerP;
     EntityManager.Player->ZLayer = -0.7f;
     
     EntityManager.Player->CurrentAnimation = PlayerAnimation_IdleLeft;
     EntityManager.Player->Asset = Asset_TopdownPlayer;
     EntityManager.Player->AnimationState = 0.0f;
-    EntityManager.Player->Size = v2{0.3f, 0.2f};
+    EntityManager.Player->BoundaryCount = 1;
+    EntityManager.Player->Boundaries[0].Type = BoundaryType_Rectangle;
+    EntityManager.Player->Boundaries[0].P = EntityManager.Player->P;
+    EntityManager.Player->Boundaries[0].Size = v2{0.3f, 0.2f};
     EntityManager.Player->ZLayer = -0.5f;
     
     SetCameraCenterP(EntityManager.Player->P, OverworldWorld.Width, OverworldWorld.Height);
@@ -184,13 +189,14 @@ UpdateAndRenderOverworld(){
         TIMED_SCOPE(RenderDoors);
         for(u32 DoorId = 0; DoorId < EntityManager.DoorCount; DoorId++){
             door_entity *Door = &EntityManager.Doors[DoorId];
-            v2 P = Door->P - CameraP;
-            if(16.0f < P.X-Door->Width/2) continue;
-            if(P.X+Door->Width/2 < 0.0f) continue;
-            if(9.0f < P.Y-Door->Height/2) continue;
-            if(P.Y+Door->Height/2 < 0.0f) continue;
+            v2 P = Door->Boundary.P - CameraP;
+            if(16.0f < P.X-Door->Boundary.Size.Width/2) continue;
+            if(P.X+Door->Boundary.Size.Width/2 < 0.0f) continue;
+            if(9.0f < P.Y-Door->Boundary.Size.Height/2) continue;
+            if(P.Y+Door->Boundary.Size.Height/2 < 0.0f) continue;
             if(!Door->IsOpen){
-                RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, BROWN);
+                RenderRectangle(&RenderGroup, P-(Door->Boundary.Size/2), 
+                                P+(Door->Boundary.Size/2), 0.0f, BROWN);
             }else{
                 color Color = BROWN;
                 Color.A = Door->AnimationCooldown;
@@ -198,7 +204,8 @@ UpdateAndRenderOverworld(){
                     Color.A = 0.3f;
                 }
                 Door->AnimationCooldown -= OSInput.dTimeForFrame;
-                RenderRectangle(&RenderGroup, P-(Door->Size/2), P+(Door->Size/2), 0.0f, Color);
+                RenderRectangle(&RenderGroup, P-(Door->Boundary.Size/2), 
+                                P+(Door->Boundary.Size/2), 0.0f, Color);
             }
         }
     }
@@ -208,22 +215,22 @@ UpdateAndRenderOverworld(){
         // NOTE(Tyler): Teleporters
         for(u32 Id = 0; Id < EntityManager.TeleporterCount; Id++){
             teleporter *Teleporter = &EntityManager.Teleporters[Id];
-            v2 P = Teleporter->P - CameraP;
-            if(16.0f < P.X-Teleporter->Width/2) continue;
-            if(P.X+Teleporter->Width/2 < 0.0f) continue;
-            if(9.0f < P.Y-Teleporter->Height/2) continue;
-            if(P.Y+Teleporter->Height/2 < 0.0f) continue;
+            v2 P = Teleporter->Boundary.P - CameraP;
+            if(16.0f < P.X-Teleporter->Boundary.Size.Width/2) continue;
+            if(P.X+Teleporter->Boundary.Size.Width/2 < 0.0f) continue;
+            if(9.0f < P.Y-Teleporter->Boundary.Size.Height/2) continue;
+            if(P.Y+Teleporter->Boundary.Size.Height/2 < 0.0f) continue;
             if(!Teleporter->IsLocked){
-                RenderRectangle(&RenderGroup, P-(Teleporter->Size/2), 
-                                P+(Teleporter->Size/2), 0.0f, BLUE);
+                RenderRectangle(&RenderGroup, P-(Teleporter->Boundary.Size/2), 
+                                P+(Teleporter->Boundary.Size/2), 0.0f, BLUE);
                 
-                v2 Radius = Teleporter->Size/2;
-                v2 PlayerMin = EntityManager.Player->P-(EntityManager.Player->Size/2);
-                v2 PlayerMax = EntityManager.Player->P+(EntityManager.Player->Size/2);
-                if((Teleporter->P.X-Radius.X <= PlayerMax.X) &&
-                   (PlayerMin.X <= Teleporter->P.X+Radius.X) &&
-                   (Teleporter->P.Y-Radius.Y <= PlayerMax.Y) &&
-                   (PlayerMin.Y  <= Teleporter->P.Y+Radius.Y)){
+                v2 Radius = Teleporter->Boundary.Size/2;
+                v2 PlayerMin = EntityManager.Player->P-(EntityManager.Player->Boundaries[0].Size/2);
+                v2 PlayerMax = EntityManager.Player->P+(EntityManager.Player->Boundaries[0].Size/2);
+                if((Teleporter->Boundary.P.X-Radius.X <= PlayerMax.X) &&
+                   (PlayerMin.X <= Teleporter->Boundary.P.X+Radius.X) &&
+                   (Teleporter->Boundary.P.Y-Radius.Y <= PlayerMax.Y) &&
+                   (PlayerMin.Y  <= Teleporter->Boundary.P.Y+Radius.Y)){
                     
                     // TODO(Tyler): I don't know how efficient FindInHashTable actually, it
                     // could likely be improved, and probably should be
@@ -236,7 +243,7 @@ UpdateAndRenderOverworld(){
                         
                         v2 MapP = v2{
                             P.X-MapSize.X/2,
-                            P.Y+Teleporter->Size.Y/2
+                            P.Y+Teleporter->Boundary.Size.Y/2
                         };
                         
                         RenderRectangle(&RenderGroup, MapP, MapP+MapSize, -0.1f,
@@ -246,7 +253,7 @@ UpdateAndRenderOverworld(){
                         
                         v2 StringP = v2{
                             P.X,
-                            P.Y + Teleporter->Size.Y/2 + MapSize.Y + 0.07f
+                            P.Y + Teleporter->Boundary.Size.Y/2 + MapSize.Y + 0.07f
                         };
                         
                         StringP *= RenderGroup.MetersToPixels;
@@ -272,11 +279,17 @@ UpdateAndRenderOverworld(){
                     }
                 }
             }else{
-                RenderRectangle(&RenderGroup, P-(Teleporter->Size/2), 
-                                P+(Teleporter->Size/2), 0.0f, color{0.0f, 0.0f, 1.0f, 0.5f});
+                RenderRectangle(&RenderGroup, P-(Teleporter->Boundary.Size/2), 
+                                P+(Teleporter->Boundary.Size/2), 0.0f, 
+                                color{0.0f, 0.0f, 1.0f, 0.5f});
                 
             }
         }
+    }
+    
+    // NOTE(Tyler): Circle collision testing
+    {
+        RenderCircle(&RenderGroup, v2{3,2}, 0, 0.5f, RED);
     }
     
     // NOTE(Tyler): Player
@@ -334,16 +347,20 @@ UpdateAndRenderOverworld(){
         }
         ddP *= MovementSpeed;
         
-        //ddP.X = 120;
+        //ddP.X = 100;
         
         MoveEntity(EntityManager.Player, ddP, 0.7f, 0.7f);
         //MovePlayer(ddP);
         
         UpdateAndRenderAnimation(&RenderGroup, EntityManager.Player, 
                                  OSInput.dTimeForFrame);
+        
+#if 0
         v2 P = EntityManager.Player->P - CameraP;
         RenderRectangle(&RenderGroup, P-0.5f*Player->Size, P+0.5f*Player->Size,
                         Player->ZLayer, YELLOW);
+#endif
+        
         SetCameraCenterP(EntityManager.Player->P, OverworldWorld.Width, 
                          OverworldWorld.Height);
     }

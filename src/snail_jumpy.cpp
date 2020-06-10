@@ -52,7 +52,9 @@ global u32               CurrentLevelIndex;
 internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
 internal inline void SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles);
 internal void UpdateCoin(u32 Id);
-internal void KillPlayer();
+internal inline void DamagePlayer(u32 Damage);
+internal void StunEnemy(enemy_entity *Enemy);
+internal void UpdateEnemyHitBox(enemy_entity *Enemy);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -154,52 +156,7 @@ InitializeGame(){
         ToggleEditor();
     }
     
-    {
-        Assets =
-            PushArray(&PermanentStorageArena, spritesheet_asset, Asset_TOTAL);
-        f32 MetersToPixels = 60.0f/0.5f;
-        
-        asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
-            {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 6, 6, 5, 5, 1, 1, 2, 2 }, { 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0f },
-            {"test_snail_spritesheet2.png",      64,  8,  {  4,  4, 3, 3, 4, 4, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0.0f},
-            {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3, 3, 3, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0.0f},
-            {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 8, 8, 8, 8 }, 0.0f },
-            {"test_speedy_spritesheet.png",      80,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 },-0.07f },
-            {"overworld_avatar_spritesheet.png", 64, 10,  {  3,  3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 4, 5, 5, 5 }, { 2, 2, 2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0 },
-        };
-        
-        for(u32 Index = 0; Index < Asset_TOTAL; Index++){
-            asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
-            spritesheet_asset *CurrentAnimation = &Assets[Index];
-            
-            os_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
-            u64 FileSize = GetFileSize(TestFile);
-            u8 *TestFileData = PushArray(&TransientStorageArena, u8, FileSize);
-            ReadFile(TestFile, 0, TestFileData, FileSize);
-            CloseFile(TestFile);
-            s32 Width, Height, Components;
-            u8 *LoadedImage = stbi_load_from_memory(TestFileData, (int)FileSize,
-                                                    &Width, &Height,
-                                                    &Components, 4);
-            
-            CurrentAnimation->SizeInMeters = {
-                AssetInfo->SizeInPixels/MetersToPixels, AssetInfo->SizeInPixels/MetersToPixels
-            };
-            CurrentAnimation->SizeInTexCoords = {
-                AssetInfo->SizeInPixels/(f32)Width, AssetInfo->SizeInPixels/(f32)Height
-            };
-            CurrentAnimation->SpriteSheet = CreateRenderTexture(LoadedImage, Width, Height);
-            stbi_image_free(LoadedImage);
-            
-            CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
-            for(u32 I = 0; I < ArrayCount(spritesheet_asset::FrameCounts); I++){
-                CurrentAnimation->FrameCounts[I] = AssetInfo->FrameCounts[I];
-                CurrentAnimation->FpsArray[I] = AssetInfo->FpsArray[I];
-            }
-            
-            CurrentAnimation->YOffset = AssetInfo->YOffset;
-        }
-    }
+    LoadAssets();
     
     LoadFont(&TransientStorageArena, &DebugFont,
              "c:/windows/fonts/Arial.ttf", 20, 512, 512);
@@ -211,6 +168,56 @@ InitializeGame(){
              "Press-Start-2P.ttf", 24, 512, 512);
     
     InitializeRenderer();
+    
+    
+#if 0
+    {
+        v2 CircleP = v2{3, 2};
+        f32 Radius = 0.5f;
+        
+        v2 P = {2.9999084f, 1.5f};
+        v2 RelCircleP = CircleP - P;
+        v2 Trajectory = {-0.01181932f, 0.0f};
+        
+        v2 TrajectoryNormal = Normalize(Trajectory);
+        v2 TrajectoryPerpNormal = v2{TrajectoryNormal.Y, -TrajectoryNormal.X};
+        
+        f32 PerpDistanceToCircle = Dot(TrajectoryPerpNormal, RelCircleP);
+        f32 TrajectoryDistanceToCircle = Dot(TrajectoryNormal, RelCircleP);
+        f32 TrajectoryLength = SquareRoot(LengthSquared(Trajectory));
+        
+        f32 ClosestDistanceToCircle = PerpDistanceToCircle;
+        if(TrajectoryDistanceToCircle < 0.0f){
+            ClosestDistanceToCircle = SquareRoot(LengthSquared(RelCircleP));
+        }else if(TrajectoryDistanceToCircle > TrajectoryLength){
+            v2 RelClosestPoint = Trajectory;
+            ClosestDistanceToCircle = SquareRoot(LengthSquared(RelCircleP - RelClosestPoint));
+        }
+        
+        v2 Normal = {0};
+        f32 CollisionTime = 1;
+        if(AbsoluteValue(ClosestDistanceToCircle) < Radius){
+            f32 Height = Dot(TrajectoryPerpNormal, RelCircleP);
+            f32 DistanceToCollisionPoint = SquareRoot(Square(Radius) - Square(Height));
+            f32 RelDistanceFromEntityToCollisionPoint = TrajectoryDistanceToCircle - DistanceToCollisionPoint;
+            v2 RelCollsionPoint = TrajectoryNormal*RelDistanceFromEntityToCollisionPoint;
+            CollisionTime = RelDistanceFromEntityToCollisionPoint/TrajectoryLength;
+            
+            Normal = Normalize(RelCollsionPoint-RelCircleP);
+            
+            Assert(0);
+        }else if(AbsoluteValue(ClosestDistanceToCircle) == Radius){
+            v2 RelCollsionPoint = TrajectoryNormal*RelDistanceFromEntityToCollisionPoint;
+            CollisionTime = RelDistanceFromEntityToCollisionPoint/TrajectoryLength;
+            
+            Normal = Normalize(RelCollsionPoint-RelCircleP);
+            
+        }
+        
+        Assert(0);
+    }
+#endif
+    
 }
 
 internal void

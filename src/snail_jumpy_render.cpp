@@ -42,6 +42,41 @@ AddIndices(render_group *RenderGroup, u32 Count){
 }
 
 internal void
+RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color,
+             b8 UsePixelSpace=false, u32 Sides=30){
+    if(!UsePixelSpace){
+        P *= RenderGroup->MetersToPixels;
+        Radius *= RenderGroup->MetersToPixels;
+    }
+    
+    f32 T = 0.0f;
+    f32 Step = 1.0f/(f32)Sides;
+    
+    render_item *RenderItem = AddRenderItem(RenderGroup);
+    RenderItem->IndexCount = Sides*3;
+    RenderItem->Texture = DefaultTexture;
+    
+    vertex *Vertices = AddVertices(RenderGroup, Sides+2);
+    Vertices[0] = {P.X, P.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    for(u32 I = 0; I <= Sides; I++){
+        Vertices[I+1] = {P.X+Radius*Sin(T*TAU), P.Y+Radius*Cos(T*TAU), Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+        T += Step;
+    }
+    
+    u16 *Indices = AddIndices(RenderGroup, Sides*3);
+    u16 CurrentIndex = 1;
+    for(u32 I = 0; I < Sides*3; I += 3){
+        Indices[I] = 0;
+        Indices[I+1] = CurrentIndex;
+        CurrentIndex++;
+        if(CurrentIndex == Sides+1){
+            CurrentIndex = 1;
+        }
+        Indices[I+2] = CurrentIndex;
+    }
+}
+
+internal void
 RenderRectangle(render_group *RenderGroup,
                 v2 MinCorner, v2 MaxCorner, f32 Z, color Color, b8 UsePixelSpace = false){
     if(!UsePixelSpace){

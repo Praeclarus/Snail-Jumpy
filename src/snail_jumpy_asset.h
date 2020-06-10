@@ -1,6 +1,7 @@
 #ifndef SNAIL_JUMPY_ASSET_H
 #define SNAIL_JUMPY_ASSET_H
 
+// TODO(Tyler): Perhaps use a hash table?
 enum asset_type {
     Asset_Player    = 0,
     Asset_Snail     = 1,
@@ -8,6 +9,7 @@ enum asset_type {
     Asset_Dragonfly = 3,
     Asset_Speedy    = 4,
     Asset_TopdownPlayer = 5,
+    Asset_Heart = 6,
     
     // NOTE(Tyler): Keep at end!!!
     Asset_TOTAL

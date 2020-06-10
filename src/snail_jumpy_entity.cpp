@@ -57,12 +57,18 @@ OpenDoor(door_entity *Door){
 }
 
 internal inline void
-KillPlayer(){
+DamagePlayer(u32 Damage){
     //EntityManager.Player->State |= EntityState_Dead;
     //Score = 0;
     //EntityManager.Player->State &= ~EntityState_Dead;
     EntityManager.Player->P = {1.5, 1.5};
+    EntityManager.Player->Boundaries[0].P = EntityManager.Player->P;
     EntityManager.Player->dP = {0, 0};
+    EntityManager.Player->Health -= Damage;
+    if(EntityManager.Player->Health <= 0){
+        EntityManager.Player->Health = 9;
+    }
+    
     //PlayAnimationToEnd(EntityManager.Player, PlayerAnimation_Death);
 }
 
@@ -97,8 +103,70 @@ UpdateCoin(u32 Id){
             }
         }
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-        EntityManager.Coins[Id].P = NewP;
+        EntityManager.Coins[Id].Boundary.P = NewP;
         EntityManager.Coins[Id].AnimationCooldown = 1.0f;
+    }
+}
+
+internal void
+UpdateEnemyHitBox(enemy_entity *Enemy){
+    if(Enemy->Type == EntityType_Sally){
+        if(Enemy->State & EntityState_Stunned){
+            Enemy->Boundaries[0].Type = BoundaryType_Circle;
+            Enemy->Boundaries[0].Radius = 0.4f;
+            Enemy->Boundaries[0].P = v2{
+                Enemy->P.X, Enemy->P.Y,
+            };
+        }else{
+            Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
+            Enemy->Boundaries[0].Size = { 0.95f, 0.85f };
+            Enemy->Boundaries[0].P = v2{
+                Enemy->P.X, Enemy->P.Y,
+            };
+        }
+    }else if(Enemy->Type == EntityType_Dragonfly){
+        // Tail
+        v2 RectP1 = {Enemy->P.X+Enemy->Direction*-0.23f, Enemy->P.Y+0.1f};
+        v2 RectSize1 = {0.55f, 0.17f};
+        
+        // Body
+        v2 RectP2 = {Enemy->P.X+Enemy->Direction*0.29f, Enemy->P.Y+0.07f};
+        v2 RectSize2 = {0.45f, 0.48f};
+        if(Enemy->AnimationCooldown <= 0.0f){
+            // Tail
+            Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
+            Enemy->Boundaries[0].Size = RectSize1;
+            Enemy->Boundaries[0].P = RectP1;
+            
+            // Body
+            Enemy->Boundaries[1].Type = BoundaryType_Rectangle;
+            Enemy->Boundaries[1].Size = RectSize2;
+            Enemy->Boundaries[1].P = RectP2;
+        }else{
+            // Tail
+            v2 RectP2 = {Enemy->P.X+Enemy->Direction*0.29f, Enemy->P.Y+0.07f};
+            v2 RectSize2 = {0.45f, 0.48f};
+            Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
+            Enemy->Boundaries[0].Size = {1.0f, RectSize1.Y/2};
+            Enemy->Boundaries[0].P = {Enemy->P.X, RectP1.Y};
+            
+            // Body
+            Enemy->Boundaries[1].Type = BoundaryType_Rectangle;
+            Enemy->Boundaries[1].Size = {1.0f, RectSize2.Y};
+            Enemy->Boundaries[1].P = {Enemy->P.X, RectP2.Y};
+        }
+    }
+}
+
+internal void
+StunEnemy(enemy_entity *Enemy){
+    if(Enemy->Type != EntityType_Dragonfly){
+        Enemy->State |= EntityState_Stunned;
+        Enemy->StunCooldown = 3.0f;
+        asset_animations AnimationIndex = (Enemy->Direction > 0.0f) ? 
+            EnemyAnimation_RetreatingRight : EnemyAnimation_RetreatingLeft;
+        PlayAnimationToEnd(Enemy, AnimationIndex);
+        UpdateEnemyHitBox(Enemy);
     }
 }
 
@@ -108,13 +176,14 @@ UpdateAndRenderWalls(render_group *RenderGroup){
     TIMED_FUNCTION();
     for(u32 WallId = 0; WallId < EntityManager.WallCount; WallId++){
         wall_entity *Entity = &EntityManager.Walls[WallId];
-        v2 P = Entity->P - CameraP;
-        if(16.0f < P.X-Entity->Width/2) continue;
-        if(P.X+Entity->Width/2 < 0.0f) continue;
-        if(9.0f < P.Y-Entity->Height/2) continue;
-        if(P.Y+Entity->Height/2 < 0.0f) continue;
+        v2 P = Entity->Boundary.P - CameraP;
+        v2 Size = Entity->Boundary.Size;
+        if(16.0f < P.X-Size.Width/2) continue;
+        if(P.X+Size.Width/2 < 0.0f) continue;
+        if(9.0f < P.Y-Size.Height/2) continue;
+        if(P.Y+Size.Height/2 < 0.0f) continue;
         RenderRectangle(RenderGroup,
-                        P-(Entity->Size/2), P+(Entity->Size/2), 0.0f,
+                        P-(Size/2), P+(Size/2), 0.0f,
                         color{1.0f, 1.0f, 1.0f, 1.0f});
     }
 }
@@ -123,16 +192,16 @@ internal void
 UpdateAndRenderCoins(render_group *RenderGroup){
     for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
         coin_entity *Coin = &EntityManager.Coins[CoinId];
-        v2 P = Coin->P - CameraP;
-        if(16.0f < P.X-Coin->Width/2) continue;
-        if(P.X+Coin->Width/2 < 0.0f) continue;
-        if(9.0f < P.Y-Coin->Height/2) continue;
-        if(P.Y+Coin->Height/2 < 0.0f) continue;
+        v2 P = Coin->Boundary.P - CameraP;
+        v2 Size = Coin->Boundary.Size;
+        if(16.0f < P.X-Size.Width/2) continue;
+        if(P.X+Size.Width/2 < 0.0f) continue;
+        if(9.0f < P.Y-Size.Height/2) continue;
+        if(P.Y+Size.Height/2 < 0.0f) continue;
         if(Coin->AnimationCooldown > 0.0f){
             Coin->AnimationCooldown -= OSInput.dTimeForFrame;
         }else{
-            RenderRectangle(RenderGroup,
-                            P-(Coin->Size/2), P+(Coin->Size/2), 0.0f,
+            RenderRectangle(RenderGroup, P-(Size/2), P+(Size/2), 0.0f,
                             {1.0f, 1.0f, 0.0f, 1.0f});
         }
     }
@@ -143,8 +212,6 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
     TIMED_FUNCTION();
     
     for(u32 Id = 0; Id < EntityManager.EnemyCount; Id++){
-        //TIMED_SCOPE(UpdateAndRenderSingleEnemy);
-        
         enemy_entity *Enemy = &EntityManager.Enemies[Id];
         v2 P = Enemy->P - CameraP;
 #if 0
@@ -215,33 +282,7 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
             }
         }
         
+        UpdateEnemyHitBox(Enemy);
         UpdateAndRenderAnimation(RenderGroup, Enemy, OSInput.dTimeForFrame);
-        
-#if 0        
-        if(Enemy->Type == EntityType_Dragonfly){
-            {
-                // Tail
-                v2 RectP1 = {Enemy->P.X+Enemy->Direction*-0.23f, Enemy->P.Y+0.1f};
-                v2 RectSize1 = {0.55f, 0.17f};
-                
-                // Body
-                v2 RectP2 = {Enemy->P.X+Enemy->Direction*0.29f, Enemy->P.Y+0.07f};
-                v2 RectSize2 = {0.45f, 0.48f};
-                
-                RectP1 -= CameraP;
-                RectP2 -= CameraP;
-                
-                RenderRectangle(RenderGroup, RectP1-0.5f*RectSize1, RectP1+0.5f*RectSize1,
-                                -1.0f, color{1.0f, 1.0f, 0.0f, 0.7f});
-                RenderRectangle(RenderGroup, RectP2-0.5f*RectSize2, RectP2+0.5f*RectSize2,
-                                -1.0f, color{0.0f, 1.0f, 0.0f, 0.7f});
-            }
-        }else{
-            v2 P = Enemy->P - CameraP;
-            RenderRectangle(RenderGroup, P-0.5f*Enemy->Size, P+0.5f*Enemy->Size,
-                            -1.0f, color{0.0f, 0.0f, 1.0f, 0.7f});
-        }
-#endif
-        
     }
 }

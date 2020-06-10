@@ -1,4 +1,6 @@
 
+
+//~ Loading
 struct entire_file {
     u8 *Data;
     u64 Size;
@@ -18,6 +20,57 @@ ReadEntireFile(memory_arena *Arena, char *Path) {
     Result.Data = FileData;
     return(Result);
 }
+
+internal void
+LoadAssets(){
+    Assets =
+        PushArray(&PermanentStorageArena, spritesheet_asset, Asset_TOTAL);
+    f32 MetersToPixels = 60.0f/0.5f;
+    
+    asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
+        {"test_avatar_spritesheet2.png",     64, 17,  { 17, 17, 6, 6, 5, 5, 1, 1, 2, 2 }, { 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0f },
+        {"test_snail_spritesheet2.png",      64,  8,  {  4,  4, 3, 3, 4, 4, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0.0f},
+        {"test_sally_spritesheet2.png",     128,  5,  {  4,  4, 3, 3, 3, 3, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0.0f},
+        {"test_dragonfly_spritesheet2.png", 128, 10,  { 10, 10, 3, 3 }, { 8, 8, 8, 8 }, 0.0f },
+        {"test_speedy_spritesheet.png",      80,  5,  {  4,  4, 3, 3 }, { 8, 8, 8, 8 },-0.07f },
+        {"overworld_avatar_spritesheet.png", 64, 10,  {  3,  3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 4, 5, 5, 5 }, { 2, 2, 2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8, 8 }, 0.0 },
+        {"heart_8x8.png", 32, 4,  { 4 }, { 0 }, 0.0f },
+    };
+    
+    for(u32 Index = 0; Index < Asset_TOTAL; Index++){
+        asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
+        spritesheet_asset *CurrentAnimation = &Assets[Index];
+        
+        os_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
+        u64 FileSize = GetFileSize(TestFile);
+        u8 *TestFileData = PushArray(&TransientStorageArena, u8, FileSize);
+        ReadFile(TestFile, 0, TestFileData, FileSize);
+        CloseFile(TestFile);
+        s32 Width, Height, Components;
+        u8 *LoadedImage = stbi_load_from_memory(TestFileData, (int)FileSize,
+                                                &Width, &Height,
+                                                &Components, 4);
+        
+        CurrentAnimation->SizeInMeters = {
+            AssetInfo->SizeInPixels/MetersToPixels, AssetInfo->SizeInPixels/MetersToPixels
+        };
+        CurrentAnimation->SizeInTexCoords = {
+            AssetInfo->SizeInPixels/(f32)Width, AssetInfo->SizeInPixels/(f32)Height
+        };
+        CurrentAnimation->SpriteSheet = CreateRenderTexture(LoadedImage, Width, Height);
+        stbi_image_free(LoadedImage);
+        
+        CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
+        for(u32 I = 0; I < ArrayCount(spritesheet_asset::FrameCounts); I++){
+            CurrentAnimation->FrameCounts[I] = AssetInfo->FrameCounts[I];
+            CurrentAnimation->FpsArray[I] = AssetInfo->FpsArray[I];
+        }
+        
+        CurrentAnimation->YOffset = AssetInfo->YOffset;
+    }
+}
+
+//~ Miscellaneous
 
 struct asset_info {
     spritesheet_asset *Asset;
@@ -46,8 +99,26 @@ GetAssetInfoFromEntityType(u32 Type){
     return(Result);
 }
 
-
-internal void UpdateCoin(u32 Id);
+internal void
+RenderFrameOfSpriteSheet(render_group *RenderGroup, asset_type AssetIndex, u32 FrameIndex,
+                         v2 Center, f32 Z){
+    spritesheet_asset *Asset = &Assets[AssetIndex];
+    u32 FrameInSpriteSheet = FrameIndex;
+    u32 RowInSpriteSheet = 0;
+    if(FrameInSpriteSheet >= Asset->FramesPerRow){
+        RowInSpriteSheet -= (FrameInSpriteSheet / Asset->FramesPerRow);
+        FrameInSpriteSheet %= Asset->FramesPerRow;
+    }
+    
+    v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
+    MinTexCoord.X *= Asset->SizeInTexCoords.X;
+    MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
+    v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
+    
+    RenderTexture(RenderGroup, Center-0.5f*Asset->SizeInMeters, 
+                  Center+0.5f*Asset->SizeInMeters, Z, Asset->SpriteSheet, 
+                  MinTexCoord, MaxTexCoord);
+}
 
 //~ Animation rendering
 internal void
@@ -87,8 +158,16 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
     P.X -= Asset->SizeInMeters.Width/2.0f;
     P.Y -= Asset->SizeInMeters.Height/2.0f;
     if(!Center){
-        P.Y += (Asset->SizeInMeters.Height-Entity->Height)/2.0f + Asset->YOffset;
+        //Assert(0); // TODO(Tyler): Fix this!
+        P.Y += 0.5f*Asset->SizeInMeters.Height - Entity->YOffset + Asset->YOffset;
+        //P.Y += Entity->YOffset;
     }
+    
+#if 0
+    f32 R = RenderGroup->MetersToPixels*4.0f;
+    P.X = RoundF32(P.X*R)/R;
+    P.Y = RoundF32(P.Y*R)/R;
+#endif
     
     u32 FrameInSpriteSheet = 0;
     u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
@@ -108,4 +187,19 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
     
     RenderTexture(RenderGroup, P, P+Asset->SizeInMeters, Entity->ZLayer,
                   Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
+    
+    for(u32 I = 0; I < Entity->BoundaryCount; I++){
+        collision_boundary *Boundary = &Entity->Boundaries[I]; 
+        switch(Boundary->Type){
+            case BoundaryType_Rectangle: {
+                RenderRectangle(RenderGroup, Boundary->P-CameraP-0.5f*Boundary->Size, 
+                                Boundary->P-CameraP+0.5f*Boundary->Size, -1.0f, 
+                                {1.0f, 0.0f, 0.0f, 0.5f});
+            }break;
+            case BoundaryType_Circle: {
+                RenderCircle(RenderGroup, Boundary->P-CameraP, -1.0f, Boundary->Radius,
+                             {1.0f, 0.0f, 0.0f, 0.5f});
+            }break;
+        }
+    }
 }

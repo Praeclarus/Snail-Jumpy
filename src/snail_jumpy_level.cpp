@@ -7,16 +7,22 @@ AddPlayer(v2 P){
     *EntityManager.Player = {0};
     
     EntityManager.Player->Type = EntityType_Player;
-    EntityManager.Player->Width = 0.25f;
-    EntityManager.Player->Height = 0.5f;
+    EntityManager.Player->BoundaryCount = 1;
+    EntityManager.Player->Boundaries[0].Type = BoundaryType_Rectangle;
+    EntityManager.Player->Boundaries[0].Size = v2{ 0.3f, 0.5f };
+    EntityManager.Player->Boundaries[0].P = v2{P.X, P.Y};
+    
     
     EntityManager.Player->P = P;
-    EntityManager.Player->ZLayer = -0.7f;
+    EntityManager.Player->ZLayer = -5.0f;
+    EntityManager.Player->YOffset = 0.5f / 2.0f;
     
-    EntityManager.Player->CurrentAnimation = PlayerAnimation_IdleLeft;
+    EntityManager.Player->CurrentAnimation = PlayerAnimation_IdleRight;
     EntityManager.Player->Asset = Asset_Player;
     EntityManager.Player->AnimationState = 0.0f;
     EntityManager.Player->JumpTime = 1.0f;
+    
+    EntityManager.Player->Health = 9;
 }
 
 internal void
@@ -32,11 +38,12 @@ LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
                 EntityManager.CoinData.NumberOfCoinPs++;
                 continue;
             }else if(TileId == EntityType_Wall){
-                EntityManager.Walls[CurrentWallId] = {0};
-                EntityManager.Walls[CurrentWallId].P = {
+                EntityManager.Walls[CurrentWallId] = {};
+                EntityManager.Walls[CurrentWallId].Boundary.Type = BoundaryType_Rectangle;
+                EntityManager.Walls[CurrentWallId].Boundary.P = {
                     ((f32)X+0.5f)*TileSideInMeters, ((f32)Y+0.5f)*TileSideInMeters
                 };
-                EntityManager.Walls[CurrentWallId].Size = {
+                EntityManager.Walls[CurrentWallId].Boundary.Size = {
                     TileSideInMeters, TileSideInMeters
                 };
                 CurrentWallId++;
@@ -82,7 +89,8 @@ LoadLevel(const char *LevelName){
                 u32 N = Minimum(7, EntityManager.CoinData.NumberOfCoinPs);
                 AllocateNEntities(N, EntityType_Coin);
                 for(u32 I = 0; I < N; I++){
-                    EntityManager.Coins[I].Size = { 0.3f, 0.3f };
+                    EntityManager.Coins[I].Boundary.Type = BoundaryType_Rectangle;
+                    EntityManager.Coins[I].Boundary.Size = { 0.3f, 0.3f };
                     UpdateCoin(I);
                     EntityManager.Coins[I].AnimationCooldown = 0.0f;
                 }
@@ -105,19 +113,50 @@ LoadLevel(const char *LevelName){
                     EntityManager.Enemies[I].Speed = 1.0f;
                     if(Enemy->Type == EntityType_Snail){
                         EntityManager.Enemies[I].Asset = Asset_Snail; // For clarity
-                        EntityManager.Enemies[I].Size = { 0.4f, 0.4f };
+                        EntityManager.Enemies[I].BoundaryCount = 1;
+                        EntityManager.Enemies[I].Boundaries[0].Type = BoundaryType_Rectangle;
+                        EntityManager.Enemies[I].Boundaries[0].Size = { 0.4f, 0.4f };
+                        EntityManager.Enemies[I].Boundaries[0].P = Enemy->P;
+                        EntityManager.Enemies[I].YOffset = 0.4f / 2.0f;
                     }else if(Enemy->Type == EntityType_Sally){
                         EntityManager.Enemies[I].Asset = Asset_Sally;
-                        EntityManager.Enemies[I].Size = { 1.0f, 1.0f };
                         EntityManager.Enemies[I].P.Y += 0.3f;
+                        
+                        EntityManager.Enemies[I].BoundaryCount = 1;
+                        EntityManager.Enemies[I].Boundaries[0].Type = BoundaryType_Rectangle;
+                        EntityManager.Enemies[I].Boundaries[0].Size = { 0.95f, 0.85f };
+                        EntityManager.Enemies[I].Boundaries[0].P = v2{
+                            EntityManager.Enemies[I].P.X, EntityManager.Enemies[I].P.Y,
+                        };
+                        EntityManager.Enemies[I].YOffset = 0.85f / 2.0f;
+                        
                     }else if(Enemy->Type == EntityType_Dragonfly){
+                        EntityManager.Enemies[I].BoundaryCount = 2;
+                        // Tail
+                        v2 RectP1 = {Enemy->P.X+Enemy->Direction*-0.23f, Enemy->P.Y+0.1f};
+                        v2 RectSize1 = {0.55f, 0.17f};
+                        EntityManager.Enemies[I].Boundaries[0].Type = BoundaryType_Rectangle;
+                        EntityManager.Enemies[I].Boundaries[0].Size = RectSize1;
+                        EntityManager.Enemies[I].Boundaries[0].P = RectP1;
+                        
+                        // Body
+                        v2 RectP2 = {Enemy->P.X+Enemy->Direction*0.29f, Enemy->P.Y+0.07f};
+                        v2 RectSize2 = {0.45f, 0.48f};
+                        EntityManager.Enemies[I].Boundaries[1].Type = BoundaryType_Rectangle;
+                        EntityManager.Enemies[I].Boundaries[1].Size = RectSize2;
+                        EntityManager.Enemies[I].Boundaries[1].P = RectP2;
+                        
+                        EntityManager.Enemies[I].YOffset = 0.5f / 2.0f;
                         EntityManager.Enemies[I].Asset = Asset_Dragonfly;
-                        EntityManager.Enemies[I].Size = { 1.0f, 0.5f };
                         EntityManager.Enemies[I].ZLayer = -0.71f;
                         EntityManager.Enemies[I].Speed *= 2.0f;
                     }else if(Enemy->Type == EntityType_Speedy){
+                        EntityManager.Enemies[I].BoundaryCount = 1;
+                        EntityManager.Enemies[I].Boundaries[0].Type = BoundaryType_Rectangle;
+                        EntityManager.Enemies[I].Boundaries[0].Size = { 0.4f, 0.4f };
+                        EntityManager.Enemies[I].Boundaries[0].P = Enemy->P;
+                        
                         EntityManager.Enemies[I].Asset = Asset_Speedy;
-                        EntityManager.Enemies[I].Size = { 0.4f, 0.4f };
                         EntityManager.Enemies[I].Speed *= 7.5f;
                     }
                     

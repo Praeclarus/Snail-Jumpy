@@ -45,6 +45,7 @@ internal CREATE_RENDER_TEXTURE(CreateRenderTexture);
 
 global_constant color BLACK  = color{0.0f,  0.0f,  0.0f, 1.0f};
 global_constant color WHITE  = color{1.0f,  1.0f,  1.0f, 1.0f};
+global_constant color RED    = color{1.0f,  0.0f,  0.0f, 1.0f};
 global_constant color YELLOW = color{1.0f,  1.0f,  0.0f, 1.0f};
 global_constant color BLUE   = color{0.0f,  0.0f,  1.0f, 1.0f};
 global_constant color GREEN  = color{0.0f,  1.0f,  0.0f, 1.0f};

@@ -17,19 +17,6 @@ UpdateAndRenderMenu(){
         ChangeState(GameMode_Overworld, 0);
     }
     
-    f32 Width = 800;
-    f32 Height = 30;
-    f32 Margin = 20;
-    f32 Y = OSInput.WindowSize.Height/2;
-    PushUIString(v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y},
-                 -0.5f, &MainFont, BLACK, "Please enter level name:");
-    Y -= Height+Margin;
-    UITextBox(&Editor.TextInput, 
-              OSInput.WindowSize.Width/2.0f-Width/2.0f, 
-              Y, -0.8f, Width, Height, 1);
-    Y -= 30+Margin;
-    
-    
     RenderAllUIPrimitives(&RenderGroup);
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     

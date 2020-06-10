@@ -16,8 +16,6 @@ global_constant char *TextureVertexShaderSource =
 "    FragmentTexCoord = TexCoord;"
 "    FragmentColor = Color;"
 "}";
-// TODO(Tyler): I don't know if discarding the fragment is
-// the correct solution for handling alpha values in textures
 global_constant char *TextureFragmentShaderSource =
 "#version 330 core\n"
 "out vec4 FragColor;"
@@ -27,7 +25,7 @@ global_constant char *TextureFragmentShaderSource =
 "void main()"
 "{"
 "    vec4 Color = texture(Texture, FragmentTexCoord) * FragmentColor;"
-"    if(Color.a < 0.1){"
+"    if(Color.a == 0.0){"
 "        discard;"
 "    }"
 "    FragColor = Color;"
@@ -148,10 +146,11 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     
     f32 A = 2.0f/((f32)RenderGroup->OutputSize.Width);
     f32 B = 2.0f/((f32)RenderGroup->OutputSize.Height);
+    f32 C = 2.0f/((f32)100);
     f32 Projection[] = {
         A,   0, 0, 0,
         0,   B, 0, 0,
-        0,   0, 1, 0,
+        0,   0, C, 0,
         -1, -1, 0, 1,
     };
     

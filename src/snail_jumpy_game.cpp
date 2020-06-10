@@ -37,8 +37,9 @@ UpdateAndRenderMainGame(){
         v2 DrawP = P-CameraP;
         v2 Radius = {0.25f, 0.25f};
         RenderRectangle(&RenderGroup, DrawP-Radius, DrawP+Radius, 0.0f, GREEN);
-        v2 PlayerMin = EntityManager.Player->P-(EntityManager.Player->Size/2);
-        v2 PlayerMax = EntityManager.Player->P+(EntityManager.Player->Size/2);
+        collision_boundary *Boundary = &EntityManager.Player->Boundaries[0];
+        v2 PlayerMin = EntityManager.Player->P-(Boundary->Size/2);
+        v2 PlayerMax = EntityManager.Player->P+(Boundary->Size/2);
         if((P.X-Radius.X <= PlayerMax.X) &&
            (PlayerMin.X  <= P.X+Radius.X) &&
            (P.Y-Radius.Y <= PlayerMax.Y) &&
@@ -74,10 +75,11 @@ UpdateAndRenderMainGame(){
             
             v2 ddP = v2{0.0f, -11.0f};
             //MoveProjectile(0, ddP);
-            MoveEntity(Projectile, ddP);
+            MoveEntity(Projectile, ddP, 1.0f, 1.0f, 1.0f, v2{0, 0}, 0.3f);
             
             v2 P = Projectile->P - CameraP;
-            RenderRectangle(&RenderGroup, P-0.5f*Projectile->Size, P+0.5f*Projectile->Size, 
+            RenderRectangle(&RenderGroup, P-0.5f*Projectile->Boundaries[0].Size, 
+                            P+0.5f*Projectile->Boundaries[0].Size, 
                             0.7f, WHITE);
         }
     }
@@ -96,6 +98,7 @@ UpdateAndRenderMainGame(){
             }
 #endif
             
+            if(Player->IsGrounded) Player->JumpTime = 0.0f;
             if((Player->JumpTime < 0.1f) && IsKeyDown(KeyCode_Space)){
                 ddP.Y += 88.0f;
                 Player->JumpTime += OSInput.dTimeForFrame;
@@ -156,10 +159,14 @@ UpdateAndRenderMainGame(){
                 }
                 
                 Projectile->P = Player->P;
+                Projectile->P.Y += 0.15f;
                 Projectile->dP *= Player->WeaponChargeTime;
                 Projectile->RemainingLife = 3.0f;
-                Projectile->Size = v2{0.1f, 0.1f};
                 Player->WeaponChargeTime = 0.0f;
+                Projectile->BoundaryCount = 1;
+                Projectile->Boundaries[0].Type = BoundaryType_Rectangle;
+                Projectile->Boundaries[0].Size = { 0.1f, 0.1f };
+                Projectile->Boundaries[0].P = Projectile->P;
             }
             
             if(ddP.X != 0.0f){
@@ -197,8 +204,7 @@ UpdateAndRenderMainGame(){
             MoveEntity(Player, ddP, 0.7f, 1.0f, 2.0f, dPOffset);
             
             if(Player->P.Y < -3.0f){
-                Player->P = {1.5f, 1.5f};
-                Player->dP = {0};
+                DamagePlayer(2);
             }
             
             SetCameraCenterP(Player->P, CurrentLevel->World.Width, 
@@ -254,6 +260,38 @@ UpdateAndRenderMainGame(){
         Max.X += 4.0f*Percent;
         Max.Y += 0.2f;
         RenderRectangle(&RenderGroup, Min, Max, -1.0f, color{1.0f, 0.0f, 1.0f, 0.9f});
+    }
+    
+    // NOTE(Tyler): Health
+    {
+        f32 WindowWidth = OSInput.WindowSize.X / RenderGroup.MetersToPixels;
+        v2 P = v2{0.2f, 0.8f};
+        f32 XAdvance = 0.3f;
+        
+        player_entity *Player = EntityManager.Player;
+        u32 FullHearts = Player->Health / 3;
+        u32 Remainder = Player->Health % 3;
+        
+        Assert(FullHearts <= 3);
+        u32 I;
+        for(I = 0; I < FullHearts; I++){
+            RenderFrameOfSpriteSheet(&RenderGroup, Asset_Heart, 0, P, -0.9f);
+            P.X += XAdvance;
+        }
+        
+        if(Remainder > 0){
+            Remainder = 3 - Remainder;
+            RenderFrameOfSpriteSheet(&RenderGroup, Asset_Heart, Remainder, P, -0.9f);
+            P.X += XAdvance;
+            I++;
+        }
+        
+        if(I < 3){
+            for(u32 J = 0; J < 3-I; J++){
+                RenderFrameOfSpriteSheet(&RenderGroup, Asset_Heart, 3, P, -0.9f);
+                P.X += XAdvance;
+            }
+        }
     }
     
     //~ Debug UI

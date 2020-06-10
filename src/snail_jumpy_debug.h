@@ -8,7 +8,7 @@ struct profiled_block {
 };
 
 struct profile_data {
-    profiled_block Blocks[256];
+    profiled_block Blocks[512];
     u32 CurrentBlockIndex;
     u32 CurrentLevel;
 };

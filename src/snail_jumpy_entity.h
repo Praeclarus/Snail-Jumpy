@@ -36,11 +36,7 @@ enum _entity_state {
 };
 
 struct wall_entity {
-    v2 P;
-    union {
-        struct { f32 Width, Height; };
-        v2 Size;
-    };
+    collision_boundary Boundary;
 };
 
 struct coin_data {
@@ -52,12 +48,7 @@ struct coin_data {
 };
 
 struct coin_entity {
-    v2 P;
-    
-    union {
-        struct { f32 Width, Height; };
-        v2 Size;
-    };
+    collision_boundary Boundary;
     
     f32 AnimationCooldown;
     asset_type Asset;
@@ -66,23 +57,14 @@ struct coin_entity {
 };
 
 struct teleporter {
-    v2 P;
-    union {
-        struct { f32 Width, Height; };
-        v2 Size;
-    };
-    
+    collision_boundary Boundary;
     const char *Level;
     b8 IsLocked;
     b8 IsSelected;
 };
 
 struct door_entity {
-    v2 P;
-    union {
-        struct { f32 Width; f32 Height; };
-        v2 Size;
-    };
+    collision_boundary Boundary;
     b8 IsOpen;
     
     f32 AnimationCooldown;
@@ -95,16 +77,20 @@ struct entity {
     v2 P, dP;
     entity_state State;
     
-    union {
-        struct { f32 Width, Height; };
-        v2 Size;
-    };
-    
     f32 AnimationCooldown;
     asset_type Asset;
     u32 CurrentAnimation;
     f32 AnimationState;
     f32 ZLayer;
+    f32 YOffset;
+    
+    // TODO(Tyler): Switch to using these in enemy_entity
+    b8 IsGrounded;
+    direction Direction;
+    
+    // TODO(Tyler): Reordering this struct might be helpful for packing reasons
+    u8 BoundaryCount;
+    collision_boundary Boundaries[2];
 };
 
 struct enemy_entity : public entity {
@@ -115,14 +101,13 @@ struct enemy_entity : public entity {
 };
 
 struct player_entity : public entity {
+    s32 Health;
     f32 JumpTime;
     f32 SprintTime;
     f32 WeaponChargeTime;
     // TODO(Tyler): There is likely a better way to do this
     u32 RidingDragonfly;
     b8 IsRidingDragonfly;
-    b8 IsGrounded;
-    direction Direction;
 };
 
 struct projectile_entity : public entity {

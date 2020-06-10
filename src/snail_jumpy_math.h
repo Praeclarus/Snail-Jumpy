@@ -6,6 +6,9 @@
 
 //~ Helper functions
 
+global_constant f32 PI = 3.141592653589f;
+global_constant f32 TAU = 2.0f*PI;
+
 internal inline s32
 RoundF32ToS32(f32 A)
 {
@@ -83,19 +86,19 @@ SquareRoot(f32 A)
 }
 
 internal inline f32
-Sine(f32 A)
+Sin(f32 A)
 {
     return(sinf(A));
 }
 
 internal inline f32
-Cosine(f32 A)
+Cos(f32 A)
 {
     return(cosf(A));
 }
 
 internal inline f32
-Tangent(f32 A)
+Tan(f32 A)
 {
     return(tanf(A));
 }
@@ -171,6 +174,15 @@ operator-(v2 A, v2 B)
 }
 
 internal inline v2
+operator-(v2 A)
+{
+    v2 Result;
+    Result.X = -A.X;
+    Result.Y = -A.Y;
+    return(Result);
+}
+
+internal inline v2
 V2Invert(v2 A)
 {
     v2 Result;
@@ -235,16 +247,14 @@ operator/=(v2 &A, float B)
 }
 
 internal inline f32
-Inner(v2 A, v2 B)
-{
+Dot(v2 A, v2 B) {
     float Result = (A.X*B.X)+(A.Y*B.Y);
     return(Result);
 }
 
 internal inline f32
-LengthSquared(v2 V)
-{
-    f32 Result = Inner(V, V);
+LengthSquared(v2 V){
+    f32 Result = Dot(V, V);
     return(Result);
 }
 
