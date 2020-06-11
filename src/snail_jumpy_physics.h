@@ -21,7 +21,7 @@ struct collision_event {
     // TODO(Tyler): This could be made more efficient as flags
     b8 DoesHurt;
     b8 DoesStun;
-    u32 Damage;
+    s32 Damage;
     
     // TODO(Tyler): This should be handled more appropriately, this is implemented in a 
     // very hacky way currently

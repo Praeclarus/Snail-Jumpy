@@ -118,6 +118,7 @@ LoadLevel(const char *LevelName){
                         EntityManager.Enemies[I].Boundaries[0].Size = { 0.4f, 0.4f };
                         EntityManager.Enemies[I].Boundaries[0].P = Enemy->P;
                         EntityManager.Enemies[I].YOffset = 0.4f / 2.0f;
+                        EntityManager.Enemies[I].Damage = 2;
                     }else if(Enemy->Type == EntityType_Sally){
                         EntityManager.Enemies[I].Asset = Asset_Sally;
                         EntityManager.Enemies[I].P.Y += 0.3f;
@@ -129,7 +130,7 @@ LoadLevel(const char *LevelName){
                             EntityManager.Enemies[I].P.X, EntityManager.Enemies[I].P.Y,
                         };
                         EntityManager.Enemies[I].YOffset = 0.85f / 2.0f;
-                        
+                        EntityManager.Enemies[I].Damage = 3;
                     }else if(Enemy->Type == EntityType_Dragonfly){
                         EntityManager.Enemies[I].BoundaryCount = 2;
                         // Tail
@@ -150,6 +151,7 @@ LoadLevel(const char *LevelName){
                         EntityManager.Enemies[I].Asset = Asset_Dragonfly;
                         EntityManager.Enemies[I].ZLayer = -0.71f;
                         EntityManager.Enemies[I].Speed *= 2.0f;
+                        EntityManager.Enemies[I].Damage = 2;
                     }else if(Enemy->Type == EntityType_Speedy){
                         EntityManager.Enemies[I].BoundaryCount = 1;
                         EntityManager.Enemies[I].Boundaries[0].Type = BoundaryType_Rectangle;
@@ -158,6 +160,7 @@ LoadLevel(const char *LevelName){
                         
                         EntityManager.Enemies[I].Asset = Asset_Speedy;
                         EntityManager.Enemies[I].Speed *= 7.5f;
+                        EntityManager.Enemies[I].Damage = 1;
                     }
                     
                     EntityManager.Enemies[I].Direction = Enemy->Direction;

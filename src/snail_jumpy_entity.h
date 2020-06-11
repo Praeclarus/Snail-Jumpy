@@ -98,6 +98,7 @@ struct enemy_entity : public entity {
     f32 Direction;
     f32 Speed;
     v2 PathStart, PathEnd;
+    s32 Damage;
 };
 
 struct player_entity : public entity {

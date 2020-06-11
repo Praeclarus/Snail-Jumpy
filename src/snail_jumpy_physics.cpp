@@ -305,14 +305,14 @@ TestEnemyCollisions(collision_boundary *Boundary, v2 EntityDelta, collision_even
                             Event->DoesHurt = false;
                             Event->StepMove = Step;
                         }else{
-                            Event->DoesHurt = false;
-                            Event->Damage = 2;
+                            Event->DoesHurt = true;
+                            Event->Damage = Enemy->Damage;
                         }
                     }
                 }else{
                     Event->Type = CollisionType_Snail;
                     Event->DoesHurt = !(Enemy->State & EntityState_Stunned);
-                    Event->Damage = 2;
+                    Event->Damage = Enemy->Damage;
                 }
             }
         }
@@ -425,11 +425,14 @@ HandleCollision(entity *Entity, collision_event *Event){
             if(Event->Type == CollisionType_Dragonfly){
                 Player->IsRidingDragonfly = true;
                 Player->RidingDragonfly = Event->EntityId;
-                Player->P += Event->StepMove;
+                if(Event->Normal.Y > 0.0f){
+                }else{
+                    DamagePlayer(Enemy->Damage);
+                }
+            }else{
+                DamagePlayer(Enemy->Damage);
             }
-        }
-        
-        if(Event->Normal.X != 0){
+        }else if(Event->Normal.X != 0){
             Enemy->Direction = Event->Normal.X;
             u32 Animation = (Enemy->Direction > 0.0f) ?
                 EnemyAnimation_TurningRight : EnemyAnimation_TurningLeft;
