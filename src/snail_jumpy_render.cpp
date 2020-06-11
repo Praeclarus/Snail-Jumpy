@@ -168,7 +168,6 @@ RenderString(render_group *RenderGroup,
              font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String){
     Y = RenderGroup->OutputSize.Y - Y;
     
-    // TODO(Tyler): Compare performance difference after changes
 #if 0
     u32 Length = CStringLength(String);
     

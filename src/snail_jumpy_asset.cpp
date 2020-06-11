@@ -158,9 +158,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
     P.X -= Asset->SizeInMeters.Width/2.0f;
     P.Y -= Asset->SizeInMeters.Height/2.0f;
     if(!Center){
-        //Assert(0); // TODO(Tyler): Fix this!
         P.Y += 0.5f*Asset->SizeInMeters.Height - Entity->YOffset + Asset->YOffset;
-        //P.Y += Entity->YOffset;
     }
     
 #if 0

@@ -168,56 +168,6 @@ InitializeGame(){
              "Press-Start-2P.ttf", 24, 512, 512);
     
     InitializeRenderer();
-    
-    
-#if 0
-    {
-        v2 CircleP = v2{3, 2};
-        f32 Radius = 0.5f;
-        
-        v2 P = {2.9999084f, 1.5f};
-        v2 RelCircleP = CircleP - P;
-        v2 Trajectory = {-0.01181932f, 0.0f};
-        
-        v2 TrajectoryNormal = Normalize(Trajectory);
-        v2 TrajectoryPerpNormal = v2{TrajectoryNormal.Y, -TrajectoryNormal.X};
-        
-        f32 PerpDistanceToCircle = Dot(TrajectoryPerpNormal, RelCircleP);
-        f32 TrajectoryDistanceToCircle = Dot(TrajectoryNormal, RelCircleP);
-        f32 TrajectoryLength = SquareRoot(LengthSquared(Trajectory));
-        
-        f32 ClosestDistanceToCircle = PerpDistanceToCircle;
-        if(TrajectoryDistanceToCircle < 0.0f){
-            ClosestDistanceToCircle = SquareRoot(LengthSquared(RelCircleP));
-        }else if(TrajectoryDistanceToCircle > TrajectoryLength){
-            v2 RelClosestPoint = Trajectory;
-            ClosestDistanceToCircle = SquareRoot(LengthSquared(RelCircleP - RelClosestPoint));
-        }
-        
-        v2 Normal = {0};
-        f32 CollisionTime = 1;
-        if(AbsoluteValue(ClosestDistanceToCircle) < Radius){
-            f32 Height = Dot(TrajectoryPerpNormal, RelCircleP);
-            f32 DistanceToCollisionPoint = SquareRoot(Square(Radius) - Square(Height));
-            f32 RelDistanceFromEntityToCollisionPoint = TrajectoryDistanceToCircle - DistanceToCollisionPoint;
-            v2 RelCollsionPoint = TrajectoryNormal*RelDistanceFromEntityToCollisionPoint;
-            CollisionTime = RelDistanceFromEntityToCollisionPoint/TrajectoryLength;
-            
-            Normal = Normalize(RelCollsionPoint-RelCircleP);
-            
-            Assert(0);
-        }else if(AbsoluteValue(ClosestDistanceToCircle) == Radius){
-            v2 RelCollsionPoint = TrajectoryNormal*RelDistanceFromEntityToCollisionPoint;
-            CollisionTime = RelDistanceFromEntityToCollisionPoint/TrajectoryLength;
-            
-            Normal = Normalize(RelCollsionPoint-RelCircleP);
-            
-        }
-        
-        Assert(0);
-    }
-#endif
-    
 }
 
 internal void

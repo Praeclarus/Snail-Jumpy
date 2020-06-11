@@ -477,23 +477,6 @@ MoveEntity(entity *Entity, v2 ddP,
             Boundary->P += EntityDelta*Event.Time;
         }
         
-#if 0
-        if(Entity->Type == EntityType_Dragonfly){
-            enemy_entity *Enemy = (enemy_entity *)Entity;
-            
-            TestWallCollisions(RectP2, RectSize2, EntityDelta, &Event);
-            TestDoorCollisions(RectP2, RectSize2, EntityDelta, &Event);
-            TestEnemyCollisions(RectP2, RectSize2, EntityDelta, &Event, Enemy);
-            TestPlayerCollision(RectP2, RectSize2, EntityDelta, &Event);
-            TestProjectileCollisions(RectP2, RectSize2, EntityDelta, &Event);
-        }else{
-            TestWallCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
-            TestDoorCollisions(Entity->P, Entity->Size, EntityDelta, &Event);
-            TestEnemyCollisions(Entity->P, Entity->Size, EntityDelta, &Event, (enemy_entity *)Entity);
-            
-        }
-#endif
-        
         if(Event.Time < 1.0f){
             HandleCollision(Entity, &Event);
         }
