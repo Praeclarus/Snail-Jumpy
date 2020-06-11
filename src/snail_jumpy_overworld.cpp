@@ -287,11 +287,6 @@ UpdateAndRenderOverworld(){
         }
     }
     
-    // NOTE(Tyler): Circle collision testing
-    {
-        RenderCircle(&RenderGroup, v2{3,2}, 0, 0.5f, RED);
-    }
-    
     // NOTE(Tyler): Player
     {
         v2 ddP = {0};
