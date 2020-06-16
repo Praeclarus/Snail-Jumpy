@@ -87,7 +87,6 @@ struct collision_table {
     f32 TileWidth;
     f32 TileHeight;
     collision_table_item **Items;
-    collision_table_item **NewItems;
 };
 
 #endif //SNAIL_JUMPY_PHYSICS_H

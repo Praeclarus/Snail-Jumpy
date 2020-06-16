@@ -17,9 +17,6 @@ ReloadCollisionSystem(u32 Width, u32 Height, f32 TileWidth, f32 TileHeight){
     CollisionTable.Items = PushArray(&CollisionTable.Memory, collision_table_item *, 
                                      Width*Height);
     ZeroMemory(CollisionTable.Items, Width*Height*sizeof(collision_table_item));
-    CollisionTable.NewItems = PushArray(&CollisionTable.Memory, collision_table_item *, 
-                                        Width*Height);
-    ZeroMemory(CollisionTable.NewItems, Width*Height*sizeof(collision_table_item));
 }
 
 internal min_max_boundary_s32
@@ -66,8 +63,8 @@ CollisionSystemNewFrame(){
             for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
                 collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
                                                            collision_table_item);
-                NewItem->Next = CollisionTable.NewItems[Y*CollisionTable.Width + X];
-                CollisionTable.NewItems[Y*CollisionTable.Width + X] = NewItem;
+                NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                 NewItem->EntityType = EntityType_Wall;
                 NewItem->EntityId = Id;
             }
@@ -84,8 +81,8 @@ CollisionSystemNewFrame(){
             for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
                 collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
                                                            collision_table_item);
-                NewItem->Next = CollisionTable.NewItems[Y*CollisionTable.Width + X];
-                CollisionTable.NewItems[Y*CollisionTable.Width + X] = NewItem;
+                NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                 NewItem->EntityType = EntityType_Coin;
                 NewItem->EntityId = Id;
             }
@@ -104,9 +101,31 @@ CollisionSystemNewFrame(){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
                     collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
                                                                collision_table_item);
-                    NewItem->Next = CollisionTable.NewItems[Y*CollisionTable.Width + X];
-                    CollisionTable.NewItems[Y*CollisionTable.Width + X] = NewItem;
+                    NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                    CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                     NewItem->EntityType = Entity->Type;
+                    NewItem->EntityId = Id;
+                }
+            }
+        }
+    }
+    
+    
+    for(u32 Id = 0; Id < EntityManager.ProjectileCount; Id++){
+        projectile_entity *Entity = &EntityManager.Projectiles[Id];
+        
+        for(u32 I = 0; I < Entity->BoundaryCount; I++){
+            collision_boundary *Boundary = &Entity->Boundaries[I];
+            min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+            
+            
+            for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
+                for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
+                    collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
+                                                               collision_table_item);
+                    NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                    CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
+                    NewItem->EntityType = EntityType_Projectile;
                     NewItem->EntityId = Id;
                 }
             }
@@ -125,8 +144,8 @@ CollisionSystemNewFrame(){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
                     collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
                                                                collision_table_item);
-                    NewItem->Next = CollisionTable.NewItems[Y*CollisionTable.Width + X];
-                    CollisionTable.NewItems[Y*CollisionTable.Width + X] = NewItem;
+                    NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                    CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                     NewItem->EntityType = Entity->Type;
                     NewItem->EntityId = 0;
                 }
@@ -601,13 +620,16 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                    collision_table_item *Item = CollisionTable.NewItems[Y*CollisionTable.Width + X];
+                    collision_table_item *Item = CollisionTable.Items[Y*CollisionTable.Width + X];
                     while(Item){
                         switch(Item->EntityType){
                             // TODO(Tyler): I don't like littering this with so many
-                            // cases
+                            // cases, a more robust collision system based on flags
+                            // or something like that might be way neater
                             case EntityType_Player: {
                                 if(Entity->Type == EntityType_Projectile) break;
+                                if((Entity->Type == EntityType_Player) && 
+                                   (Id == Item->EntityId)) break;
                                 
                                 player_entity *Player = EntityManager.Player;
                                 for(u32 I = 0; I < Player->BoundaryCount; I++){
@@ -621,6 +643,8 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                             case EntityType_Snail: case EntityType_Sally:
                             case EntityType_Speedy: case EntityType_Dragonfly: {
                                 enemy_entity *Enemy = &EntityManager.Enemies[Item->EntityId];
+                                if((Entity->Type == Enemy->Type) && 
+                                   (Id == Item->EntityId)) break;
                                 for(u32 I = 0; I < Enemy->BoundaryCount; I++){
                                     collision_boundary *Boundary2 = &Enemy->Boundaries[I];
                                     if(TestBoundaryAndBoundary(Boundary, EntityDelta, Boundary2, 
@@ -686,8 +710,19 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                 }
                             }break;
                             case EntityType_Projectile: {
-                                if(Entity->Type == EntityType_Player) break;
+                                if(Entity->Type == EntityType_Player) break; 
+                                if((Entity->Type == EntityType_Projectile) && 
+                                   (Id == Item->EntityId)) break;
+                                projectile_entity *Projectile = &EntityManager.Projectiles[Item->EntityId];
+                                if(Projectile->RemainingLife <= 0.0f) break; 
                                 
+                                if(TestBoundaryAndBoundary(Boundary, EntityDelta, 
+                                                           &Projectile->Boundaries[0],
+                                                           &Event.Time, &Event.Normal)){
+                                    Event.Type = CollisionType_Projectile;
+                                    Event.EntityId = Id;
+                                    Event.DoesStun = true;
+                                }
                             }break;
                         }
                         
@@ -701,30 +736,32 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
             collision_boundary *Boundary = &Entity->Boundaries[I];
             v2 NewBoundaryP = Boundary->P + EntityDelta*Event.Time;
             
+            // NOTE(Tyler): This can put the same entity into the same collision tile 
+            // multiple times, but is necessary for correctness, if the delta moves 
+            // the entity into another collision tile
+            min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
             
-#if 0            
-            for(s32 Y = MinTileY; Y <= MaxTileY; Y++){
-                for(s32 X = MinTileX; X <= MaxTileX; X++){
+            for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
+                for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
                     collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
                                                                collision_table_item);
-                    NewItem->Next = CollisionTable.NewItems[Y*CollisionTable.Width + X];
-                    CollisionTable.NewItems[Y*CollisionTable.Width + X] = NewItem;
+                    NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                    CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                     NewItem->EntityType = Entity->Type;
                     NewItem->EntityId = Id;
                 }
             }
-#endif
             
             Boundary->P = NewBoundaryP;
-        }
-        
-        if(Event.Time < 1.0f){
-            HandleCollision(Entity, &Event);
         }
         
         Entity->P += EntityDelta*Event.Time;
         Entity->dP = (Entity->dP-COR*Dot(Entity->dP, Event.Normal)*Event.Normal);
         EntityDelta = (EntityDelta-COR*Dot(EntityDelta, Event.Normal)*Event.Normal);
+        
+        if(Event.Time < 1.0f){
+            HandleCollision(Entity, &Event);
+        }
         
         TimeRemaining -= Event.Time*TimeRemaining;
     }
