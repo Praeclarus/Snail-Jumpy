@@ -829,19 +829,21 @@ UpdateAndRenderEditor(){
         //~ Resizing
         u32 WidthChange = Panel2Buttons(&Panel, "- >>> -", "+ >>> +");
         if(WidthChange == 1){
-            u32 NewMapSize = (Editor.World->Width*Editor.World->Height) - Editor.World->Height;
-            u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
-            u32 NewXTiles = Editor.World->Width-1;
-            for(u32 Y = 0; Y < Editor.World->Height; Y++){
-                for(u32 X = 0; X < NewXTiles; X++){
-                    NewMap[Y*NewXTiles + X] = Editor.World->Map[Y*Editor.World->Width + X];
+            if(Editor.World->Width > 32){
+                u32 NewMapSize = (Editor.World->Width*Editor.World->Height) - Editor.World->Height;
+                u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
+                u32 NewXTiles = Editor.World->Width-1;
+                for(u32 Y = 0; Y < Editor.World->Height; Y++){
+                    for(u32 X = 0; X < NewXTiles; X++){
+                        NewMap[Y*NewXTiles + X] = Editor.World->Map[Y*Editor.World->Width + X];
+                    }
                 }
+                
+                DefaultFree(Editor.World->Map);
+                Editor.World->Map = NewMap;
+                
+                Editor.World->Width--;
             }
-            
-            DefaultFree(Editor.World->Map);
-            Editor.World->Map = NewMap;
-            
-            Editor.World->Width--;
         }else if(WidthChange == 2){
             u32 NewMapSize = (Editor.World->Width*Editor.World->Height) + Editor.World->Height;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
@@ -860,19 +862,21 @@ UpdateAndRenderEditor(){
         
         u32 HeightChange = Panel2Buttons(&Panel, "- ^^^ -", "+ ^^^ +");
         if(HeightChange == 1){
-            u32 NewMapSize = (Editor.World->Width*Editor.World->Height) - Editor.World->Width;
-            u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
-            u32 NewYTiles = Editor.World->Height-1;
-            for(u32 Y = 0; Y < NewYTiles; Y++){
-                for(u32 X = 0; X < Editor.World->Width; X++){
-                    NewMap[Y*Editor.World->Width + X] = Editor.World->Map[Y*Editor.World->Width + X];
+            if(Editor.World->Height > 18){
+                u32 NewMapSize = (Editor.World->Width*Editor.World->Height) - Editor.World->Width;
+                u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
+                u32 NewYTiles = Editor.World->Height-1;
+                for(u32 Y = 0; Y < NewYTiles; Y++){
+                    for(u32 X = 0; X < Editor.World->Width; X++){
+                        NewMap[Y*Editor.World->Width + X] = Editor.World->Map[Y*Editor.World->Width + X];
+                    }
                 }
+                
+                DefaultFree(Editor.World->Map);
+                Editor.World->Map = NewMap;
+                
+                Editor.World->Height--;
             }
-            
-            DefaultFree(Editor.World->Map);
-            Editor.World->Map = NewMap;
-            
-            Editor.World->Height--;
         }else if(HeightChange == 2){
             u32 NewMapSize = (Editor.World->Width*Editor.World->Height) + Editor.World->Width;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
