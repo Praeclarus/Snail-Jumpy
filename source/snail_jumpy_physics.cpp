@@ -154,10 +154,6 @@ CollisionSystemNewFrame(){
     }
 }
 
-
-// TODO(Tyler): It would likely be a good idea to first test collisions broadly before
-// actually testing for a real collision
-
 // TODO(Tyler): ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS! ROBUSTNESS!
 // the collision system is not very robust or good at all!!!
 internal b32
@@ -349,150 +345,6 @@ TestBoundaryAndBoundary(collision_boundary *Boundary1, v2 Delta,
     return(Result);
 }
 
-internal void
-TestWallCollisions(collision_boundary *Boundary, v2 EntityDelta, collision_event *Event){
-    for(u32 WallId = 0; WallId < EntityManager.WallCount; WallId++){
-        wall_entity *WallEntity = &EntityManager.Walls[WallId];
-        
-        if(TestBoundaryAndBoundary(Boundary, EntityDelta, &WallEntity->Boundary, 
-                                   &Event->Time, &Event->Normal)){
-            Event->Type = CollisionType_Wall;
-            Event->EntityId = WallId;
-        }
-    }
-}
-
-internal void
-TestDoorCollisions(collision_boundary *Boundary, v2 EntityDelta, collision_event *Event){
-    for(u32 DoorId = 0; DoorId < EntityManager.DoorCount; DoorId++){
-        door_entity *DoorEntity = &EntityManager.Doors[DoorId];
-        if(!DoorEntity->IsOpen){
-            if(TestBoundaryAndBoundary(Boundary, EntityDelta, &DoorEntity->Boundary,
-                                       &Event->Time, &Event->Normal)){
-                Event->Type = CollisionType_Wall;
-                Event->EntityId = DoorId;
-            }
-        }
-    }
-}
-
-internal void
-TestPlayerCollision(collision_boundary *Boundary, v2 EntityDelta, collision_event *Event){
-    if(!(EntityManager.Player->State & EntityState_Dead)){
-        if(TestBoundaryAndBoundary(Boundary, EntityDelta,
-                                   &EntityManager.Player->Boundaries[0],
-                                   &Event->Time, &Event->Normal)){
-            Event->Type = CollisionType_Player;
-        }
-    }
-}
-
-internal void
-TestCoinTriggers(collision_boundary *Boundary, v2 EntityDelta, collision_event *Event){
-    for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
-        coin_entity *Coin = &EntityManager.Coins[CoinId];
-        
-        if(Coin->AnimationCooldown > 0.0f){
-            continue;
-        }
-        
-        f32 _DummyTime = 1.0f;
-        v2  _DummyNormal;
-        if(TestBoundaryAndBoundary(Boundary, EntityDelta, &Coin->Boundary,
-                                   &_DummyTime, &_DummyNormal)){
-            UpdateCoin(CoinId);
-        }
-    }
-}
-
-internal void
-TestTeleporterTriggers(v2 P, v2 Size, v2 EntityDelta, collision_event *Event){
-#if 0
-    for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
-        coin_entity *CoinEntity = &EntityManager.Coins[CoinId];
-        
-        if(CoinEntity->AnimationCooldown > 0.0f){
-            continue;
-        }
-        
-        if(TestRectangle(P, Size, EntityDelta,
-                         CoinEntity->P, CoinEntity->Size,
-                         &Event->Time, &Event->Normal)){
-            Event->Type = CollisionType_Coin;
-            Event->EntityId = CoinId;
-        }
-    }
-#endif
-}
-
-internal void
-TestEnemyCollisions(collision_boundary *Boundary, v2 EntityDelta, collision_event *Event, 
-                    enemy_entity *TestingEnemy = 0){
-    for(u32 Id = 0; Id < EntityManager.EnemyCount; Id++){
-        enemy_entity *Enemy = &EntityManager.Enemies[Id];
-        
-        if(Enemy == TestingEnemy) continue;
-        
-        for(u32 I = 0; I < Enemy->BoundaryCount; I++){
-            collision_boundary *Boundary2 = &Enemy->Boundaries[I];
-            if(TestBoundaryAndBoundary(Boundary, EntityDelta, Boundary2, 
-                                       &Event->Time, &Event->Normal)){
-                Event->EntityId = Id;
-                if(Enemy->Type == EntityType_Dragonfly){
-                    v2 RectP1    = Enemy->Boundaries[0].P;
-                    v2 RectSize1 = Enemy->Boundaries[0].Size;
-                    v2 RectP2    = Enemy->Boundaries[1].P;
-                    v2 RectSize2 = Enemy->Boundaries[1].Size;
-                    
-                    v2 Step = {0};
-                    Step.Y = (RectP2.Y+(RectSize2.Y/2))-(RectP1.Y+(RectSize1.Y/2));
-                    
-                    Event->Type = CollisionType_Dragonfly;
-                    if(Enemy->AnimationCooldown > 0.0f){
-                        if(I == 0){ // Tail collision boundary
-                            if(Event->Normal.Y > 0.0f){
-                                Event->DoesHurt = false;
-                                Event->StepMove = Step;
-                            }
-                        }
-                    }else{
-                        Step.X = 0.1f*Enemy->Direction;
-                        if(Event->Normal.Y > 0.0f){
-                            Event->DoesHurt = false;
-                        }else if(Event->Normal.X == -Enemy->Direction){
-                            Event->DoesHurt = false;
-                            Event->StepMove = Step;
-                        }else{
-                            Event->DoesHurt = true;
-                            Event->Damage = Enemy->Damage;
-                        }
-                    }
-                }else{
-                    Event->Type = CollisionType_Snail;
-                    Event->DoesHurt = !(Enemy->State & EntityState_Stunned);
-                    Event->Damage = Enemy->Damage;
-                }
-            }
-        }
-    }
-}
-
-internal void
-TestProjectileCollisions(collision_boundary *Boundary, v2 EntityDelta, 
-                         collision_event *Event){
-    for(u32 Id = 0; Id < EntityManager.ProjectileCount; Id++){
-        projectile_entity *Projectile = &EntityManager.Projectiles[Id];
-        if(Projectile->RemainingLife <= 0.0f) continue; 
-        
-        if(TestBoundaryAndBoundary(Boundary, EntityDelta, &Projectile->Boundaries[0],
-                                   &Event->Time, &Event->Normal)){
-            Event->Type = CollisionType_Projectile;
-            Event->EntityId = Id;
-            Event->DoesStun = true;
-        }
-    }
-}
-
 internal inline v2
 CalculateEntitydPAndDelta(entity *Entity, v2 ddP, 
                           f32 XFriction=1.0f, f32 YFriction=1.0f, f32 Drag=2.0f, 
@@ -516,7 +368,7 @@ CalculateEntitydPAndDelta(entity *Entity, v2 ddP,
         Iterations++;
         // TODO(Tyler): This might not be the best way to cap iterations, it can cause
         // sliding backwards when riding dragonflies, there is a simple work around, that
-        // has been implemented, but it that work around physically slows down everything
+        // has been implemented, but that work around physically slows down everything
         // relative to running at the max FPS
         if(Iterations > MAX_PHYSICS_ITERATIONS){
             RemainingFrameTime = 0.0f; // NOTE(Tyler): Don't try to interpolate!

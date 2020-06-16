@@ -114,19 +114,6 @@ UpdateAndRenderMainGame(){
             
             b8 IsRunning = false;
             f32 MovementSpeed = 120;
-            if(IsKeyDown(KeyCode_Shift) && (Player->SprintTime < 2.0f)){
-                IsRunning = true;
-                MovementSpeed = 180;
-                Player->SprintTime += OSInput.dTimeForFrame;
-            }else{
-                if(Player->SprintTime == 0.0f){
-                }else if(Player->SprintTime < 0.0f){
-                    Player->SprintTime = 0.0f;
-                }else if(!IsKeyDown(KeyCode_Shift)){
-                    Player->SprintTime -= OSInput.dTimeForFrame;
-                }
-            }
-            
             if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
                 ddP.X += MovementSpeed;
                 Player->Direction = Direction_Right;
@@ -165,9 +152,6 @@ UpdateAndRenderMainGame(){
                 Projectile->dP *= Player->WeaponChargeTime;
                 Projectile->RemainingLife = 3.0f;
                 Player->WeaponChargeTime = 0.0f;
-                Projectile->BoundaryCount = 1;
-                Projectile->Boundaries[0].Type = BoundaryType_Rectangle;
-                Projectile->Boundaries[0].Size = { 0.1f, 0.1f };
                 Projectile->Boundaries[0].P = Projectile->P;
             }
             
@@ -241,21 +225,9 @@ UpdateAndRenderMainGame(){
         }
     }
     
-    // NOTE(Tyler): Sprint bar
-    {
-        v2 Min = v2{0.1f, 0.1f};
-        v2 Max = Min;
-        f32 Percent = 0.0f;
-        if(EntityManager.Player->SprintTime < 2.0f){
-            Percent = (1.0f - EntityManager.Player->SprintTime/2.0f);
-        }
-        Max.X += 4.0f*Percent;
-        Max.Y += 0.2f;
-        RenderRectangle(&RenderGroup, Min, Max, -1.0f, color{0.0f, 0.5f, 0.2f, 0.9f});
-    }
     // NOTE(Tyler): Weapon charge bar
     {
-        v2 Min = v2{0.1f, 0.4f};
+        v2 Min = v2{0.1f, 0.1f};
         v2 Max = Min;
         f32 Percent = 0.0f;
         Percent = EntityManager.Player->WeaponChargeTime;

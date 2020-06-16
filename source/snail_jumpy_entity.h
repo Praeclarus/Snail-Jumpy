@@ -104,7 +104,6 @@ struct enemy_entity : public entity {
 struct player_entity : public entity {
     s32 Health;
     f32 JumpTime;
-    f32 SprintTime;
     f32 WeaponChargeTime;
     // TODO(Tyler): There is likely a better way to do this
     u32 RidingDragonfly;

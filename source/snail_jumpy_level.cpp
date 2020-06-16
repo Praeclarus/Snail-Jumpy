@@ -182,6 +182,9 @@ LoadLevel(const char *LevelName){
                 projectile_entity *Projectile = EntityManager.Projectiles;
                 Projectile->Type = EntityType_Projectile;
                 Projectile->RemainingLife = 0.0f;
+                Projectile->BoundaryCount = 1;
+                Projectile->Boundaries[0].Type = BoundaryType_Rectangle;
+                Projectile->Boundaries[0].Size = { 0.1f, 0.1f };
             }
             
         }else{

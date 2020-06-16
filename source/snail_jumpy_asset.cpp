@@ -34,7 +34,7 @@ LoadAssets(){
         {"dragonfly_spritesheet.png",  33,  7,  { 10, 10, 3, 3 }, { 8, 8, 8, 8 }, 0.0f, 4 },
         {"speedy_spritesheet.png",     17,  8,  {  4,  4, 3, 3, 2, 2, 3, 3, 4, 4 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0, 4 },
         {"overworld_avatar_spritesheet.png", 64, 10,  {  3,  3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 4, 5, 5, 5 }, { 2, 2, 2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8, 8 }, 0, 1},
-        {"heart_8x8.png", 32, 4,  { 4 }, { 0 }, 0, 1},
+        {"heart_8x8.png", 32, 4,  { 4 }, { 0 }, 0, 1 },
     };
     
     for(u32 Index = 0; Index < Asset_TOTAL; Index++){
