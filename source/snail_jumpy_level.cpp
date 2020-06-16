@@ -27,7 +27,7 @@ AddPlayer(v2 P){
 
 internal void
 LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
-                 u32 WidthInTiles, u32 HeightInTiles, f32 TileSideInMeters){
+                 u32 WidthInTiles, u32 HeightInTiles){
     AllocateNEntities(WallCount, EntityType_Wall);
     
     u32 CurrentWallId = 0;
@@ -41,10 +41,10 @@ LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
                 EntityManager.Walls[CurrentWallId] = {};
                 EntityManager.Walls[CurrentWallId].Boundary.Type = BoundaryType_Rectangle;
                 EntityManager.Walls[CurrentWallId].Boundary.P = {
-                    ((f32)X+0.5f)*TileSideInMeters, ((f32)Y+0.5f)*TileSideInMeters
+                    ((f32)X+0.5f)*TILE_SIDE, ((f32)Y+0.5f)*TILE_SIDE
                 };
                 EntityManager.Walls[CurrentWallId].Boundary.Size = {
-                    TileSideInMeters, TileSideInMeters
+                    TILE_SIDE, TILE_SIDE
                 };
                 CurrentWallId++;
             }
@@ -68,11 +68,10 @@ LoadLevel(const char *LevelName){
             ReloadCollisionSystem(CurrentLevel->World.Width, CurrentLevel->World.Height, 
                                   0.62f, 0.58f);
             
-            f32 TileSideInMeters = 0.5f;
             EntityManager.CoinData.Tiles = CurrentLevel->World.Map;
             EntityManager.CoinData.XTiles = CurrentLevel->World.Width;
             EntityManager.CoinData.YTiles = CurrentLevel->World.Height;
-            EntityManager.CoinData.TileSideInMeters = TileSideInMeters;
+            EntityManager.CoinData.TileSideInMeters = TILE_SIDE;
             EntityManager.CoinData.NumberOfCoinPs = 0;
             
             u32 WallCount = 0;
@@ -85,8 +84,7 @@ LoadLevel(const char *LevelName){
                 }
             }
             LoadWallsFromMap(CurrentLevel->World.Map, WallCount,
-                             CurrentLevel->World.Width, CurrentLevel->World.Height,
-                             TileSideInMeters);
+                             CurrentLevel->World.Width, CurrentLevel->World.Height);
             
             {
                 u32 N = Minimum(7, EntityManager.CoinData.NumberOfCoinPs);

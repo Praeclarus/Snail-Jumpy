@@ -78,7 +78,6 @@ GetTeleporterIndexFromP(v2 P){
 
 internal void
 RenderDoorPopup(render_group *RenderGroup){
-    f32 TileSideInMeters = 0.5f;
     f32 Width = 800;
     f32 Height = 30;
     f32 Margin = 20;
@@ -95,10 +94,10 @@ RenderDoorPopup(render_group *RenderGroup){
                 100, 30, "Submit")){
         if(Editor.Popup == EditorPopup_AddDoor){
             v2 Size = Editor.CursorP - Editor.CursorP2;
-            Size *= TileSideInMeters;
+            Size *= TILE_SIDE;
             Size.X = AbsoluteValue(Size.X);
             Size.Y = AbsoluteValue(Size.Y);
-            v2 P = (Editor.CursorP+Editor.CursorP2)/2.0f * TileSideInMeters;
+            v2 P = (Editor.CursorP+Editor.CursorP2)/2.0f * TILE_SIDE;
             
             door_data *NewDoor = PushNewArrayItem(&Editor.World->Doors);
             NewDoor->P = P;
@@ -134,7 +133,6 @@ RenderDoorPopup(render_group *RenderGroup){
 
 internal void
 RenderTeleporterPopup(render_group *RenderGroup){
-    f32 TileSideInMeters = 0.5f;
     f32 Width = 800;
     f32 Height = 30;
     f32 Margin = 20;
@@ -209,22 +207,21 @@ RenderTeleporterPopup(render_group *RenderGroup){
 
 internal void
 UpdateEditorSelectionRectangle(){
-    v2 TileSize = v2{0.5f, 0.5f};
     v2 MouseP = Editor.MouseP;
     v2 MouseP2 = Editor.MouseP2;
     if(MouseP.X < MouseP2.X){
-        Editor.CursorP2.X = Ceil(MouseP2.X/TileSize.X);
-        Editor.CursorP.X = Floor(MouseP.X/TileSize.X);
+        Editor.CursorP2.X = Ceil(MouseP2.X/TILE_SIZE.X);
+        Editor.CursorP.X = Floor(MouseP.X/TILE_SIZE.X);
     }else{
-        Editor.CursorP2.X = Floor(MouseP2.X/TileSize.X);
-        Editor.CursorP.X = Ceil(MouseP.X/TileSize.X);
+        Editor.CursorP2.X = Floor(MouseP2.X/TILE_SIZE.X);
+        Editor.CursorP.X = Ceil(MouseP.X/TILE_SIZE.X);
     }
     if(MouseP.Y < Editor.MouseP2.Y){
-        Editor.CursorP2.Y = Ceil(MouseP2.Y/TileSize.Y);
-        Editor.CursorP.Y = Floor(MouseP.Y/TileSize.Y);
+        Editor.CursorP2.Y = Ceil(MouseP2.Y/TILE_SIZE.Y);
+        Editor.CursorP.Y = Floor(MouseP.Y/TILE_SIZE.Y);
     }else{
-        Editor.CursorP2.Y = Floor(MouseP2.Y/TileSize.Y);
-        Editor.CursorP.Y = Ceil(MouseP.Y/TileSize.Y);
+        Editor.CursorP2.Y = Floor(MouseP2.Y/TILE_SIZE.Y);
+        Editor.CursorP.Y = Ceil(MouseP.Y/TILE_SIZE.Y);
     }
     
 }
@@ -310,8 +307,7 @@ RenderEditorPopup(render_group *RenderGroup){
 
 internal void
 RenderEditorThingUI(render_group *RenderGroup, panel *Panel){
-    TIMED_FUNCTION();// TODO(Tyler): MAKE THIS INTO A CONSTANT!!!
-    v2 TileSize = v2{0.5f, 0.5f};
+    TIMED_FUNCTION();
     
     switch(Editor.SelectedThingType){
         case EntityType_Snail: {
@@ -329,10 +325,10 @@ RenderEditorThingUI(render_group *RenderGroup, panel *Panel){
             
             u32 LeftEndpointChange = Panel2Buttons(Panel, "<<<", ">>>");
             if(LeftEndpointChange == 1){
-                SelectedEnemy->PathStart.X -= TileSize.X;
+                SelectedEnemy->PathStart.X -= TILE_SIZE.X;
             }else if(LeftEndpointChange == 2){
-                if(SelectedEnemy->PathStart.X < SelectedEnemy->P.X-TileSize.X){
-                    SelectedEnemy->PathStart.X += TileSize.X;
+                if(SelectedEnemy->PathStart.X < SelectedEnemy->P.X-TILE_SIZE.X){
+                    SelectedEnemy->PathStart.X += TILE_SIZE.X;
                 }
             }
             
@@ -340,11 +336,11 @@ RenderEditorThingUI(render_group *RenderGroup, panel *Panel){
             
             u32 RightEndpointChange = Panel2Buttons(Panel, "<<<", ">>>");
             if(RightEndpointChange == 1){
-                if(SelectedEnemy->P.X+TileSize.X < SelectedEnemy->PathEnd.X){
-                    SelectedEnemy->PathEnd.X -= TileSize.X;
+                if(SelectedEnemy->P.X+TILE_SIZE.X < SelectedEnemy->PathEnd.X){
+                    SelectedEnemy->PathEnd.X -= TILE_SIZE.X;
                 }
             }else if(RightEndpointChange == 2){
-                SelectedEnemy->PathEnd.X += TileSize.X;
+                SelectedEnemy->PathEnd.X += TILE_SIZE.X;
             }
             
             v2 Margin = {0};
@@ -414,35 +410,33 @@ internal void
 RenderEditorCursor(render_group *RenderGroup){
     TIMED_FUNCTION();
     
-    v2 TileSize = v2{0.5f, 0.5f};
-    
     v2 TileP = Editor.CursorP;
-    v2 ViewTileP = v2{TileP.X*TileSize.X, TileP.Y*TileSize.Y} - CameraP;
-    v2 Center = ViewTileP+(0.5f*TileSize);
+    v2 ViewTileP = v2{TileP.X*TILE_SIZE.X, TileP.Y*TILE_SIZE.Y} - CameraP;
+    v2 Center = ViewTileP+(0.5f*TILE_SIZE);
     v2 Margin = {0.05f, 0.05f};
     
     if(Editor.Mode == EditMode_AddWall){
-        RenderRectangle(RenderGroup, Center-TileSize/2, Center+TileSize/2,
+        RenderRectangle(RenderGroup, Center-TILE_SIZE/2, Center+TILE_SIZE/2,
                         -0.1f, BLACK);
         RenderRectangle(RenderGroup,
-                        Center-((TileSize-Margin)/2), Center+((TileSize-Margin)/2),
+                        Center-((TILE_SIZE-Margin)/2), Center+((TILE_SIZE-Margin)/2),
                         -0.11f, WHITE);
     }else if(Editor.Mode == EditMode_AddTeleporter){
-        RenderRectangle(RenderGroup, Center-TileSize/2, Center+TileSize/2,
+        RenderRectangle(RenderGroup, Center-TILE_SIZE/2, Center+TILE_SIZE/2,
                         -0.1f, BLACK);
         RenderRectangle(RenderGroup,
-                        Center-((TileSize-Margin)/2), Center+((TileSize-Margin)/2),
+                        Center-((TILE_SIZE-Margin)/2), Center+((TILE_SIZE-Margin)/2),
                         -0.11f, BLUE);
     }else if(Editor.Mode == EditMode_AddDoor){
         v2 TileP = Editor.CursorP;
-        v2 ViewTileP = v2{TileP.X*TileSize.X, TileP.Y*TileSize.Y} - CameraP;
+        v2 ViewTileP = v2{TileP.X*TILE_SIZE.X, TileP.Y*TILE_SIZE.Y} - CameraP;
         v2 TileP2 = Editor.CursorP2;
-        v2 ViewTileP2 = v2{TileP2.X*TileSize.X, TileP2.Y*TileSize.Y} - CameraP;
+        v2 ViewTileP2 = v2{TileP2.X*TILE_SIZE.X, TileP2.Y*TILE_SIZE.Y} - CameraP;
         
         if(Editor.IsDragging || (Editor.Popup == EditorPopup_AddDoor)){
             RenderRectangle(RenderGroup, ViewTileP, ViewTileP2, -0.5f, BROWN);
         }else{
-            RenderRectangle(RenderGroup, ViewTileP, ViewTileP+TileSize, -0.5f, BROWN);
+            RenderRectangle(RenderGroup, ViewTileP, ViewTileP+TILE_SIZE, -0.5f, BROWN);
         }
     }else if(Editor.Mode == EditMode_AddCoinP){
         v2 Size = {0.3f, 0.3f};
@@ -455,8 +449,8 @@ RenderEditorCursor(render_group *RenderGroup){
              (Editor.Mode == EditMode_Sally) ||
              (Editor.Mode == EditMode_Dragonfly) ||
              (Editor.Mode == EditMode_Speedy)){
-        v2 ViewTileP = v2{TileP.X*TileSize.X, TileP.Y*TileSize.Y}-CameraP;
-        v2 Center = ViewTileP+(0.5f*TileSize);
+        v2 ViewTileP = v2{TileP.X*TILE_SIZE.X, TileP.Y*TILE_SIZE.Y}-CameraP;
+        v2 Center = ViewTileP+(0.5f*TILE_SIZE);
         asset_info AssetInfo = GetAssetInfoFromEntityType(Editor.Mode);
         Center.Y += AssetInfo.YOffset;
         RenderFrameOfSpriteSheet(RenderGroup, AssetInfo.AssetIndex, 0, Center, 
@@ -534,20 +528,19 @@ UpdateEditor(f32 MetersToPixels){
             CameraP.Y -= MovementSpeed;
         }
         
-        v2 TileSize = v2{0.5f, 0.5f};
-        if((CameraP.X+32.0f*TileSize.X) > Editor.World->Width*TileSize.X){
-            CameraP.X = Editor.World->Width*TileSize.X - 32.0f*TileSize.X;
+        if((CameraP.X+32.0f*TILE_SIZE.X) > Editor.World->Width*TILE_SIZE.X){
+            CameraP.X = Editor.World->Width*TILE_SIZE.X - 32.0f*TILE_SIZE.X;
         }else if(CameraP.X < 0.0f){
             CameraP.X = 0.0f;
         }
-        if((CameraP.Y+18.0f*TileSize.Y) > Editor.World->Height*TileSize.Y){
-            CameraP.Y = Editor.World->Height*TileSize.Y - 18.0f*TileSize.Y;
+        if((CameraP.Y+18.0f*TILE_SIZE.Y) > Editor.World->Height*TILE_SIZE.Y){
+            CameraP.Y = Editor.World->Height*TILE_SIZE.Y - 18.0f*TILE_SIZE.Y;
         }else if(CameraP.Y < 0.0f){
             CameraP.Y = 0.0f;
         }
         
         v2 MouseP = (OSInput.MouseP/MetersToPixels) + CameraP;
-        Editor.CursorP = v2{Floor(MouseP.X/TileSize.X), Floor(MouseP.Y/TileSize.Y)};
+        Editor.CursorP = v2{Floor(MouseP.X/TILE_SIZE.X), Floor(MouseP.Y/TILE_SIZE.Y)};
         v2 TileP = Editor.CursorP;
         
         u8 *TileId = &Editor.World->Map[((u32)TileP.Y*Editor.World->Width)+(u32)TileP.X];
@@ -561,8 +554,6 @@ UpdateEditor(f32 MetersToPixels){
                 
                 DidSelectSomething = true;
             }else{
-                f32 TileSideInMeters = TileSize.X;
-                
                 b8 ClickedOnDoor = false;
                 u32 DoorIndex = 0;
                 if(GameMode == GameMode_OverworldEditor){
@@ -627,8 +618,6 @@ UpdateEditor(f32 MetersToPixels){
                     Editor.SelectedThing = 0;
                 }
             }else{
-                f32 TileSideInMeters = TileSize.X;
-                
                 b8 ClickedOnDoor = false;
                 u32 DoorIndex = 0;
                 for(DoorIndex = 0; DoorIndex < Editor.World->Doors.Count; DoorIndex++){
@@ -705,8 +694,8 @@ UpdateEditor(f32 MetersToPixels){
             if(IsKeyJustPressed(KeyCode_LeftMouse)){
                 v2 MouseP = (OSInput.MouseP/MetersToPixels) + CameraP;
                 v2 TileP = v2{
-                    Floor(MouseP.X/TileSize.X), 
-                    Floor(MouseP.Y/TileSize.Y)
+                    Floor(MouseP.X/TILE_SIZE.X), 
+                    Floor(MouseP.Y/TILE_SIZE.Y)
                 };
                 
                 if(!DidSelectSomething){
@@ -724,8 +713,8 @@ UpdateEditor(f32 MetersToPixels){
                 UpdateEditorSelectionRectangle();
                 
                 v2 Size = Editor.CursorP - Editor.CursorP2;
-                Size.X *= TileSize.X;
-                Size.Y *= TileSize.Y;
+                Size.X *= TILE_SIZE.X;
+                Size.Y *= TILE_SIZE.Y;
                 Size.X = AbsoluteValue(Size.X);
                 Size.Y = AbsoluteValue(Size.Y);
                 
@@ -742,8 +731,8 @@ UpdateEditor(f32 MetersToPixels){
                  (Editor.Mode == EditMode_Dragonfly) ||
                  (Editor.Mode == EditMode_Speedy)){
             // NOTE(Tyler): Entity editing
-            v2 ViewTileP = {TileP.X*TileSize.X, TileP.Y*TileSize.Y};
-            v2 Center = ViewTileP+(0.5f*TileSize);
+            v2 ViewTileP = {TileP.X*TILE_SIZE.X, TileP.Y*TILE_SIZE.Y};
+            v2 Center = ViewTileP+(0.5f*TILE_SIZE);
             
             if(IsKeyJustPressed(KeyCode_LeftMouse) && 
                !DidSelectSomething){
@@ -755,8 +744,8 @@ UpdateEditor(f32 MetersToPixels){
                 NewEnemy->P = Center;
                 NewEnemy->P.Y += 0.001f;
                 NewEnemy->Direction = 1.0f;
-                NewEnemy->PathStart = {Center.X - TileSize.X/2, Center.Y};
-                NewEnemy->PathEnd = {Center.X + TileSize.X/2, Center.Y};
+                NewEnemy->PathStart = {Center.X - TILE_SIZE.X/2, Center.Y};
+                NewEnemy->PathEnd = {Center.X + TILE_SIZE.X/2, Center.Y};
                 
                 Editor.SelectedThingType = EntityType_Snail;
                 Editor.SelectedThing = Index;
@@ -901,24 +890,23 @@ UpdateAndRenderEditor(){
     
     {
         TIMED_SCOPE(RenderEditor);
-        v2 TileSize = v2{0.5f, 0.5f};
         {
             // Walls and coins
             // TODO(Tyler): Bounds checking
-            u32 CameraX = (u32)(CameraP.X/TileSize.X);
-            u32 CameraY = (u32)(CameraP.Y/TileSize.Y);
+            u32 CameraX = (u32)(CameraP.X/TILE_SIZE.X);
+            u32 CameraY = (u32)(CameraP.Y/TILE_SIZE.Y);
             TIMED_SCOPE(RenderWallsTeleportersAndCoinPs);
             for(u32 Y = CameraY; Y < CameraY+18+1; Y++)
             {
                 for(u32 X = CameraX; X < CameraX+32+1; X++)
                 {
                     u8 TileId = Editor.World->Map[Y*Editor.World->Width + X];
-                    v2 P = v2{TileSize.Width*(f32)X, TileSize.Height*(f32)Y} - CameraP;;
+                    v2 P = v2{TILE_SIZE.Width*(f32)X, TILE_SIZE.Height*(f32)Y} - CameraP;;
                     if(TileId == EntityType_Wall){
-                        RenderRectangle(&RenderGroup, P, P+TileSize,
+                        RenderRectangle(&RenderGroup, P, P+TILE_SIZE,
                                         0.0f, WHITE);
                     }else if(TileId == EntityType_Coin){
-                        v2 Center = P + 0.5f*TileSize;
+                        v2 Center = P + 0.5f*TILE_SIZE;
                         v2 Size = {0.3f, 0.3f};
                         RenderRectangle(&RenderGroup, Center-Size/2, Center+Size/2, 0.0f,
                                         YELLOW);
@@ -934,25 +922,25 @@ UpdateAndRenderEditor(){
                 for(u32 X = 0; X < Editor.World->Width; X++)
                 {
                     u8 TileId = Editor.World->Map[Y*Editor.World->Width + X];
-                    v2 P = v2{TileSize.Width*(f32)X, TileSize.Height*(f32)Y} - CameraP;;
+                    v2 P = v2{TILE_SIZE.Width*(f32)X, TILE_SIZE.Height*(f32)Y} - CameraP;;
                     if(TileId == EntityType_Teleporter){
                         if((Editor.SelectedThingType == EntityType_Teleporter) &&
                            (Editor.SelectedThing == TeleporterIndex)){
                             teleporter_data *Data = &Editor.World->Teleporters[TeleporterIndex];
                             v2 PInPixels = 
-                                v2{P.X+0.5f*TileSize.X, P.Y+TileSize.Y};
+                                v2{P.X+0.5f*TILE_SIZE.X, P.Y+TILE_SIZE.Y};
                             PInPixels *= RenderGroup.MetersToPixels;
                             PInPixels.Y += 5;
                             RenderCenteredString(&RenderGroup, &NormalFont, BLACK, 
                                                  PInPixels, -0.5f, Data->Level);
-                            v2 Center = P+(0.5f*TileSize);
+                            v2 Center = P+(0.5f*TILE_SIZE);
                             v2 Margin = {0.05f, 0.05f};
-                            RenderCenteredRectangle(&RenderGroup, Center, TileSize, 0.0f, 
+                            RenderCenteredRectangle(&RenderGroup, Center, TILE_SIZE, 0.0f, 
                                                     GREEN);
-                            RenderCenteredRectangle(&RenderGroup, Center, TileSize-Margin, 
+                            RenderCenteredRectangle(&RenderGroup, Center, TILE_SIZE-Margin, 
                                                     -0.01f, BLUE);
                         }else{
-                            RenderRectangle(&RenderGroup, P, P+TileSize,
+                            RenderRectangle(&RenderGroup, P, P+TILE_SIZE,
                                             0.0f, BLUE);
                         }
                         

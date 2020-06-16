@@ -15,6 +15,8 @@ global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
 global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
 global_constant char *STARTUP_LEVEL = "Test_Level";
+global_constant f32 TILE_SIDE = 0.5f;
+global_constant v2  TILE_SIZE = v2{TILE_SIDE, TILE_SIDE};
 
 global font MainFont;
 global font NormalFont;

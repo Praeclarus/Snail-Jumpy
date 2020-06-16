@@ -50,28 +50,27 @@ InitializeOverworld(){
     }
     
     //PushMemory(&OverworldMapMemory, sizeof(TemplateMap));
-    OverworldWorld.Map= (u8 *)DefaultAlloc(sizeof(TemplateMap));
+    OverworldWorld.Map = (u8 *)DefaultAlloc(sizeof(TemplateMap));
     for(u32 I = 0; I < sizeof(TemplateMap); I++){
         OverworldWorld.Map[I] = ((u8 *)TemplateMap)[I];
     }
     LastOverworldPlayerP = v2{3.0f, 2.0f};
     
-    f32 TileSideInMeters = 0.5f;
     {
         door_data *Door = PushNewArrayItem(&OverworldWorld.Doors);
-        Door->P.X = 20.5f*TileSideInMeters;
-        Door->P.Y = 5.5f*TileSideInMeters;
-        Door->Width = 1*TileSideInMeters;
-        Door->Height = 3*TileSideInMeters;
+        Door->P.X = 20.5f*TILE_SIDE;
+        Door->P.Y = 5.5f*TILE_SIDE;
+        Door->Width = 1*TILE_SIDE;
+        Door->Height = 3*TILE_SIDE;
         CopyCString(Door->RequiredLevel, "Test_Level", 512);
     }
     
     {
         door_data *Door = PushNewArrayItem(&OverworldWorld.Doors);
-        Door->P.X = 39.5f*TileSideInMeters;
-        Door->P.Y = 7.0f*TileSideInMeters;
-        Door->Width = 1*TileSideInMeters;
-        Door->Height = 2*TileSideInMeters;
+        Door->P.X = 39.5f*TILE_SIDE;
+        Door->P.Y = 7.0f*TILE_SIDE;
+        Door->Width = 1*TILE_SIDE;
+        Door->Height = 2*TILE_SIDE;
         CopyCString(Door->RequiredLevel, "Test_Level3", 512);
     }
 }
@@ -94,10 +93,9 @@ LoadOverworld(){
         }
     }
     
-    f32 TileSideInMeters = 0.5f;
     if(EntityManager.Memory.Used != 0){ EntityManager.Memory.Used = 0; }
     LoadWallsFromMap((u8*)Map, WallCount, OverworldWorld.Width, 
-                     OverworldWorld.Height, TileSideInMeters);
+                     OverworldWorld.Height);
     
     
     // NOTE(Tyler): Load doors
@@ -130,10 +128,10 @@ LoadOverworld(){
                     
                     EntityManager.Teleporters[CurrentId] = {};
                     EntityManager.Teleporters[CurrentId].Boundary.P = v2{
-                        ((f32)X+0.5f)*TileSideInMeters, ((f32)Y+0.5f)*TileSideInMeters
+                        ((f32)X+0.5f)*TILE_SIDE, ((f32)Y+0.5f)*TILE_SIDE
                     };
                     EntityManager.Teleporters[CurrentId].Boundary.Size = v2{
-                        TileSideInMeters, TileSideInMeters
+                        TILE_SIDE, TILE_SIDE
                     };
                     EntityManager.Teleporters[CurrentId].Level = 
                         OverworldWorld.Teleporters[CurrentId].Level;
