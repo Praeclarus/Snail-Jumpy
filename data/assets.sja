@@ -1,0 +1,139 @@
+: spritesheet snail
+    path snail_spritesheet.png
+    size 17
+    frames_per_row 7
+    frame_counts 4 4 3 3 4 4 3 3 7 7
+    base_fps 8
+    override_fps 6 3
+    override_fps 7 3
+	: states
+        state_moving          
+			left  1
+			right 2
+        state_turning 
+			left  3
+			right 4
+        state_retreating      
+			left  5
+			right 6
+        state_stunned
+			left  7
+			right 8
+        state_returning
+			left  9
+			right 10
+
+: spritesheet sally
+    path sally_spritesheet.png
+    size 33
+    frames_per_row 8
+    frame_counts 4 4 3 3 3 3 3 3 7 7
+    base_fps 8
+    override_fps 6 3
+    override_fps 7 3
+	: states
+        state_moving          
+			left  1
+			right 2
+        state_turning 
+			left  3
+			right 4
+        state_retreating      
+			left  5
+			right 6
+        state_stunned
+			left  7
+			right 8
+        state_returning
+			left  9
+			right 10
+
+: spritesheet speedy
+    path speedy_spritesheet.png
+    size 17
+    frames_per_row 8
+    frame_counts 4 4 3 3 2 2 3 3 7 7
+    base_fps 8
+    override_fps 6 3
+    override_fps 7 3
+	: states
+        state_moving          
+			left  1
+			right 2
+        state_turning 
+			left  3
+			right 4
+        state_retreating      
+			left  5
+			right 6
+        state_stunned
+			left  7
+			right 8
+        state_returning
+			left  9
+			right 10
+
+: spritesheet dragonfly
+    path dragonfly_spritesheet.png
+    size 33
+    frames_per_row 7
+    frame_counts 10 10 3 3
+    base_fps 8
+	: states
+        state_moving          
+			left  1
+			right 2
+        state_turning 
+			left  3
+			right 4
+
+: spritesheet player
+    path test_avatar_spritesheet2.png
+    size 64
+    frames_per_row 17
+    frame_counts 17 17 6 6 5 5 1 1 2 2
+    base_fps 8
+	: states
+        state_idle
+            left  1
+            right 2
+        state_moving
+            left  3
+            right 4
+		state_jumping
+            left  7
+            right 8
+        state_falling
+            left  9
+            right 10
+
+: spritesheet overworld_player
+	path overworld_avatar_spritesheet.png
+	size 64
+	frames_per_row 10
+	frame_counts 3 3 3 3 3 3 3 3 4 5 5 5 4 5 5 5
+	base_fps 8
+	: states
+		state_idle
+            north     1
+            northeast 2
+            east      3
+            southeast 4
+            south     5
+            southwest 6
+            west      7
+            northwest 8
+        state_moving
+            north      9
+            northeast 10
+            east      11
+            southeast 12
+            south     13
+            southwest 14
+            west      15
+            northwest 16
+
+: spritesheet heart
+	path heart_8x8.png
+	size 32
+	frames_per_row 4

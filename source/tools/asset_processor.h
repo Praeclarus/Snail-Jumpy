@@ -1,0 +1,4 @@
+#ifndef ASSET_PROCESSOR_H
+#define ASSET_PROCESSOR_H
+
+#endif //ASSET_PROCESSOR_H
