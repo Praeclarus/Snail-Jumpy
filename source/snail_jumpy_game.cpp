@@ -52,19 +52,12 @@ UpdateAndRenderMainGame(){
                     CompletionCooldown = 3.0f;
                 }
             }else{
-                // TODO(Tyler): This should be factored! Strings are wanted centered,
-                // quite commonly
-                f32 Advance =
-                    GetFormatStringAdvance(&MainFont, 
-                                           "You need: %u more coins!", 
-                                           RequiredCoins-Score);
                 v2 TopCenter = v2{
                     OSInput.WindowSize.Width/2, OSInput.WindowSize.Height/2
                 };
-                RenderFormatString(&RenderGroup, &MainFont, GREEN, 
-                                   TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
-                                   "You need: %u more coins!", 
-                                   RequiredCoins-Score);
+                RenderCenteredString(&RenderGroup, &MainFont, GREEN, TopCenter, -0.9f,
+                                     "You need: %u more coins!", 
+                                     RequiredCoins-Score);
             }
         }
     }
@@ -89,7 +82,7 @@ UpdateAndRenderMainGame(){
     // NOTE(Tyler): Update player
     {
         player_entity *Player = EntityManager.Player;
-        if(Player->AnimationCooldown <= 0.0f){
+        if(Player->Cooldown <= 0.0f){
             v2 ddP = {0};
             
 #if 0            
@@ -112,7 +105,6 @@ UpdateAndRenderMainGame(){
                 ddP.Y -= 17.0f;
             }
             
-            b8 IsRunning = false;
             f32 MovementSpeed = 120;
             if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
                 ddP.X += MovementSpeed;
@@ -139,12 +131,8 @@ UpdateAndRenderMainGame(){
                 // TODO(Tyler): Hot loaded variables file for tweaking these values in 
                 // realtime
                 switch(Player->Direction){
-                    case Direction_UpLeft:    Projectile->dP = v2{ -3,  10}; break;
-                    case Direction_DownLeft:  Projectile->dP = v2{ -3, -10}; break;
                     case Direction_Left:      Projectile->dP = v2{-13,   3}; break;
                     case Direction_Right:     Projectile->dP = v2{ 13,   3}; break;
-                    case Direction_UpRight:   Projectile->dP = v2{  3,  10}; break;
-                    case Direction_DownRight: Projectile->dP = v2{  3, -10}; break;
                 }
                 
                 Projectile->P = Player->P;
@@ -155,29 +143,15 @@ UpdateAndRenderMainGame(){
                 Projectile->Boundaries[0].P = Projectile->P;
             }
             
-            if(ddP.X != 0.0f){
-                u8 Direction = 0.0f < ddP.X;
-                if(0.0f < Player->dP.Y){
-                    PlayAnimation(Player, PlayerAnimation_JumpingLeft+Direction);
-                }else if(Player->dP.Y < 0.0f){
-                    PlayAnimation(Player, PlayerAnimation_FallingLeft+Direction);
-                }else{
-                    if(IsRunning){
-                        PlayAnimation(Player, PlayerAnimation_RunningLeft+Direction);
-                    }else{
-                        PlayAnimation(Player, PlayerAnimation_WalkingLeft+Direction);
-                    }
-                }
+            if(0.0f < Player->dP.Y){
+                ChangeEntityState(Player, State_Jumping);
+            }else if(Player->dP.Y < 0.0f){
+                ChangeEntityState(Player, State_Falling);
             }else{
-                u8 Direction = 0.0f < Player->dP.X;
-                if(0.0f < Player->dP.Y){
-                    PlayAnimation(Player, PlayerAnimation_JumpingLeft+Direction);
-                }else if(Player->dP.Y < 0.0f){
-                    PlayAnimation(Player, PlayerAnimation_FallingLeft+Direction);
-                }else{
-                    PlayAnimation(Player, PlayerAnimation_IdleLeft+Direction);
-                }
+                if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
+                else ChangeEntityState(Player, State_Idle);
             }
+            
             
             
             v2 dPOffset = {0};
@@ -237,7 +211,7 @@ UpdateAndRenderMainGame(){
     }
     
     // NOTE(Tyler): Health
-    {
+    if(0){
         f32 WindowWidth = OSInput.WindowSize.X / RenderGroup.MetersToPixels;
         v2 P = v2{0.2f, 0.8f};
         f32 XAdvance = 0.3f;
@@ -249,20 +223,20 @@ UpdateAndRenderMainGame(){
         Assert(FullHearts <= 3);
         u32 I;
         for(I = 0; I < FullHearts; I++){
-            RenderFrameOfSpriteSheet(&RenderGroup, Asset_Heart, 0, P, -0.9f);
+            RenderFrameOfSpriteSheet(&RenderGroup, "heart", 0, P, -0.9f);
             P.X += XAdvance;
         }
         
         if(Remainder > 0){
             Remainder = 3 - Remainder;
-            RenderFrameOfSpriteSheet(&RenderGroup, Asset_Heart, Remainder, P, -0.9f);
+            RenderFrameOfSpriteSheet(&RenderGroup, "heart", Remainder, P, -0.9f);
             P.X += XAdvance;
             I++;
         }
         
         if(I < 3){
             for(u32 J = 0; J < 3-I; J++){
-                RenderFrameOfSpriteSheet(&RenderGroup, Asset_Heart, 3, P, -0.9f);
+                RenderFrameOfSpriteSheet(&RenderGroup, "heart", 3, P, -0.9f);
                 P.X += XAdvance;
             }
         }
@@ -303,13 +277,11 @@ UpdateAndRenderMainGame(){
     
     Layout.CurrentP.X += Layout.Advance.X;
     LayoutString(&Layout, &DebugFont,
-                 BLACK, "Player velocity: %.2f %.2f",
-                 EntityManager.Player->dP.X, EntityManager.Player->dP.Y);
-    LayoutString(&Layout, &DebugFont,
-                 BLACK, "Player animation: %u %f %f",
-                 EntityManager.Player->CurrentAnimation,
+                 BLACK, "Player: vel: %.2f %.2f, state: %u %.2f %.2f",
+                 EntityManager.Player->dP.X, EntityManager.Player->dP.Y,
+                 EntityManager.Player->State,
                  EntityManager.Player->AnimationState,
-                 EntityManager.Player->AnimationCooldown);
+                 EntityManager.Player->Cooldown);
     
     Layout.CurrentP.X -= Layout.Advance.X;
     

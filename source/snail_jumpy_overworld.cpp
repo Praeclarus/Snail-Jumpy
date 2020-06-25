@@ -147,14 +147,14 @@ LoadOverworld(){
     }
     
     AllocateNEntities(1, EntityType_Player);
-    *EntityManager.Player = {0};
+    *EntityManager.Player = {};
     
     EntityManager.Player->Type = EntityType_Player;
     EntityManager.Player->P = LastOverworldPlayerP;
     EntityManager.Player->ZLayer = -0.7f;
     
-    EntityManager.Player->CurrentAnimation = PlayerAnimation_IdleLeft;
-    EntityManager.Player->Asset = Asset_TopdownPlayer;
+    EntityManager.Player->State = State_Idle;
+    EntityManager.Player->Asset = "overworld_player";
     EntityManager.Player->AnimationState = 0.0f;
     EntityManager.Player->BoundaryCount = 1;
     EntityManager.Player->Boundaries[0].Type = BoundaryType_Rectangle;
@@ -180,6 +180,7 @@ UpdateAndRenderOverworld(){
     //RenderGroup.MetersToPixels = 60.0f / 0.5f;
     RenderGroup.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
     
+    CollisionSystemNewFrame();
     UpdateAndRenderWalls(&RenderGroup);
     
     // NOTE(Tyler): Doors
@@ -197,11 +198,11 @@ UpdateAndRenderOverworld(){
                                 P+(Door->Boundary.Size/2), 0.0f, BROWN);
             }else{
                 color Color = BROWN;
-                Color.A = Door->AnimationCooldown;
+                Color.A = Door->Cooldown;
                 if(Color.A < 0.3f){
                     Color.A = 0.3f;
                 }
-                Door->AnimationCooldown -= OSInput.dTimeForFrame;
+                Door->Cooldown -= OSInput.dTimeForFrame;
                 RenderRectangle(&RenderGroup, P-(Door->Boundary.Size/2), 
                                 P+(Door->Boundary.Size/2), 0.0f, Color);
             }
@@ -304,6 +305,7 @@ UpdateAndRenderOverworld(){
         player_entity *Player = EntityManager.Player;
         if((ddP.X != 0.0f) && (ddP.Y != 0.0f)) ddP /= SquareRoot(LengthSquared(ddP));
         
+#if 0
         if((ddP.X == 0.0f) && (ddP.Y > 0.0f)){
             PlayAnimation(Player, TopdownPlayerAnimation_RunningNorth);
         }else if((ddP.X > 0.0f) && (ddP.Y > 0.0f)){
@@ -331,7 +333,9 @@ UpdateAndRenderOverworld(){
                 case TopdownPlayerAnimation_RunningWest:      PlayAnimation(Player, TopdownPlayerAnimation_IdleWest); break;
                 case TopdownPlayerAnimation_RunningNorthWest: PlayAnimation(Player, TopdownPlayerAnimation_IdleNorthWest); break;
             }
+            
         }
+#endif
         
         
         f32 MovementSpeed = 100;

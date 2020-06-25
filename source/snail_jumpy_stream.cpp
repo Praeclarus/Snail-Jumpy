@@ -20,7 +20,7 @@ CreateReadStream(void *Buffer, umw BufferSize){
 
 #define ConsumeType(Stream, Type) (Type *)ConsumeBytes(Stream, sizeof(Type))
 #define ConsumeArray(Stream, Type, N) (Type *)ConsumeBytes(Stream, N*sizeof(Type))
-internal u8 *
+internal inline u8 *
 ConsumeBytes(stream *Stream, u32 Bytes){
     u8 *Result = 0;
     if((Stream->CurrentIndex+Bytes) <= Stream->BufferSize){
@@ -34,7 +34,7 @@ ConsumeBytes(stream *Stream, u32 Bytes){
 }
 
 #define PeekType(Stream, Type) (Type *)PeekBytes(Stream, sizeof(Type))
-internal u8 *
+internal inline u8 *
 PeekBytes(stream *Stream, u32 Bytes){
     umw CurrentIndex = Stream->CurrentIndex;
     u8 *Result = ConsumeBytes(Stream, Bytes);
@@ -52,7 +52,7 @@ ConsumeString(stream *Stream){
     return(Result);
 }
 
-internal u32
+internal inline u32
 ConsumeBits(stream *Stream, u32 Bits){
     Assert(Bits < 32);
     u32 Result = *PeekType(Stream, u32);
@@ -66,7 +66,7 @@ ConsumeBits(stream *Stream, u32 Bits){
     return(Result);
 }
 
-internal u32
+internal inline u32
 PeekBits(stream *Stream, u32 Bits){
     umw CurrentIndex = Stream->CurrentIndex;
     u8 CurrentBit = Stream->CurrentBit;

@@ -52,7 +52,7 @@ AllocateNEntities(u32 N, entity_type Type){
 //~ Helpers
 internal inline void
 OpenDoor(door_entity *Door){
-    if(!Door->IsOpen){ Door->AnimationCooldown = 1.0f; }
+    if(!Door->IsOpen){ Door->Cooldown = 1.0f; }
     Door->IsOpen = true;
 }
 
@@ -105,14 +105,52 @@ UpdateCoin(u32 Id){
         }
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
         EntityManager.Coins[Id].Boundary.P = NewP;
-        EntityManager.Coins[Id].AnimationCooldown = 1.0f;
+        EntityManager.Coins[Id].Cooldown = 1.0f;
     }
+}
+
+internal void
+ChangeEntityState(entity *Entity, entity_state NewState){
+    if(Entity->State != NewState){
+        Entity->State = NewState;
+        Entity->AnimationState = 0.0f;
+        Entity->NumberOfTimesAnimationHasPlayed = 0;
+    }
+}
+
+internal void 
+SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N){
+    if(Entity->State != NewState){
+        ChangeEntityState(Entity, NewState);
+        Entity->Cooldown = N;
+    }
+}
+
+internal void 
+SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState){
+    if(Entity->State != NewState){
+        ChangeEntityState(Entity, NewState);
+        Entity->ChangeCondition = ChangeCondition_AnimationOver;
+    }
+}
+
+internal b8
+ShouldEntityUpdate(entity *Entity){
+    b8 Result = true;
+    
+    if(Entity->ChangeCondition == ChangeCondition_AnimationOver){
+        Result = (Entity->NumberOfTimesAnimationHasPlayed > 0);
+    }else if(Entity->ChangeCondition == ChangeCondition_CooldownOver){
+        Result = (Entity->Cooldown <= 0);
+    }
+    
+    return(Result);
 }
 
 internal void
 UpdateEnemyHitBox(enemy_entity *Enemy){
     if(Enemy->Type == EntityType_Sally){
-        if(Enemy->State & EntityState_Stunned){
+        if(Enemy->State == State_Stunned){
             Enemy->Boundaries[0].Type = BoundaryType_Circle;
             Enemy->Boundaries[0].Radius = 0.4f;
             Enemy->Boundaries[0].P = v2{
@@ -126,14 +164,15 @@ UpdateEnemyHitBox(enemy_entity *Enemy){
             };
         }
     }else if(Enemy->Type == EntityType_Dragonfly){
+        f32 DirectionF32 = ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f);
         // Tail
-        v2 RectP1 = {Enemy->P.X+Enemy->Direction*-0.23f, Enemy->P.Y+0.1f};
+        v2 RectP1 = {Enemy->P.X+DirectionF32*-0.23f, Enemy->P.Y+0.1f};
         v2 RectSize1 = {0.55f, 0.17f};
         
         // Body
-        v2 RectP2 = {Enemy->P.X+Enemy->Direction*0.29f, Enemy->P.Y+0.07f};
+        v2 RectP2 = {Enemy->P.X+DirectionF32*0.29f, Enemy->P.Y+0.07f};
         v2 RectSize2 = {0.45f, 0.48f};
-        if(Enemy->AnimationCooldown <= 0.0f){
+        if(ShouldEntityUpdate(Enemy)){
             // Tail
             Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
             Enemy->Boundaries[0].Size = RectSize1;
@@ -145,7 +184,7 @@ UpdateEnemyHitBox(enemy_entity *Enemy){
             Enemy->Boundaries[1].P = RectP2;
         }else{
             // Tail
-            v2 RectP2 = {Enemy->P.X+Enemy->Direction*0.29f, Enemy->P.Y+0.07f};
+            v2 RectP2 = {Enemy->P.X+DirectionF32*0.29f, Enemy->P.Y+0.07f};
             v2 RectSize2 = {0.45f, 0.48f};
             Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
             Enemy->Boundaries[0].Size = {1.0f, RectSize1.Y/2};
@@ -162,11 +201,7 @@ UpdateEnemyHitBox(enemy_entity *Enemy){
 internal void
 StunEnemy(enemy_entity *Enemy){
     if(Enemy->Type != EntityType_Dragonfly){
-        Enemy->State |= EntityState_Stunned;
-        Enemy->StunCooldown = 3.0f;
-        asset_animations AnimationIndex = (Enemy->Direction > 0.0f) ? 
-            EnemyAnimation_RetreatingRight : EnemyAnimation_RetreatingLeft;
-        PlayAnimationToEnd(Enemy, AnimationIndex);
+        SetEntityStateUntilAnimationIsOver(Enemy, State_Retreating);
         UpdateEnemyHitBox(Enemy);
     }
 }
@@ -200,8 +235,8 @@ UpdateAndRenderCoins(render_group *RenderGroup){
         if(P.X+Size.Width/2 < 0.0f) continue;
         if(9.0f < P.Y-Size.Height/2) continue;
         if(P.Y+Size.Height/2 < 0.0f) continue;
-        if(Coin->AnimationCooldown > 0.0f){
-            Coin->AnimationCooldown -= OSInput.dTimeForFrame;
+        if(Coin->Cooldown > 0.0f){
+            Coin->Cooldown -= OSInput.dTimeForFrame;
         }else{
             RenderRectangle(RenderGroup, P-(Size/2), P+(Size/2), 0.0f,
                             {1.0f, 1.0f, 0.0f, 1.0f});
@@ -223,8 +258,9 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
         if(P.Y+Enemy->Height/2 < 0.0f) continue;
 #endif
         
-        if((Enemy->AnimationCooldown <= 0.0f) &&
-           !(Enemy->State & EntityState_Stunned)){
+        if(ShouldEntityUpdate(Enemy) &&
+           (Enemy->State != State_Stunned) &&
+           (Enemy->State != State_Retreating)){
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
             f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
             f32 PathSpeed = 1.0f;
@@ -238,18 +274,18 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
             }
             
             if((StateAlongPath < 0.05f) &&
-               (Enemy->Direction < 0)){
-                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningRight);
-                Enemy->Direction = 1.0f;
+               (Enemy->Direction == Direction_Left)){
+                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+                Enemy->Direction = Direction_Right;
                 Enemy->dP = {0};
             }else if((StateAlongPath > (1.0f-0.05f)) &&
-                     (Enemy->Direction > 0)){
-                PlayAnimationToEnd(Enemy, EnemyAnimation_TurningLeft);
-                Enemy->Direction = -1.0f;
+                     (Enemy->Direction == Direction_Right)){
+                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+                Enemy->Direction = Direction_Left;
                 Enemy->dP = {0};
             }else{
                 v2 ddP = {
-                    PathSpeed * Enemy->Speed * Enemy->Direction,
+                    PathSpeed * Enemy->Speed*((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
                     0.0f
                 };
                 
@@ -257,28 +293,24 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
                     ddP.Y = -11.0f;
                 }
                 
-                u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
-                    EnemyAnimation_Right : EnemyAnimation_Left;
-                PlayAnimation(Enemy, AnimationIndex);
+                ChangeEntityState(Enemy, State_Moving);
                 
                 MoveEntity(Enemy, Id, ddP);
             }
-        }else if(Enemy->State & EntityState_Stunned){
-            if(Enemy->AnimationCooldown <= 0.0f){
-                Enemy->StunCooldown -= OSInput.dTimeForFrame;
-                if(Enemy->StunCooldown <= 0.0f){
-                    if((Enemy->CurrentAnimation == EnemyAnimation_ReappearingLeft) ||
-                       (Enemy->CurrentAnimation == EnemyAnimation_ReappearingRight)){
-                        Enemy->State &= ~EntityState_Stunned;
+        }else if(ShouldEntityUpdate(Enemy) &&
+                 (Enemy->State == State_Retreating)){
+            SetEntityStateForNSeconds(Enemy, State_Stunned, 3.0f);
+        }else if(Enemy->State == State_Stunned){
+            if(Enemy->Cooldown <= 0.0f){
+                if(Enemy->Cooldown <= 0.0f){
+                    if((Enemy->State == State_Returning) ||
+                       (Enemy->State == State_Returning)){
+                        ChangeEntityState(Enemy, State_Moving);
                     }else{
-                        u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
-                            EnemyAnimation_ReappearingRight : EnemyAnimation_ReappearingLeft;
-                        PlayAnimationToEnd(Enemy, AnimationIndex);
+                        SetEntityStateUntilAnimationIsOver(Enemy, State_Returning);
                     }
                 }else{
-                    u32 AnimationIndex = (Enemy->Direction > 0.0f) ?
-                        EnemyAnimation_HidingRight : EnemyAnimation_HidingLeft;
-                    PlayAnimation(Enemy, AnimationIndex);
+                    Enemy->State = State_Stunned;
                 }
                 
             }

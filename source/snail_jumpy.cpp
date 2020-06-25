@@ -26,11 +26,8 @@ global font DebugFont;
 global s32 Score;
 global f32 Counter;
 
-global spritesheet_asset *Assets;
-
 global memory_arena PermanentStorageArena;
 global memory_arena TransientStorageArena;
-
 
 global entity_manager EntityManager;
 global ui_manager UIManager;
@@ -47,7 +44,7 @@ global v2 LastOverworldPlayerP;
 
 global world_data OverworldWorld;
 global memory_arena EnemyMemory;
-global hash_table        LevelTable;
+global hash_table<const char *, u64>  LevelTable;
 global array<level_data> LevelData;
 global level_data       *CurrentLevel;
 global u32               CurrentLevelIndex;
@@ -60,6 +57,9 @@ internal void UpdateCoin(u32 Id);
 internal inline void DamagePlayer(u32 Damage);
 internal void StunEnemy(enemy_entity *Enemy);
 internal void UpdateEnemyHitBox(enemy_entity *Enemy);
+internal void ChangeEntityState(entity *Entity, entity_state NewState);
+internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
+internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -139,7 +139,7 @@ InitializeGame(){
     LevelData = CreateNewArray<level_data>(&PermanentStorageArena, 512);
     //MapDataMemory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
     EnemyMemory   = PushNewArena(&PermanentStorageArena, Kilobytes(64));
-    LevelTable    = PushHashTable(&PermanentStorageArena, 1024);
+    LevelTable    = PushLevelTable(&PermanentStorageArena, 1024);
     
     // NOTE(Tyler): Initialize overworld
     //OverworldMapMemory = PushNewArena(&PermanentStorageArena, Kilobytes(8));
@@ -165,7 +165,10 @@ InitializeGame(){
         ToggleEditor();
     }
     
-    LoadAssets();
+    //LoadAssets();
+    
+    AssetTable = PushHashTable<const char *, asset>(&PermanentStorageArena, 256);
+    LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);
     
     LoadFont(&TransientStorageArena, &DebugFont,
              "c:/windows/fonts/Arial.ttf", 20, 512, 512);
@@ -199,6 +202,9 @@ GameUpdateAndRender(){
     
     //~ Do next frame
     TIMED_FUNCTION();
+    
+    InitializeAssetLoader();
+    LoadAssetFile("assets.sja");
     
     switch(GameMode){
         case GameMode_MainGame: {

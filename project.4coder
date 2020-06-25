@@ -11,7 +11,8 @@ patterns = {
 "*.glsl",
 "*.bat",
 "*.4coder",
-"*.txt"
+"*.txt",
+"*.sja"
 };
 
 load_paths = {

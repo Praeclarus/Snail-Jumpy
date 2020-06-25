@@ -442,10 +442,8 @@ HandleCollision(entity *Entity, collision_event *Event){
                 DamagePlayer(Enemy->Damage);
             }
         }else if(Event->Normal.X != 0){
-            Enemy->Direction = Event->Normal.X;
-            u32 Animation = (Enemy->Direction > 0.0f) ?
-                EnemyAnimation_TurningRight : EnemyAnimation_TurningLeft;
-            PlayAnimationToEnd(Entity, Animation);
+            Enemy->Direction = (Event->Normal.X > 0.0f) ? Direction_Left : Direction_Right;
+            SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
         }
     }
 }
@@ -462,7 +460,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
     for(u32 Iteration = 0;
         (Iteration < 4) && (TimeRemaining > 0.0f);
         Iteration++){
-        collision_event Event = {0};
+        collision_event Event = {};
         Event.Time = 1.0f;
         
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
@@ -513,7 +511,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                             Step.Y = (RectP2.Y+(RectSize2.Y/2))-(RectP1.Y+(RectSize1.Y/2));
                                             
                                             Event.Type = CollisionType_Dragonfly;
-                                            if(Enemy->AnimationCooldown > 0.0f){
+                                            if(Enemy->Cooldown > 0.0f){
                                                 if(I == 0){ // Tail collision boundary
                                                     if(Event.Normal.Y > 0.0f){
                                                         Event.DoesHurt = false;
@@ -521,7 +519,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                                     }
                                                 }
                                             }else{
-                                                Step.X = 0.1f*Enemy->Direction;
+                                                Step.X = 0.1f*((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f);
                                                 if(Event.Normal.Y > 0.0f){
                                                     Event.DoesHurt = false;
                                                 }else if(Event.Normal.X == -Enemy->Direction){
@@ -534,7 +532,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                             }
                                         }else{
                                             Event.Type = CollisionType_Snail;
-                                            Event.DoesHurt = !(Enemy->State & EntityState_Stunned);
+                                            Event.DoesHurt = (Enemy->State != State_Stunned);
                                             Event.Damage = Enemy->Damage;
                                         }
                                     }
@@ -552,7 +550,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                 if(Entity->Type != EntityType_Player) break;
                                 coin_entity *Coin = &EntityManager.Coins[Item->EntityId];
                                 
-                                if(Coin->AnimationCooldown <= 0.0f){
+                                if(Coin->Cooldown <= 0.0f){
                                     f32 _DummyTime = 1.0f;
                                     v2  _DummyNormal;
                                     if(TestBoundaryAndBoundary(Boundary, EntityDelta, &Coin->Boundary,

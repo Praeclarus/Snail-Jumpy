@@ -1,4 +1,12 @@
+// TODO(Tyler): I have no clue if this is actually a good idea to do it this way
+global hash_table<const char *, asset_command> CommandTable;
+global hash_table<const char *, direction> DirectionTable;
+global hash_table<const char *, entity_state> StateTable;
+global hash_table<const char *, asset_spec> AssetSpecTable;
+global hash_table<const char *, asset> AssetTable;
 
+global hash_table<const char *, image> LoadedImageTable;
+global asset *CurrentAsset;
 
 //~ Loading
 struct entire_file {
@@ -22,82 +30,384 @@ ReadEntireFile(memory_arena *Arena, char *Path) {
 }
 
 internal void
-LoadAssets(){
-    Assets =
-        PushArray(&PermanentStorageArena, spritesheet_asset, Asset_TOTAL);
-    f32 MetersToPixels = 60.0f/0.5f;
-    
-    asset_descriptor AnimationInfoTable[Asset_TOTAL] = {
-        {"test_avatar_spritesheet2.png", 64, 17,  { 17, 17, 6, 6, 5, 5, 1, 1, 2, 2 }, { 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 }, 0, 1 },
-        {"snail_spritesheet.png",      17,  7,  {  4,  4, 3, 3, 4, 4, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0, 4 },
-        {"sally_spritesheet.png",      33,  8,  {  4,  4, 3, 3, 3, 3, 3, 3, 7, 7 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0, 4 },
-        {"dragonfly_spritesheet.png",  33,  7,  { 10, 10, 3, 3 }, { 8, 8, 8, 8 }, 0.0f, 4 },
-        {"speedy_spritesheet.png",     17,  8,  {  4,  4, 3, 3, 2, 2, 3, 3, 4, 4 }, { 8, 8, 8, 8, 8, 8, 3, 3, 8, 8 }, 0, 4 },
-        {"overworld_avatar_spritesheet.png", 64, 10,  {  3,  3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 4, 5, 5, 5 }, { 2, 2, 2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 8, 8, 8 }, 0, 1},
-        {"heart_8x8.png", 32, 4,  { 4 }, { 0 }, 0, 1 },
-    };
-    
-    for(u32 Index = 0; Index < Asset_TOTAL; Index++){
-        asset_descriptor *AssetInfo = &AnimationInfoTable[Index];
-        spritesheet_asset *CurrentAnimation = &Assets[Index];
-        
-        os_file *TestFile = OpenFile(AssetInfo->Path, OpenFile_Read);
-        u64 FileSize = GetFileSize(TestFile);
-        Assert(FileSize > 0);
-        u8 *TestFileData = PushArray(&TransientStorageArena, u8, FileSize);
-        ReadFile(TestFile, 0, TestFileData, FileSize);
-        CloseFile(TestFile);
-        s32 Width, Height, Components;
-        u8 *LoadedImage = stbi_load_from_memory(TestFileData, (int)FileSize,
-                                                &Width, &Height,
-                                                &Components, 4);
-        
-        CurrentAnimation->SizeInMeters = {
-            AssetInfo->SizeInPixels/MetersToPixels, AssetInfo->SizeInPixels/MetersToPixels
-        };
-        CurrentAnimation->SizeInTexCoords = {
-            AssetInfo->SizeInPixels/(f32)Width, AssetInfo->SizeInPixels/(f32)Height
-        };
-        CurrentAnimation->SpriteSheet = CreateRenderTexture(LoadedImage, Width, Height);
-        stbi_image_free(LoadedImage);
-        
-        CurrentAnimation->FramesPerRow = AssetInfo->FramesPerRow;
-        for(u32 I = 0; I < ArrayCount(spritesheet_asset::FrameCounts); I++){
-            CurrentAnimation->FrameCounts[I] = AssetInfo->FrameCounts[I];
-            CurrentAnimation->FpsArray[I] = AssetInfo->FpsArray[I];
+ConsumeWhiteSpace(stream *Stream){
+    u8 *NextBytePtr = PeekBytes(Stream, 1);
+    if(NextBytePtr){
+        u8 NextByte = *NextBytePtr;
+        if((NextByte == ' ') ||
+           (NextByte == '\t') ||
+           (NextByte == '\n') ||
+           (NextByte == '\r')){
+            b8 DoDecrement = true;
+            while((NextByte == ' ') ||
+                  (NextByte == '\t') ||
+                  (NextByte == '\n') ||
+                  (NextByte == '\r')){
+                u8 *NextBytePtr = ConsumeBytes(Stream, 1);
+                if(!NextBytePtr) { DoDecrement = false; break; }
+                NextByte = *NextBytePtr;
+            }
+            if(DoDecrement) Stream->CurrentIndex--;
         }
-        CurrentAnimation->Scale = AssetInfo->Scale;
+    }
+}
+
+internal void
+ProcessString(stream *Stream, char *Buffer, u32 BufferSize){
+    u32 BufferIndex = 0;
+    u8 *CharPtr = ConsumeBytes(Stream, 1);
+    if(CharPtr){
+        u8 Char = *CharPtr;
+        while((('a' <= Char) && (Char <= 'z')) ||
+              (('A' <= Char) && (Char <= 'Z')) ||
+              (('0' <= Char) && (Char <= '9')) ||
+              (Char == '_') ||
+              (Char == '.') ||
+              (Char == '/') ||
+              (Char == '\\')){
+            if(BufferIndex >= BufferSize-1) break;
+            Buffer[BufferIndex++] = Char;
+            CharPtr = ConsumeBytes(Stream, 1);
+            if(!CharPtr) break;
+            Char = *CharPtr;
+        }
+        Buffer[BufferIndex] = '\0';
+    }else{
+        Buffer[0] = '\0';
+    }
+}
+
+internal u32
+ProcessNumber(stream *Stream){
+    u32 Number = 0;
+    u8 *CharPtr = PeekBytes(Stream, 1);
+    if(CharPtr){
+        u8 Char = *CharPtr;
+        if(('0' <= Char) && (Char <= '9')){
+            b8 DoDecrement = true;
+            while(true){
+                CharPtr = ConsumeBytes(Stream, 1);
+                if(!CharPtr) { DoDecrement = false; break; }
+                Char = *CharPtr;
+                if(!(('0' <= Char) && (Char <= '9'))) break;
+                Number *= 10;
+                Number += Char -'0';
+            }
+            if(DoDecrement) Stream->CurrentIndex--;
+        }
+    }
+    return(Number);
+}
+
+internal void
+ProcessStates(stream *Stream, asset *NewAsset){
+    
+    
+    while(true){
+        ConsumeWhiteSpace(Stream);
+        u8 *NextBytePtr = PeekBytes(Stream, 1);
+        if(!NextBytePtr) break;
+        u8 NextByte = *NextBytePtr;
+        if(NextByte == ':') break;
         
-        CurrentAnimation->YOffset = AssetInfo->YOffset;
+        char Buffer[512];
+        ProcessString(Stream, Buffer, sizeof(Buffer));
+        char *String = PushArray(&TransientStorageArena, char, CStringLength(Buffer));
+        CopyCString(String, Buffer, CStringLength(Buffer)+1);
+        
+        entity_state State = FindInHashTable<const char *, entity_state>(&StateTable, Buffer);
+        Assert(State != State_None);
+        
+        while(true){
+            ConsumeWhiteSpace(Stream);
+            umw CurrentIndex = Stream->CurrentIndex;
+            char Buffer[512];
+            ProcessString(Stream, Buffer, sizeof(Buffer));
+            direction Direction = FindInHashTable<const char *, direction>(&DirectionTable, Buffer);
+            if(Direction == Direction_None){
+                Stream->CurrentIndex = CurrentIndex;
+                break;
+            }else{
+                
+                ConsumeWhiteSpace(Stream);
+                u32 Index = ProcessNumber(Stream);
+                
+                NewAsset->StateTable[State][Direction] = Index;
+            }
+        }
+        
+        //InsertIntoHashTable<const char *, u32>(&NewAsset->StateTable, String, Index);
+    }
+}
+
+internal void
+ProcessSpriteSheet(stream *Stream, asset *NewAsset){
+    
+    
+    s32 Width = 0;
+    s32 Height = 0;
+    s32 Components = 0;
+    u8 *ImageData = 0;
+    u32 Size = 0;
+    
+    b8 DoProcessStates = false;
+    while(true){
+        ConsumeWhiteSpace(Stream);
+        u8 *NextBytePtr = PeekBytes(Stream, 1);
+        if(!NextBytePtr) break;
+        u8 NextByte = *NextBytePtr;
+        if(NextByte == ':') break;
+        char Buffer[512];
+        ProcessString(Stream, Buffer, sizeof(Buffer));
+        
+        asset_spec Spec = FindInHashTable(&AssetSpecTable, (const char *)Buffer);
+        Assert(Spec != AssetSpec_None);
+        switch(Spec){
+            case AssetSpec_Path: {
+                ConsumeWhiteSpace(Stream);
+                char Buffer[512];
+                ProcessString(Stream, Buffer, sizeof(Buffer));
+                os_file *File = OpenFile(Buffer, OpenFile_Read);
+                u64 LastFileWriteTime = GetLastFileWriteTime(File);
+                CloseFile(File);
+                
+                image LoadedImage = FindInHashTable(&LoadedImageTable, (const char *)Buffer);
+                if(LoadedImage.HasBeenLoadedBefore){
+                    if(LoadedImage.LastWriteTime < LastFileWriteTime){
+                        entire_file File = ReadEntireFile(&TransientStorageArena, Buffer);
+                        
+                        ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
+                                                                (int)File.Size,
+                                                                &Width, &Height,
+                                                                &Components, 4);
+                    }
+                }else{
+                    char *String = PushArray(&PermanentStorageArena, char, CStringLength(Buffer)+1);
+                    CopyCString(String, Buffer, CStringLength(Buffer)+1);
+                    InsertIntoHashTable(&LoadedImageTable, (const char *)String, {true, LastFileWriteTime});
+                    entire_file File = ReadEntireFile(&PermanentStorageArena, String);
+                    
+                    ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
+                                                            (int)File.Size,
+                                                            &Width, &Height,
+                                                            &Components, 4);
+                }
+                
+            }break;
+            case AssetSpec_Size: {
+                ConsumeWhiteSpace(Stream);
+                Size = ProcessNumber(Stream);
+            }break;
+            case AssetSpec_FramesPerRow: {
+                ConsumeWhiteSpace(Stream);
+                NewAsset->FramesPerRow = ProcessNumber(Stream);
+            }break;
+            case AssetSpec_FrameCounts: {
+                ConsumeWhiteSpace(Stream);
+                NextBytePtr = PeekBytes(Stream, 1);
+                if(!NextBytePtr) break;
+                NextByte = *NextBytePtr;
+                u32 AnimationIndex = 0;
+                while(true){
+                    ConsumeWhiteSpace(Stream);
+                    NewAsset->FrameCounts[AnimationIndex] = ProcessNumber(Stream);
+                    AnimationIndex++;
+                    NextBytePtr = PeekBytes(Stream, 1);
+                    if(!NextBytePtr) break;
+                    NextByte = *NextBytePtr;
+                    if((NextByte == '\n') || (NextByte == '\r')) break;
+                }
+            }break;
+            case AssetSpec_BaseFPS: {
+                ConsumeWhiteSpace(Stream);
+                u32 BaseFPS = ProcessNumber(Stream);
+                for(u32 I = 0; I < ArrayCount(asset::FPSArray); I++){
+                    if(NewAsset->FPSArray[I] == 0){
+                        NewAsset->FPSArray[I]= BaseFPS;
+                    }
+                }
+            }break;
+            case AssetSpec_OverrideFPS: {
+                ConsumeWhiteSpace(Stream);
+                u32 OverrideIndex = ProcessNumber(Stream);
+                Assert(OverrideIndex < ArrayCount(asset::FPSArray));
+                ConsumeWhiteSpace(Stream);
+                u32 OverrideFPS = ProcessNumber(Stream);
+                NewAsset->FPSArray[OverrideIndex] = OverrideFPS;
+            }break;
+            default: Assert(0); break;
+        }
+    }
+    
+    Assert(Size != 0);
+    if(ImageData){
+        Assert(Width != 0);
+        Assert(Height != 0);
+        
+        NewAsset->SizeInPixels.Width = Width;
+        NewAsset->SizeInPixels.Height = Height;
+        NewAsset->SpriteSheet = CreateRenderTexture(ImageData, Width, Height);
+        stbi_image_free(ImageData);
+    }
+    
+    f32 MetersToPixels = 60.0f / 0.5f; // TODO(Tyler): GET THIS FROM THE RenderGroup
+    f32 WidthF32 = (f32)NewAsset->SizeInPixels.Width;
+    f32 HeightF32 = (f32)NewAsset->SizeInPixels.Height;
+    f32 SizeF32 = (f32)Size;
+    NewAsset->SizeInTexCoords.X = SizeF32 / WidthF32;
+    NewAsset->SizeInTexCoords.Y = SizeF32 / HeightF32;
+    NewAsset->SizeInMeters.X = SizeF32 / MetersToPixels;
+    NewAsset->SizeInMeters.Y = SizeF32 / MetersToPixels;
+    NewAsset->Scale = 4;
+    
+    if(DoProcessStates){
+        ProcessStates(Stream, NewAsset);
+    }
+}
+
+internal void
+ProcessCommand(stream *Stream){
+    
+    
+    char Buffer[512];
+    ProcessString(Stream,  Buffer, sizeof(Buffer));
+    asset_command Command = FindInHashTable<const char *, asset_command>(&CommandTable, Buffer);
+    Assert(Command != AssetCommand_None);
+    
+    switch(Command){
+        case AssetCommand_BeginSpriteSheet: {
+            char Buffer[512];
+            ProcessString(Stream, Buffer, sizeof(Buffer));
+            char *String = PushArray(&PermanentStorageArena, char, CStringLength(Buffer)+1);
+            CopyCString(String, Buffer, CStringLength(Buffer)+1);
+            // TODO(Tyler): These could probably be turned into a FindOrInsertIntoHashTable
+            CurrentAsset = FindOrCreatInHashTablePtr<const char *, asset>(&AssetTable, String);
+            CurrentAsset->Type = AssetType_SpriteSheet;
+            ProcessSpriteSheet(Stream, CurrentAsset);
+        }break;
+        case AssetCommand_BeginStates: {
+            Assert(CurrentAsset);
+            ProcessStates(Stream, CurrentAsset);
+        }break;
+        default: Assert(0); break;
+    }
+}
+
+// TODO(Tyler): It would be way more efficient to do this all at startup
+// and not each frame
+internal void
+InitializeAssetLoader(){
+    
+    
+    {
+        CommandTable = PushHashTable<const char *, asset_command>(&TransientStorageArena, AssetCommand_TOTAL);
+        InsertIntoHashTable(&CommandTable, "spritesheet", AssetCommand_BeginSpriteSheet);
+        InsertIntoHashTable(&CommandTable, "states", AssetCommand_BeginStates);
+    }
+    
+    {
+        AssetSpecTable = PushHashTable<const char *, asset_spec>(&TransientStorageArena, AssetSpec_TOTAL);
+        InsertIntoHashTable(&AssetSpecTable, "path", AssetSpec_Path);
+        InsertIntoHashTable(&AssetSpecTable, "size", AssetSpec_Size);
+        InsertIntoHashTable(&AssetSpecTable, "frames_per_row", AssetSpec_FramesPerRow);
+        InsertIntoHashTable(&AssetSpecTable, "frame_counts", AssetSpec_FrameCounts);
+        InsertIntoHashTable(&AssetSpecTable, "base_fps", AssetSpec_BaseFPS);
+        InsertIntoHashTable(&AssetSpecTable, "override_fps", AssetSpec_OverrideFPS);
+    }
+    
+    {
+        StateTable = PushHashTable<const char *, entity_state>(&TransientStorageArena, State_TOTAL);
+        InsertIntoHashTable(&StateTable, "state_idle", State_Idle);
+        InsertIntoHashTable(&StateTable, "state_moving", State_Moving);
+        InsertIntoHashTable(&StateTable, "state_jumping", State_Jumping);
+        InsertIntoHashTable(&StateTable, "state_falling", State_Falling);
+        InsertIntoHashTable(&StateTable, "state_turning", State_Turning);
+        InsertIntoHashTable(&StateTable, "state_retreating", State_Retreating);
+        InsertIntoHashTable(&StateTable, "state_stunned", State_Stunned);
+        InsertIntoHashTable(&StateTable, "state_returning", State_Returning);
+    }
+    
+    {
+        DirectionTable = PushHashTable<const char *, direction>(&TransientStorageArena, Direction_TOTAL+8);
+        InsertIntoHashTable(&DirectionTable, "north", Direction_North);
+        InsertIntoHashTable(&DirectionTable, "northeast", Direction_Northeast);
+        InsertIntoHashTable(&DirectionTable, "east", Direction_East);
+        InsertIntoHashTable(&DirectionTable, "southeast", Direction_Southeast);
+        InsertIntoHashTable(&DirectionTable, "south", Direction_South);
+        InsertIntoHashTable(&DirectionTable, "southwest", Direction_Southwest);
+        InsertIntoHashTable(&DirectionTable, "west", Direction_West);
+        InsertIntoHashTable(&DirectionTable, "northwest", Direction_Northwest);
+        InsertIntoHashTable(&DirectionTable, "up", Direction_Up);
+        InsertIntoHashTable(&DirectionTable, "down", Direction_Down);
+        InsertIntoHashTable(&DirectionTable, "left", Direction_Left);
+        InsertIntoHashTable(&DirectionTable, "right", Direction_Right);
+    }
+    
+#if 0    
+    {
+        AssetTable = PushHashTable<const char *, asset>(&TransientStorageArena, 256);
+    }
+#endif
+}
+
+internal void
+LoadAssetFile(char *Path){
+    TIMED_FUNCTION();
+    
+    stream Stream;
+    
+    entire_file File = ReadEntireFile(&TransientStorageArena, Path);
+    Stream = CreateReadStream(File.Data, File.Size);
+    
+    while(true){
+        u8 *NextBytePtr = PeekBytes(&Stream, 1);
+        if(!NextBytePtr) break;
+        u8 NextByte = *NextBytePtr;
+        if((('a' <= NextByte) && (NextByte <= 'z')) ||
+           (('A' <= NextByte) && (NextByte <= 'Z'))){
+            Assert(0);
+        }else if(('0' <= NextByte) && (NextByte <= '9')){
+            Assert(0);
+        }else if(NextByte == ':'){
+            ConsumeBytes(&Stream, 1);
+            ConsumeWhiteSpace(&Stream);
+            ProcessCommand(&Stream);
+        }else if((NextByte == ' ') ||
+                 (NextByte == '\t') ||
+                 (NextByte == '\n') ||
+                 (NextByte == '\r')){
+            ConsumeWhiteSpace(&Stream);
+        }
     }
 }
 
 //~ Miscellaneous
 
+// TODO(Tyler): ROBUSTNESS
 struct asset_info {
-    asset_type AssetIndex;
-    spritesheet_asset *Asset;
+    const char *AssetName;
+    asset *Asset;
     f32 YOffset;
 };
 internal inline asset_info
 GetAssetInfoFromEntityType(u32 Type){
     asset_info Result = {0};
     f32 YOffset = 0;
-    if(Type == EditMode_Snail){
-        Result.AssetIndex= Asset_Snail;
-        Result.Asset = &Assets[Result.AssetIndex];
+    if(Type == EntityType_Snail){
+        Result.AssetName = "snail";
+        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
         Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
-    }else if(Type == EditMode_Sally){
-        Result.AssetIndex = Asset_Sally;
-        Result.Asset = &Assets[Result.AssetIndex];
+    }else if(Type == EntityType_Sally){
+        Result.AssetName = "sally";
+        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
         Result.YOffset = 0.3f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
-    }else if(Type == EditMode_Dragonfly){
-        Result.AssetIndex = Asset_Dragonfly;
-        Result.Asset = &Assets[Result.AssetIndex];
+    }else if(Type == EntityType_Dragonfly){
+        Result.AssetName = "dragonfly";
+        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
         Result.YOffset = 0.25f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
-    }else if(Type == EditMode_Speedy){
-        Result.AssetIndex = Asset_Speedy;
-        Result.Asset = &Assets[Result.AssetIndex];
+    }else if(Type == EntityType_Speedy){
+        Result.AssetName = "speedy";
+        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
         Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
     }else{
         Assert(0);
@@ -107,10 +417,11 @@ GetAssetInfoFromEntityType(u32 Type){
 }
 
 internal void
-RenderFrameOfSpriteSheet(render_group *RenderGroup, asset_type AssetIndex, u32 FrameIndex,
-                         v2 Center, f32 Z){
-    spritesheet_asset *Asset = &Assets[AssetIndex];
-    u32 FrameInSpriteSheet = FrameIndex;
+RenderFrameOfSpriteSheet(render_group *RenderGroup, const char *AssetName, 
+                         u32 Frame, v2 Center, f32 Z){
+    asset *Asset = FindInHashTablePtr(&AssetTable, AssetName );
+    
+    u32 FrameInSpriteSheet = Frame;
     u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
     if(FrameInSpriteSheet >= Asset->FramesPerRow){
         RowInSpriteSheet -= (FrameInSpriteSheet / Asset->FramesPerRow);
@@ -129,85 +440,75 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, asset_type AssetIndex, u32 F
 
 //~ Animation rendering
 internal void
-PlayAnimation(entity *Entity, u32 AnimationIndex){
-    // TODO(Tyler): I am not sure if this is a good way to do this
-    if((Entity->CurrentAnimation != AnimationIndex) &&
-       (Entity->AnimationCooldown <= 0)){
-        Entity->CurrentAnimation = AnimationIndex;
-        Entity->AnimationState = 0.0f;
-    }
-}
-
-internal void
-PlayAnimationToEnd(entity *Entity, u32 AnimationIndex){
-    spritesheet_asset *Asset = &Assets[Entity->Asset];
-    f32 FrameCount = (f32)Asset->FrameCounts[AnimationIndex];
-    f32 Fps = (f32)Asset->FpsArray[AnimationIndex];
-    // NOTE(Tyler): - dTimeForFrame is so that the animation doesn't flash the starting
-    // frame of the animation for a single timestep
-    Entity->AnimationCooldown = (FrameCount/Fps) - OSInput.dTimeForFrame;
-    Entity->CurrentAnimation = AnimationIndex;
-    Entity->AnimationState = 0.0f;
-}
-
-internal void
 UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame, 
                          b8 Center=false){
-    spritesheet_asset *Asset = &Assets[Entity->Asset];
-    u32 FrameCount = Asset->FrameCounts[Entity->CurrentAnimation];
-    Entity->AnimationState += Asset->FpsArray[Entity->CurrentAnimation]*dTimeForFrame;
-    Entity->AnimationCooldown -= dTimeForFrame;
-    if(Entity->AnimationState >= FrameCount){
-        Entity->AnimationState -= Asset->FrameCounts[Entity->CurrentAnimation];
+    asset *Asset = FindInHashTablePtr<const char *, asset>(&AssetTable, Entity->Asset);
+    // TODO(Tyler): FIX THIS ONCE WE HAVE THE PROPER SIZED PLAYER SPRITESHEET
+    if(Entity->Type == EntityType_Player){
+        Asset->Scale = 1;
     }
     
-    v2 P = Entity->P - CameraP;
-    P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
-    P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
-    if(!Center){
-        P.Y += 0.5f*Asset->Scale*Asset->SizeInMeters.Height - Entity->YOffset + Asset->YOffset;
-    }
-    
-#if 0
-    f32 R = RenderGroup->MetersToPixels*4.0f;
-    P.X = RoundF32(P.X*R)/R;
-    P.Y = RoundF32(P.Y*R)/R;
-#endif
-    
-    u32 FrameInSpriteSheet = 0;
-    u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
-    FrameInSpriteSheet += (u32)Entity->AnimationState;
-    for(u32 Index = 0; Index < Entity->CurrentAnimation; Index++){
-        FrameInSpriteSheet += Asset->FrameCounts[Index];
-    }
-    if(FrameInSpriteSheet >= Asset->FramesPerRow){
-        RowInSpriteSheet -= (FrameInSpriteSheet / Asset->FramesPerRow);
-        FrameInSpriteSheet %= Asset->FramesPerRow;
-    }
-    
-    v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
-    MinTexCoord.X *= Asset->SizeInTexCoords.X;
-    MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
-    v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
-    
-    RenderTexture(RenderGroup, P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
-                  Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
-    
-#if 0
-    for(u32 I = 0; I < Entity->BoundaryCount; I++){
-        collision_boundary *Boundary = &Entity->Boundaries[I]; 
-        switch(Boundary->Type){
-            case BoundaryType_Rectangle: {
-                RenderRectangle(RenderGroup, Boundary->P-CameraP-0.5f*Boundary->Size, 
-                                Boundary->P-CameraP+0.5f*Boundary->Size, -1.0f, 
-                                {1.0f, 0.0f, 0.0f, 0.5f});
-            }break;
-            case BoundaryType_Circle: {
-                RenderCircle(RenderGroup, Boundary->P-CameraP, -1.0f, Boundary->Radius,
-                             {1.0f, 0.0f, 0.0f, 0.5f});
-            }break;
+    u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
+    if(AnimationIndex == 0) { 
+        Assert(0) 
+    }else{
+        AnimationIndex--;
+        
+        u32 FrameCount = Asset->FrameCounts[AnimationIndex];
+        Entity->AnimationState += Asset->FPSArray[AnimationIndex]*dTimeForFrame;
+        Entity->Cooldown -= dTimeForFrame;
+        if(Entity->AnimationState >= FrameCount){
+            Entity->AnimationState -= Asset->FrameCounts[AnimationIndex];
+            Entity->NumberOfTimesAnimationHasPlayed++;
         }
-    }
+        
+        v2 P = Entity->P - CameraP;
+        P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
+        P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
+        if(!Center){
+            P.Y += 0.5f*Asset->Scale*Asset->SizeInMeters.Height - Entity->YOffset + Asset->YOffset;
+        }
+        
+#if 0
+        f32 R = RenderGroup->MetersToPixels*4.0f;
+        P.X = RoundF32(P.X*R)/R;
+        P.Y = RoundF32(P.Y*R)/R;
 #endif
-    
+        
+        u32 FrameInSpriteSheet = 0;
+        u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
+        FrameInSpriteSheet += (u32)Entity->AnimationState;
+        for(u32 Index = 0; Index < AnimationIndex; Index++){
+            FrameInSpriteSheet += Asset->FrameCounts[Index];
+        }
+        if(FrameInSpriteSheet >= Asset->FramesPerRow){
+            RowInSpriteSheet -= (FrameInSpriteSheet / Asset->FramesPerRow);
+            FrameInSpriteSheet %= Asset->FramesPerRow;
+        }
+        
+        v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
+        MinTexCoord.X *= Asset->SizeInTexCoords.X;
+        MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
+        v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
+        
+        RenderTexture(RenderGroup, P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
+                      Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
+        
+#if 0
+        for(u32 I = 0; I < Entity->BoundaryCount; I++){
+            collision_boundary *Boundary = &Entity->Boundaries[I]; 
+            switch(Boundary->Type){
+                case BoundaryType_Rectangle: {
+                    RenderRectangle(RenderGroup, Boundary->P-CameraP-0.5f*Boundary->Size, 
+                                    Boundary->P-CameraP+0.5f*Boundary->Size, -1.0f, 
+                                    {1.0f, 0.0f, 0.0f, 0.5f});
+                }break;
+                case BoundaryType_Circle: {
+                    RenderCircle(RenderGroup, Boundary->P-CameraP, -1.0f, Boundary->Radius,
+                                 {1.0f, 0.0f, 0.0f, 0.5f});
+                }break;
+            }
+        }
+#endif
+    }
 }

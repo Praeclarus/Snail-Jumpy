@@ -17,22 +17,10 @@ enum entity_type {
     EntityType_Projectile = 10,
 };
 
-enum direction {
-    Direction_Left,
-    Direction_UpLeft,
-    Direction_DownLeft,
-    Direction_Right,
-    Direction_UpRight,
-    Direction_DownRight
-};
-
-// TODO(Tyler): Is this needed?
-typedef u32 entity_state;
-enum _entity_state {
-    EntityState_None,
-    
-    EntityState_Dead    = (1<<0),
-    EntityState_Stunned = (1<<1),
+enum state_change_condition {
+    ChangeCondition_None,
+    ChangeCondition_CooldownOver,
+    ChangeCondition_AnimationOver,
 };
 
 struct wall_entity {
@@ -50,9 +38,8 @@ struct coin_data {
 struct coin_entity {
     collision_boundary Boundary;
     
-    f32 AnimationCooldown;
-    asset_type Asset;
-    u32 CurrentAnimation;
+    f32 Cooldown;
+    const char *Asset;
     f32 AnimationState;
 };
 
@@ -67,7 +54,7 @@ struct door_entity {
     collision_boundary Boundary;
     b8 IsOpen;
     
-    f32 AnimationCooldown;
+    f32 Cooldown;
 };
 
 struct entity {
@@ -77,14 +64,14 @@ struct entity {
     v2 P, dP;
     entity_state State;
     
-    f32 AnimationCooldown;
-    asset_type Asset;
-    u32 CurrentAnimation;
+    state_change_condition ChangeCondition;
+    f32 Cooldown;
+    const char *Asset;
     f32 AnimationState;
     f32 ZLayer;
     f32 YOffset;
+    u32 NumberOfTimesAnimationHasPlayed;
     
-    // TODO(Tyler): Switch to using these in enemy_entity
     b8 IsGrounded;
     direction Direction;
     
@@ -94,8 +81,6 @@ struct entity {
 };
 
 struct enemy_entity : public entity {
-    f32 StunCooldown;
-    f32 Direction;
     f32 Speed;
     v2 PathStart, PathEnd;
     s32 Damage;

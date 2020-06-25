@@ -2,7 +2,7 @@
 #define SNAIL_JUMPY_DEBUG_H
 
 struct profiled_block {
-    char *Name;
+    const char *Name;
     u64 CycleCount;
     u32 Level;
 };
@@ -17,7 +17,7 @@ struct profile_data {
 global profile_data ProfileData;
 
 internal u32
-BeginProfiledBlock(char *Name){
+BeginProfiledBlock(const char *Name){
     ProfileData.Blocks[ProfileData.CurrentBlockIndex].Name = Name;
     ProfileData.Blocks[ProfileData.CurrentBlockIndex].Level = ProfileData.CurrentLevel;
     ProfileData.CurrentLevel++;
@@ -38,7 +38,7 @@ struct timed_scope {
     u64 StartCycleCount;
     u32 Index;
     
-    timed_scope(char *BlockName){
+    timed_scope(const char *BlockName){
         Index = BeginProfiledBlock(BlockName);
         this->StartCycleCount = __rdtsc();
     }

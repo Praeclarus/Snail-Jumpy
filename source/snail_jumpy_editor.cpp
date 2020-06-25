@@ -246,13 +246,13 @@ RenderEditorPopup(render_group *RenderGroup){
         if(UIButton(OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
                     100, 30, "Submit")){
             if(Editor.TextInput.Buffer[0] != '\0'){
-                u64 InLevelTable = FindInHashTable(&LevelTable,
-                                                   Editor.TextInput.Buffer);
+                u64 InLevelTable = FindInLevelTable(&LevelTable,
+                                                    Editor.TextInput.Buffer);
                 if(Editor.Popup == EditorPopup_LoadLevel){
                     if(!InLevelTable){
                         LoadLevelFromFile(Editor.TextInput.Buffer);
-                        InLevelTable = FindInHashTable(&LevelTable,
-                                                       Editor.TextInput.Buffer);
+                        InLevelTable = FindInLevelTable(&LevelTable,
+                                                        Editor.TextInput.Buffer);
                     }
                     
                     LoadLevel(Editor.TextInput.Buffer);
@@ -262,13 +262,13 @@ RenderEditorPopup(render_group *RenderGroup){
                     Editor.Popup = EditorPopup_None;
                 }else if(Editor.Popup == EditorPopup_RenameLevel){
                     if(!InLevelTable){
-                        if(RemoveFromHashTable(&LevelTable, CurrentLevel->Name)){
+                        if(RemoveFromLevelTable(&LevelTable, CurrentLevel->Name)){
                             CopyCString(CurrentLevel->Name, 
                                         Editor.TextInput.Buffer, 512);
                             Editor.TextInput.Buffer[0] = '\0';
                             Editor.TextInput.BufferIndex = 0;
-                            InsertIntoHashTable(&LevelTable, CurrentLevel->Name, 
-                                                CurrentLevelIndex+1);
+                            InsertIntoLevelTable(&LevelTable, CurrentLevel->Name, 
+                                                 CurrentLevelIndex+1);
                         }
                         Editor.Popup = EditorPopup_None;
                     }
@@ -453,7 +453,7 @@ RenderEditorCursor(render_group *RenderGroup){
         v2 Center = ViewTileP+(0.5f*TILE_SIZE);
         asset_info AssetInfo = GetAssetInfoFromEntityType(Editor.Mode);
         Center.Y += AssetInfo.YOffset;
-        RenderFrameOfSpriteSheet(RenderGroup, AssetInfo.AssetIndex, 0, Center, 
+        RenderFrameOfSpriteSheet(RenderGroup, AssetInfo.AssetName, 0, Center, 
                                  -0.5f);
     }
     
@@ -986,11 +986,9 @@ UpdateAndRenderEditor(){
             if(9.0f < Min.Y) continue;
             if(Max.Y < 0.0f) continue;
             if(Enemy->Direction > 0){ 
-                RenderFrameOfSpriteSheet(&RenderGroup, Info.AssetIndex, 4, P, 
-                                         -0.5f);
+                RenderFrameOfSpriteSheet(&RenderGroup, Info.AssetName, 4, P, -0.5f);
             }else if(Enemy->Direction < 0){
-                RenderFrameOfSpriteSheet(&RenderGroup, Info.AssetIndex, 0, P, 
-                                         -0.5f);
+                RenderFrameOfSpriteSheet(&RenderGroup, Info.AssetName, 0, P, -0.5f);
             }else{ Assert(0); }
         }
     }

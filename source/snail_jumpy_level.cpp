@@ -4,7 +4,7 @@
 internal void
 AddPlayer(v2 P){
     AllocateNEntities(1, EntityType_Player);
-    *EntityManager.Player = {0};
+    *EntityManager.Player = {};
     
     EntityManager.Player->Type = EntityType_Player;
     
@@ -17,8 +17,9 @@ AddPlayer(v2 P){
     EntityManager.Player->ZLayer = -5.0f;
     EntityManager.Player->YOffset = 0.5f / 2.0f;
     
-    EntityManager.Player->CurrentAnimation = PlayerAnimation_IdleRight;
-    EntityManager.Player->Asset = Asset_Player;
+    EntityManager.Player->Direction = Direction_Left;
+    EntityManager.Player->State = State_Idle;
+    EntityManager.Player->Asset = "player";
     EntityManager.Player->AnimationState = 0.0f;
     EntityManager.Player->JumpTime = 1.0f;
     
@@ -60,7 +61,7 @@ LoadLevel(const char *LevelName){
     ResetEntitySystem();
     
     if(LevelName){
-        u64 LevelIndex = FindInHashTable(&LevelTable, LevelName);
+        u64 LevelIndex = FindInLevelTable(&LevelTable, LevelName);
         if(LevelIndex){
             CurrentLevelIndex = (u32)LevelIndex-1;
             CurrentLevel = &LevelData[CurrentLevelIndex];
@@ -93,7 +94,7 @@ LoadLevel(const char *LevelName){
                     EntityManager.Coins[I].Boundary.Type = BoundaryType_Rectangle;
                     EntityManager.Coins[I].Boundary.Size = { 0.3f, 0.3f };
                     UpdateCoin(I);
-                    EntityManager.Coins[I].AnimationCooldown = 0.0f;
+                    EntityManager.Coins[I].Cooldown = 0.0f;
                 }
                 Score = 0; // HACK: UpdateCoin changes this value
             }
@@ -102,18 +103,18 @@ LoadLevel(const char *LevelName){
                 AllocateNEntities(CurrentLevel->World.Enemies.Count, EntityType_Snail);
                 for(u32 I = 0; I < CurrentLevel->World.Enemies.Count; I ++){
                     level_enemy *Enemy = &CurrentLevel->World.Enemies[I];
-                    EntityManager.Enemies[I] = {0};
+                    EntityManager.Enemies[I] = {};
                     EntityManager.Enemies[I].Type = Enemy->Type;
                     Assert(EntityManager.Enemies[I].Type);
                     
                     EntityManager.Enemies[I].P = Enemy->P;
                     
-                    EntityManager.Enemies[I].CurrentAnimation = EnemyAnimation_Left;
+                    EntityManager.Enemies[I].State = State_Moving;
                     EntityManager.Enemies[I].ZLayer = -0.7f;
                     
                     EntityManager.Enemies[I].Speed = 1.0f;
                     if(Enemy->Type == EntityType_Snail){
-                        EntityManager.Enemies[I].Asset = Asset_Snail; // For clarity
+                        EntityManager.Enemies[I].Asset = "snail";
                         EntityManager.Enemies[I].BoundaryCount = 1;
                         EntityManager.Enemies[I].Boundaries[0].Type = BoundaryType_Rectangle;
                         EntityManager.Enemies[I].Boundaries[0].Size = { 0.4f, 0.4f };
@@ -122,7 +123,7 @@ LoadLevel(const char *LevelName){
                         EntityManager.Enemies[I].Damage = 2;
                         
                     }else if(Enemy->Type == EntityType_Sally){
-                        EntityManager.Enemies[I].Asset = Asset_Sally;
+                        EntityManager.Enemies[I].Asset = "sally";
                         EntityManager.Enemies[I].P.Y += 0.3f;
                         
                         EntityManager.Enemies[I].BoundaryCount = 1;
@@ -151,7 +152,7 @@ LoadLevel(const char *LevelName){
                         EntityManager.Enemies[I].Boundaries[1].P = RectP2;
                         
                         EntityManager.Enemies[I].YOffset = 0.5f / 2.0f;
-                        EntityManager.Enemies[I].Asset = Asset_Dragonfly;
+                        EntityManager.Enemies[I].Asset = "dragonfly";
                         EntityManager.Enemies[I].ZLayer = -0.71f;
                         EntityManager.Enemies[I].Speed *= 2.0f;
                         EntityManager.Enemies[I].Damage = 2;
@@ -163,12 +164,12 @@ LoadLevel(const char *LevelName){
                         EntityManager.Enemies[I].Boundaries[0].P = Enemy->P;
                         EntityManager.Enemies[I].YOffset = 0.4f / 2.0f;
                         
-                        EntityManager.Enemies[I].Asset = Asset_Speedy;
+                        EntityManager.Enemies[I].Asset = "speedy";
                         EntityManager.Enemies[I].Speed *= 7.5f;
                         EntityManager.Enemies[I].Damage = 1;
                     }
                     
-                    EntityManager.Enemies[I].Direction = Enemy->Direction;
+                    EntityManager.Enemies[I].Direction = (Enemy->Direction > 0.0f) ? Direction_Right : Direction_Left;
                     EntityManager.Enemies[I].PathStart = Enemy->PathStart;
                     EntityManager.Enemies[I].PathEnd = Enemy->PathEnd;
                 }
@@ -218,43 +219,26 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex,
     
     for(u32 I = 0; I < World->Enemies.Count; I++){
         level_enemy *Enemy = &World->Enemies[I];
-        // TODO(Tyler): This could be factored in to something
-        spritesheet_asset *Asset = 0;
-        f32 YOffset = 0;
-        if(Enemy->Type == EntityType_Snail){
-            Asset = &Assets[Asset_Snail];
-            YOffset = 0.1f*Asset->SizeInMeters.Y;
-        }else if(Enemy->Type == EntityType_Sally){
-            Asset = &Assets[Asset_Sally];
-            YOffset = 0.3f*Asset->SizeInMeters.Y;
-        }else if(Enemy->Type == EntityType_Dragonfly){
-            Asset = &Assets[Asset_Dragonfly];
-            YOffset = 0.25f*Asset->SizeInMeters.Y;
-        }else if(Enemy->Type == EntityType_Speedy){
-            Asset = &Assets[Asset_Speedy];
-            YOffset = 0.1f*Asset->SizeInMeters.Y;
-        }else{
-            Assert(0);
-        }
+        asset_info AssetInfo = GetAssetInfoFromEntityType(Enemy->Type);
         
         v2 Size = v2{
-            Asset->SizeInMeters.X*(2*TileSize.X),
-            Asset->SizeInMeters.Y*(2*TileSize.Y)
+            AssetInfo.Asset->SizeInMeters.X*(2*TileSize.X),
+            AssetInfo.Asset->SizeInMeters.Y*(2*TileSize.Y)
         };
         v2 EnemyP = v2{Enemy->P.X*(2*TileSize.X), Enemy->P.Y*(2*TileSize.Y)} + P;
-        YOffset *= (2*TileSize.Y);
-        v2 Min = v2{EnemyP.X, EnemyP.Y+YOffset}-Size/2;
-        v2 Max = v2{EnemyP.X, EnemyP.Y+YOffset}+Size/2;
+        AssetInfo.YOffset *= (2*TileSize.Y);
+        v2 Min = v2{EnemyP.X, EnemyP.Y+AssetInfo.YOffset}-Size/2;
+        v2 Max = v2{EnemyP.X, EnemyP.Y+AssetInfo.YOffset}+Size/2;
         if(Enemy->Direction > 0){ 
             RenderTexture(RenderGroup,
-                          Min, Max, ZOffset-0.01f, Asset->SpriteSheet,
-                          {0.0f, 1.0f-2*Asset->SizeInTexCoords.Y},
-                          {Asset->SizeInTexCoords.X, 1.0f-Asset->SizeInTexCoords.Y});
+                          Min, Max, ZOffset-0.01f, AssetInfo.Asset->SpriteSheet,
+                          {0.0f, 1.0f-2*AssetInfo.Asset->SizeInTexCoords.Y},
+                          {AssetInfo.Asset->SizeInTexCoords.X, 1.0f-AssetInfo.Asset->SizeInTexCoords.Y});
         }else if(Enemy->Direction < 0){
             RenderTexture(RenderGroup,
-                          Min, Max, ZOffset-0.01f, Asset->SpriteSheet,
-                          {0.0f, 1.0f-Asset->SizeInTexCoords.Y},
-                          {Asset->SizeInTexCoords.X, 1.0f});
+                          Min, Max, ZOffset-0.01f, AssetInfo.Asset->SpriteSheet,
+                          {0.0f, 1.0f-AssetInfo.Asset->SizeInTexCoords.Y},
+                          {AssetInfo.Asset->SizeInTexCoords.X, 1.0f});
         }
         
         if(GameMode == GameMode_LevelEditor){
@@ -331,7 +315,7 @@ LoadLevelFromFile(const char *Name){
             NewData->World.Enemies[I] = *FileEnemy;
         }
         
-        InsertIntoHashTable(&LevelTable, NewData->Name, Index+1);
+        InsertIntoLevelTable(&LevelTable, NewData->Name, Index+1);
     }else{
         NewData->World.Width = 32;
         NewData->World.Height = 18;
@@ -340,7 +324,7 @@ LoadLevelFromFile(const char *Name){
         NewData->World.Map = (u8 *)DefaultAlloc(MapSize);
         NewData->World.Enemies = CreateNewArray<level_enemy>(&EnemyMemory, 64);
         CopyCString(NewData->Name, (char *)Name, 512);
-        InsertIntoHashTable(&LevelTable, NewData->Name, Index+1);
+        InsertIntoLevelTable(&LevelTable, NewData->Name, Index+1);
     }
     return(NewData);
 }

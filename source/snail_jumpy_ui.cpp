@@ -56,6 +56,7 @@ RenderAllUIPrimitives(render_group *RenderGroup){
                 RenderString(RenderGroup, Primitive->Font, Primitive->Color, 
                              Primitive->P, Primitive->Z, Primitive->String);
             }break;
+            default: Assert(0); break;
         }
     }
 }

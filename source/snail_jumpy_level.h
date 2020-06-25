@@ -41,6 +41,11 @@ struct level_data {
     b8 IsCompleted;
 };
 
+#define PushLevelTable(Arena, MaxBuckets) PushHashTable<const char *, u64>(Arena, MaxBuckets)
+#define InsertIntoLevelTable(Table, Key, Value) InsertIntoHashTable<const char *, u64>(Table, Key, Value)
+#define FindInLevelTable(Table, Key) FindInHashTable<const char *, u64>(Table, Key)
+#define RemoveFromLevelTable(Table, Key) RemoveFromHashTable<const char *, u64>(Table, Key)
+
 #pragma pack(push, 1)
 struct level_file_header {
     char Header[3];

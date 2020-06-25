@@ -22,6 +22,8 @@ internal u64
 WriteToFile(os_file *File, u64 FileOffset, const void *Buffer, umw BufferSize);
 internal u64 
 GetFileSize(os_file *File);
+internal u64
+GetLastFileWriteTime(os_file *File);
 internal void *
 AllocateVirtualMemory(umw Size);
 internal void 

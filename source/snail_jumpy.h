@@ -1,6 +1,42 @@
 #if !defined(SNAIL_JUMPY_H)
 #define SNAIL_JUMPY_H
 
+// TODO(Tyler): I Don't want to deal with the C++ ordering craziness monster right now
+enum entity_state {
+    State_None,
+    State_Idle,
+    State_Moving,
+    State_Jumping,
+    State_Falling,
+    State_Turning,
+    State_Retreating,
+    State_Stunned,
+    State_Returning,
+    
+    State_TOTAL,
+};
+
+enum direction {
+    Direction_None,
+    
+    Direction_North,
+    Direction_Northeast,
+    Direction_East,
+    Direction_Southeast,
+    Direction_South,
+    Direction_Southwest,
+    Direction_West,
+    Direction_Northwest,
+    
+    Direction_TOTAL,
+    
+    Direction_Up    = Direction_North,
+    Direction_Down  = Direction_South,
+    Direction_Left  = Direction_West,
+    Direction_Right = Direction_East,
+};
+
+
 #include "snail_jumpy_primitive_types.h"
 #include "snail_jumpy_allocators.cpp"
 #include "snail_jumpy_debug.h"

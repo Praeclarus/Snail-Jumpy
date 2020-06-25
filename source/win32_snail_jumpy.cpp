@@ -370,6 +370,16 @@ WriteToFile(os_file *File, u64 FileOffset, const void *Buffer, umw BufferSize){
     return(BytesWritten);
 }
 
+internal u64
+GetLastFileWriteTime(os_file *File){
+    FILETIME LastWriteTime = {};
+    GetFileTime(File, 0, 0, &LastWriteTime);
+    ULARGE_INTEGER Result;
+    Result.HighPart = LastWriteTime.dwHighDateTime;
+    Result.LowPart  = LastWriteTime.dwLowDateTime;
+    return(Result.QuadPart);
+}
+
 internal void *
 AllocateVirtualMemory(umw Size){
     void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
@@ -443,7 +453,7 @@ WinMain(HINSTANCE Instance,
                     }
                     TranslateMessage(&Message);
                     
-                    os_event Event = {0};
+                    os_event Event = {};
                     switch(Message.message){
                         case WM_SETCURSOR: {
                             HCURSOR Cursor = LoadCursorA(0, IDC_ARROW);
@@ -580,7 +590,6 @@ WinMain(HINSTANCE Instance,
                 };
                 
                 // TODO(Tyler): Multithreading?
-                //OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
                 GameUpdateAndRender();
                 
 #if 0                
@@ -608,7 +617,7 @@ WinMain(HINSTANCE Instance,
                     // TODO(Tyler): Error logging
                     //Assert(0);
                     LogError("Missed FPS");
-                    OSInput.dTimeForFrame= SecondsElapsed;
+                    OSInput.dTimeForFrame = SecondsElapsed;
                     // TODO(Tyler): I don't know if this is a good solution
                     if(OSInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
                         OSInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
