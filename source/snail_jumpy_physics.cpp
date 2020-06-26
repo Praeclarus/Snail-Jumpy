@@ -64,6 +64,24 @@ CollisionSystemNewFrame(){
         }
     }
     
+    for(u32 Id = 0; Id < EntityManager.DoorCount; Id++){
+        door_entity *Entity = &EntityManager.Doors[Id];
+        collision_boundary *Boundary = &Entity->Boundary;
+        
+        min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+        
+        for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
+            for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
+                collision_table_item *NewItem = PushStruct(&TransientStorageArena,
+                                                           collision_table_item);
+                NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
+                NewItem->EntityType = EntityType_Door;
+                NewItem->EntityId = Id;
+            }
+        }
+    }
+    
     for(u32 Id = 0; Id < EntityManager.CoinCount; Id++){
         coin_entity *Entity = &EntityManager.Coins[Id];
         collision_boundary *Boundary = &Entity->Boundary;
@@ -568,6 +586,18 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                     Event.DoesStun = true;
                                 }
                             }break;
+                            case EntityType_Door: {
+                                door_entity *Door = &EntityManager.Doors[Item->EntityId];
+                                if(Door->IsOpen) break;
+                                if(TestBoundaryAndBoundary(Boundary, EntityDelta, 
+                                                           &Door->Boundary,
+                                                           &Event.Time, &Event.Normal)){
+                                    Event.Type = CollisionType_Wall;
+                                    Event.EntityId = Id;
+                                    Event.DoesStun = true;
+                                }
+                            }break;
+                            default: { Assert(0); }break;
                         }
                         
                         Item = Item->Next;

@@ -17,6 +17,7 @@ global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
 global_constant char *STARTUP_LEVEL = "Debug";
 global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = v2{TILE_SIDE, TILE_SIDE};
+global_constant char *ASSET_FILE_PATH = "assets.sja";
 
 global font MainFont;
 global font NormalFont;
@@ -35,7 +36,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_OverworldEditor;
+global game_mode GameMode = GameMode_Overworld;
 
 global editor    Editor;
 
@@ -164,8 +165,6 @@ InitializeGame(){
         ToggleEditor();
     }
     
-    //LoadAssets();
-    
     AssetTable = PushHashTable<const char *, asset>(&PermanentStorageArena, 256);
     LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);
     
@@ -192,7 +191,7 @@ GameUpdateAndRender(){
     //~ Do next frame
     TIMED_FUNCTION();
     
-    LoadAssetFile("assets.sja");
+    LoadAssetFile(ASSET_FILE_PATH);
     
     switch(GameMode){
         case GameMode_MainGame: {

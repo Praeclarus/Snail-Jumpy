@@ -1,5 +1,5 @@
 internal void
-InitializeOverworld(){
+CreateDefaultOverworld(){
     local_constant u32 XTiles = 64;
     local_constant u32 YTiles = 36;
     OverworldWorld.Width = XTiles;
@@ -80,6 +80,8 @@ LoadOverworld(){
     TIMED_FUNCTION();
     
     ResetEntitySystem();
+    ReloadCollisionSystem(OverworldWorld.Width, OverworldWorld.Height,
+                          0.5f, 0.5f);
     u8 *Map = OverworldWorld.Map;
     
     u32 WallCount = 0; 
@@ -162,7 +164,6 @@ LoadOverworld(){
     EntityManager.Player->Boundaries[0].Size = v2{0.3f, 0.2f};
     EntityManager.Player->ZLayer = -0.5f;
     EntityManager.Player->Direction = Direction_North;
-    
     
     SetCameraCenterP(EntityManager.Player->P, OverworldWorld.Width, OverworldWorld.Height);
 }
@@ -367,6 +368,10 @@ UpdateAndRenderOverworld(){
     
     layout Layout = CreateLayout(100, OSInput.WindowSize.Height-100,
                                  30, DebugFont.Size);
+    LayoutString(&Layout, &DebugFont,
+                 BLACK, "TransientMemory:  %'jd", TransientStorageArena.Used);
+    LayoutString(&Layout, &DebugFont,
+                 BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
     LayoutString(&Layout, &DebugFont, BLACK, "CameraP: %f %f", 
                  CameraP.X, CameraP.Y);
     LayoutFps(&Layout);
@@ -419,7 +424,7 @@ LoadOverworldFromFile(){
         
         LastOverworldPlayerP = v2{1.5f, 1.5f};
     }else{
-        InitializeOverworld();
+        CreateDefaultOverworld();
         //Assert(0);
     }
 }

@@ -14,7 +14,7 @@ struct entire_file {
     u64 Size;
 };
 internal entire_file
-ReadEntireFile(memory_arena *Arena, char *Path) {
+ReadEntireFile(memory_arena *Arena, const char *Path) {
     os_file *File = 0;
     File = OpenFile(Path, OpenFile_Read);
     u64 FileSize = GetFileSize(File);
@@ -345,7 +345,7 @@ InitializeAssetLoader(){
 }
 
 internal void
-LoadAssetFile(char *Path){
+LoadAssetFile(const char *Path){
     TIMED_FUNCTION();
     
     stream Stream;
@@ -488,7 +488,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         RenderTexture(RenderGroup, P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
                       Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
         
-#if 0
+#if 1
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 
             switch(Boundary->Type){
