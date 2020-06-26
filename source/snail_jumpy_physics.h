@@ -81,7 +81,6 @@ struct collision_table_item {
 };
 
 struct collision_table {
-    memory_arena Memory;
     u32 Width;
     u32 Height;
     f32 TileWidth;

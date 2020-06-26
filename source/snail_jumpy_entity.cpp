@@ -312,7 +312,6 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
                 }else{
                     Enemy->State = State_Stunned;
                 }
-                
             }
         }
         

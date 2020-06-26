@@ -14,7 +14,7 @@
 global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
 global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
-global_constant char *STARTUP_LEVEL = "Test_Level";
+global_constant char *STARTUP_LEVEL = "Debug";
 global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = v2{TILE_SIDE, TILE_SIDE};
 
@@ -35,7 +35,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_MainGame;
+global game_mode GameMode = GameMode_OverworldEditor;
 
 global editor    Editor;
 
@@ -60,6 +60,7 @@ internal void UpdateEnemyHitBox(enemy_entity *Enemy);
 internal void ChangeEntityState(entity *Entity, entity_state NewState);
 internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
 internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
+internal b8 ShouldEntityUpdate(entity *Entity);
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -126,12 +127,10 @@ InitializeGame(){
     
     LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
     
+    InitializeAssetLoader();
+    
     // NOTE(Tyler): Entity memory
     EntityManager.Memory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
-    
-    // NOTE(Tyler): Collision system
-    InitializeCollisionSystem();
-    
     
     // NOTE(Tyler): Initialize levels
     // TODO(Tyler): It might be a better idea to use a few pool allocators for this, or a 
@@ -190,20 +189,9 @@ GameUpdateAndRender(){
     UIManager.FirstPrimitive = 0;
     UIManager.HandledInput = false;
     
-    // Setup collision system
-    {
-        umw CollisionTableSize = CollisionTable.Width*CollisionTable.Height*sizeof(collision_table_item);
-        ZeroMemory(CollisionTable.Items, CollisionTableSize);
-        collision_table_item **Items = CollisionTable.Items;
-        CollisionTable.Items = CollisionTable.Items;
-        CollisionTable.Items = Items;
-        CollisionTable.Memory.Used = CollisionTableSize;
-    }
-    
     //~ Do next frame
     TIMED_FUNCTION();
     
-    InitializeAssetLoader();
     LoadAssetFile("assets.sja");
     
     switch(GameMode){

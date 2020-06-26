@@ -161,6 +161,8 @@ LoadOverworld(){
     EntityManager.Player->Boundaries[0].P = EntityManager.Player->P;
     EntityManager.Player->Boundaries[0].Size = v2{0.3f, 0.2f};
     EntityManager.Player->ZLayer = -0.5f;
+    EntityManager.Player->Direction = Direction_North;
+    
     
     SetCameraCenterP(EntityManager.Player->P, OverworldWorld.Width, OverworldWorld.Height);
 }

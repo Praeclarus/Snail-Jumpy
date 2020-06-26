@@ -185,6 +185,7 @@ FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
     u64 Hash = HashKey(Key);
     if(Hash == 0) Hash++; 
     
+    b8 IsValid = true;
     u32 Index = Hash % Table->MaxBuckets;
     while(true){
         u64 TestHash = Table->Hashes[Index];
@@ -192,6 +193,7 @@ FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
            CompareKeys(Key, Table->Keys[Index])){
             break;
         }else if(TestHash == 0){
+            IsValid = false;
             break;
         }else{
             Index++;
@@ -199,8 +201,8 @@ FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
         }
     }
     
-    
-    ValueType *Result = &Table->Values[Index];
+    ValueType *Result = 0;
+    if(IsValid) Result = &Table->Values[Index];
     return(Result);
 }
 

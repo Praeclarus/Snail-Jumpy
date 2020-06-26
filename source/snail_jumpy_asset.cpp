@@ -112,8 +112,6 @@ ProcessStates(stream *Stream, asset *NewAsset){
         
         char Buffer[512];
         ProcessString(Stream, Buffer, sizeof(Buffer));
-        char *String = PushArray(&TransientStorageArena, char, CStringLength(Buffer));
-        CopyCString(String, Buffer, CStringLength(Buffer)+1);
         
         entity_state State = FindInHashTable<const char *, entity_state>(&StateTable, Buffer);
         Assert(State != State_None);
@@ -229,7 +227,7 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
             }break;
             case AssetSpec_OverrideFPS: {
                 ConsumeWhiteSpace(Stream);
-                u32 OverrideIndex = ProcessNumber(Stream);
+                u32 OverrideIndex = ProcessNumber(Stream) - 1;
                 Assert(OverrideIndex < ArrayCount(asset::FPSArray));
                 ConsumeWhiteSpace(Stream);
                 u32 OverrideFPS = ProcessNumber(Stream);
@@ -278,10 +276,14 @@ ProcessCommand(stream *Stream){
         case AssetCommand_BeginSpriteSheet: {
             char Buffer[512];
             ProcessString(Stream, Buffer, sizeof(Buffer));
-            char *String = PushArray(&PermanentStorageArena, char, CStringLength(Buffer)+1);
-            CopyCString(String, Buffer, CStringLength(Buffer)+1);
-            // TODO(Tyler): These could probably be turned into a FindOrInsertIntoHashTable
-            CurrentAsset = FindOrCreatInHashTablePtr<const char *, asset>(&AssetTable, String);
+            CurrentAsset = FindInHashTablePtr(&AssetTable, (const char *)Buffer);
+            if(!CurrentAsset){
+                char *String = PushArray(&PermanentStorageArena, char, CStringLength(Buffer)+1);
+                CopyCString(String, Buffer, CStringLength(Buffer)+1);
+                InsertIntoHashTable(&AssetTable, (const char *)String, {});
+                CurrentAsset = FindInHashTablePtr(&AssetTable, (const char *)Buffer);
+            }
+            
             CurrentAsset->Type = AssetType_SpriteSheet;
             ProcessSpriteSheet(Stream, CurrentAsset);
         }break;
@@ -297,16 +299,14 @@ ProcessCommand(stream *Stream){
 // and not each frame
 internal void
 InitializeAssetLoader(){
-    
-    
     {
-        CommandTable = PushHashTable<const char *, asset_command>(&TransientStorageArena, AssetCommand_TOTAL);
+        CommandTable = PushHashTable<const char *, asset_command>(&PermanentStorageArena, AssetCommand_TOTAL);
         InsertIntoHashTable(&CommandTable, "spritesheet", AssetCommand_BeginSpriteSheet);
         InsertIntoHashTable(&CommandTable, "states", AssetCommand_BeginStates);
     }
     
     {
-        AssetSpecTable = PushHashTable<const char *, asset_spec>(&TransientStorageArena, AssetSpec_TOTAL);
+        AssetSpecTable = PushHashTable<const char *, asset_spec>(&PermanentStorageArena, AssetSpec_TOTAL);
         InsertIntoHashTable(&AssetSpecTable, "path", AssetSpec_Path);
         InsertIntoHashTable(&AssetSpecTable, "size", AssetSpec_Size);
         InsertIntoHashTable(&AssetSpecTable, "frames_per_row", AssetSpec_FramesPerRow);
@@ -316,7 +316,7 @@ InitializeAssetLoader(){
     }
     
     {
-        StateTable = PushHashTable<const char *, entity_state>(&TransientStorageArena, State_TOTAL);
+        StateTable = PushHashTable<const char *, entity_state>(&PermanentStorageArena, State_TOTAL);
         InsertIntoHashTable(&StateTable, "state_idle", State_Idle);
         InsertIntoHashTable(&StateTable, "state_moving", State_Moving);
         InsertIntoHashTable(&StateTable, "state_jumping", State_Jumping);
@@ -328,7 +328,7 @@ InitializeAssetLoader(){
     }
     
     {
-        DirectionTable = PushHashTable<const char *, direction>(&TransientStorageArena, Direction_TOTAL+8);
+        DirectionTable = PushHashTable<const char *, direction>(&PermanentStorageArena, Direction_TOTAL+8);
         InsertIntoHashTable(&DirectionTable, "north", Direction_North);
         InsertIntoHashTable(&DirectionTable, "northeast", Direction_Northeast);
         InsertIntoHashTable(&DirectionTable, "east", Direction_East);
@@ -342,12 +342,6 @@ InitializeAssetLoader(){
         InsertIntoHashTable(&DirectionTable, "left", Direction_Left);
         InsertIntoHashTable(&DirectionTable, "right", Direction_Right);
     }
-    
-#if 0    
-    {
-        AssetTable = PushHashTable<const char *, asset>(&TransientStorageArena, 256);
-    }
-#endif
 }
 
 internal void
@@ -458,7 +452,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         Entity->AnimationState += Asset->FPSArray[AnimationIndex]*dTimeForFrame;
         Entity->Cooldown -= dTimeForFrame;
         if(Entity->AnimationState >= FrameCount){
-            Entity->AnimationState -= Asset->FrameCounts[AnimationIndex];
+            Entity->AnimationState = ModF32(Entity->AnimationState, (f32)Asset->FrameCounts[AnimationIndex]);
             Entity->NumberOfTimesAnimationHasPlayed++;
         }
         

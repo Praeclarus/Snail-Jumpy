@@ -6,10 +6,14 @@ enum entity_type {
     
     EntityType_Wall      = 1,
     EntityType_Coin      = 2, // Possible CoinP
+    
+    // TODO(Tyler): Remove these, make them into a unified EntityType_Enemy
     EntityType_Snail     = 3,
     EntityType_Sally     = 4,
     EntityType_Dragonfly = 5,
     EntityType_Speedy    = 6,
+    
+    
     EntityType_Player    = 7,
     
     EntityType_Teleporter = 8,

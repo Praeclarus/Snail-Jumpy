@@ -1,22 +1,10 @@
 
-
-internal void
-InitializeCollisionSystem(){
-    CollisionTable.Memory = PushNewArena(&PermanentStorageArena, Megabytes(2));
-}
-
 internal void
 ReloadCollisionSystem(u32 Width, u32 Height, f32 TileWidth, f32 TileHeight){
-    CollisionTable.Memory.Used = 0;
-    
     CollisionTable.Width = Truncate((f32)Width / TileWidth);
     CollisionTable.Height = Truncate((f32)Height / TileHeight);
     CollisionTable.TileWidth = TileWidth;
     CollisionTable.TileHeight = TileHeight;
-    
-    CollisionTable.Items = PushArray(&CollisionTable.Memory, collision_table_item *, 
-                                     Width*Height);
-    ZeroMemory(CollisionTable.Items, Width*Height*sizeof(collision_table_item));
 }
 
 internal min_max_boundary_s32
@@ -53,6 +41,11 @@ GetBoundaryMinMax(collision_boundary *Boundary, v2 Delta=v2{0}){
 
 internal void
 CollisionSystemNewFrame(){
+    CollisionTable.Items = PushArray(&TransientStorageArena, collision_table_item *, 
+                                     CollisionTable.Width*CollisionTable.Height);
+    ZeroMemory(CollisionTable.Items, 
+               CollisionTable.Width*CollisionTable.Height*sizeof(collision_table_item));
+    
     for(u32 Id = 0; Id < EntityManager.WallCount; Id++){
         wall_entity *Entity = &EntityManager.Walls[Id];
         collision_boundary *Boundary = &Entity->Boundary;
@@ -61,7 +54,7 @@ CollisionSystemNewFrame(){
         
         for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
             for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
+                collision_table_item *NewItem = PushStruct(&TransientStorageArena,
                                                            collision_table_item);
                 NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                 CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
@@ -79,7 +72,7 @@ CollisionSystemNewFrame(){
         
         for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
             for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
+                collision_table_item *NewItem = PushStruct(&TransientStorageArena,
                                                            collision_table_item);
                 NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                 CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
@@ -99,7 +92,7 @@ CollisionSystemNewFrame(){
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                    collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
+                    collision_table_item *NewItem = PushStruct(&TransientStorageArena,
                                                                collision_table_item);
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
@@ -121,7 +114,7 @@ CollisionSystemNewFrame(){
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                    collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
+                    collision_table_item *NewItem = PushStruct(&TransientStorageArena,
                                                                collision_table_item);
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
@@ -142,7 +135,7 @@ CollisionSystemNewFrame(){
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                    collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
+                    collision_table_item *NewItem = PushStruct(&TransientStorageArena,
                                                                collision_table_item);
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
@@ -442,7 +435,7 @@ HandleCollision(entity *Entity, collision_event *Event){
                 DamagePlayer(Enemy->Damage);
             }
         }else if(Event->Normal.X != 0){
-            Enemy->Direction = (Event->Normal.X > 0.0f) ? Direction_Left : Direction_Right;
+            Enemy->Direction = (Event->Normal.X > 0.0f) ? Direction_Right : Direction_Left;
             SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
         }
     }
@@ -511,7 +504,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                             Step.Y = (RectP2.Y+(RectSize2.Y/2))-(RectP1.Y+(RectSize1.Y/2));
                                             
                                             Event.Type = CollisionType_Dragonfly;
-                                            if(Enemy->Cooldown > 0.0f){
+                                            if(!ShouldEntityUpdate(Enemy)){
                                                 if(I == 0){ // Tail collision boundary
                                                     if(Event.Normal.Y > 0.0f){
                                                         Event.DoesHurt = false;
@@ -519,10 +512,11 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                                     }
                                                 }
                                             }else{
-                                                Step.X = 0.1f*((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f);
+                                                f32 F32Direction = ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f); 
+                                                Step.X = 0.1f*F32Direction;
                                                 if(Event.Normal.Y > 0.0f){
                                                     Event.DoesHurt = false;
-                                                }else if(Event.Normal.X == -Enemy->Direction){
+                                                }else if(Event.Normal.X == -F32Direction){
                                                     Event.DoesHurt = false;
                                                     Event.StepMove = Step;
                                                 }else{
@@ -593,7 +587,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                    collision_table_item *NewItem = PushStruct(&CollisionTable.Memory,
+                    collision_table_item *NewItem = PushStruct(&TransientStorageArena,
                                                                collision_table_item);
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;

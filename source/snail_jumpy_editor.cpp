@@ -141,8 +141,7 @@ RenderTeleporterPopup(render_group *RenderGroup){
     if(IsKeyJustPressed(KeyCode_Tab)){
         if(UIManager.SelectedWidgetId == 1){
             UIManager.SelectedWidgetId = 2;
-        }else if((UIManager.SelectedWidgetId == 2) ||
-                 (UIManager.SelectedWidgetId == 0)){
+        }else if(UIManager.SelectedWidgetId == 2){
             UIManager.SelectedWidgetId = 1;
         }
     }
@@ -511,10 +510,11 @@ UpdateEditor(f32 MetersToPixels){
             Assert(Editor.Mode != EditMode_TOTAL);
         }
         
-        //
-        // TODO(Tyler): There needs to be the ability to change the current level in the 
-        // editor, which means an effective way to load levels, probably by name. 
-        //
+        if(IsKeyJustPressed('L') &&
+           GameMode == GameMode_LevelEditor){
+            Editor.Popup = EditorPopup_LoadLevel;
+            UIManager.SelectedWidgetId = 1;
+        }
         
         f32 MovementSpeed = 0.1f;
         if(IsKeyDown('D') && !IsKeyDown('A')){
@@ -556,16 +556,14 @@ UpdateEditor(f32 MetersToPixels){
             }else{
                 b8 ClickedOnDoor = false;
                 u32 DoorIndex = 0;
-                if(GameMode == GameMode_OverworldEditor){
-                    for(DoorIndex = 0; DoorIndex < Editor.World->Doors.Count; DoorIndex++){
-                        door_data *Door = &Editor.World->Doors[DoorIndex];
-                        v2 DoorMin = Door->P - Door->Size/2.0f;
-                        v2 DoorMax = Door->P + Door->Size/2.0f;
-                        if((DoorMin.X <= MouseP.X) && (MouseP.X <= DoorMax.X) &&
-                           (DoorMin.Y <= MouseP.Y) && (MouseP.Y <= DoorMax.Y)){
-                            ClickedOnDoor = true;
-                            break;
-                        }
+                for(DoorIndex = 0; DoorIndex < Editor.World->Doors.Count; DoorIndex++){
+                    door_data *Door = &Editor.World->Doors[DoorIndex];
+                    v2 DoorMin = Door->P - Door->Size/2.0f;
+                    v2 DoorMax = Door->P + Door->Size/2.0f;
+                    if((DoorMin.X <= MouseP.X) && (MouseP.X <= DoorMax.X) &&
+                       (DoorMin.Y <= MouseP.Y) && (MouseP.Y <= DoorMax.Y)){
+                        ClickedOnDoor = true;
+                        break;
                     }
                 }
                 
@@ -785,6 +783,7 @@ PanelLevelEditor(panel *Panel){
     
     if(PanelButton(Panel, "Load level")){
         Editor.Popup = EditorPopup_LoadLevel;
+        UIManager.SelectedWidgetId = 1;
     }
     
     if(PanelButton(Panel, "Rename level")){

@@ -1,51 +1,58 @@
 TODOS:
 -----------------------------------------------
 
- - BAKE FONTS AT COMPILE TIME!
- - Formalize triggers in the collisions system
+ - Hotloading
+     - Variables file a la Jonathan Blow's games
+
+ - Editor
+     - Drag entity path endpoints
+     - Able to set PLAYER and GATE position!!!
+     - Able to edit most entity attributes
+         - Collision boundary editing
+     - Allow a variable number of coins in a level
+     - Undo/Redo
+         - Maybe!!!
+
+ - TODOS for release
+     - BAKE FONTS AT COMPILE TIME!
+         - Use the new stb_truetype baking API
+     - Bake asset file
+     - Bake PNGs into a custom format, or maybe just a BMP
+     - Better platform layer/s
+     - Multiple rendering APIs
+         - Fixed function OpenGL
+         - Linux
+             - Modern OpenGL
+             - Vulkan???
+         - Mac        
+             - Metal
+         - Windows
+             - Direct3D
+
+ - Make teleporters, use the collision system
  - Perhaps make entity ids fixed point, where the first few bits specify the entity type,
    and then the next few bits specify the index
 
  - Improve user input, it could be done way better! Maybe not have user input be global?
- - Cleanup editor
 
- - Improve framerate independence, it is almost there but the integration when there isn't
-     enough frametime to make a full timestep can be improved
-
- - Dragonfly wings in a separate sprite
+ - Dragonfly wings in a separate asset
+ - Improve the Z layer
 
  - Better entity system
      - Fix don't use a percent for Snail AI
      - Allow different AIs for enemies
      - Snail spawner
-     - Perhaps a system to calculate the snail endpoints
+     - Perhaps a system to calculate the snail endpoints in the editor
 
-     - Improve collision system, it is almost there
      - Add a wall_group entity instead of having an individual entity for each wall
      - When the player is riding a dragonfly when it turns, possibly interpolate the player
        position to look better when riding the dragonfly
 
  - Improve asset system
-     - Formalize asset loading, almost there
      - Formalize player spawn
-     - Allow a variable number of coins in a level
+     - Asset 'specs' like Y-Offset, etc.
      - Allow a variable number of animations in a spritesheet_asset instead of having it
        fixed size
-     - Asset 'specs' like Y-Offset, etc.
-     - Scale assets so that it doesn't need to be scaled when exported. This may save
-       some memory on the GPU and on lower end machines might actually provide a small
-       performance gain on the renderer.
-         - Profile this to see if there is even a difference at all(though the difference
-             may be more pronounced on lower end machines).
-
- - Improve the Z layer
-
- - Hotloading
-     - Variables file a la Jonathan Blow's games
-
- - Use the new stb_truetype baking API
-     - Is this need if we aren't actually going to have text in the game?
-	   Text will likely only be used for debugging purposes
 
  - Audio!!!
      - Load WAV files
@@ -57,10 +64,6 @@ TODOS:
 
  - Possibly create a 'legacy' OpenGL renderer that uses the fixed function pipeline
    for older machines
-
- - Editor, How fancy do we want to get?
-     - Drag entity path endpoints
-     - Undo/Redo
 
 BUGS:
 -----------------------------------------------
