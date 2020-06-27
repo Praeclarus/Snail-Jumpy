@@ -241,8 +241,6 @@ UpdateAndRenderMainGame(){
             }
         }
         
-        RenderRectangle(&RenderGroup, P-v2{0.05f,0.05f}, P+v2{1, 0.2f}, -1.0f, 
-                        {1.0f, 0.0f, 0.0f, 0.5f});
         RenderFormatString(&RenderGroup, &DebugFont, BLACK, 
                            RenderGroup.MetersToPixels*P.X, RenderGroup.MetersToPixels*P.Y,
                            -2.0f, "Health: %d", Player->Health);

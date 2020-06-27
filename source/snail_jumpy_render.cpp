@@ -36,6 +36,7 @@ AddRenderItem(render_group *RenderGroup, b8 IsTranslucent, f32 ZLayer){
         Result = PushNewArrayItem(&RenderGroup->OpaqueItems);
     }
     Result->VertexOffset = RenderGroup->VertexCount;
+    Result->IndexOffset = RenderGroup->IndexCount;
     Result->ZLayer = ZLayer;
     return(Result);
 }

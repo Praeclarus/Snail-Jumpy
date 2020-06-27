@@ -141,8 +141,8 @@ UITextBox(render_group *RenderGroup,
     f32 Margin = 10;
     v2 BorderSize = v2{2, 2};
     
-    RenderRectangle(RenderGroup, Min, Max, Z-0.01f, BLACK);
-    RenderRectangle(RenderGroup, Min+BorderSize, Max-BorderSize, Z-0.02f, Color);
+    RenderRectangle(RenderGroup, Min, Max, Z-0.01f, BLACK, true);
+    RenderRectangle(RenderGroup, Min+BorderSize, Max-BorderSize, Z-0.02f, Color, true);
     v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - NormalFont.Ascent/2};
     RenderString(RenderGroup, &NormalFont, TextColor, v2{P.X, P.Y}, Z-.03f,
                  TextBoxData->Buffer);

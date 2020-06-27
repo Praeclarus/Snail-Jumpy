@@ -11,7 +11,7 @@ struct vertex {
 typedef u32 render_texture_handle;
 struct render_item {
     u32 VertexOffset;
-    //u32 IndexOffset;
+    u32 IndexOffset;
     u32 IndexCount;
     f32 ZLayer;
     render_texture_handle Texture;

@@ -164,12 +164,12 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
                  RenderGroup->IndexCount*sizeof(u32), RenderGroup->Indices,
                  GL_STREAM_DRAW);
     
-    u32 IndexOffset = 0;
     for(u32 Index = 0; Index < RenderGroup->OpaqueItems.Count; Index++){
         render_item *Item = &RenderGroup->OpaqueItems[Index];
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
-        glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_SHORT, (void*)(IndexOffset*sizeof(u16)), Item->VertexOffset);
-        IndexOffset += Item->IndexCount;
+        glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
+                                 GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
+                                 Item->VertexOffset);
     }
     
     f32 LastZ = 0.0f;
@@ -180,8 +180,9 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
         LastZ = Item->ZLayer;
         
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
-        glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_SHORT, (void*)(IndexOffset*sizeof(u16)), Item->VertexOffset);
-        IndexOffset += Item->IndexCount;
+        glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
+                                 GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
+                                 Item->VertexOffset);
     }
 }
 

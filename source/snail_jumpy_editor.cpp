@@ -79,6 +79,10 @@ GetTeleporterIndexFromP(v2 P){
 
 internal void
 RenderDoorPopup(render_group *RenderGroup){
+    RenderRectangle(RenderGroup, v2{0,0}, OSInput.WindowSize, -1.0f, 
+                    color{0.5f, 0.5f, 0.5f, 0.9f});
+    
+    
     f32 Width = 800;
     f32 Height = 30;
     f32 Margin = 20;
@@ -93,7 +97,7 @@ RenderDoorPopup(render_group *RenderGroup){
     Y -= 30+Margin;
     
     if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
-                100, 30, "Submit")){
+                100, 30, "Submit") || IsKeyJustPressed(KeyCode_Return)){
         if(Editor.Popup == EditorPopup_AddDoor){
             v2 Size = Editor.CursorP - Editor.CursorP2;
             Size *= TILE_SIDE;
@@ -128,9 +132,6 @@ RenderDoorPopup(render_group *RenderGroup){
     if(IsButtonJustPressed(&OSInput.Buttons[KeyCode_Escape])){
         Editor.Popup = EditorPopup_None;
     }
-    
-    RenderRectangle(RenderGroup, v2{0,0}, OSInput.WindowSize, -0.8f, 
-                    color{0.5f, 0.5f, 0.5f, 0.9f});
 }
 
 internal void
@@ -246,7 +247,7 @@ RenderEditorPopup(render_group *RenderGroup){
         Y -= 30+Margin;
         
         if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
-                    100, 30, "Submit")){
+                    100, 30, "Submit") || IsKeyJustPressed(KeyCode_Return)){
             if(Editor.TextInput.Buffer[0] != '\0'){
                 u64 InLevelTable = FindInLevelTable(&LevelTable,
                                                     Editor.TextInput.Buffer);
