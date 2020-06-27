@@ -13,9 +13,6 @@ UpdateAndRenderMenu(){
         ChangeState(GameMode_Overworld, 0);
     }
     
-    RenderRectangle(&RenderGroup, {100, 100}, {400, 400}, 0.0f, {0.0f, 1.0f, 0.0f, 0.5f});
-    RenderRectangle(&RenderGroup, {200, 200}, {300, 300}, -1.0f, {0.0f, 0.5f, 0.5f, 0.5f});
-    
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);

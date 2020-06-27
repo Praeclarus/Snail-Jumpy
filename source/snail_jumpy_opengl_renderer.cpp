@@ -172,8 +172,13 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
         IndexOffset += Item->IndexCount;
     }
     
+    f32 LastZ = 0.0f;
     for(u32 Index = 0; Index < RenderGroup->TranslucentItems.Count; Index++){
         render_item *Item = &RenderGroup->TranslucentItems[Index];
+        
+        if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
+        LastZ = Item->ZLayer;
+        
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
         glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_SHORT, (void*)(IndexOffset*sizeof(u16)), Item->VertexOffset);
         IndexOffset += Item->IndexCount;

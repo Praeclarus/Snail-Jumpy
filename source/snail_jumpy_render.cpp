@@ -19,15 +19,19 @@ internal render_item *
 AddRenderItem(render_group *RenderGroup, b8 IsTranslucent, f32 ZLayer){
     render_item *Result = 0;
     if(IsTranslucent){
-        u32 Index = 0;
+        s32 Index = -1;
         for(u32 I = 0; I < RenderGroup->TranslucentItems.Count; I++){
             render_item *Item = &RenderGroup->TranslucentItems[I];
-            if(Item->ZLayer > ZLayer){
+            if(ZLayer > Item->ZLayer){
                 Index = I;
                 break;
             }
         }
-        Result = InsertNewArrayItem(&RenderGroup->TranslucentItems, Index);
+        if(Index < 0){
+            Result = PushNewArrayItem(&RenderGroup->TranslucentItems);
+        }else{
+            Result = InsertNewArrayItem(&RenderGroup->TranslucentItems, Index);
+        }
     }else{
         Result = PushNewArrayItem(&RenderGroup->OpaqueItems);
     }
@@ -156,7 +160,7 @@ RenderTextureWithColor(render_group *RenderGroup,
         MaxCorner *= RenderGroup->MetersToPixels;
     }
     
-    render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent||((0 < Color.A) && (Color.A < 1)), Z);
+    render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent || ((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
@@ -183,7 +187,7 @@ RenderString(render_group *RenderGroup,
 #if 0
     u32 Length = CStringLength(String);
     
-    render_item *RenderItem = AddRenderItem(RenderGroup);
+    render_item *RenderItem = AddRenderItem(RenderGroup, true, Z);
     RenderItem->IndexCount = 6*Length;
     RenderItem->Texture = Font->Texture;
     

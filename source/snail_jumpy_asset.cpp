@@ -360,11 +360,12 @@ InitializeAssetLoader(){
 
 internal void
 LoadAssetFile(const char *Path){
+    TIMED_FUNCTION();
+    
     os_file *File = OpenFile(Path, OpenFile_Read);
     u64 NewFileWriteTime = GetLastFileWriteTime(File);
     
     if(LastAssetFileWriteTime < NewFileWriteTime){
-        TIMED_FUNCTION();
         u64 FileSize = GetFileSize(File);
         u8 *FileData = PushArray(&TransientStorageArena, u8, FileSize+1);
         ReadFile(File, 0, FileData, FileSize);
