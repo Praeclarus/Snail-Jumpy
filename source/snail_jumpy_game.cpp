@@ -211,7 +211,7 @@ UpdateAndRenderMainGame(){
     }
     
     // NOTE(Tyler): Health
-    if(0){
+    {
         f32 WindowWidth = OSInput.WindowSize.X / RenderGroup.MetersToPixels;
         v2 P = v2{0.2f, 0.8f};
         f32 XAdvance = 0.3f;
@@ -247,7 +247,7 @@ UpdateAndRenderMainGame(){
     }
     
     //~ Debug UI
-    layout Layout = CreateLayout(100, OSInput.WindowSize.Height-100,
+    layout Layout = CreateLayout(&RenderGroup, 100, OSInput.WindowSize.Height-100,
                                  30, DebugFont.Size, 100, -0.9f);
     LayoutString(&Layout, &MainFont,
                  GREEN, "Score: %u", Score);
@@ -262,7 +262,7 @@ UpdateAndRenderMainGame(){
                  "Enemy count: %u", EntityManager.EnemyCount);
     
     {
-        layout Layout = CreateLayout(OSInput.WindowSize.Width-500, OSInput.WindowSize.Height-100,
+        layout Layout = CreateLayout(&RenderGroup, OSInput.WindowSize.Width-500, OSInput.WindowSize.Height-100,
                                      30, DebugFont.Size);
         LayoutString(&Layout, &DebugFont,
                      BLACK, "Current level: %u %s", CurrentLevelIndex, 
@@ -285,7 +285,6 @@ UpdateAndRenderMainGame(){
     
     Layout.CurrentP.X -= Layout.Advance.X;
     
-    RenderAllUIPrimitives(&RenderGroup);
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);

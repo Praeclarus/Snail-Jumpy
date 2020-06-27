@@ -2,8 +2,9 @@
 internal void ToggleEditor();
 
 internal inline panel 
-CreateDefaultEditorPanel(){
+CreateDefaultEditorPanel(render_group *RenderGroup){
     panel Panel = {0};
+    Panel.RenderGroup = RenderGroup;
     Panel.TitleFont = &TitleFont;
     Panel.TitleColor = BLACK;
     Panel.NormalFont = &DebugFont;
@@ -82,15 +83,16 @@ RenderDoorPopup(render_group *RenderGroup){
     f32 Height = 30;
     f32 Margin = 20;
     f32 Y = OSInput.WindowSize.Height/2;
-    PushUIString(v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y},
-                 -0.81f, &MainFont, BLACK, "Please required level name to open:");
+    RenderString(RenderGroup, &MainFont, BLACK,
+                 v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y}, -0.81f, 
+                 "Required level name to open:");
     Y -= Height+Margin;
-    UITextBox(&Editor.TextInput, 
+    UITextBox(RenderGroup, &Editor.TextInput, 
               OSInput.WindowSize.Width/2.0f-Width/2.0f, 
               Y, -0.81f, Width, Height, 1);
     Y -= 30+Margin;
     
-    if(UIButton(OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
+    if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
                 100, 30, "Submit")){
         if(Editor.Popup == EditorPopup_AddDoor){
             v2 Size = Editor.CursorP - Editor.CursorP2;
@@ -116,7 +118,7 @@ RenderDoorPopup(render_group *RenderGroup){
         Editor.Popup = EditorPopup_None;
     }
     
-    if(UIButton(OSInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
+    if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
                 100, 30, "Abort")){
         Editor.Popup = EditorPopup_None;
         ResetTextBoxInput(&Editor.TextInput);
@@ -127,7 +129,7 @@ RenderDoorPopup(render_group *RenderGroup){
         Editor.Popup = EditorPopup_None;
     }
     
-    PushUIRectangle(v2{0,0}, OSInput.WindowSize, -0.8f, 
+    RenderRectangle(RenderGroup, v2{0,0}, OSInput.WindowSize, -0.8f, 
                     color{0.5f, 0.5f, 0.5f, 0.9f});
 }
 
@@ -146,23 +148,24 @@ RenderTeleporterPopup(render_group *RenderGroup){
         }
     }
     
-    PushUIString(v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y},
-                 -0.81f, &MainFont, BLACK, "Please enter level name:");
+    RenderString(RenderGroup, &MainFont, BLACK,  
+                 v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y}, -0.81f, 
+                 "Please enter level name:");
     Y -= Height+Margin;
-    UITextBox(&Editor.TextInput, 
+    UITextBox(RenderGroup, &Editor.TextInput, 
               OSInput.WindowSize.Width/2.0f-Width/2.0f, 
               Y, -0.81f, Width, Height, 1);
     Y -= 30+Margin;
     
-    PushUIString(v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y},
-                 -0.81f, &MainFont, BLACK, "Please required level name to open:");
+    RenderString(RenderGroup, &MainFont, BLACK, v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y},
+                 -0.81f, "Required level name to open:");
     Y -= Height+Margin;
-    UITextBox(&Editor.TextInput2, 
+    UITextBox(RenderGroup, &Editor.TextInput2, 
               OSInput.WindowSize.Width/2.0f-Width/2.0f, 
               Y, -0.81f, Width, Height, 2);
     Y -= 30+Margin;
     
-    if(UIButton(OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f, 100, 30, 
+    if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f, 100, 30, 
                 "Submit") || IsKeyJustPressed(KeyCode_Return)){
         if(Editor.Popup == EditorPopup_AddTeleporter){
             v2 TileP = Editor.CursorP;
@@ -189,7 +192,7 @@ RenderTeleporterPopup(render_group *RenderGroup){
         }
     }
     
-    if(UIButton(OSInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
+    if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
                 100, 30, "Abort")){
         Editor.Popup = EditorPopup_None;
         ResetTextBoxInput(&Editor.TextInput);
@@ -200,7 +203,7 @@ RenderTeleporterPopup(render_group *RenderGroup){
         Editor.Popup = EditorPopup_None;
     }
     
-    PushUIRectangle(v2{0,0}, OSInput.WindowSize, -0.8f, 
+    RenderRectangle(RenderGroup, v2{0,0}, OSInput.WindowSize, -0.8f, 
                     color{0.5f, 0.5f, 0.5f, 0.9f});
 }
 
@@ -234,15 +237,15 @@ RenderEditorPopup(render_group *RenderGroup){
         f32 Height = 30;
         f32 Margin = 20;
         f32 Y = OSInput.WindowSize.Height/2;
-        PushUIString(v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y},
-                     -0.81f, &MainFont, BLACK, "Please enter level name:");
+        RenderString(RenderGroup, &MainFont, BLACK, v2{OSInput.WindowSize.Width/2.0f-Width/2.0f, Y},
+                     -0.81f, "Please enter level name:");
         Y -= Height+Margin;
-        UITextBox(&Editor.TextInput, 
+        UITextBox(RenderGroup, &Editor.TextInput, 
                   OSInput.WindowSize.Width/2.0f-Width/2.0f, 
                   Y, -0.81f, Width, Height, 1);
         Y -= 30+Margin;
         
-        if(UIButton(OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
+        if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f, Y, -0.81f,
                     100, 30, "Submit")){
             if(Editor.TextInput.Buffer[0] != '\0'){
                 u64 InLevelTable = FindInLevelTable(&LevelTable,
@@ -282,7 +285,7 @@ RenderEditorPopup(render_group *RenderGroup){
             }
         }
         
-        if(UIButton(OSInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
+        if(UIButton(RenderGroup, OSInput.WindowSize.Width/2.0f-Width/2.0f+100+Margin, Y, -0.81f,
                     100, 30, "Abort")){
             Editor.Popup = EditorPopup_None;
             ResetTextBoxInput(&Editor.TextInput);
@@ -293,7 +296,7 @@ RenderEditorPopup(render_group *RenderGroup){
             Editor.Popup = EditorPopup_None;
         }
         
-        PushUIRectangle(v2{0,0}, OSInput.WindowSize, -0.8f, 
+        RenderRectangle(RenderGroup, v2{0,0}, OSInput.WindowSize, -0.8f, 
                         color{0.5f, 0.5f, 0.5f, 0.9f});
     }else if((Editor.Popup == EditorPopup_AddTeleporter) ||
              (Editor.Popup == EditorPopup_EditTeleporter)){
@@ -802,7 +805,7 @@ UpdateAndRenderEditor(){
     
     RenderEditorPopup(&RenderGroup);
     if(!Editor.HideUI){
-        panel Panel = CreateDefaultEditorPanel();
+        panel Panel = CreateDefaultEditorPanel(&RenderGroup);
         
         if(GameMode == GameMode_OverworldEditor){
             PanelOverworldEditor(&Panel);
@@ -994,10 +997,8 @@ UpdateAndRenderEditor(){
     
     RenderEditorCursor(&RenderGroup);
     
-    RenderAllUIPrimitives(&RenderGroup);
-    
     {
-        layout Layout = CreateLayout(100, OSInput.WindowSize.Height-100,
+        layout Layout = CreateLayout(&RenderGroup, 100, OSInput.WindowSize.Height-100,
                                      30, DebugFont.Size);
         DebugRenderAllProfileData(&RenderGroup, &Layout);
     }

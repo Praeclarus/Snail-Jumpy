@@ -8,12 +8,14 @@ enum asset_type {
 
 struct image {
     b8 HasBeenLoadedBefore;
+    b8 IsTranslucent;
     u64 LastWriteTime;
 };
 
 struct asset {
     asset_type Type;
     u32 StateTable[State_TOTAL][Direction_TOTAL];
+    b8 IsTranslucent;
     union{
         struct {
             v2s SizeInPixels;

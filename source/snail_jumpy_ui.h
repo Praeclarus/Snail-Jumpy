@@ -20,6 +20,8 @@ enum ui_primitive_type {
 };
 
 struct layout {
+    render_group *RenderGroup;
+    
     v2 BaseP;
     v2 CurrentP;
     v2 Advance;
@@ -28,6 +30,8 @@ struct layout {
 };
 
 struct panel {
+    render_group *RenderGroup;
+    
     font *TitleFont;
     font *NormalFont;
     
@@ -73,8 +77,6 @@ struct ui_primitive {
 };
 
 struct ui_manager {
-    ui_primitive *FirstPrimitive;
-    
     u32 SelectedWidgetId;
     b8 ShiftIsDown;
     

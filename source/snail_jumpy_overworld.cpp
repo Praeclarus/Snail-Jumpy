@@ -366,7 +366,7 @@ UpdateAndRenderOverworld(){
     }
     
     
-    layout Layout = CreateLayout(100, OSInput.WindowSize.Height-100,
+    layout Layout = CreateLayout(&RenderGroup, 100, OSInput.WindowSize.Height-100,
                                  30, DebugFont.Size);
     LayoutString(&Layout, &DebugFont,
                  BLACK, "TransientMemory:  %'jd", TransientStorageArena.Used);
@@ -375,7 +375,6 @@ UpdateAndRenderOverworld(){
     LayoutString(&Layout, &DebugFont, BLACK, "CameraP: %f %f", 
                  CameraP.X, CameraP.Y);
     LayoutFps(&Layout);
-    RenderAllUIPrimitives(&RenderGroup);
     DebugRenderAllProfileData(&RenderGroup, &Layout);
     
     RenderGroupToScreen(&RenderGroup);

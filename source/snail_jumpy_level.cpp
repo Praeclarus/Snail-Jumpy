@@ -233,12 +233,14 @@ RenderLevelMapAndEntities(render_group *RenderGroup, u32 LevelIndex,
             RenderTexture(RenderGroup,
                           Min, Max, ZOffset-0.01f, AssetInfo.Asset->SpriteSheet,
                           {0.0f, 1.0f-2*AssetInfo.Asset->SizeInTexCoords.Y},
-                          {AssetInfo.Asset->SizeInTexCoords.X, 1.0f-AssetInfo.Asset->SizeInTexCoords.Y});
+                          {AssetInfo.Asset->SizeInTexCoords.X, 1.0f-AssetInfo.Asset->SizeInTexCoords.Y},
+                          AssetInfo.Asset->IsTranslucent);
         }else if(Enemy->Direction < 0){
             RenderTexture(RenderGroup,
                           Min, Max, ZOffset-0.01f, AssetInfo.Asset->SpriteSheet,
                           {0.0f, 1.0f-AssetInfo.Asset->SizeInTexCoords.Y},
-                          {AssetInfo.Asset->SizeInTexCoords.X, 1.0f});
+                          {AssetInfo.Asset->SizeInTexCoords.X, 1.0f},
+                          AssetInfo.Asset->IsTranslucent);
         }
         
         if(GameMode == GameMode_LevelEditor){

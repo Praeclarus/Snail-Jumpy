@@ -42,8 +42,6 @@ CopyCString(char *To, char *From, u32 MaxSize){
 }
 
 //~ Simple hash table
-// TODO(Tyler): Despite how bad C++ templates, maybe it would be best to templatize 
-// hash_table, and to create a templated array type
 
 template <typename KeyType, typename ValueType>
 struct hash_table {

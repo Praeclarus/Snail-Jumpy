@@ -3,9 +3,8 @@ render_texture_handle DefaultTexture;
 
 internal inline void
 InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCount){
-    RenderGroup->Items = PushArray(Arena, render_item, MaxCount);
-    RenderGroup->Count = 0;
-    RenderGroup->MaxCount = MaxCount;
+    RenderGroup->OpaqueItems = CreateNewArray<render_item>(Arena, MaxCount);
+    RenderGroup->TranslucentItems = CreateNewArray<render_item>(Arena, MaxCount);
     
     RenderGroup->Vertices = PushArray(Arena, vertex, MaxCount*4);
     RenderGroup->VertexCount = 0;
@@ -17,11 +16,23 @@ InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCou
 }
 
 internal render_item *
-AddRenderItem(render_group *RenderGroup){
-    Assert(RenderGroup->Count < RenderGroup->MaxCount);
-    render_item *Result = &RenderGroup->Items[RenderGroup->Count++];
+AddRenderItem(render_group *RenderGroup, b8 IsTranslucent, f32 ZLayer){
+    render_item *Result = 0;
+    if(IsTranslucent){
+        u32 Index = 0;
+        for(u32 I = 0; I < RenderGroup->TranslucentItems.Count; I++){
+            render_item *Item = &RenderGroup->TranslucentItems[I];
+            if(Item->ZLayer > ZLayer){
+                Index = I;
+                break;
+            }
+        }
+        Result = InsertNewArrayItem(&RenderGroup->TranslucentItems, Index);
+    }else{
+        Result = PushNewArrayItem(&RenderGroup->OpaqueItems);
+    }
     Result->VertexOffset = RenderGroup->VertexCount;
-    //Result->IndexOffset = RenderGroup->IndexCount;
+    Result->ZLayer = ZLayer;
     return(Result);
 }
 
@@ -52,7 +63,7 @@ RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color,
     f32 T = 0.0f;
     f32 Step = 1.0f/(f32)Sides;
     
-    render_item *RenderItem = AddRenderItem(RenderGroup);
+    render_item *RenderItem = AddRenderItem(RenderGroup, ((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = Sides*3;
     RenderItem->Texture = DefaultTexture;
     
@@ -84,7 +95,7 @@ RenderRectangle(render_group *RenderGroup,
         MaxCorner *= RenderGroup->MetersToPixels;
     }
     
-    render_item *RenderItem = AddRenderItem(RenderGroup);
+    render_item *RenderItem = AddRenderItem(RenderGroup, ((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = DefaultTexture;
     
@@ -105,7 +116,8 @@ RenderRectangle(render_group *RenderGroup,
 
 internal void
 RenderTexture(render_group *RenderGroup,
-              v2 MinCorner, v2 MaxCorner, f32 Z, render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord, b32 UsePixelSpace = false){
+              v2 MinCorner, v2 MaxCorner, f32 Z, render_texture_handle Texture, 
+              v2 MinTexCoord, v2 MaxTexCoord, b8 IsTranslucent, b32 UsePixelSpace = false){
     Assert(Texture);
     
     if(!UsePixelSpace){
@@ -113,7 +125,7 @@ RenderTexture(render_group *RenderGroup,
         MaxCorner *= RenderGroup->MetersToPixels;
     }
     
-    render_item *RenderItem = AddRenderItem(RenderGroup);
+    render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent, Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
@@ -135,8 +147,8 @@ RenderTexture(render_group *RenderGroup,
 internal void
 RenderTextureWithColor(render_group *RenderGroup,
                        v2 MinCorner, v2 MaxCorner, f32 Z,
-                       render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord,
-                       color Color, b8 UsePixelSpace = false){
+                       render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord, 
+                       b8 IsTranslucent, color Color, b8 UsePixelSpace = false){
     Assert(Texture);
     
     if(!UsePixelSpace){
@@ -144,7 +156,7 @@ RenderTextureWithColor(render_group *RenderGroup,
         MaxCorner *= RenderGroup->MetersToPixels;
     }
     
-    render_item *RenderItem = AddRenderItem(RenderGroup);
+    render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent||((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
@@ -217,7 +229,7 @@ RenderString(render_group *RenderGroup,
                            C-32, &X, &Y, &Q, 1);
         Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
         Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
-        RenderTextureWithColor(RenderGroup, {Q.x0, Q.y0}, {Q.x1, Q.y1}, Z, Font->Texture, {Q.s0, Q.t0}, {Q.s1, Q.t1}, Color, true);
+        RenderTextureWithColor(RenderGroup, {Q.x0, Q.y0}, {Q.x1, Q.y1}, Z, Font->Texture, {Q.s0, Q.t0}, {Q.s1, Q.t1}, true, Color, true);
     }
 #endif
     

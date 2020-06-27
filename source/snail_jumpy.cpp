@@ -36,7 +36,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_Overworld;
+global game_mode GameMode = GameMode_LevelEditor;
 
 global editor    Editor;
 
@@ -52,16 +52,7 @@ global u32               CurrentLevelIndex;
 
 global collision_table CollisionTable;
 
-internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
-internal inline void SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles);
-internal void UpdateCoin(u32 Id);
-internal inline void DamagePlayer(u32 Damage);
-internal void StunEnemy(enemy_entity *Enemy);
-internal void UpdateEnemyHitBox(enemy_entity *Enemy);
-internal void ChangeEntityState(entity *Entity, entity_state NewState);
-internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
-internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
-internal b8 ShouldEntityUpdate(entity *Entity);
+global hash_table<const char *, entity_spec> EntitySpecTable;
 
 #include "snail_jumpy_logging.cpp"
 #include "snail_jumpy_stream.cpp"
@@ -185,7 +176,6 @@ GameUpdateAndRender(){
     //~ Prepare for next frame
     ProfileData.CurrentBlockIndex = 0;
     TransientStorageArena.Used = 0;
-    UIManager.FirstPrimitive = 0;
     UIManager.HandledInput = false;
     
     //~ Do next frame

@@ -319,3 +319,17 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
         UpdateAndRenderAnimation(RenderGroup, Enemy, OSInput.dTimeForFrame);
     }
 }
+
+//~ Loading
+
+internal void
+LoadEntitySpecs(const char *Path){
+    
+    
+}
+
+internal void
+WriteEntitySpecs(const char *Path){
+    
+    
+}

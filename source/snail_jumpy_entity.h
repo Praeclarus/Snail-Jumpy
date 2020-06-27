@@ -128,4 +128,18 @@ struct entity_manager {
     u32 ProjectileCount;
 };
 
+struct entity_spec {
+    const char *Asset;
+    u8 BoundaryCount;
+    collision_boundary Boundaries[2];
+};
+
+#pragma pack(push, 1)
+struct entity_spec_file_header {
+    char Header[3]; // 'S', 'J', 'S'
+    u32 Version;
+    u32 EnemyCount;
+};
+#pragma pack(pop)
+
 #endif //SNAIL_JUMPY_ENTITY_H

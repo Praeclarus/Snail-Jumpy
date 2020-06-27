@@ -81,4 +81,18 @@ struct overworld_file_header {
 };
 #pragma pack(pop)
 
+//~ Forward declarations
+
+internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
+internal inline void SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles);
+internal void UpdateCoin(u32 Id);
+internal inline void DamagePlayer(u32 Damage);
+internal void StunEnemy(enemy_entity *Enemy);
+internal void UpdateEnemyHitBox(enemy_entity *Enemy);
+internal void ChangeEntityState(entity *Entity, entity_state NewState);
+internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
+internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
+internal b8 ShouldEntityUpdate(entity *Entity);
+
+
 #endif

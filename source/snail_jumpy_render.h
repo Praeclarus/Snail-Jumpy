@@ -13,6 +13,7 @@ struct render_item {
     u32 VertexOffset;
     //u32 IndexOffset;
     u32 IndexCount;
+    f32 ZLayer;
     render_texture_handle Texture;
 };
 
@@ -26,8 +27,8 @@ struct render_group {
     u32 IndexCount;
     u32 MaxIndexCount;
     
-    render_item *Items;
-    u64 Count, MaxCount;
+    array<render_item> OpaqueItems;
+    array<render_item> TranslucentItems;
     
     f32 MetersToPixels;
     color BackgroundColor;

@@ -1,3 +1,6 @@
+// TODO(Tyler): ERROR HANDLING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//              ERROR HANDLING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 // TODO(Tyler): I have no clue if this is actually a good idea to do it this way
 global hash_table<const char *, asset_command> CommandTable;
 global hash_table<const char *, direction> DirectionTable;
@@ -7,6 +10,7 @@ global hash_table<const char *, asset> AssetTable;
 
 global hash_table<const char *, image> LoadedImageTable;
 global asset *CurrentAsset;
+global u64 LastAssetFileWriteTime;
 
 //~ Loading
 struct entire_file {
@@ -179,11 +183,21 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
                                                                 &Width, &Height,
                                                                 &Components, 4);
                     }
+                    NewAsset->IsTranslucent = LoadedImage.IsTranslucent;
                 }else{
                     char *String = PushArray(&PermanentStorageArena, char, CStringLength(Buffer)+1);
                     CopyCString(String, Buffer, CStringLength(Buffer)+1);
-                    InsertIntoHashTable(&LoadedImageTable, (const char *)String, {true, LastFileWriteTime});
+                    image NewImage = {
+                        .HasBeenLoadedBefore = true, 
+                        .LastWriteTime = LastFileWriteTime,
+                    };
                     entire_file File = ReadEntireFile(&PermanentStorageArena, String);
+                    s32 Components = 0;
+                    stbi_info_from_memory((u8 *)File.Data, (int)File.Size, 
+                                          &Width, &Height, &Components);
+                    NewImage.IsTranslucent = ((Components == 2) || (Components == 4));
+                    
+                    InsertIntoHashTable(&LoadedImageTable, (const char *)String, NewImage);
                     
                     ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
                                                             (int)File.Size,
@@ -346,33 +360,44 @@ InitializeAssetLoader(){
 
 internal void
 LoadAssetFile(const char *Path){
-    TIMED_FUNCTION();
+    os_file *File = OpenFile(Path, OpenFile_Read);
+    u64 NewFileWriteTime = GetLastFileWriteTime(File);
     
-    stream Stream;
-    
-    entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-    Stream = CreateReadStream(File.Data, File.Size);
-    
-    while(true){
-        u8 *NextBytePtr = PeekBytes(&Stream, 1);
-        if(!NextBytePtr) break;
-        u8 NextByte = *NextBytePtr;
-        if((('a' <= NextByte) && (NextByte <= 'z')) ||
-           (('A' <= NextByte) && (NextByte <= 'Z'))){
-            Assert(0);
-        }else if(('0' <= NextByte) && (NextByte <= '9')){
-            Assert(0);
-        }else if(NextByte == ':'){
-            ConsumeBytes(&Stream, 1);
-            ConsumeWhiteSpace(&Stream);
-            ProcessCommand(&Stream);
-        }else if((NextByte == ' ') ||
-                 (NextByte == '\t') ||
-                 (NextByte == '\n') ||
-                 (NextByte == '\r')){
-            ConsumeWhiteSpace(&Stream);
+    if(LastAssetFileWriteTime < NewFileWriteTime){
+        TIMED_FUNCTION();
+        u64 FileSize = GetFileSize(File);
+        u8 *FileData = PushArray(&TransientStorageArena, u8, FileSize+1);
+        ReadFile(File, 0, FileData, FileSize);
+        CloseFile(File);
+        FileData[FileSize] = '\0';
+        entire_file File = ReadEntireFile(&TransientStorageArena, Path);
+        stream Stream = CreateReadStream(File.Data, File.Size);
+        
+        while(true){
+            u8 *NextBytePtr = PeekBytes(&Stream, 1);
+            if(!NextBytePtr) break;
+            u8 NextByte = *NextBytePtr;
+            if((('a' <= NextByte) && (NextByte <= 'z')) ||
+               (('A' <= NextByte) && (NextByte <= 'Z'))){
+                Assert(0);
+            }else if(('0' <= NextByte) && (NextByte <= '9')){
+                Assert(0);
+            }else if(NextByte == ':'){
+                ConsumeBytes(&Stream, 1);
+                ConsumeWhiteSpace(&Stream);
+                ProcessCommand(&Stream);
+            }else if((NextByte == ' ') ||
+                     (NextByte == '\t') ||
+                     (NextByte == '\n') ||
+                     (NextByte == '\r')){
+                ConsumeWhiteSpace(&Stream);
+            }
         }
+    }else{
+        CloseFile(File);
     }
+    
+    LastAssetFileWriteTime = NewFileWriteTime;
 }
 
 //~ Miscellaneous
@@ -413,7 +438,7 @@ GetAssetInfoFromEntityType(u32 Type){
 internal void
 RenderFrameOfSpriteSheet(render_group *RenderGroup, const char *AssetName, 
                          u32 Frame, v2 Center, f32 Z){
-    asset *Asset = FindInHashTablePtr(&AssetTable, AssetName );
+    asset *Asset = FindInHashTablePtr(&AssetTable, AssetName);
     
     u32 FrameInSpriteSheet = Frame;
     u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
@@ -429,7 +454,7 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, const char *AssetName,
     
     RenderTexture(RenderGroup, Center-0.5f*Asset->Scale*Asset->SizeInMeters, 
                   Center+0.5f*Asset->Scale*Asset->SizeInMeters, Z, Asset->SpriteSheet, 
-                  MinTexCoord, MaxTexCoord);
+                  MinTexCoord, MaxTexCoord, Asset->IsTranslucent);
 }
 
 //~ Animation rendering
@@ -486,7 +511,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
         
         RenderTexture(RenderGroup, P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
-                      Asset->SpriteSheet, MinTexCoord, MaxTexCoord);
+                      Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent);
         
 #if 1
         for(u32 I = 0; I < Entity->BoundaryCount; I++){

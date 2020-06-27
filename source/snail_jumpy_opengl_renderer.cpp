@@ -165,8 +165,15 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
                  GL_STREAM_DRAW);
     
     u32 IndexOffset = 0;
-    for(u32 Index = 0; Index < RenderGroup->Count; Index++){
-        render_item *Item = &RenderGroup->Items[Index];
+    for(u32 Index = 0; Index < RenderGroup->OpaqueItems.Count; Index++){
+        render_item *Item = &RenderGroup->OpaqueItems[Index];
+        glBindTexture(GL_TEXTURE_2D, Item->Texture);
+        glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_SHORT, (void*)(IndexOffset*sizeof(u16)), Item->VertexOffset);
+        IndexOffset += Item->IndexCount;
+    }
+    
+    for(u32 Index = 0; Index < RenderGroup->TranslucentItems.Count; Index++){
+        render_item *Item = &RenderGroup->TranslucentItems[Index];
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
         glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, GL_UNSIGNED_SHORT, (void*)(IndexOffset*sizeof(u16)), Item->VertexOffset);
         IndexOffset += Item->IndexCount;
