@@ -14,6 +14,7 @@ TODOS:
          - Maybe!!!
 
  - TODOS for release
+     - True random number generation
      - BAKE FONTS AT COMPILE TIME!
          - Use the new stb_truetype baking API
      - Bake asset file
@@ -29,16 +30,21 @@ TODOS:
          - Windows
              - Direct3D
 
+ - Do step up onto dragonfly body better! Make it more generalized and apply to all 
+   ledges, and only move the player upwards, instead of moving them so that when the 
+   collide to be on it
+
  - Make teleporters, use the collision system
  - Perhaps make entity ids fixed point, where the first few bits specify the entity type,
    and then the next few bits specify the index
 
  - Improve user input, it could be done way better! Maybe not have user input be global?
+   or maybe have it driven by events?
 
  - Dragonfly wings in a separate asset
  - Improve the Z layer
 
- - Better entity system
+ - Entity system
      - Fix don't use a percent for Snail AI
      - Allow different AIs for enemies
      - Snail spawner
@@ -48,8 +54,7 @@ TODOS:
      - When the player is riding a dragonfly when it turns, possibly interpolate the player
        position to look better when riding the dragonfly
 
- - Improve asset system
-     - Formalize player spawn
+ - Asset system
      - Asset 'specs' like Y-Offset, etc.
      - Allow a variable number of animations in a spritesheet_asset instead of having it
        fixed size
@@ -67,23 +72,15 @@ TODOS:
 
 BUGS:
 -----------------------------------------------
- - Investigate why the amount of time for the first frame is greater that succeeding frames
-     - Is this still a problem???
-
- - Snail direction sometimes change at start
- - In editor, remove last level doesn't check the current level
- - Score doesn't reset on level change, easy fix
- - Friction isn't applied if a player quickly changes the direction they are moving
  - Player can jump while falling
- - Player can kinda fall through dragonfly when turning
  - Player can get stuck when walking onto the dragonfly's torso, if the dragonfly happens
    to be under a platform
      - Might not be a problem if the player size changes
- - POSSIBLY: Collision event should be reset when a new collision is detected
  - Riding on dragonfly go directly under a wall can cause the riding player to get stuck
- - Dragonflies don't move with two collision boxes
- - Snails sometimes do the turning animation twice
  - Snail falls through the floor
+ - Things can get stuck inside Sally, when the collision boundary changes from circle to
+   square, also the current solution to this in the dragonfly is not very good
+
 IDEAS:
 -----------------------------------------------
  - Randomize enemy directions on start
