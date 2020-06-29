@@ -400,22 +400,6 @@ BeginWindow(const char *Name, v2 StartP=v2{500, 600}, v2 StartSize=v2{0, 0}){
         Info->Size = StartSize;
     }else if(Info->Type != WidgetType_Window) Assert(0);
     
-    {
-        f32 Width = Info->Size.X;
-        f32 Height = UIManager.Theme.TitleFont->Size+UIManager.Theme.Padding;
-        if((Info->P.X < OSInput.MouseP.X) && (OSInput.MouseP.X < Info->P.X+Width) &&
-           (Info->P.Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Info->P.Y+Height) &&
-           IsKeyJustPressed(KeyCode_LeftMouse)){
-            Info->DraggingOffset = OSInput.MouseP - Info->P;
-            Info->IsBeingDragged = true;
-        }
-        if(IsKeyDown(KeyCode_LeftMouse) && Info->IsBeingDragged){
-            Info->P = OSInput.MouseP-Info->DraggingOffset;
-        }else if(Info->IsBeingDragged){
-            Info->IsBeingDragged = false;
-        }
-    }
-    
     Assert(!UIManager.InWindow);
     UIManager.InWindow = true;
     UIManager.CurrentWindow = {};
@@ -436,6 +420,22 @@ EndWindow(render_group *RenderGroup){
     
     v2 P = UIManager.CurrentWindow.BaseP;
     f32 T = 3;
+    
+    {
+        f32 Width = UIManager.CurrentWindow.ContentSize.X;
+        f32 Height = UIManager.Theme.TitleFont->Size+UIManager.Theme.Padding;
+        if((Info->P.X < OSInput.MouseP.X) && (OSInput.MouseP.X < Info->P.X+Width) &&
+           (Info->P.Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Info->P.Y+Height) &&
+           IsKeyJustPressed(KeyCode_LeftMouse)){
+            Info->DraggingOffset = OSInput.MouseP - Info->P;
+            Info->IsBeingDragged = true;
+        }
+        if(IsKeyDown(KeyCode_LeftMouse) && Info->IsBeingDragged){
+            Info->P = OSInput.MouseP-Info->DraggingOffset;
+        }else if(Info->IsBeingDragged){
+            Info->IsBeingDragged = false;
+        }
+    }
     
     {
         f32 TitleWidth = GetStringAdvance(UIManager.Theme.TitleFont, 

@@ -291,18 +291,24 @@ RenderEditorThingUI(render_group *RenderGroup){
         case EntityType_Snail: {
             UIText(RenderGroup, "Direction: ");
             
+            // NOTE(Tyler): There is no else if here because, if the button before is pressed,
+            // it can cause flickering
+            
             level_enemy *SelectedEnemy = &Editor.World->Enemies[Editor.SelectedThing];
             if(_UIButton(RenderGroup, "<<<", true)){
                 SelectedEnemy->Direction = -1.0f;
-            }else if(_UIButton(RenderGroup, "<<<")){
+            }
+            if(_UIButton(RenderGroup, ">>>")){
                 SelectedEnemy->Direction = 1.0f;
             }
             
             UIText(RenderGroup, "Change left travel distance: ");
             
+            
             if(_UIButton(RenderGroup, "<<<", true)){
                 SelectedEnemy->PathStart.X -= TILE_SIZE.X;
-            }else if(_UIButton(RenderGroup, ">>>")){
+            }
+            if(_UIButton(RenderGroup, ">>>")){
                 if(SelectedEnemy->PathStart.X < SelectedEnemy->P.X-TILE_SIZE.X){
                     SelectedEnemy->PathStart.X += TILE_SIZE.X;
                 }
@@ -314,7 +320,8 @@ RenderEditorThingUI(render_group *RenderGroup){
                 if(SelectedEnemy->P.X+TILE_SIZE.X < SelectedEnemy->PathEnd.X){
                     SelectedEnemy->PathEnd.X -= TILE_SIZE.X;
                 }
-            }else if(_UIButton(RenderGroup, ">>>")){
+            }
+            if(_UIButton(RenderGroup, ">>>")){
                 SelectedEnemy->PathEnd.X += TILE_SIZE.X;
             }
             
