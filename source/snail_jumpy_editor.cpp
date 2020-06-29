@@ -1,31 +1,6 @@
 
 internal void ToggleEditor();
 
-internal inline panel 
-CreateDefaultEditorPanel(render_group *RenderGroup){
-    panel Panel = {0};
-    Panel.RenderGroup = RenderGroup;
-    Panel.TitleFont = &TitleFont;
-    Panel.TitleColor = BLACK;
-    Panel.NormalFont = &DebugFont;
-    Panel.NormalColor = color{0.8f, 0.8f, 0.8f, 1.0f};
-    Panel.BackgroundColor = color{0.2f, 0.4f, 0.3f, 0.9f};
-    Panel.SeparatorColor  = color{0.3f, 0.3f, 0.3f, 1.0f};
-    Panel.ButtonBaseColor = color{0.1f, 0.3f, 0.2f, 0.9f};
-    Panel.ButtonHoveredColor = color{0.4f, 0.6f, 0.5f, 0.9f};
-    Panel.ButtonClickedColor = color{0.5f, 0.7f, 0.6f, 0.9f};
-    Panel.BaseP = v2{
-        OSInput.WindowSize.Width-510, 
-        OSInput.WindowSize.Height
-    };
-    Panel.CurrentP = Panel.BaseP;
-    Panel.Margin = v2{10, 10};
-    Panel.Size.X = 500;
-    Panel.Z = -0.7f;
-    
-    return(Panel);
-}
-
 internal void
 ToggleEditor(){
     if(GameMode == GameMode_LevelEditor){
@@ -309,40 +284,37 @@ RenderEditorPopup(render_group *RenderGroup){
 }
 
 internal void
-RenderEditorThingUI(render_group *RenderGroup, panel *Panel){
+RenderEditorThingUI(render_group *RenderGroup){
     TIMED_FUNCTION();
     
     switch(Editor.SelectedThingType){
         case EntityType_Snail: {
-            PanelString(Panel, "Direction: ");
+            UIText(RenderGroup, "Direction: ");
             
             level_enemy *SelectedEnemy = &Editor.World->Enemies[Editor.SelectedThing];
-            u32 NewDirection = Panel2Buttons(Panel, "<<<", ">>>");
-            if(NewDirection == 1){
+            if(_UIButton(RenderGroup, "<<<", true)){
                 SelectedEnemy->Direction = -1.0f;
-            }else if(NewDirection == 2){
+            }else if(_UIButton(RenderGroup, "<<<")){
                 SelectedEnemy->Direction = 1.0f;
             }
             
-            PanelString(Panel,"Change left travel distance: ");
+            UIText(RenderGroup, "Change left travel distance: ");
             
-            u32 LeftEndpointChange = Panel2Buttons(Panel, "<<<", ">>>");
-            if(LeftEndpointChange == 1){
+            if(_UIButton(RenderGroup, "<<<", true)){
                 SelectedEnemy->PathStart.X -= TILE_SIZE.X;
-            }else if(LeftEndpointChange == 2){
+            }else if(_UIButton(RenderGroup, ">>>")){
                 if(SelectedEnemy->PathStart.X < SelectedEnemy->P.X-TILE_SIZE.X){
                     SelectedEnemy->PathStart.X += TILE_SIZE.X;
                 }
             }
             
-            PanelString(Panel, "Change right travel distance: ");
+            UIText(RenderGroup, "Change right travel distance: ");
             
-            u32 RightEndpointChange = Panel2Buttons(Panel, "<<<", ">>>");
-            if(RightEndpointChange == 1){
+            if(_UIButton(RenderGroup, "<<<", true)){
                 if(SelectedEnemy->P.X+TILE_SIZE.X < SelectedEnemy->PathEnd.X){
                     SelectedEnemy->PathEnd.X -= TILE_SIZE.X;
                 }
-            }else if(RightEndpointChange == 2){
+            }else if(_UIButton(RenderGroup, ">>>")){
                 SelectedEnemy->PathEnd.X += TILE_SIZE.X;
             }
             
@@ -377,7 +349,13 @@ RenderEditorThingUI(render_group *RenderGroup, panel *Panel){
             teleporter_data *Data = 
                 &Editor.World->Teleporters[Editor.SelectedThing];
             
-            if(PanelString(Panel, "Level: %s", Data->Level)){
+            UIText(RenderGroup, "Level: %s", Data->Level);
+            if(Data->RequiredLevel[0]){
+                UIText(RenderGroup, "Required level: %s", Data->RequiredLevel);
+            }
+            
+#if 0
+            if(){
                 SetTextBoxInput(Data->Level, &Editor.TextInput);
                 SetTextBoxInput(Data->RequiredLevel, &Editor.TextInput2);
                 Editor.Popup = EditorPopup_EditTeleporter;
@@ -390,16 +368,22 @@ RenderEditorThingUI(render_group *RenderGroup, panel *Panel){
                     UIManager.SelectedWidgetId = 1;
                 }
             }
+#endif
+            
         }break;
         case EntityType_Door: {
             door_data *Data = &Editor.World->Doors[Editor.SelectedThing];
             
-            if(PanelString(Panel, "Required level: %s", Data->RequiredLevel)){
+            UIText(RenderGroup, "Required level: %s", Data->RequiredLevel);
+            
+#if 0            
+            if(){
                 SetTextBoxInput(Data->RequiredLevel, &Editor.TextInput);
                 Editor.Popup = EditorPopup_EditDoor;
             }
+#endif
             
-            if(PanelButton(Panel, "Delete!")){
+            if(_UIButton(RenderGroup, "Delete!")){
                 UnorderedRemoveArrayItemAtIndex(&Editor.World->Doors, 
                                                 Editor.SelectedThing);
                 Editor.SelectedThingType = EntityType_None;
@@ -757,45 +741,6 @@ UpdateEditor(f32 MetersToPixels){
 }
 
 internal void
-PanelOverworldEditor(panel *Panel){
-    PanelTitle(Panel, "Overworld");
-    
-    local_constant char *ModeTable[EditMode_TOTAL] = {
-        "None", "Add wall", 0, 0, 0, 0, 0, 0, "Add teleporter", "Add door",
-    };
-    PanelString(Panel, "Current mode: %s", ModeTable[Editor.Mode]);
-    PanelString(Panel, "CameraP: %f %f", CameraP.X, CameraP.Y);
-}
-
-internal void
-PanelLevelEditor(panel *Panel){
-    PanelTitle(Panel, "Current level: %s(%u)",
-               (CurrentLevel) ? CurrentLevel->Name : 0,
-               CurrentLevelIndex);
-    
-    PanelString(Panel, "Total levels: %u", LevelData.Count);
-    PanelString(Panel, "Use left and right arrows to change edit mode");
-    PanelString(Panel, "Use up and down arrows to change levels");
-    PanelString(Panel, "Use 'e' to open the game");
-    local_constant char *ModeTable[EditMode_TOTAL] = {
-        "None", "Add wall", "Add coin p", "Snail", "Sally", "Dragonfly", "Speedy"
-    };
-    PanelString(Panel, "Current mode: %s", ModeTable[Editor.Mode]);
-    if(PanelButton(Panel, "Save")){
-        SaveLevelsToFile();
-    }
-    
-    if(PanelButton(Panel, "Load level")){
-        Editor.Popup = EditorPopup_LoadLevel;
-        UIManager.SelectedWidgetId = 1;
-    }
-    
-    if(PanelButton(Panel, "Rename level")){
-        Editor.Popup = EditorPopup_RenameLevel;
-    }
-}
-
-internal void
 UpdateAndRenderEditor(){
     render_group RenderGroup;
     InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
@@ -806,21 +751,46 @@ UpdateAndRenderEditor(){
     
     RenderEditorPopup(&RenderGroup);
     if(!Editor.HideUI){
-        panel Panel = CreateDefaultEditorPanel(&RenderGroup);
+        BeginWindow("Editor", v2{OSInput.WindowSize.X-400, OSInput.WindowSize.Y-43});
         
         if(GameMode == GameMode_OverworldEditor){
-            PanelOverworldEditor(&Panel);
+            local_constant char *ModeTable[EditMode_TOTAL] = {
+                "None", "Add wall", 0, 0, 0, 0, 0, 0, "Add teleporter", "Add door",
+            };
+            UIText(&RenderGroup, "Current mode: %s", ModeTable[Editor.Mode]);
+            UIText(&RenderGroup, "CameraP: %f %f", CameraP.X, CameraP.Y);
         }else if(GameMode == GameMode_LevelEditor){
-            PanelLevelEditor(&Panel);
+            UIText(&RenderGroup, "Total levels: %u", LevelData.Count);
+            UIText(&RenderGroup, "Use left and right arrows to change edit mode");
+            UIText(&RenderGroup, "Use up and down arrows to change levels");
+            UIText(&RenderGroup, "Use 'e' to open the game");
+            local_constant char *ModeTable[EditMode_TOTAL] = {
+                "None", "Add wall", "Add coin p", "Snail", "Sally", "Dragonfly", "Speedy"
+            };
+            UIText(&RenderGroup, "Current mode: %s", ModeTable[Editor.Mode]);
+            if(_UIButton(&RenderGroup, "Save")){
+                SaveLevelsToFile();
+            }
+            
+            if(_UIButton(&RenderGroup, "Load level")){
+                Editor.Popup = EditorPopup_LoadLevel;
+                UIManager.SelectedWidgetId = 1;
+            }
+            
+            if(_UIButton(&RenderGroup, "Rename level")){
+                Editor.Popup = EditorPopup_RenameLevel;
+            }
         }
         
-        PanelString(&Panel, "Map size: %u %u", 
-                    Editor.World->Width, Editor.World->Height);
+        UIText(&RenderGroup, "Map size: %u %u", 
+               Editor.World->Width, Editor.World->Height);
         
         
         //~ Resizing
-        u32 WidthChange = Panel2Buttons(&Panel, "- >>> -", "+ >>> +");
-        if(WidthChange == 1){
+        
+        // NOTE(Tyler): There is no else if here because, if the button before is pressed,
+        // it can cause flickering
+        if(_UIButton(&RenderGroup, "- >>> -", true)){
             if(Editor.World->Width > 32){
                 u32 NewMapSize = (Editor.World->Width*Editor.World->Height) - Editor.World->Height;
                 u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
@@ -836,7 +806,8 @@ UpdateAndRenderEditor(){
                 
                 Editor.World->Width--;
             }
-        }else if(WidthChange == 2){
+        }
+        if(_UIButton(&RenderGroup, "+ >>> +")){
             u32 NewMapSize = (Editor.World->Width*Editor.World->Height) + Editor.World->Height;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
             u32 NewXTiles = Editor.World->Width+1;
@@ -852,8 +823,7 @@ UpdateAndRenderEditor(){
             Editor.World->Width++;
         }
         
-        u32 HeightChange = Panel2Buttons(&Panel, "- ^^^ -", "+ ^^^ +");
-        if(HeightChange == 1){
+        if(_UIButton(&RenderGroup, "- ^^^ -", true)){
             if(Editor.World->Height > 18){
                 u32 NewMapSize = (Editor.World->Width*Editor.World->Height) - Editor.World->Width;
                 u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
@@ -869,7 +839,8 @@ UpdateAndRenderEditor(){
                 
                 Editor.World->Height--;
             }
-        }else if(HeightChange == 2){
+        }
+        if(_UIButton(&RenderGroup, "+ ^^^ +")){
             u32 NewMapSize = (Editor.World->Width*Editor.World->Height) + Editor.World->Width;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
             u32 NewYTiles = Editor.World->Height+1;
@@ -885,8 +856,8 @@ UpdateAndRenderEditor(){
             Editor.World->Height++;
         }
         
-        RenderEditorThingUI(&RenderGroup, &Panel);
-        DrawPanel(&Panel);
+        RenderEditorThingUI(&RenderGroup);
+        EndWindow(&RenderGroup);
     }
     
     UpdateEditor(RenderGroup.MetersToPixels);

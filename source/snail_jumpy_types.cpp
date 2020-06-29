@@ -146,7 +146,7 @@ FindInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
 
 template <typename KeyType, typename ValueType>
 internal constexpr ValueType
-FindOrCreatInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
+FindOrCreateInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
     //TIMED_FUNCTION();
     
     u64 Hash = HashKey(Key);
@@ -168,10 +168,11 @@ FindOrCreatInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
         }
     }
     
-    ValueType Result = Table->Values[Index];
     if(!DoesExist){
-        InsertIntoHashTable(Table, Key, {});
+        Table->Hashes[Index] = Hash;
+        Table->Keys[Index] = Key;
     }
+    ValueType Result = Table->Values[Index];
     return(Result);
 }
 
@@ -204,9 +205,10 @@ FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
     return(Result);
 }
 
+// TODO(Tyler): This could be way more efficient
 template <typename KeyType, typename ValueType>
 internal constexpr ValueType *
-FindOrCreatInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
+FindOrCreateInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
     //TIMED_FUNCTION();
     
     u64 Hash = HashKey(Key);
@@ -229,12 +231,11 @@ FindOrCreatInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
     }
     
     ValueType *Result = 0;
-    if(DoesExist){
-        Result = &Table->Values[Index];
-    }else{
-        InsertIntoHashTable(Table, Key, {});
-        Result = FindInHashTablePtr(Table, Key);
+    if(!DoesExist){
+        Table->Hashes[Index] = Hash;
+        Table->Keys[Index] = Key;
     }
+    Result = &Table->Values[Index];
     return(Result);
 }
 

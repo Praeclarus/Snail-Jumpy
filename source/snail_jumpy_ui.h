@@ -50,30 +50,69 @@ struct panel {
     f32 Z;
 };
 
-// TODO(Tyler): I don't think the cache performance on this would be too bad, as each
-// item is almost contiguous, if it proves a problem, it might be best to allocate a bunch 
-// of these from a block of temporary memory
-struct ui_primitive {
-    ui_primitive *Next;
-    ui_primitive_type Type;
+//~ New API
+
+struct theme {
+    font *TitleFont;
+    font *NormalFont;
     
-    color Color;
-    f32 Z;
+    color TitleColor;
+    color TitleBarColor;
+    color NormalColor;
+    color BackgroundColor;
+    color SeparatorColor;
+    
+    color ButtonBaseColor;
+    color ButtonHoveredColor;
+    color ButtonClickedColor;
+    
+    color TextInputInactiveTextColor;
+    color TextInputActiveTextColor;
+    color TextInputInactiveBackColor;
+    color TextInputActiveBackColor;
+    
+    
+    f32 Padding;
+};
+
+enum window_flags {
+    WindowFlag_None,
+    WindowFlag_NextButtonIsSameRow = (1 << 0),
+};
+
+enum widget_type {
+    WidgetType_None,
+    WidgetType_Window,
+    WidgetType_TextInput,
+};
+
+struct widget_info {
+    widget_type Type;
     union {
-        // Rectangle
+        // Window
         struct {
-            v2 Min;
-            v2 Max;
+            v2 P;
+            v2 Size;
+            b8 IsBeingDragged;
+            v2 DraggingOffset;
+            window_flags Flags;
         };
         
-        // String
+        // Text input
         struct {
-            font *Font;
-            v2 P;
-            // TODO(Tyler): This is probably not good to make this fixed size
-            char String[512];
+            char Buffer[512];
+            u32 BufferIndex;
         };
     };
+};
+
+struct window {
+    window_flags Flags;
+    v2 BaseP;
+    v2 CurrentP;
+    f32 TitleBarHeight;
+    v2 ContentSize;
+    f32 Z;
 };
 
 struct ui_manager {
@@ -82,6 +121,14 @@ struct ui_manager {
     
     // TODO(Tyler): Perhaps this should be part of the os_input structure?
     b8 HandledInput;
+    
+    theme Theme;
+    hash_table<const char *, widget_info> WidgetTable;
+    widget_info *SelectedWidget;
+    
+    b8 InWindow;
+    const char *CurrentWindowName; // TODO(Tyler): Move this into window struct
+    window CurrentWindow;
 };
 
 #endif //SNAIL_JUMPY_UI_H

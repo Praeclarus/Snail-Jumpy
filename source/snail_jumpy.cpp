@@ -169,6 +169,9 @@ InitializeGame(){
              "Press-Start-2P.ttf", 24, 512, 512);
     
     InitializeRenderer();
+    
+    SetupDefaultTheme(&UIManager.Theme);
+    UIManager.WidgetTable = PushHashTable<const char *, widget_info>(&PermanentStorageArena, 256);
 }
 
 internal void
