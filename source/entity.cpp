@@ -320,6 +320,206 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
     }
 }
 
+internal void
+UpdateAndRenderDoors(render_group *RenderGroup){
+    TIMED_FUNCTION();
+    for(u32 DoorId = 0; DoorId < EntityManager.DoorCount; DoorId++){
+        door_entity *Door = &EntityManager.Doors[DoorId];
+        v2 P = Door->Boundary.P - CameraP;
+        Door->Cooldown -= OSInput.dTimeForFrame;
+        
+        if(16.0f < P.X-Door->Boundary.Size.Width/2) continue;
+        if(P.X+Door->Boundary.Size.Width/2 < 0.0f) continue;
+        if(9.0f < P.Y-Door->Boundary.Size.Height/2) continue;
+        if(P.Y+Door->Boundary.Size.Height/2 < 0.0f) continue;
+        
+        if(!Door->IsOpen){
+            RenderRectangle(RenderGroup, P-(Door->Boundary.Size/2), 
+                            P+(Door->Boundary.Size/2), 0.0f, BROWN);
+        }else{
+            color Color = BROWN;
+            Color.A = Door->Cooldown;
+            if(Color.A < 0.3f){
+                Color.A = 0.3f;
+            }
+            RenderRectangle(RenderGroup, P-(Door->Boundary.Size/2), 
+                            P+(Door->Boundary.Size/2), 0.0f, Color);
+        }
+    }
+}
+
+internal void
+UpdateAndRenderTeleporters(render_group *RenderGroup){
+    TIMED_FUNCTION();
+    // NOTE(Tyler): Teleporters
+    for(u32 Id = 0; Id < EntityManager.TeleporterCount; Id++){
+        teleporter *Teleporter = &EntityManager.Teleporters[Id];
+        v2 P = Teleporter->Boundary.P - CameraP;
+        if(16.0f < P.X-Teleporter->Boundary.Size.Width/2) continue;
+        if(P.X+Teleporter->Boundary.Size.Width/2 < 0.0f) continue;
+        if(9.0f < P.Y-Teleporter->Boundary.Size.Height/2) continue;
+        if(P.Y+Teleporter->Boundary.Size.Height/2 < 0.0f) continue;
+        if(!Teleporter->IsLocked){
+            RenderRectangle(RenderGroup, P-(Teleporter->Boundary.Size/2), 
+                            P+(Teleporter->Boundary.Size/2), 0.0f, BLUE);
+            
+            v2 Radius = Teleporter->Boundary.Size/2;
+            v2 PlayerMin = EntityManager.Player->P-(EntityManager.Player->Boundaries[0].Size/2);
+            v2 PlayerMax = EntityManager.Player->P+(EntityManager.Player->Boundaries[0].Size/2);
+            if((Teleporter->Boundary.P.X-Radius.X <= PlayerMax.X) &&
+               (PlayerMin.X <= Teleporter->Boundary.P.X+Radius.X) &&
+               (Teleporter->Boundary.P.Y-Radius.Y <= PlayerMax.Y) &&
+               (PlayerMin.Y  <= Teleporter->Boundary.P.Y+Radius.Y)){
+                
+                // TODO(Tyler): I don't know how efficient FindInHashTable actually, it
+                // could likely be improved, and probably should be
+                world_data *World = FindInHashTablePtr(&WorldTable, (const char *)Teleporter->Level);
+                if(World){
+                    v2 TileSize = v2{0.1f, 0.1f};
+                    v2 MapSize = TileSize.X * v2{(f32)World->Width, (f32)World->Height};
+                    
+                    v2 MapP = v2{
+                        P.X-MapSize.X/2,
+                        P.Y+Teleporter->Boundary.Size.Y/2
+                    };
+                    
+                    RenderRectangle(RenderGroup, MapP, MapP+MapSize, -0.1f,
+                                    {0.5f, 0.5f, 0.5f, 1.0f});
+#if 0
+                    RenderLevelMapAndEntities(&RenderGroup, LevelIndex-1, TileSize,
+                                              MapP, -0.11f);
+#endif
+                    
+                    v2 StringP = v2{
+                        P.X,
+                        P.Y + Teleporter->Boundary.Size.Y/2 + MapSize.Y + 0.07f
+                    };
+                    
+                    StringP *= RenderGroup->MetersToPixels;
+                    f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
+                    StringP.X -= Advance/2;
+                    RenderString(RenderGroup, &MainFont, GREEN,
+                                 StringP.X, StringP.Y, -1.0f, Teleporter->Level);
+                    
+                    f32 Thickness = 0.03f;
+                    v2 Min = MapP-v2{Thickness, Thickness};
+                    v2 Max = MapP+MapSize+v2{Thickness, Thickness};
+                    color Color = color{0.2f, 0.5f, 0.2f, 1.0f};
+                    RenderRectangle(RenderGroup, Min, {Max.X, Min.Y+Thickness}, -0.11f, Color);
+                    RenderRectangle(RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, -0.11f, Color);
+                    RenderRectangle(RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.11f, Color);
+                    RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.11f, Color);
+                }else{
+                    LoadWorldFromFile(Teleporter->Level);
+                }
+                
+                if(IsKeyJustPressed(KeyCode_Space)){
+                    ChangeState(GameMode_MainGame, Teleporter->Level);
+                }
+            }
+        }else{
+            RenderRectangle(RenderGroup, P-(Teleporter->Boundary.Size/2), 
+                            P+(Teleporter->Boundary.Size/2), 0.0f, 
+                            color{0.0f, 0.0f, 1.0f, 0.5f});
+        }
+    }
+}
+
+internal void
+UpdateAndRenderPlatformerPlayer(render_group *RenderGroup){
+    player_entity *Player = EntityManager.Player;
+    if(Player->Cooldown <= 0.0f){
+        v2 ddP = {0};
+        
+#if 0            
+        if(Player->CurrentAnimation == PlayerAnimation_Death){
+            Player->State &= ~EntityState_Dead;
+            Player->P = {1.5, 1.5};
+            Player->dP = {0, 0};
+        }
+#endif
+        
+        if(Player->IsGrounded) Player->JumpTime = 0.0f;
+        if((Player->JumpTime < 0.1f) && IsKeyDown(KeyCode_Space)){
+            ddP.Y += 88.0f;
+            Player->JumpTime += OSInput.dTimeForFrame;
+            Player->IsGrounded = false;
+        }else if(!IsKeyDown(KeyCode_Space)){
+            Player->JumpTime = 2.0f;
+            ddP.Y -= 17.0f;
+        }else{
+            ddP.Y -= 17.0f;
+        }
+        
+        f32 MovementSpeed = 120;
+        if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
+            ddP.X += MovementSpeed;
+            Player->Direction = Direction_Right;
+        }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
+            ddP.X -= MovementSpeed;
+            Player->Direction = Direction_Left;
+        }
+        
+        if(IsKeyDown('X')){
+            Player->WeaponChargeTime+= OSInput.dTimeForFrame;
+            if(Player->WeaponChargeTime > 1.0f){
+                Player->WeaponChargeTime = 1.0f;
+            }
+        }else if(Player->WeaponChargeTime > 0.0f){
+            projectile_entity *Projectile = EntityManager.Projectiles;
+            
+            if(Player->WeaponChargeTime < 0.1f){
+                Player->WeaponChargeTime = 0.1f;
+            }else if(Player->WeaponChargeTime < 0.6f){
+                Player->WeaponChargeTime = 0.6f;
+            }
+            
+            // TODO(Tyler): Hot loaded variables file for tweaking these values in 
+            // realtime
+            switch(Player->Direction){
+                case Direction_Left:      Projectile->dP = v2{-13,   3}; break;
+                case Direction_Right:     Projectile->dP = v2{ 13,   3}; break;
+            }
+            
+            Projectile->P = Player->P;
+            Projectile->P.Y += 0.15f;
+            Projectile->dP *= Player->WeaponChargeTime;
+            Projectile->RemainingLife = 3.0f;
+            Player->WeaponChargeTime = 0.0f;
+            Projectile->Boundaries[0].P = Projectile->P;
+        }
+        
+        if(0.0f < Player->dP.Y){
+            ChangeEntityState(Player, State_Jumping);
+        }else if(Player->dP.Y < 0.0f){
+            ChangeEntityState(Player, State_Falling);
+        }else{
+            if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
+            else ChangeEntityState(Player, State_Idle);
+        }
+        
+        
+        
+        v2 dPOffset = {0};
+        if(Player->IsRidingDragonfly){
+            enemy_entity *Dragonfly = &EntityManager.Enemies[Player->RidingDragonfly];
+            dPOffset = Dragonfly->dP;
+            
+            Player->IsRidingDragonfly = false;
+        }
+        MoveEntity(Player, 0, ddP, 0.7f, 1.0f, 2.0f, dPOffset);
+        
+        if(Player->P.Y < -3.0f){
+            DamagePlayer(2);
+        }
+        
+        SetCameraCenterP(Player->P, CurrentWorld->Width, 
+                         CurrentWorld->Height);
+    }
+    
+    UpdateAndRenderAnimation(RenderGroup, Player, OSInput.dTimeForFrame);
+}
+
 //~ Loading
 
 internal void

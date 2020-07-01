@@ -40,27 +40,29 @@ enum direction {
 #include "primitive_types.h"
 #include "allocators.cpp"
 #include "debug.h"
-#include "types.cpp"
+#include "helpers.cpp"
+#include "hash_table.cpp"
+#include "array.cpp"
 #include "math.h"
 #include "render.h"
 #include "os.h"
 #include "intrinsics.h"
 #include "asset.h"
-#include "physics.h"
+#include "collision.h"
 #include "entity.h"
 #include "random.h"
 #include "ui.h"
-#include "level.h"
-#include "editor.h"
+#include "world.h"
+#include "entity_editor.h"
+#include "world_editor.h"
 
 //~ Big game things
 enum game_mode {
     GameMode_None,
     GameMode_Menu,
     GameMode_MainGame,
-    GameMode_LevelEditor,
-    GameMode_Overworld,
-    GameMode_OverworldEditor,
+    GameMode_WorldEditor,
+    GameMode_EntityEditor,
 };
 struct state_change_data {
     b8 DidChange;
@@ -93,6 +95,7 @@ internal void ChangeEntityState(entity *Entity, entity_state NewState);
 internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
 internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
 internal b8 ShouldEntityUpdate(entity *Entity);
+internal world_data *LoadWorldFromFile(const char *Name);
 
 
 #endif

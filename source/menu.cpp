@@ -13,7 +13,7 @@ UpdateAndRenderMenu(){
     UIText(&RenderGroup, "Hello!");
     _UIButton(&RenderGroup, "Click me!");
     UIText(&RenderGroup, "Hello!");
-    UITextInput(&RenderGroup, "Input test", 300.0f);
+    //UITextInput(&RenderGroup, "Input test", 300.0f);
     _UIButton(&RenderGroup, "Submit", true);
     _UIButton(&RenderGroup, "Abort");
     EndWindow(&RenderGroup);
@@ -22,7 +22,7 @@ UpdateAndRenderMenu(){
     UIText(&RenderGroup, "Hello!");
     _UIButton(&RenderGroup, "Click me!");
     UIText(&RenderGroup, "Hello!");
-    UITextInput(&RenderGroup, "Input test", 300.0f);
+    //UITextInput(&RenderGroup, "Input test", 300.0f);
     _UIButton(&RenderGroup, "Submit", true);
     _UIButton(&RenderGroup, "Abort");
     EndWindow(&RenderGroup);

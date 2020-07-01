@@ -34,6 +34,9 @@ internal void
 internal void 
 DefaultFree(void *Pointer);
 
+internal void
+GetProfileTime();
+
 enum os_key_code {
     KeyCode_NULL = 0,
     KeyCode_Tab = '\t',

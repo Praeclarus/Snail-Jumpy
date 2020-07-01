@@ -1,5 +1,7 @@
 
 //~ Basic widgets
+// TODO(Tyler): Where these are used, they need to be replaced
+
 internal void
 UISlider(render_group *RenderGroup, f32 X, f32 Y,
          f32 Width, f32 Height, f32 CursorWidth,
@@ -170,7 +172,7 @@ ResetTextBoxInput(text_box_data *Data){
 }
 
 //~ Layout
-// TODO(Tyler): The layout system is really bad, it needs to be improved!
+// TODO(Tyler): This is very primitive and should be replaced
 
 internal inline layout
 CreateLayout(render_group *RenderGroup, f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance, 
@@ -224,140 +226,6 @@ LayoutString(layout *Layout, font *Font, color Color, char *Format, ...){
     Layout->CurrentP.Y -= Font->Size;
 }
 
-//~ Panel
-internal b32
-PanelString(panel *Panel, char *Format, ...){
-    va_list VarArgs;
-    va_start(VarArgs, Format);
-    f32 Advance = VGetFormatStringAdvance(Panel->NormalFont, Format, VarArgs);
-    if((Advance+(2*Panel->Margin.X)) > Panel->Size.X){
-        Panel->Size.X = (Advance+(2*Panel->Margin.X));
-    }
-    v2 Min, Max;
-    Min.X = Panel->CurrentP.X;
-    Max.Y = Panel->CurrentP.Y;
-    
-    // TODO(Tyler): Do this differently! Perhaps put it in a list/array inside Panel
-    Panel->CurrentP.Y -= Panel->NormalFont->Size+Panel->Margin.Y;
-    Panel->Size.Y += Panel->NormalFont->Size+Panel->Margin.Y;
-    v2 P = Panel->CurrentP;
-    P.X += Panel->Margin.X;
-    VRenderFormatString(Panel->RenderGroup, Panel->NormalFont, Panel->NormalColor, P.X, P.Y, 
-                        Panel->Z-0.01f, Format, VarArgs);
-    
-    P.X = Panel->CurrentP.X;
-    P.Y -= Panel->Margin.Y;
-    RenderRectangle(Panel->RenderGroup, P, v2{P.X+Panel->Size.X, P.Y+2}, Panel->Z-0.01f,
-                    Panel->SeparatorColor);
-    va_end(VarArgs);
-    
-    Min.Y = Panel->CurrentP.Y;
-    Max.X = Panel->CurrentP.X + Panel->Size.X;
-    
-    b32 Clicked = false;
-    if((Min.X < OSInput.MouseP.X) && (OSInput.MouseP.X < Max.X) &&
-       (Min.Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Max.Y)){
-        if(IsKeyJustPressed(KeyCode_LeftMouse)){
-            UIManager.HandledInput = true;
-            Clicked = true;
-        }
-    }
-    
-    return(Clicked);
-}
-
-internal void
-PanelTitle(panel *Panel, char *Format, ...){
-    va_list VarArgs;
-    va_start(VarArgs, Format);
-    
-    f32 Advance = VGetFormatStringAdvance(Panel->TitleFont, Format, VarArgs);
-    if((Advance+(2*Panel->Margin.X)) > Panel->Size.X){
-        Panel->Size.X = (Advance+(2*Panel->Margin.X));
-    }
-    // TODO(Tyler): Do this differently! Perhaps put it in a list/array inside P
-    Panel->CurrentP.Y -= Panel->TitleFont->Size+Panel->Margin.Y;
-    Panel->Size.Y += Panel->TitleFont->Size+Panel->Margin.Y;
-    v2 P = Panel->CurrentP;
-    P.X += Panel->Margin.X;
-    VRenderFormatString(Panel->RenderGroup, Panel->TitleFont, Panel->NormalColor, P.X, P.Y, 
-                        Panel->Z-0.01f, Format, VarArgs);
-    
-    P.X = Panel->CurrentP.X;
-    P.Y -= Panel->Margin.Y;
-    RenderRectangle(Panel->RenderGroup, P, v2{P.X+Panel->Size.X, P.Y+2}, 
-                    Panel->Z-0.01f, Panel->SeparatorColor, true);
-    
-    va_end(VarArgs);
-}
-
-internal b32
-PanelButton(panel *Panel, char *Text){
-    
-    Panel->CurrentP.Y -= Panel->NormalFont->Size+3*Panel->Margin.Y;
-    Panel->Size.Y += Panel->NormalFont->Size+3*Panel->Margin.Y;
-    v2 P = Panel->CurrentP;
-    P.X += Panel->Margin.X;
-    v2 Size;
-    // TODO(Tyler): I don't like this
-    Size.X = Panel->Size.X - 2*Panel->Margin.X;
-    Size.Y = Panel->NormalFont->Size + 2*Panel->Margin.Y;
-    b32 Result = 
-        UIButton(Panel->RenderGroup, P.X, P.Y, Panel->Z-0.01f, Size.X, Size.Y, Text,
-                 Panel->ButtonBaseColor, Panel->ButtonHoveredColor, 
-                 Panel->ButtonClickedColor, Panel->NormalColor, Panel->NormalFont);
-    
-    return(Result);
-}
-
-internal u32
-Panel2Buttons(panel *Panel, char *Text1, char *Text2){
-    
-    Panel->CurrentP.Y -= Panel->NormalFont->Size+3*Panel->Margin.Y;
-    Panel->Size.Y += Panel->NormalFont->Size+3*Panel->Margin.Y;
-    v2 P = Panel->CurrentP;
-    P.X += Panel->Margin.X;
-    v2 Size;
-    Size.X = Panel->Size.X - Panel->Margin.X;
-    Size.X /= 2.0f;
-    Size.X -= Panel->Margin.X/2.0f;
-    Size.Y = Panel->NormalFont->Size + 2*Panel->Margin.Y;
-    u32 Result = 0;
-    if(UIButton(Panel->RenderGroup, P.X, P.Y, Panel->Z-0.01f, Size.X, Size.Y, Text1,
-                Panel->ButtonBaseColor, Panel->ButtonHoveredColor, 
-                Panel->ButtonClickedColor, Panel->NormalColor, Panel->NormalFont)){
-        Result = 1;
-    }
-    P.X += Size.X;
-    if(UIButton(Panel->RenderGroup, P.X, P.Y, Panel->Z-0.01f, Size.X, Size.Y, Text2,
-                Panel->ButtonBaseColor, Panel->ButtonHoveredColor, 
-                Panel->ButtonClickedColor, Panel->NormalColor, Panel->NormalFont)){
-        Result = 2;
-    }
-    
-    return(Result);
-}
-
-internal void
-DrawPanel(panel *Panel){
-    f32 T = 3;
-    v2 Min = v2{Panel->BaseP.X, Panel->BaseP.Y-Panel->Size.Y};
-    v2 Max = Min + Panel->Size; 
-    Max.Y -= T;
-    Min.Y -= Panel->Margin.Y;
-    RenderRectangle(Panel->RenderGroup, Min, Max, Panel->Z, Panel->BackgroundColor, true);
-    
-    RenderRectangle(Panel->RenderGroup, v2{Min.X-T, Min.Y}, v2{Min.X, Max.Y+T}, 
-                    Panel->Z-0.1f, Panel->SeparatorColor, true);
-    RenderRectangle(Panel->RenderGroup, v2{Min.X, Max.Y}, v2{Max.X+T, Max.Y+T}, 
-                    Panel->Z-0.1f, Panel->SeparatorColor, true);
-    RenderRectangle(Panel->RenderGroup, v2{Max.X, Min.Y-T}, v2{Max.X+T, Max.Y}, 
-                    Panel->Z-0.1f, Panel->SeparatorColor, true);
-    RenderRectangle(Panel->RenderGroup, v2{Min.X-T, Min.Y-T}, v2{Max.X, Min.Y}, 
-                    Panel->Z-0.1f, Panel->SeparatorColor, true);
-}
-
-//~ Helpers
 internal void
 LayoutFps(layout *Layout){
     LayoutString(Layout, &DebugFont,
@@ -365,6 +233,9 @@ LayoutFps(layout *Layout){
     LayoutString(Layout, &DebugFont,
                  BLACK, "FPS: %f", 1.0f/OSInput.dTimeForFrame);
 }
+
+
+//~ New UI API
 
 internal void
 SetupDefaultTheme(theme *Theme){
@@ -389,7 +260,6 @@ SetupDefaultTheme(theme *Theme){
     Theme->Padding = 10;
 }
 
-//~ New UI API
 internal void 
 BeginWindow(const char *Name, v2 StartP=v2{500, 600}, v2 StartSize=v2{0, 0}){
     widget_info *Info = FindOrCreateInHashTablePtr(&UIManager.WidgetTable, Name);
@@ -413,6 +283,7 @@ BeginWindow(const char *Name, v2 StartP=v2{500, 600}, v2 StartSize=v2{0, 0}){
 
 internal void
 EndWindow(render_group *RenderGroup){
+    TIMED_FUNCTION();
     widget_info *Info = FindOrCreateInHashTablePtr(&UIManager.WidgetTable, 
                                                    UIManager.CurrentWindowName);
     //Info->Size = UIManager.CurrentWindow.ContentSize;
@@ -563,12 +434,12 @@ UIText(render_group *RenderGroup, const char *Text, ...){
                                         Text, VarArgs);
     
     {
-        f32 RelHeight = UIManager.CurrentWindow.CurrentP.Y-UIManager.CurrentWindow.BaseP.Y;
+        f32 RelHeight = UIManager.CurrentWindow.BaseP.Y-UIManager.CurrentWindow.CurrentP.Y;
         if(UIManager.CurrentWindow.ContentSize.X < Width+2*UIManager.Theme.Padding){
             UIManager.CurrentWindow.ContentSize.X = Width+2*UIManager.Theme.Padding;
         }
         if(UIManager.CurrentWindow.ContentSize.Y < RelHeight+Height+2*UIManager.Theme.Padding){
-            UIManager.CurrentWindow.ContentSize.Y = RelHeight+Height+2*UIManager.Theme.Padding;
+            UIManager.CurrentWindow.ContentSize.Y = RelHeight+Height;
         }
     }
     
@@ -581,7 +452,8 @@ UIText(render_group *RenderGroup, const char *Text, ...){
 }
 
 internal char *
-UITextInput(render_group *RenderGroup, const char *ID, f32 Width){
+UITextInput(render_group *RenderGroup, const char *ID, char *Buffer, u32 BufferSize, 
+            f32 Width=-1 ){
     widget_info *Info = FindOrCreateInHashTablePtr(&UIManager.WidgetTable, ID);
     
     if(UIManager.CurrentWindow.Flags & WindowFlag_NextButtonIsSameRow){
@@ -596,7 +468,7 @@ UITextInput(render_group *RenderGroup, const char *ID, f32 Width){
     f32 Height = UIManager.Theme.NormalFont->Size+2*UIManager.Theme.Padding;
     
     {
-        f32 RelHeight = UIManager.CurrentWindow.CurrentP.Y-UIManager.CurrentWindow.BaseP.Y;
+        f32 RelHeight = UIManager.CurrentWindow.BaseP.Y-UIManager.CurrentWindow.CurrentP.Y;
         if(UIManager.CurrentWindow.ContentSize.X < Width+2*UIManager.Theme.Padding){
             UIManager.CurrentWindow.ContentSize.X = Width+2*UIManager.Theme.Padding;
         }
@@ -621,16 +493,16 @@ UITextInput(render_group *RenderGroup, const char *ID, f32 Width){
                     }
                 }
                 
-                Assert(Info->BufferIndex < ArrayCount(Info->Buffer));
-                Info->Buffer[Info->BufferIndex++] = Char;
-                Info->Buffer[Info->BufferIndex] = '\0';
+                Assert(Info->BufferIndex < BufferSize);
+                Buffer[Info->BufferIndex++] = Char;
+                Buffer[Info->BufferIndex] = '\0';
             }
         }
         if(IsKeyRepeated(KeyCode_BackSpace)){
             UIManager.HandledInput = true;
             if(Info->BufferIndex > 0){
                 Info->BufferIndex--;
-                Info->Buffer[Info->BufferIndex] = '\0';
+                Buffer[Info->BufferIndex] = '\0';
             }
         }
         
@@ -662,8 +534,13 @@ UITextInput(render_group *RenderGroup, const char *ID, f32 Width){
         }else if(UIManager.SelectedWidget != Info){
             Color = color{0.25f, 0.4f, 0.3f, 0.9f};
         }
-    }else if(IsKeyJustPressed(KeyCode_LeftMouse) && 
-             (UIManager.SelectedWidget == Info)){
+        
+        if(IsKeyDown(KeyCode_LeftMouse)){
+            UIManager.HandledInput = true;
+        }
+    }else if((IsKeyJustPressed(KeyCode_LeftMouse) && 
+              (UIManager.SelectedWidget == Info)) ||
+             (IsKeyJustPressed(KeyCode_Escape))){
         UIManager.SelectedWidget = 0;
     }
     
@@ -674,9 +551,9 @@ UITextInput(render_group *RenderGroup, const char *ID, f32 Width){
     RenderRectangle(RenderGroup, Min+BorderSize, Max-BorderSize, -0.11f, Color, true);
     v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - NormalFont.Ascent/2};
     RenderString(RenderGroup, UIManager.Theme.NormalFont, TextColor, v2{P.X, P.Y}, -0.12f,
-                 Info->Buffer);
+                 Buffer);
     
     UIManager.CurrentWindow.CurrentP.Y -= Height+UIManager.Theme.Padding;
     
-    return(Info->Buffer);
+    return(Buffer);
 }

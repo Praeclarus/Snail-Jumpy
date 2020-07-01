@@ -100,9 +100,9 @@ struct widget_info {
         
         // Text input
         struct {
-            char Buffer[512];
             u32 BufferIndex;
         };
+        
     };
 };
 

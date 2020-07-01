@@ -29,6 +29,8 @@ TODOS:
              - Metal
          - Windows
              - Direct3D
+ 
+ - Better profiler
 
  - Do step up onto dragonfly body better! Make it more generalized and apply to all 
    ledges, and only move the player upwards, instead of moving them so that when the 

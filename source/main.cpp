@@ -25,7 +25,7 @@ global font TitleFont;
 global font DebugFont;
 
 global s32 Score;
-global f32 Counter;
+global f32 Counter; // TODO(Tyler): This is really a pointless variable
 
 global memory_arena PermanentStorageArena;
 global memory_arena TransientStorageArena;
@@ -36,19 +36,18 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_LevelEditor;
+global game_mode GameMode = GameMode_EntityEditor;
 
 global editor    Editor;
 
 global v2 CameraP;
 global v2 LastOverworldPlayerP;
 
-global world_data OverworldWorld;
 global memory_arena EnemyMemory;
-global hash_table<const char *, u64>  LevelTable;
-global array<level_data> LevelData;
-global level_data       *CurrentLevel;
-global u32               CurrentLevelIndex;
+global memory_arena TeleporterMemory;
+global memory_arena DoorMemory;
+global hash_table<const char *, world_data> WorldTable;
+global world_data *CurrentWorld;
 
 global collision_table CollisionTable;
 
@@ -58,16 +57,16 @@ global hash_table<const char *, entity_spec> EntitySpecTable;
 #include "stream.cpp"
 #include "render.cpp"
 #include "asset.cpp"
-#include "physics.cpp"
+#include "collision.cpp"
 #include "entity.cpp"
 #include "ui.cpp"
 #include "debug_ui.cpp"
-#include "level.cpp"
+#include "world.cpp"
 
 #include "menu.cpp"
 #include "world_editor.cpp"
+#include "entity_editor.cpp"
 #include "game.cpp"
-#include "overworld.cpp"
 
 // TODO(Tyler): This should be done at compile time
 internal void
@@ -124,36 +123,20 @@ InitializeGame(){
     // NOTE(Tyler): Entity memory
     EntityManager.Memory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
     
-    // NOTE(Tyler): Initialize levels
-    // TODO(Tyler): It might be a better idea to use a few pool allocators for this, or a 
-    // different allocator
-    LevelData = CreateNewArray<level_data>(&PermanentStorageArena, 512);
-    //MapDataMemory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
-    EnemyMemory   = PushNewArena(&PermanentStorageArena, Kilobytes(64));
-    LevelTable    = PushLevelTable(&PermanentStorageArena, 1024);
+    // NOTE(Tyler): Initialize world management
+    EnemyMemory      = PushNewArena(&PermanentStorageArena, Kilobytes(64));
+    TeleporterMemory = PushNewArena(&PermanentStorageArena, Kilobytes(256));
+    DoorMemory       = PushNewArena(&PermanentStorageArena, Kilobytes(256));
+    WorldTable = PushHashTable<const char *, world_data>(&PermanentStorageArena, 512);
     
-    // NOTE(Tyler): Initialize overworld
-    //OverworldMapMemory = PushNewArena(&PermanentStorageArena, Kilobytes(8));
-    //OverworldMap = OverworldMapMemory.Memory;
-    OverworldWorld.Teleporters = CreateNewArray<teleporter_data>(&PermanentStorageArena, 512);
-    OverworldWorld.Doors = CreateNewArray<door_data>(&PermanentStorageArena, 512);
-    LoadOverworldFromFile();
-    
-    if((GameMode == GameMode_Overworld) ||
-       (GameMode == GameMode_OverworldEditor)){
-        LoadOverworld();
-    }else if((GameMode == GameMode_MainGame) ||
-             (GameMode == GameMode_LevelEditor)){
-        LoadLevelFromFile(STARTUP_LEVEL);
-        LoadLevel(STARTUP_LEVEL);
+    if((GameMode == GameMode_MainGame) ||
+       (GameMode == GameMode_WorldEditor)){
+        LoadWorldFromFile(STARTUP_LEVEL);
+        LoadWorld(STARTUP_LEVEL);
     }
     
-    if(GameMode == GameMode_LevelEditor){
-        GameMode = GameMode_MainGame;
-        ToggleEditor();
-    }else if(GameMode == GameMode_OverworldEditor){
-        GameMode = GameMode_Overworld;
-        ToggleEditor();
+    if(GameMode == GameMode_WorldEditor){
+        Editor.World = CurrentWorld;
     }
     
     AssetTable = PushHashTable<const char *, asset>(&PermanentStorageArena, 256);
@@ -193,13 +176,7 @@ GameUpdateAndRender(){
         case GameMode_Menu: {
             UpdateAndRenderMenu();
         }break;
-        case GameMode_LevelEditor: {
-            UpdateAndRenderEditor();
-        }break;
-        case GameMode_Overworld: {
-            UpdateAndRenderOverworld();
-        }break;
-        case GameMode_OverworldEditor: {
+        case GameMode_WorldEditor: {
             UpdateAndRenderEditor();
         }break;
     }
@@ -208,22 +185,17 @@ GameUpdateAndRender(){
     Counter += OSInput.dTimeForFrame;
     
     if(StateChangeData.DidChange){
-        if(GameMode == GameMode_Overworld){
+        if(CurrentWorld->Flags & WorldFlag_IsTopDown){
             LastOverworldPlayerP = EntityManager.Player->P;
         }
         
         if(StateChangeData.NewMode == GameMode_None){
-            LoadLevel(StateChangeData.NewLevel);
+            LoadWorld(StateChangeData.NewLevel);
         }else if(StateChangeData.NewMode == GameMode_MainGame){
             GameMode = GameMode_MainGame;
-            LoadLevel(StateChangeData.NewLevel);
-        }else if(StateChangeData.NewMode == GameMode_Overworld){
-            GameMode = GameMode_Overworld;
-            LoadOverworld();
-        }else if(StateChangeData.NewMode == GameMode_LevelEditor){
-            GameMode = GameMode_LevelEditor;
-        }else if(StateChangeData.NewMode == GameMode_OverworldEditor){
-            GameMode = GameMode_OverworldEditor;
+            LoadWorld(StateChangeData.NewLevel);
+        }else if(StateChangeData.NewMode == GameMode_WorldEditor){
+            GameMode = GameMode_WorldEditor;
         }
         CameraP = {0};
         

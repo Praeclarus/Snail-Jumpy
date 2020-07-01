@@ -10,12 +10,12 @@ UpdateAndRenderMainGame(){
     }
     
     if(IsKeyJustPressed(KeyCode_Escape)){
-        ChangeState(GameMode_Overworld, 0);
+        ChangeState(GameMode_MainGame, "Overworld");
     }
     
     if(IsKeyJustPressed('P')){
-        CurrentLevel->IsCompleted = true;
-        ChangeState(GameMode_Overworld, 0);
+        CurrentWorld->Flags |= WorldFlag_IsCompleted;
+        ChangeState(GameMode_MainGame, "Overworld");
     }
     
     render_group RenderGroup;
@@ -32,6 +32,13 @@ UpdateAndRenderMainGame(){
     UpdateAndRenderWalls(&RenderGroup);
     UpdateAndRenderCoins(&RenderGroup);
     UpdateAndRenderEnemies(&RenderGroup);
+    UpdateAndRenderDoors(&RenderGroup);
+    UpdateAndRenderTeleporters(&RenderGroup);
+    if(CurrentWorld->Flags & WorldFlag_IsTopDown){
+        UpdateAndRenderTopDownPlayer(&RenderGroup);
+    }else{
+        UpdateAndRenderPlatformerPlayer(&RenderGroup);
+    }
     
     // NOTE(Tyler): Exit
     {
@@ -46,7 +53,7 @@ UpdateAndRenderMainGame(){
            (PlayerMin.X  <= P.X+Radius.X) &&
            (P.Y-Radius.Y <= PlayerMax.Y) &&
            (PlayerMin.Y  <= P.Y+Radius.Y)){
-            u32 RequiredCoins = CurrentLevel->CoinsRequiredToComplete;
+            u32 RequiredCoins = CurrentWorld->CoinsRequiredToComplete;
             if((u32)Score >= RequiredCoins){
                 if(CompletionCooldown == 0.0f){
                     CompletionCooldown = 3.0f;
@@ -79,101 +86,6 @@ UpdateAndRenderMainGame(){
         }
     }
     
-    // NOTE(Tyler): Update player
-    {
-        player_entity *Player = EntityManager.Player;
-        if(Player->Cooldown <= 0.0f){
-            v2 ddP = {0};
-            
-#if 0            
-            if(Player->CurrentAnimation == PlayerAnimation_Death){
-                Player->State &= ~EntityState_Dead;
-                Player->P = {1.5, 1.5};
-                Player->dP = {0, 0};
-            }
-#endif
-            
-            if(Player->IsGrounded) Player->JumpTime = 0.0f;
-            if((Player->JumpTime < 0.1f) && IsKeyDown(KeyCode_Space)){
-                ddP.Y += 88.0f;
-                Player->JumpTime += OSInput.dTimeForFrame;
-                Player->IsGrounded = false;
-            }else if(!IsKeyDown(KeyCode_Space)){
-                Player->JumpTime = 2.0f;
-                ddP.Y -= 17.0f;
-            }else{
-                ddP.Y -= 17.0f;
-            }
-            
-            f32 MovementSpeed = 120;
-            if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
-                ddP.X += MovementSpeed;
-                Player->Direction = Direction_Right;
-            }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
-                ddP.X -= MovementSpeed;
-                Player->Direction = Direction_Left;
-            }
-            
-            if(IsKeyDown('X')){
-                Player->WeaponChargeTime+= OSInput.dTimeForFrame;
-                if(Player->WeaponChargeTime > 1.0f){
-                    Player->WeaponChargeTime = 1.0f;
-                }
-            }else if(Player->WeaponChargeTime > 0.0f){
-                projectile_entity *Projectile = EntityManager.Projectiles;
-                
-                if(Player->WeaponChargeTime < 0.1f){
-                    Player->WeaponChargeTime = 0.1f;
-                }else if(Player->WeaponChargeTime < 0.6f){
-                    Player->WeaponChargeTime = 0.6f;
-                }
-                
-                // TODO(Tyler): Hot loaded variables file for tweaking these values in 
-                // realtime
-                switch(Player->Direction){
-                    case Direction_Left:      Projectile->dP = v2{-13,   3}; break;
-                    case Direction_Right:     Projectile->dP = v2{ 13,   3}; break;
-                }
-                
-                Projectile->P = Player->P;
-                Projectile->P.Y += 0.15f;
-                Projectile->dP *= Player->WeaponChargeTime;
-                Projectile->RemainingLife = 3.0f;
-                Player->WeaponChargeTime = 0.0f;
-                Projectile->Boundaries[0].P = Projectile->P;
-            }
-            
-            if(0.0f < Player->dP.Y){
-                ChangeEntityState(Player, State_Jumping);
-            }else if(Player->dP.Y < 0.0f){
-                ChangeEntityState(Player, State_Falling);
-            }else{
-                if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
-                else ChangeEntityState(Player, State_Idle);
-            }
-            
-            
-            
-            v2 dPOffset = {0};
-            if(Player->IsRidingDragonfly){
-                enemy_entity *Dragonfly = &EntityManager.Enemies[Player->RidingDragonfly];
-                dPOffset = Dragonfly->dP;
-                
-                Player->IsRidingDragonfly = false;
-            }
-            MoveEntity(Player, 0, ddP, 0.7f, 1.0f, 2.0f, dPOffset);
-            
-            if(Player->P.Y < -3.0f){
-                DamagePlayer(2);
-            }
-            
-            SetCameraCenterP(Player->P, CurrentLevel->World.Width, 
-                             CurrentLevel->World.Height);
-        }
-        
-        UpdateAndRenderAnimation(&RenderGroup, Player, OSInput.dTimeForFrame);
-    }
-    
     if(CompletionCooldown > 0.0f){
         f32 Advance =
             GetFormatStringAdvance(&MainFont, 
@@ -193,9 +105,9 @@ UpdateAndRenderMainGame(){
         
         CompletionCooldown -= OSInput.dTimeForFrame;
         if(CompletionCooldown < 0.00001f){
-            CurrentLevel->IsCompleted = true;
+            CurrentWorld->Flags |= WorldFlag_IsCompleted;
             CompletionCooldown = 0.0f;
-            ChangeState(GameMode_Overworld, 0);
+            ChangeState(GameMode_MainGame, "Overworld");
         }
     }
     
@@ -265,8 +177,7 @@ UpdateAndRenderMainGame(){
         layout Layout = CreateLayout(&RenderGroup, OSInput.WindowSize.Width-500, OSInput.WindowSize.Height-100,
                                      30, DebugFont.Size);
         LayoutString(&Layout, &DebugFont,
-                     BLACK, "Current level: %u %s", CurrentLevelIndex, 
-                     CurrentLevel->Name);
+                     BLACK, "Current level: %s", CurrentWorld->Name);
         LayoutString(&Layout, &DebugFont,
                      BLACK, "Use up and down arrows to change levels");
         LayoutString(&Layout, &DebugFont,

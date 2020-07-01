@@ -650,10 +650,7 @@ WinMain(HINSTANCE Instance,
     }
     
 #if 1
-    // TODO(Tyler): Do this more formally
-    //WriteAssetFile("assets.sja");
-    SaveLevelsToFile();
-    SaveOverworldToFile();
+    WriteWorldsToFiles();
 #endif
     
     return(0);

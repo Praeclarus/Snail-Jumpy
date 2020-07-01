@@ -1,8 +1,6 @@
 #if !defined(WIN32_SNAIL_JUMPY_H)
 #define WIN32_SNAIL_JUMPY_H
 
-
-#include "types.cpp"
 #include "math.h"
 #include "render.h"
 #include "os.h"
