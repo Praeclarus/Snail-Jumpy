@@ -21,9 +21,7 @@ AllocateNEntities(u32 N, entity_type Type){
             EntityManager.CoinCount = N;
             EntityManager.Coins = PushArray(&EntityManager.Memory, coin_entity, N);
         }break;
-        case EntityType_Snail: 
-        case EntityType_Speedy:
-        case EntityType_Dragonfly: {
+        case EntityType_Enemy: {
             EntityManager.EnemyCount = N;
             EntityManager.Enemies = PushArray(&EntityManager.Memory, enemy_entity, N);
         }break;
@@ -149,6 +147,7 @@ ShouldEntityUpdate(entity *Entity){
 
 internal void
 UpdateEnemyHitBox(enemy_entity *Enemy){
+#if 0
     if(Enemy->Type == EntityType_Sally){
         if(Enemy->State == State_Stunned){
             Enemy->Boundaries[0].Type = BoundaryType_Circle;
@@ -196,21 +195,217 @@ UpdateEnemyHitBox(enemy_entity *Enemy){
             Enemy->Boundaries[1].P = {Enemy->P.X, RectP2.Y};
         }
     }
+#endif
+    
 }
 
 internal void
 StunEnemy(enemy_entity *Enemy){
-    if(Enemy->Type != EntityType_Dragonfly){
+    if(!(Enemy->Flags & EntityFlags_CanBeStunned) ){
         SetEntityStateUntilAnimationIsOver(Enemy, State_Retreating);
         UpdateEnemyHitBox(Enemy);
     }
 }
 
 //~ Entity updating and rendering
+
+void
+entity_manager::ProcessEvent(os_event *Event){
+    switch(Event->Kind){
+        case OSEventKind_KeyDown: {
+            switch((u32)Event->Key){
+                case KeyCode_Space: PlayerInput.Jump  = true;     break;
+                case 'X':           PlayerInput.Shoot = true;     break;
+                case KeyCode_Up:    if(Event->JustDown) PlayerInput.Direction.Y += 1; break;
+                case KeyCode_Down:  if(Event->JustDown) PlayerInput.Direction.Y -= 1; break;
+                case KeyCode_Left:  if(Event->JustDown) PlayerInput.Direction.X -= 1; break;
+                case KeyCode_Right: if(Event->JustDown) PlayerInput.Direction.X += 1; break;
+            }
+        }break;
+        case OSEventKind_KeyUp: {
+            switch((u32)Event->Key){
+                case KeyCode_Space: PlayerInput.Jump = false;     break;
+                case 'X':           PlayerInput.Shoot = false;    break;
+                case KeyCode_Up:    PlayerInput.Direction.Y -= 1; break;
+                case KeyCode_Down:  PlayerInput.Direction.Y += 1; break;
+                case KeyCode_Left:  PlayerInput.Direction.X += 1; break;
+                case KeyCode_Right: PlayerInput.Direction.X -= 1; break;
+            }
+        }break;
+    }
+}
+
+// TODO(Tyler): The functions for the platformer player and the overworld player could
+// probably be tranformed into one function, do this!!!
 internal void
-UpdateAndRenderWalls(render_group *RenderGroup){
-    TIMED_FUNCTION();
+UpdateAndRenderPlatformerPlayer(render_group *RenderGroup){
+    player_entity *Player = EntityManager.Player;
+    if(Player->Cooldown <= 0.0f){
+        v2 ddP = {0};
+        
+#if 0            
+        if(Player->CurrentAnimation == PlayerAnimation_Death){
+            Player->State &= ~EntityState_Dead;
+            Player->P = {1.5, 1.5};
+            Player->dP = {0, 0};
+        }
+#endif
+        
+        if(Player->IsGrounded) Player->JumpTime = 0.0f;
+        if((Player->JumpTime < 0.1f) && EntityManager.PlayerInput.Jump){
+            ddP.Y += 88.0f;
+            Player->JumpTime += OSInput.dTimeForFrame;
+            Player->IsGrounded = false;
+        }else if(!EntityManager.PlayerInput.Jump){
+            Player->JumpTime = 2.0f;
+            ddP.Y -= 17.0f;
+        }else{
+            ddP.Y -= 17.0f;
+        }
+        
+        f32 MovementSpeed = 120; // TODO(Tyler): Load this from a variables file
+        ddP.X += MovementSpeed*EntityManager.PlayerInput.Direction.X;
+        if(EntityManager.PlayerInput.Direction.X != 0){
+            Player->Direction = ((EntityManager.PlayerInput.Direction.X > 0) ? 
+                                 Direction_Right : Direction_Left);
+        }
+        
+        if(EntityManager.PlayerInput.Shoot){
+            Player->WeaponChargeTime += OSInput.dTimeForFrame;
+            if(Player->WeaponChargeTime > 1.0f){
+                Player->WeaponChargeTime = 1.0f;
+            }
+        }else if(Player->WeaponChargeTime > 0.0f){
+            projectile_entity *Projectile = EntityManager.Projectiles;
+            
+            if(Player->WeaponChargeTime < 0.1f){
+                Player->WeaponChargeTime = 0.1f;
+            }else if(Player->WeaponChargeTime < 0.6f){
+                Player->WeaponChargeTime = 0.6f;
+            }
+            
+            // TODO(Tyler): Hot loaded variables file for tweaking these values in 
+            // realtime
+            switch(Player->Direction){
+                case Direction_Left:      Projectile->dP = v2{-13,   3}; break;
+                case Direction_Right:     Projectile->dP = v2{ 13,   3}; break;
+            }
+            
+            Projectile->P = Player->P;
+            Projectile->P.Y += 0.15f;
+            Projectile->dP *= Player->WeaponChargeTime;
+            Projectile->RemainingLife = 3.0f;
+            Player->WeaponChargeTime = 0.0f;
+            Projectile->Boundaries[0].P = Projectile->P;
+        }
+        
+        if(0.0f < Player->dP.Y){
+            ChangeEntityState(Player, State_Jumping);
+        }else if(Player->dP.Y < 0.0f){
+            ChangeEntityState(Player, State_Falling);
+        }else{
+            if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
+            else ChangeEntityState(Player, State_Idle);
+        }
+        
+        
+        
+        v2 dPOffset = {0};
+        if(Player->IsRidingDragonfly){
+            enemy_entity *Dragonfly = &EntityManager.Enemies[Player->RidingDragonfly];
+            dPOffset = Dragonfly->dP;
+            
+            Player->IsRidingDragonfly = false;
+        }
+        MoveEntity(Player, 0, ddP, 0.7f, 1.0f, 2.0f, dPOffset);
+        
+        if(Player->P.Y < -3.0f){
+            DamagePlayer(2);
+        }
+        
+        SetCameraCenterP(Player->P, CurrentWorld->Width, 
+                         CurrentWorld->Height);
+    }
     
+    UpdateAndRenderAnimation(RenderGroup, Player, OSInput.dTimeForFrame);
+}
+
+internal void
+UpdateAndRenderTopDownPlayer(render_group *RenderGroup){
+    v2 ddP = {0};
+    
+    if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
+        ddP.X += 1;
+    }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
+        ddP.X -= 1;
+    }
+    
+    if(IsKeyDown(KeyCode_Up) && !IsKeyDown(KeyCode_Down)){
+        ddP.Y += 1;
+    }else if(IsKeyDown(KeyCode_Down) && !IsKeyDown(KeyCode_Up)){
+        ddP.Y -= 1;
+    }
+    
+    player_entity *Player = EntityManager.Player;
+    if((ddP.X != 0.0f) && (ddP.Y != 0.0f)) ddP /= SquareRoot(LengthSquared(ddP));
+    
+#if 0
+    if((ddP.X == 0.0f) && (ddP.Y > 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningNorth);
+    }else if((ddP.X > 0.0f) && (ddP.Y > 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningNorthEast);
+    }else if((ddP.X > 0.0f) && (ddP.Y == 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningEast);
+    }else if((ddP.X > 0.0f) && (ddP.Y < 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningSouthEast);
+    }else if((ddP.X == 0.0f) && (ddP.Y < 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningSouth);
+    }else if((ddP.X < 0.0f) && (ddP.Y < 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningSouthWest);
+    }else if((ddP.X < 0.0f) && (ddP.Y == 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningWest);
+    }else if((ddP.X < 0.0f) && (ddP.Y > 0.0f)){
+        PlayAnimation(Player, TopdownPlayerAnimation_RunningNorthWest);
+    }else {
+        switch(Player->CurrentAnimation){
+            case TopdownPlayerAnimation_RunningNorth:     PlayAnimation(Player, TopdownPlayerAnimation_IdleNorth); break;
+            case TopdownPlayerAnimation_RunningNorthEast: PlayAnimation(Player, TopdownPlayerAnimation_IdleNorthEast); break;
+            case TopdownPlayerAnimation_RunningEast:      PlayAnimation(Player, TopdownPlayerAnimation_IdleEast); break;
+            case TopdownPlayerAnimation_RunningSouthEast: PlayAnimation(Player, TopdownPlayerAnimation_IdleSouthEast); break;
+            case TopdownPlayerAnimation_RunningSouth:     PlayAnimation(Player, TopdownPlayerAnimation_IdleSouth); break;
+            case TopdownPlayerAnimation_RunningSouthWest: PlayAnimation(Player, TopdownPlayerAnimation_IdleSouthWest); break;
+            case TopdownPlayerAnimation_RunningWest:      PlayAnimation(Player, TopdownPlayerAnimation_IdleWest); break;
+            case TopdownPlayerAnimation_RunningNorthWest: PlayAnimation(Player, TopdownPlayerAnimation_IdleNorthWest); break;
+        }
+        
+    }
+#endif
+    
+    
+    f32 MovementSpeed = 100;
+    if(IsKeyDown(KeyCode_Shift)){
+        MovementSpeed = 200;
+    }
+    ddP *= MovementSpeed;
+    
+    MoveEntity(EntityManager.Player, 0, ddP, 0.7f, 0.7f);
+    
+    UpdateAndRenderAnimation(RenderGroup, EntityManager.Player, 
+                             OSInput.dTimeForFrame);
+    
+#if 0
+    v2 P = EntityManager.Player->P - CameraP;
+    RenderRectangle(&RenderGroup, P-0.5f*Player->Size, P+0.5f*Player->Size,
+                    Player->ZLayer, YELLOW);
+#endif
+    
+    SetCameraCenterP(EntityManager.Player->P, CurrentWorld->Width, 
+                     CurrentWorld->Height);
+}
+
+void 
+entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
+    //~ Walls
     for(u32 WallId = 0; WallId < EntityManager.WallCount; WallId++){
         wall_entity *Entity = &EntityManager.Walls[WallId];
         v2 P = Entity->Boundary.P - CameraP;
@@ -223,10 +418,8 @@ UpdateAndRenderWalls(render_group *RenderGroup){
                         P-(Size/2), P+(Size/2), 0.0f,
                         color{1.0f, 1.0f, 1.0f, 1.0f});
     }
-}
-
-internal void
-UpdateAndRenderCoins(render_group *RenderGroup){
+    
+    //~ Coins
     for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
         coin_entity *Coin = &EntityManager.Coins[CoinId];
         v2 P = Coin->Boundary.P - CameraP;
@@ -242,25 +435,16 @@ UpdateAndRenderCoins(render_group *RenderGroup){
                             {1.0f, 1.0f, 0.0f, 1.0f});
         }
     }
-}
-
-internal void
-UpdateAndRenderEnemies(render_group *RenderGroup){
-    TIMED_FUNCTION();
     
+    //~ Enemies
     for(u32 Id = 0; Id < EntityManager.EnemyCount; Id++){
         enemy_entity *Enemy = &EntityManager.Enemies[Id];
         v2 P = Enemy->P - CameraP;
-#if 0
-        if(16.0f < P.X-Enemy->Width/2) continue;
-        if(P.X+Enemy->Width/2 < 0.0f) continue;
-        if(9.0f < P.Y-Enemy->Height/2) continue;
-        if(P.Y+Enemy->Height/2 < 0.0f) continue;
-#endif
         
         if(ShouldEntityUpdate(Enemy) &&
            (Enemy->State != State_Stunned) &&
            (Enemy->State != State_Retreating)){
+            // TODO(Tyler): Stop using percentages here
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
             f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
             f32 PathSpeed = 1.0f;
@@ -289,7 +473,8 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
                     0.0f
                 };
                 
-                if(Enemy->Type != EntityType_Dragonfly){
+                if(Enemy->Flags & EntityFlags_NotAffectedByGravity){
+                }else{
                     ddP.Y = -11.0f;
                 }
                 
@@ -303,8 +488,7 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
         }else if(Enemy->State == State_Stunned){
             if(Enemy->Cooldown <= 0.0f){
                 if(Enemy->Cooldown <= 0.0f){
-                    if((Enemy->State == State_Returning) ||
-                       (Enemy->State == State_Returning)){
+                    if((Enemy->State == State_Returning)){
                         ChangeEntityState(Enemy, State_Moving);
                     }else{
                         SetEntityStateUntilAnimationIsOver(Enemy, State_Returning);
@@ -315,14 +499,13 @@ UpdateAndRenderEnemies(render_group *RenderGroup){
             }
         }
         
+        // TODO(Tyler): I don't like this function
         UpdateEnemyHitBox(Enemy);
+        
         UpdateAndRenderAnimation(RenderGroup, Enemy, OSInput.dTimeForFrame);
     }
-}
-
-internal void
-UpdateAndRenderDoors(render_group *RenderGroup){
-    TIMED_FUNCTION();
+    
+    //~ Doors
     for(u32 DoorId = 0; DoorId < EntityManager.DoorCount; DoorId++){
         door_entity *Door = &EntityManager.Doors[DoorId];
         v2 P = Door->Boundary.P - CameraP;
@@ -346,11 +529,8 @@ UpdateAndRenderDoors(render_group *RenderGroup){
                             P+(Door->Boundary.Size/2), 0.0f, Color);
         }
     }
-}
-
-internal void
-UpdateAndRenderTeleporters(render_group *RenderGroup){
-    TIMED_FUNCTION();
+    
+    //~ Teleporters
     // NOTE(Tyler): Teleporters
     for(u32 Id = 0; Id < EntityManager.TeleporterCount; Id++){
         teleporter *Teleporter = &EntityManager.Teleporters[Id];
@@ -423,113 +603,165 @@ UpdateAndRenderTeleporters(render_group *RenderGroup){
                             color{0.0f, 0.0f, 1.0f, 0.5f});
         }
     }
-}
-
-internal void
-UpdateAndRenderPlatformerPlayer(render_group *RenderGroup){
-    player_entity *Player = EntityManager.Player;
-    if(Player->Cooldown <= 0.0f){
-        v2 ddP = {0};
-        
-#if 0            
-        if(Player->CurrentAnimation == PlayerAnimation_Death){
-            Player->State &= ~EntityState_Dead;
-            Player->P = {1.5, 1.5};
-            Player->dP = {0, 0};
-        }
-#endif
-        
-        if(Player->IsGrounded) Player->JumpTime = 0.0f;
-        if((Player->JumpTime < 0.1f) && IsKeyDown(KeyCode_Space)){
-            ddP.Y += 88.0f;
-            Player->JumpTime += OSInput.dTimeForFrame;
-            Player->IsGrounded = false;
-        }else if(!IsKeyDown(KeyCode_Space)){
-            Player->JumpTime = 2.0f;
-            ddP.Y -= 17.0f;
-        }else{
-            ddP.Y -= 17.0f;
-        }
-        
-        f32 MovementSpeed = 120;
-        if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
-            ddP.X += MovementSpeed;
-            Player->Direction = Direction_Right;
-        }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
-            ddP.X -= MovementSpeed;
-            Player->Direction = Direction_Left;
-        }
-        
-        if(IsKeyDown('X')){
-            Player->WeaponChargeTime+= OSInput.dTimeForFrame;
-            if(Player->WeaponChargeTime > 1.0f){
-                Player->WeaponChargeTime = 1.0f;
-            }
-        }else if(Player->WeaponChargeTime > 0.0f){
-            projectile_entity *Projectile = EntityManager.Projectiles;
-            
-            if(Player->WeaponChargeTime < 0.1f){
-                Player->WeaponChargeTime = 0.1f;
-            }else if(Player->WeaponChargeTime < 0.6f){
-                Player->WeaponChargeTime = 0.6f;
-            }
-            
-            // TODO(Tyler): Hot loaded variables file for tweaking these values in 
-            // realtime
-            switch(Player->Direction){
-                case Direction_Left:      Projectile->dP = v2{-13,   3}; break;
-                case Direction_Right:     Projectile->dP = v2{ 13,   3}; break;
-            }
-            
-            Projectile->P = Player->P;
-            Projectile->P.Y += 0.15f;
-            Projectile->dP *= Player->WeaponChargeTime;
-            Projectile->RemainingLife = 3.0f;
-            Player->WeaponChargeTime = 0.0f;
-            Projectile->Boundaries[0].P = Projectile->P;
-        }
-        
-        if(0.0f < Player->dP.Y){
-            ChangeEntityState(Player, State_Jumping);
-        }else if(Player->dP.Y < 0.0f){
-            ChangeEntityState(Player, State_Falling);
-        }else{
-            if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
-            else ChangeEntityState(Player, State_Idle);
-        }
-        
-        
-        
-        v2 dPOffset = {0};
-        if(Player->IsRidingDragonfly){
-            enemy_entity *Dragonfly = &EntityManager.Enemies[Player->RidingDragonfly];
-            dPOffset = Dragonfly->dP;
-            
-            Player->IsRidingDragonfly = false;
-        }
-        MoveEntity(Player, 0, ddP, 0.7f, 1.0f, 2.0f, dPOffset);
-        
-        if(Player->P.Y < -3.0f){
-            DamagePlayer(2);
-        }
-        
-        SetCameraCenterP(Player->P, CurrentWorld->Width, 
-                         CurrentWorld->Height);
+    
+    //~ Player
+    if(CurrentWorld->Flags & WorldFlag_IsTopDown){
+        UpdateAndRenderTopDownPlayer(RenderGroup);
+    }else{
+        UpdateAndRenderPlatformerPlayer(RenderGroup);
     }
     
-    UpdateAndRenderAnimation(RenderGroup, Player, OSInput.dTimeForFrame);
+    //~ Projectiles
+    {
+        projectile_entity *Projectile = EntityManager.Projectiles;
+        if(Projectile->RemainingLife > 0.0f){
+            Projectile->RemainingLife -= OSInput.dTimeForFrame;
+            
+            v2 ddP = v2{0.0f, -11.0f};
+            //MoveProjectile(0, ddP);
+            MoveEntity(Projectile, 0, ddP, 1.0f, 1.0f, 1.0f, v2{0, 0}, 0.3f);
+            
+            v2 P = Projectile->P - CameraP;
+            RenderRectangle(RenderGroup, P-0.5f*Projectile->Boundaries[0].Size, 
+                            P+0.5f*Projectile->Boundaries[0].Size, 
+                            0.7f, WHITE);
+        }
+    }
 }
 
-//~ Loading
+//~ Entity Spec 
 
-internal void
-LoadEntitySpecs(const char *Path){
+internal u32
+AddEntitySpec(){
+    u32 Result = EntitySpecs.Count;
+    entity_spec *Spec = PushNewArrayItem(&EntitySpecs);
     
-    
+    Spec->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+    Spec->Type = EntityType_Enemy;
+    return(Result);
 }
 
 internal void
 WriteEntitySpecs(const char *Path){
+    os_file *File = OpenFile(Path, OpenFile_Write | OpenFile_Clear);
     
+    entity_spec_file_header Header = {};
+    Header.Header[0] = 'S';
+    Header.Header[1] = 'J';
+    Header.Header[2] = 'E';
+    Header.Version = 1;
+    Header.SpecCount = EntitySpecs.Count-1;
     
+    WriteToFile(File, 0, &Header, sizeof(Header));
+    u32 Offset = sizeof(Header);
+    
+    for(u32 I = 1; I < EntitySpecs.Count; I++){
+        entity_spec *Spec = &EntitySpecs[I];
+        
+        {
+            u32 Length = CStringLength(Spec->Asset);
+            WriteToFile(File, Offset, Spec->Asset, Length+1);
+            Offset += Length+1;
+        }
+        
+        WriteVariableToFile(File, Offset, Spec->Flags);
+        WriteVariableToFile(File, Offset, Spec->Type);
+        
+        switch(Spec->Type){
+            case EntityType_None: break;
+            case EntityType_Player: break;
+            case EntityType_Enemy: {
+                WriteVariableToFile(File, Offset, Spec->Speed);
+            }break;
+        }
+        
+        if(Spec->Type != EntityType_None){
+            WriteVariableToFile(File, Offset, Spec->BoundaryCount);
+            for(u32 I = 0; I < Spec->BoundaryCount; I++){
+                collision_boundary *Boundary = &Spec->Boundaries[I];
+                packed_collision_boundary Packed = {};
+                Packed.Type = Boundary->Type;
+                Packed.Flags = Boundary->Flags;
+                Packed.P = Boundary->P;
+                // It is a union so even if it is a circle this should produce the 
+                // correct results
+                Packed.Size.X = Boundary->Size.X;
+                Packed.Size.Y = Boundary->Size.Y;
+                WriteVariableToFile(File, Offset, Packed);
+            }
+            
+            WriteVariableToFile(File, Offset, Spec->SecondaryBoundaryCount);
+            for(u32 I = 0; I < Spec->SecondaryBoundaryCount; I++){
+                collision_boundary *Boundary = &Spec->SecondaryBoundaries[I];
+                packed_collision_boundary Packed = {};
+                Packed.Type = Boundary->Type;
+                Packed.Flags = Boundary->Flags;
+                Packed.P = Boundary->P;
+                // It is a union so even if it is a circle this should produce the 
+                // correct results
+                Packed.Size.X = Boundary->Size.X;
+                Packed.Size.Y = Boundary->Size.Y;
+                WriteVariableToFile(File, Offset, Packed);
+            }
+        }
+    }
+    
+    CloseFile(File);
+}
+
+internal void
+LoadEntitySpecs(const char *Path){
+    entire_file File = ReadEntireFile(&TransientStorageArena, Path);
+    
+    if(File.Size){
+        stream Stream = CreateReadStream(File.Data, File.Size);
+        
+        entity_spec_file_header *Header = ConsumeType(&Stream, entity_spec_file_header);
+        Assert((Header->Header[0] == 'S') && 
+               (Header->Header[1] == 'J') && 
+               (Header->Header[2] == 'E'));
+        Assert(Header->Version == 1);
+        
+        for(u32 I = 0; I < Header->SpecCount; I++){
+            char *AssetInFile = ConsumeString(&Stream);
+            entity_spec *Spec = PushNewArrayItem(&EntitySpecs);
+            Spec->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+            CopyCString(Spec->Asset, AssetInFile, DEFAULT_BUFFER_SIZE);
+            
+            Spec->Flags = *ConsumeType(&Stream, entity_flags);
+            Spec->Type = *ConsumeType(&Stream, entity_type);
+            
+            switch(Spec->Type){
+                case EntityType_None: break;
+                case EntityType_Player: break;
+                case EntityType_Enemy: {
+                    Spec->Speed = *ConsumeType(&Stream, f32);
+                }break;
+            }
+            
+            if(Spec->Type != EntityType_None){
+                Spec->BoundaryCount = *ConsumeType(&Stream, u8);
+                
+                for(u32 I = 0; I < Spec->BoundaryCount; I++){
+                    packed_collision_boundary *Packed = ConsumeType(&Stream, packed_collision_boundary);
+                    Spec->Boundaries[I].Type = Packed->Type;
+                    Spec->Boundaries[I].Flags = Packed->Flags;
+                    Spec->Boundaries[I].P = Packed->P;
+                    Spec->Boundaries[I].Size.X = Packed->Size.X;
+                    Spec->Boundaries[I].Size.Y = Packed->Size.Y;
+                }
+                
+                Spec->SecondaryBoundaryCount = *ConsumeType(&Stream, u8);
+                for(u32 I = 0; I < Spec->SecondaryBoundaryCount; I++){
+                    packed_collision_boundary *Packed = ConsumeType(&Stream, packed_collision_boundary);
+                    Spec->SecondaryBoundaries[I].Type = Packed->Type;
+                    Spec->SecondaryBoundaries[I].Flags = Packed->Flags;
+                    Spec->SecondaryBoundaries[I].P = Packed->P;
+                    Spec->SecondaryBoundaries[I].Size.X = Packed->Size.X;
+                    Spec->SecondaryBoundaries[I].Size.Y = Packed->Size.Y;
+                }
+                
+            }
+        }
+    }
 }

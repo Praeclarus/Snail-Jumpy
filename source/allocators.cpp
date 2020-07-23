@@ -26,6 +26,14 @@ PushMemory(memory_arena *Arena, umw Size) {
     return(Result);
 }
 
+internal inline char *
+PushCString(memory_arena *Arena, char *String){
+    u32 Size = CStringLength(String)+1;
+    char *Result = PushArray(Arena, char, Size);
+    CopyCString(Result, String, Size);
+    return(Result);
+}
+
 struct temp_memory {
     u8 *Memory;
     umw Used;

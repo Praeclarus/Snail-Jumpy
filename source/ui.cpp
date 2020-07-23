@@ -1,176 +1,3 @@
-
-//~ Basic widgets
-// TODO(Tyler): Where these are used, they need to be replaced
-
-internal void
-UISlider(render_group *RenderGroup, f32 X, f32 Y,
-         f32 Width, f32 Height, f32 CursorWidth,
-         f32 *SliderPercent){
-    v2 MouseP = OSInput.MouseP;
-    f32 XMargin = 10;
-    f32 YMargin = 30;
-    f32 CursorX = *SliderPercent*(Width-CursorWidth);
-    color CursorColor = {0.33f, 0.6f, 0.4f, 0.9f};
-    if((X+CursorX-XMargin < OSInput.LastMouseP.X) &&
-       (OSInput.LastMouseP.X < X+CursorX+CursorWidth+XMargin) &&
-       (Y-YMargin < OSInput.LastMouseP.Y) &&
-       (OSInput.LastMouseP.Y < Y+Height+YMargin)){
-        
-        CursorColor = {0.5f, 0.8f, 0.6f, 0.9f};
-        if(IsKeyDown(KeyCode_LeftMouse)){
-            UIManager.HandledInput = true;
-            CursorX = MouseP.X-X-(CursorWidth/2);
-            if((CursorX+CursorWidth) > (Width)){
-                CursorX = Width-CursorWidth;
-            }else if(CursorX < 0){
-                CursorX = 0;
-            }
-        }
-    }
-    
-    // Bar
-    RenderRectangle(RenderGroup, {X, Y}, {X+Width, Y+Height},
-                    -0.1f, {0.1f, 0.3f, 0.2f, 0.9f});
-    // Cursor
-    RenderRectangle(RenderGroup, {X+CursorX, Y}, {X+CursorX+CursorWidth, Y+Height},
-                    -0.2f, CursorColor);
-    
-    // TODO(Tyler): Do the text printing differently in order to make it more flexible
-    *SliderPercent = CursorX/(Width-CursorWidth);
-    f32 TextY = Y + (Height/2) - (NormalFont.Ascent/2);
-    f32 TextWidth = GetFormatStringAdvance(&NormalFont, "%.2f", *SliderPercent);
-    RenderFormatString(RenderGroup, &NormalFont, {1.0f, 1.0f, 1.0f, 0.9f},
-                       v2{X + (Width-TextWidth)/2, TextY}, -0.3f, "%.2f", *SliderPercent);
-}
-
-internal b32
-UIButton(render_group *RenderGroup, f32 X, f32 Y, f32 Z, f32 Width, f32 Height, char *Text,
-         color Base=color{0.2f, 0.4f, 0.3f, 0.5f}, 
-         color Hovered=color{0.25f, 0.4f, 0.3f, 0.9f},
-         color Clicked=color{0.5f, 0.8f, 0.6f, 0.9f},
-         color TextColor=color{1.0f, 1.0f, 1.0f, 0.9f},
-         font *Font=&NormalFont){
-    
-    color ButtonColor = Base;
-    b32 Result = false;
-    if((X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
-       (Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y+Height)){
-        if(IsKeyJustPressed(KeyCode_LeftMouse)){
-            ButtonColor = Clicked;
-            Result = true;
-        }else{
-            ButtonColor = Hovered;
-        }
-        
-        if(IsKeyDown(KeyCode_LeftMouse)){
-            UIManager.HandledInput = true;
-        }
-    }
-    
-    RenderRectangle(RenderGroup, {X, Y}, {X+Width, Y+Height},
-                    Z-0.01f, ButtonColor, true);
-    f32 TextWidth = GetStringAdvance(Font, Text);
-    f32 HeightOffset = (Font->Ascent/2);
-    RenderString(RenderGroup, Font, TextColor, 
-                 v2{X+(Width/2)-(TextWidth/2), Y+(Height/2)-HeightOffset}, Z-0.02f, Text);
-    
-    return(Result);
-}
-
-internal void
-UITextBox(render_group *RenderGroup,
-          text_box_data *TextBoxData, f32 X, f32 Y, f32 Z, f32 Width, f32 Height, u32 Id){
-    if(UIManager.SelectedWidgetId == Id){
-        for(u8 I = 0; I < KeyCode_ASCIICOUNT; I++){
-            if(IsKeyRepeated(I)){
-                UIManager.HandledInput = true;
-                
-                char Char = I;
-                if(IsKeyDown(KeyCode_Shift)){
-                    if(Char == '-'){
-                        Char = '_';
-                    }
-                }else{
-                    if(('A' <= Char) && (Char <= 'Z')){
-                        Char += 'a'-'A';
-                    }
-                }
-                
-                Assert(TextBoxData->BufferIndex < ArrayCount(TextBoxData->Buffer));
-                TextBoxData->Buffer[TextBoxData->BufferIndex++] = Char;
-                TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
-            }
-        }
-        if(IsKeyRepeated(KeyCode_BackSpace)){
-            UIManager.HandledInput = true;
-            if(TextBoxData->BufferIndex > 0){
-                TextBoxData->BufferIndex--;
-                TextBoxData->Buffer[TextBoxData->BufferIndex] = '\0';
-            }
-        }
-        
-        if(IsKeyRepeated(KeyCode_Escape)){
-            UIManager.HandledInput = true;
-            UIManager.SelectedWidgetId = 0;
-        }
-    }
-    
-    v2 Min = v2{X, Y};
-    v2 Max = Min + v2{Width, Height};
-    
-    color Color;
-    color TextColor;
-    if(UIManager.SelectedWidgetId == Id){
-        Color = color{0.5f, 0.8f, 0.6f, 0.9f};
-        TextColor = BLACK;
-    }else{
-        Color = color{0.1f, 0.3f, 0.2f, 0.9f};
-        TextColor = WHITE;
-    }
-    
-    if((Min.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= Max.X) &&
-       (Min.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= Max.Y)){
-        if(IsKeyJustPressed(KeyCode_LeftMouse)){
-            UIManager.SelectedWidgetId = Id;
-        }else if(UIManager.SelectedWidgetId != Id){
-            Color = color{0.25f, 0.4f, 0.3f, 0.9f};
-        }
-    }else if(IsKeyJustPressed(KeyCode_LeftMouse) && 
-             (UIManager.SelectedWidgetId == Id)){
-        UIManager.SelectedWidgetId = 0;
-    }
-    
-    f32 Margin = 10;
-    v2 BorderSize = v2{2, 2};
-    
-    RenderRectangle(RenderGroup, Min, Max, Z-0.01f, BLACK, true);
-    RenderRectangle(RenderGroup, Min+BorderSize, Max-BorderSize, Z-0.02f, Color, true);
-    v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - NormalFont.Ascent/2};
-    RenderString(RenderGroup, &NormalFont, TextColor, v2{P.X, P.Y}, Z-.03f,
-                 TextBoxData->Buffer);
-}
-
-internal inline void
-TransferAndResetTextBoxInput(char *Buffer, text_box_data *Data, u32 BufferSize){
-    CopyCString(Buffer, Data->Buffer, 
-                Minimum(BufferSize, sizeof(Data->Buffer)));
-    Data->Buffer[0] = '\0';
-    Data->BufferIndex = 0;
-}
-
-internal inline void
-SetTextBoxInput(char *String, text_box_data *Data){
-    CopyCString(Data->Buffer, String, 512);
-    u32 Length = CStringLength(String);
-    Data->BufferIndex = Length;
-}
-
-internal inline void
-ResetTextBoxInput(text_box_data *Data){
-    Data->Buffer[0] = '\0';
-    Data->BufferIndex = 0;
-}
-
 //~ Layout
 // TODO(Tyler): This is very primitive and should be replaced
 
@@ -190,24 +17,6 @@ CreateLayout(render_group *RenderGroup, f32 BaseX, f32 BaseY, f32 XAdvance, f32 
 internal void
 AdvanceLayoutY(layout *Layout){
     Layout->CurrentP.Y -= Layout->Advance.Y;
-}
-
-internal b32
-LayoutButton(render_group *RenderGroup, layout *Layout,
-             char *Text, f32 PercentWidth = 1.0f){
-    b32 Result = UIButton(RenderGroup, Layout->CurrentP.X, Layout->CurrentP.Y, Layout->Z,
-                          PercentWidth*Layout->Width, Layout->Advance.Y, Text);
-    Layout->CurrentP.Y -= 1.2f*Layout->Advance.Y;
-    return(Result);
-}
-
-internal b32
-LayoutButtonSameY(render_group *RenderGroup, layout *Layout,
-                  char *Text, f32 PercentWidth = 1.0f){
-    b32 Result = UIButton(RenderGroup, Layout->CurrentP.X, Layout->CurrentP.Y, Layout->Z,
-                          PercentWidth*Layout->Width, Layout->Advance.Y, Text);
-    Layout->CurrentP.X += PercentWidth*Layout->Width;
-    return(Result);
 }
 
 internal void
@@ -260,13 +69,13 @@ SetupDefaultTheme(theme *Theme){
     Theme->Padding = 10;
 }
 
-internal void 
+internal void
 BeginWindow(const char *Name, v2 StartP=v2{500, 600}, v2 StartSize=v2{0, 0}){
     widget_info *Info = FindOrCreateInHashTablePtr(&UIManager.WidgetTable, Name);
-    
     if(Info->Type == WidgetType_None){
         Info->Type = WidgetType_Window;
         Info->P = StartP;
+        Info->MinSize = StartSize;
         Info->Size = StartSize;
     }else if(Info->Type != WidgetType_Window) Assert(0);
     
@@ -275,34 +84,42 @@ BeginWindow(const char *Name, v2 StartP=v2{500, 600}, v2 StartSize=v2{0, 0}){
     UIManager.CurrentWindow = {};
     UIManager.CurrentWindow.BaseP = Info->P;
     UIManager.CurrentWindow.CurrentP = UIManager.CurrentWindow.BaseP;
-    UIManager.CurrentWindow.ContentSize = Info->Size;
+    UIManager.CurrentWindow.ContentSize = {};
+    UIManager.CurrentWindow.LastContentSize = Info->Size;
     UIManager.CurrentWindow.TitleBarHeight = UIManager.Theme.TitleFont->Size+UIManager.Theme.Padding;
     UIManager.CurrentWindow.Flags = Info->Flags;
-    UIManager.CurrentWindowName = Name;
+    UIManager.CurrentWindow.Name = Name;
 }
 
 internal void
 EndWindow(render_group *RenderGroup){
     TIMED_FUNCTION();
     widget_info *Info = FindOrCreateInHashTablePtr(&UIManager.WidgetTable, 
-                                                   UIManager.CurrentWindowName);
-    //Info->Size = UIManager.CurrentWindow.ContentSize;
-    Info->Flags = UIManager.CurrentWindow.Flags;
-    
+                                                   UIManager.CurrentWindow.Name);
     v2 P = UIManager.CurrentWindow.BaseP;
     f32 T = 3;
     
+    Info->Size.X = UIManager.CurrentWindow.ContentSize.X;
+    if(Info->Size.X < Info->MinSize.X){
+        Info->Size.X = Info->MinSize.X;
+    }
+    Info->Size.Y = UIManager.CurrentWindow.ContentSize.Y;
+    if(Info->Size.Y < Info->MinSize.Y){
+        Info->Size.Y = Info->MinSize.Y;
+    }
+    
     {
-        f32 Width = UIManager.CurrentWindow.ContentSize.X;
+        f32 Width = Info->Size.X;
         f32 Height = UIManager.Theme.TitleFont->Size+UIManager.Theme.Padding;
         if((Info->P.X < OSInput.MouseP.X) && (OSInput.MouseP.X < Info->P.X+Width) &&
            (Info->P.Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Info->P.Y+Height) &&
-           IsKeyJustPressed(KeyCode_LeftMouse)){
+           UIManager.LeftMouseButton.JustDown){
             Info->DraggingOffset = OSInput.MouseP - Info->P;
             Info->IsBeingDragged = true;
         }
-        if(IsKeyDown(KeyCode_LeftMouse) && Info->IsBeingDragged){
+        if(UIManager.LeftMouseButton.IsDown && Info->IsBeingDragged){
             Info->P = OSInput.MouseP-Info->DraggingOffset;
+            UIManager.HandledInput = true;
         }else if(Info->IsBeingDragged){
             Info->IsBeingDragged = false;
         }
@@ -310,20 +127,20 @@ EndWindow(render_group *RenderGroup){
     
     {
         f32 TitleWidth = GetStringAdvance(UIManager.Theme.TitleFont, 
-                                          UIManager.CurrentWindowName);
-        if(UIManager.CurrentWindow.ContentSize.Width < TitleWidth+2*UIManager.Theme.Padding){
-            UIManager.CurrentWindow.ContentSize.Width = TitleWidth+2*UIManager.Theme.Padding;
+                                          UIManager.CurrentWindow.Name);
+        if(Info->Size.Width < TitleWidth+2*UIManager.Theme.Padding){
+            Info->Size.Width = TitleWidth+2*UIManager.Theme.Padding;
         }
         RenderString(RenderGroup, UIManager.Theme.TitleFont, UIManager.Theme.TitleColor,
                      UIManager.CurrentWindow.BaseP.X+UIManager.Theme.Padding, 
                      UIManager.CurrentWindow.BaseP.Y+UIManager.Theme.Padding, 
-                     -0.1f, UIManager.CurrentWindowName);
+                     -0.1f, UIManager.CurrentWindow.Name);
     }
     
     {
         v2 Min = P;
         v2 Max = P;
-        Max.X += UIManager.CurrentWindow.ContentSize.X;
+        Max.X += Info->Size.X;
         Max.Y += UIManager.CurrentWindow.TitleBarHeight;
         RenderRectangle(RenderGroup, Min, Max,
                         0.0f, UIManager.Theme.TitleBarColor, true);
@@ -333,9 +150,9 @@ EndWindow(render_group *RenderGroup){
     
     {
         v2 Min = P;
-        Min.Y -= UIManager.CurrentWindow.ContentSize.Y;
+        Min.Y -= Info->Size.Y;
         v2 Max = P;
-        Max.X += UIManager.CurrentWindow.ContentSize.X;
+        Max.X += Info->Size.X;
         RenderRectangle(RenderGroup, Min, Max,
                         0.0f, UIManager.Theme.BackgroundColor, true);
     }
@@ -343,9 +160,9 @@ EndWindow(render_group *RenderGroup){
     {
         color SeparatorColor = UIManager.Theme.SeparatorColor;
         v2 Min = P;
-        Min.Y -= UIManager.CurrentWindow.ContentSize.Y;
+        Min.Y -= Info->Size.Y;
         v2 Max = P;
-        Max.X += UIManager.CurrentWindow.ContentSize.X;
+        Max.X += Info->Size.X;
         Max.Y += UIManager.CurrentWindow.TitleBarHeight;
         
         RenderRectangle(RenderGroup, v2{Min.X-T, Min.Y}, v2{Min.X, Max.Y+T}, 
@@ -358,14 +175,15 @@ EndWindow(render_group *RenderGroup){
                         -0.1f, SeparatorColor, true);
     }
     
-    
     UIManager.InWindow = false;
-    UIManager.CurrentWindowName = 0;
+    UIManager.CurrentWindow.Name = 0;
+    
+    Info->Flags = UIManager.CurrentWindow.Flags;
 }
 
 internal b8
-_UIButton(render_group *RenderGroup, const char *Text, b8 AdvanceX=false, 
-          f32 Height=-1, f32 Width=-1){
+UIButton(render_group *RenderGroup, const char *Text, b8 AdvanceX=false, 
+         f32 Height=-1, f32 Width=-1){
     if(Width == -1){
         Width = GetStringAdvance(UIManager.Theme.NormalFont, Text)+2*UIManager.Theme.Padding;
     }
@@ -379,14 +197,14 @@ _UIButton(render_group *RenderGroup, const char *Text, b8 AdvanceX=false,
     b8 Result = false;
     if((X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
        (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
-        if(IsKeyJustPressed(KeyCode_LeftMouse)){
+        if(UIManager.LeftMouseButton.JustDown){
             ButtonColor = UIManager.Theme.ButtonClickedColor;
             Result = true;
         }else{
             ButtonColor = UIManager.Theme.ButtonHoveredColor;
         }
         
-        if(IsKeyDown(KeyCode_LeftMouse)){
+        if(UIManager.LeftMouseButton.IsDown){
             UIManager.HandledInput = true;
         }
     }
@@ -400,10 +218,11 @@ _UIButton(render_group *RenderGroup, const char *Text, b8 AdvanceX=false,
                  UIManager.CurrentWindow.Z-0.11f, Text);
     
     {
-        f32 RelHeight = UIManager.CurrentWindow.BaseP.Y-UIManager.CurrentWindow.CurrentP.Y;
-        if(UIManager.CurrentWindow.ContentSize.X < Width+2*UIManager.Theme.Padding){
-            UIManager.CurrentWindow.ContentSize.X = Width+2*UIManager.Theme.Padding;
+        f32 RelWidth = UIManager.CurrentWindow.CurrentP.X-UIManager.CurrentWindow.BaseP.X;
+        if(UIManager.CurrentWindow.ContentSize.X < RelWidth+Width+2*UIManager.Theme.Padding){
+            UIManager.CurrentWindow.ContentSize.X = RelWidth+Width+2*UIManager.Theme.Padding;
         }
+        f32 RelHeight = UIManager.CurrentWindow.BaseP.Y-UIManager.CurrentWindow.CurrentP.Y;
         if(UIManager.CurrentWindow.ContentSize.Y < RelHeight+Height+2*UIManager.Theme.Padding){
             UIManager.CurrentWindow.ContentSize.Y = RelHeight+Height+2*UIManager.Theme.Padding;
         }
@@ -411,7 +230,9 @@ _UIButton(render_group *RenderGroup, const char *Text, b8 AdvanceX=false,
     
     if(AdvanceX){
         UIManager.CurrentWindow.CurrentP.X += Width+UIManager.Theme.Padding;
+        UIManager.CurrentWindow.Flags |= WindowFlag_NextButtonIsSameRow;
     }else{
+        UIManager.CurrentWindow.Flags &= ~WindowFlag_NextButtonIsSameRow;
         UIManager.CurrentWindow.CurrentP.X = UIManager.CurrentWindow.BaseP.X;
         UIManager.CurrentWindow.CurrentP.Y -= Height+UIManager.Theme.Padding;
     }
@@ -426,6 +247,9 @@ UIText(render_group *RenderGroup, const char *Text, ...){
     
     if(UIManager.CurrentWindow.Flags & WindowFlag_NextButtonIsSameRow){
         UIManager.CurrentWindow.CurrentP.X = UIManager.CurrentWindow.BaseP.X;
+        f32 Height = UIManager.Theme.NormalFont->Ascent+2*UIManager.Theme.Padding;
+        UIManager.CurrentWindow.CurrentP.Y -= Height+UIManager.Theme.Padding;
+        UIManager.CurrentWindow.Flags &= ~WindowFlag_NextButtonIsSameRow;
     }
     
     f32 Height = UIManager.Theme.NormalFont->Ascent;
@@ -434,10 +258,10 @@ UIText(render_group *RenderGroup, const char *Text, ...){
                                         Text, VarArgs);
     
     {
-        f32 RelHeight = UIManager.CurrentWindow.BaseP.Y-UIManager.CurrentWindow.CurrentP.Y;
         if(UIManager.CurrentWindow.ContentSize.X < Width+2*UIManager.Theme.Padding){
             UIManager.CurrentWindow.ContentSize.X = Width+2*UIManager.Theme.Padding;
         }
+        f32 RelHeight = UIManager.CurrentWindow.BaseP.Y-UIManager.CurrentWindow.CurrentP.Y;
         if(UIManager.CurrentWindow.ContentSize.Y < RelHeight+Height+2*UIManager.Theme.Padding){
             UIManager.CurrentWindow.ContentSize.Y = RelHeight+Height;
         }
@@ -454,72 +278,49 @@ UIText(render_group *RenderGroup, const char *Text, ...){
 internal char *
 UITextInput(render_group *RenderGroup, const char *ID, char *Buffer, u32 BufferSize, 
             f32 Width=-1 ){
-    widget_info *Info = FindOrCreateInHashTablePtr(&UIManager.WidgetTable, ID);
     
     if(UIManager.CurrentWindow.Flags & WindowFlag_NextButtonIsSameRow){
         UIManager.CurrentWindow.CurrentP.X = UIManager.CurrentWindow.BaseP.X;
+        f32 Height = UIManager.Theme.NormalFont->Ascent+2*UIManager.Theme.Padding;
+        UIManager.CurrentWindow.CurrentP.Y -= Height+UIManager.Theme.Padding;
+        UIManager.CurrentWindow.Flags &= ~WindowFlag_NextButtonIsSameRow;
     }
     
-    if(Info->Type == WidgetType_None){
-        Info->Type = WidgetType_TextInput;
-    }else if(Info->Type != WidgetType_TextInput) Assert(0);
-    
-    if(Width < 0) Width = UIManager.CurrentWindow.ContentSize.X-2*UIManager.Theme.Padding;
+    if(Width < 0){ 
+        Width = UIManager.CurrentWindow.LastContentSize.X-2*UIManager.Theme.Padding;
+    }else{
+        if(UIManager.CurrentWindow.ContentSize.X < Width+2*UIManager.Theme.Padding){
+            UIManager.CurrentWindow.ContentSize.X = Width+2*UIManager.Theme.Padding;
+        }
+    }
     f32 Height = UIManager.Theme.NormalFont->Size+2*UIManager.Theme.Padding;
     
     {
         f32 RelHeight = UIManager.CurrentWindow.BaseP.Y-UIManager.CurrentWindow.CurrentP.Y;
-        if(UIManager.CurrentWindow.ContentSize.X < Width+2*UIManager.Theme.Padding){
-            UIManager.CurrentWindow.ContentSize.X = Width+2*UIManager.Theme.Padding;
-        }
         if(UIManager.CurrentWindow.ContentSize.Y < RelHeight+Height+2*UIManager.Theme.Padding){
             UIManager.CurrentWindow.ContentSize.Y = RelHeight+Height+2*UIManager.Theme.Padding;
         }
     }
     
-    if(UIManager.SelectedWidget == Info){
-        for(u8 I = 0; I < KeyCode_ASCIICOUNT; I++){
-            if(IsKeyRepeated(I)){
-                UIManager.HandledInput = true;
-                
-                char Char = I;
-                if(IsKeyDown(KeyCode_Shift)){
-                    if(Char == '-'){
-                        Char = '_';
-                    }
-                }else{
-                    if(('A' <= Char) && (Char <= 'Z')){
-                        Char += 'a'-'A';
-                    }
-                }
-                
-                Assert(Info->BufferIndex < BufferSize);
-                Buffer[Info->BufferIndex++] = Char;
-                Buffer[Info->BufferIndex] = '\0';
-            }
-        }
-        if(IsKeyRepeated(KeyCode_BackSpace)){
-            UIManager.HandledInput = true;
-            if(Info->BufferIndex > 0){
-                Info->BufferIndex--;
-                Buffer[Info->BufferIndex] = '\0';
-            }
-        }
-        
-        if(IsKeyRepeated(KeyCode_Escape)){
-            UIManager.HandledInput = true;
-            UIManager.SelectedWidgetId = 0;
-        }
-    }
-    
-    v2 Min = UIManager.CurrentWindow.CurrentP;
-    Min.X += UIManager.Theme.Padding;
-    Min.Y -= Height+UIManager.Theme.Padding;
-    v2 Max = Min + v2{Width, Height};
+    u32 BufferIndex = CStringLength(Buffer);
     
     color Color;
     color TextColor;
-    if(UIManager.SelectedWidget == Info){
+    if(UIManager.SelectedWidgetID == HashKey(ID)){
+        for(u32 I = 0; 
+            (I < UIManager.BufferIndex) && (BufferIndex < BufferSize);
+            I++){
+            Buffer[BufferIndex++] = UIManager.Buffer[I];
+        }
+        if(BufferIndex < UIManager.BackSpaceCount){
+            BufferIndex = 0;
+        }else{
+            BufferIndex -= UIManager.BackSpaceCount;
+        }
+        UIManager.BackSpaceCount = 0;
+        Buffer[BufferIndex] = '\0';
+        UIManager.BufferIndex = 0;
+        
         Color = UIManager.Theme.TextInputActiveBackColor;
         TextColor = UIManager.Theme.TextInputActiveTextColor;
     }else{
@@ -527,21 +328,26 @@ UITextInput(render_group *RenderGroup, const char *ID, char *Buffer, u32 BufferS
         TextColor = UIManager.Theme.TextInputInactiveTextColor;
     }
     
+    v2 Min = UIManager.CurrentWindow.CurrentP;
+    Min.X += UIManager.Theme.Padding;
+    Min.Y -= Height+UIManager.Theme.Padding;
+    v2 Max = Min + v2{Width, Height};
+    
     if((Min.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= Max.X) &&
        (Min.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= Max.Y)){
-        if(IsKeyJustPressed(KeyCode_LeftMouse)){
-            UIManager.SelectedWidget = Info;
-        }else if(UIManager.SelectedWidget != Info){
+        if(UIManager.LeftMouseButton.JustDown){
+            UIManager.SelectedWidgetID = HashKey(ID);
+        }else if(UIManager.SelectedWidgetID != HashKey(ID)){
             Color = color{0.25f, 0.4f, 0.3f, 0.9f};
         }
         
-        if(IsKeyDown(KeyCode_LeftMouse)){
+        if(UIManager.LeftMouseButton.IsDown){
             UIManager.HandledInput = true;
         }
-    }else if((IsKeyJustPressed(KeyCode_LeftMouse) && 
-              (UIManager.SelectedWidget == Info)) ||
-             (IsKeyJustPressed(KeyCode_Escape))){
-        UIManager.SelectedWidget = 0;
+    }else if(UIManager.LeftMouseButton.JustDown && 
+             (UIManager.SelectedWidgetID == HashKey(ID))){
+        UIManager.SelectedWidgetID = 0;
+        UIManager.HandledInput = true;
     }
     
     f32 Margin = 10;
@@ -556,4 +362,62 @@ UITextInput(render_group *RenderGroup, const char *ID, char *Buffer, u32 BufferS
     UIManager.CurrentWindow.CurrentP.Y -= Height+UIManager.Theme.Padding;
     
     return(Buffer);
+}
+
+//~ 
+b8
+ui_manager::ProcessInput(os_event *Event){
+    b8 Result = false;
+    
+    switch(Event->Kind){
+        case OSEventKind_KeyDown: {
+            if(Event->Key < KeyCode_ASCIICOUNT){
+                char Char = (char)Event->Key;
+                if(IsShiftDown){
+                    if(Char == '-'){
+                        Char = '_';
+                    }
+                }else{
+                    if(('A' <= Char) && (Char <= 'Z')){
+                        Char += 'a'-'A';
+                    }
+                }
+                Buffer[BufferIndex++] = Char;
+            }else if(Event->Key == KeyCode_Shift){
+                IsShiftDown = true;
+            }else if(Event->Key == KeyCode_BackSpace){
+                BackSpaceCount++;
+            }
+            
+            Result = (SelectedWidgetID != 0);
+        }break;
+        case OSEventKind_KeyUp: {
+            if(Event->Key == KeyCode_Shift){
+                IsShiftDown = false;
+                Result = true;
+            }else if(Event->Key == KeyCode_Escape){
+                UIManager.HandledInput = true;
+                UIManager.SelectedWidgetID = 0;
+                Result = true;
+            }
+        }break;
+        case OSEventKind_MouseDown: {
+            switch(Event->Button){
+                case KeyCode_LeftMouse:   UIManager.LeftMouseButton   = {true, true}; break;
+                case KeyCode_RightMouse:  UIManager.RightMouseButton  = {true, true}; break;
+                case KeyCode_MiddleMouse: UIManager.MiddleMouseButton = {true, true}; break;
+                default: Assert(0); break;
+            }
+        }break;
+        case OSEventKind_MouseUp: {
+            switch(Event->Button){
+                case KeyCode_LeftMouse:   UIManager.LeftMouseButton   = {false, false}; break;
+                case KeyCode_RightMouse:  UIManager.RightMouseButton  = {false, false}; break;
+                case KeyCode_MiddleMouse: UIManager.MiddleMouseButton = {false, false}; break;
+                default: Assert(0); break;
+            }
+        }break;
+    }
+    
+    return(Result);
 }

@@ -6,10 +6,10 @@ TODOS:
 
  - Editor
      - Drag entity path endpoints
+     - Allow a variable number of coins in a level
      - Able to set PLAYER and GATE position!!!
      - Able to edit most entity attributes
          - Collision boundary editing
-     - Allow a variable number of coins in a level
      - Undo/Redo
          - Maybe!!!
 
@@ -30,13 +30,18 @@ TODOS:
          - Windows
              - Direct3D
  
- - Better profiler
+ - Better profiler, use milliseconds
 
  - Do step up onto dragonfly body better! Make it more generalized and apply to all 
    ledges, and only move the player upwards, instead of moving them so that when the 
    collide to be on it
 
- - Make teleporters, use the collision system
+ - Collision system
+     - Switch to using a discrete collision system, or do continuous collision detection
+       more CORRECTLY where things are all moved at once and are tested that way, instead 
+       of moving one thing at a time
+     - Make teleporters, use the collision system
+
  - Perhaps make entity ids fixed point, where the first few bits specify the entity type,
    and then the next few bits specify the index
 
@@ -68,6 +73,8 @@ TODOS:
 
  - Multithreading & SIMD, should this be done if we want compatibility with older lower end
    machines?
+     - SSE2 is supported on all the machines that are ideal, though it might be good to still 
+       have a non-sse version maybe?
 
  - Possibly create a 'legacy' OpenGL renderer that uses the fixed function pipeline
    for older machines

@@ -18,6 +18,8 @@ global_constant char *STARTUP_LEVEL = "Debug";
 global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = v2{TILE_SIDE, TILE_SIDE};
 global_constant char *ASSET_FILE_PATH = "assets.sja";
+global_constant u32 DEFAULT_BUFFER_SIZE = 512;
+
 
 global font MainFont;
 global font NormalFont;
@@ -25,7 +27,8 @@ global font TitleFont;
 global font DebugFont;
 
 global s32 Score;
-global f32 Counter; // TODO(Tyler): This is really a pointless variable
+global f32 Counter; // TODO(Tyler): This is really a pointless variable, though it might 
+//                     be useful for "random" number generation as it is kinda used for now
 
 global memory_arena PermanentStorageArena;
 global memory_arena TransientStorageArena;
@@ -38,10 +41,15 @@ global state_change_data StateChangeData;
 // TODO(Tyler): Load this from a variables file at startup
 global game_mode GameMode = GameMode_EntityEditor;
 
-global editor    Editor;
+global world_editor WorldEditor;
+global entity_editor EntityEditor;
 
 global v2 CameraP;
 global v2 LastOverworldPlayerP;
+
+// TODO(Tyler): This could be fancier, like checking for string duplications?
+global memory_arena StringMemory; // I am unsure about using strings in the game, but they
+//                                   are used for level names, and entity specs
 
 global memory_arena EnemyMemory;
 global memory_arena TeleporterMemory;
@@ -51,7 +59,7 @@ global world_data *CurrentWorld;
 
 global collision_table CollisionTable;
 
-global hash_table<const char *, entity_spec> EntitySpecTable;
+global array<entity_spec> EntitySpecs;
 
 #include "logging.cpp"
 #include "stream.cpp"
@@ -119,24 +127,25 @@ InitializeGame(){
     LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
     
     InitializeAssetLoader();
+    InitializeRenderer();
     
-    // NOTE(Tyler): Entity memory
+    // Initialize memory and arrays
     EntityManager.Memory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
-    
-    // NOTE(Tyler): Initialize world management
-    EnemyMemory      = PushNewArena(&PermanentStorageArena, Kilobytes(64));
+    StringMemory = PushNewArena(&PermanentStorageArena, Kilobytes(32));
     TeleporterMemory = PushNewArena(&PermanentStorageArena, Kilobytes(256));
     DoorMemory       = PushNewArena(&PermanentStorageArena, Kilobytes(256));
+    EnemyMemory      = PushNewArena(&PermanentStorageArena, Kilobytes(64));
     WorldTable = PushHashTable<const char *, world_data>(&PermanentStorageArena, 512);
+    EntitySpecs = CreateNewArray<entity_spec>(&PermanentStorageArena, 128);
+    PushNewArrayItem(&EntitySpecs); // Reserve the 0th index!
+    UIManager.WidgetTable = PushHashTable<const char *, widget_info>(&PermanentStorageArena, 256);
     
-    if((GameMode == GameMode_MainGame) ||
-       (GameMode == GameMode_WorldEditor)){
-        LoadWorldFromFile(STARTUP_LEVEL);
-        LoadWorld(STARTUP_LEVEL);
-    }
-    
+    // Load things
+    LoadEntitySpecs("entities.sje");
+    LoadWorldFromFile(STARTUP_LEVEL);
+    LoadWorld(STARTUP_LEVEL);
     if(GameMode == GameMode_WorldEditor){
-        Editor.World = CurrentWorld;
+        WorldEditor.World = CurrentWorld;
     }
     
     AssetTable = PushHashTable<const char *, asset>(&PermanentStorageArena, 256);
@@ -151,10 +160,8 @@ InitializeGame(){
     LoadFont(&TransientStorageArena, &MainFont,
              "Press-Start-2P.ttf", 24, 512, 512);
     
-    InitializeRenderer();
-    
+    // Setup UI
     SetupDefaultTheme(&UIManager.Theme);
-    UIManager.WidgetTable = PushHashTable<const char *, widget_info>(&PermanentStorageArena, 256);
 }
 
 internal void
@@ -163,6 +170,9 @@ GameUpdateAndRender(){
     ProfileData.CurrentBlockIndex = 0;
     TransientStorageArena.Used = 0;
     UIManager.HandledInput = false;
+    UIManager.LeftMouseButton.JustDown = false;
+    UIManager.RightMouseButton.JustDown = false;
+    UIManager.MiddleMouseButton.JustDown = false;
     
     //~ Do next frame
     TIMED_FUNCTION();
@@ -177,7 +187,10 @@ GameUpdateAndRender(){
             UpdateAndRenderMenu();
         }break;
         case GameMode_WorldEditor: {
-            UpdateAndRenderEditor();
+            WorldEditor.UpdateAndRender();
+        }break;
+        case GameMode_EntityEditor: {
+            EntityEditor.UpdateAndRender();
         }break;
     }
     
@@ -196,15 +209,12 @@ GameUpdateAndRender(){
             LoadWorld(StateChangeData.NewLevel);
         }else if(StateChangeData.NewMode == GameMode_WorldEditor){
             GameMode = GameMode_WorldEditor;
+        }else if(StateChangeData.NewMode == GameMode_EntityEditor){
+            GameMode = GameMode_EntityEditor;
         }
         CameraP = {0};
         
         StateChangeData = {0};
-    }
-    
-    for(u32 I = 0; I < KeyCode_TOTAL; I++){
-        OSInput.Buttons[I].JustDown = false;
-        OSInput.Buttons[I].Repeat = false;
     }
 }
 
@@ -229,26 +239,5 @@ SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles){
         CameraP.Y = MapSize.Y - 18.0f*TileSide;
     }else if(CameraP.Y < 0.0f){
         CameraP.Y = 0.0f;
-    }
-}
-
-internal void
-ProcessInput(os_event *Event){
-    switch(Event->Kind){
-        case OSEventKind_KeyDown: {
-            OSInput.Buttons[Event->Key].JustDown = Event->JustDown;
-            OSInput.Buttons[Event->Key].IsDown = true;
-            OSInput.Buttons[Event->Key].Repeat = true;
-        }break;
-        case OSEventKind_KeyUp: {
-            OSInput.Buttons[Event->Key].IsDown = false;
-        }break;
-        case OSEventKind_MouseDown: {
-            OSInput.Buttons[Event->Button].JustDown = true;
-            OSInput.Buttons[Event->Button].IsDown = true;
-        }break;
-        case OSEventKind_MouseUp: {
-            OSInput.Buttons[Event->Button].IsDown = false;
-        }break;
     }
 }

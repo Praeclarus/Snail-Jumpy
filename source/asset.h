@@ -19,7 +19,8 @@ struct asset {
     union{
         struct {
             v2s SizeInPixels;
-            v2 SizeInMeters;
+            // TODO(Tyler): This is kinda a bogus attribute(SizeInMeters), change this!
+            v2 SizeInMeters; 
             v2 SizeInTexCoords;
             render_texture_handle SpriteSheet;
             u32 FramesPerRow;

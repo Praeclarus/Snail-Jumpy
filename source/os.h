@@ -2,7 +2,78 @@
 #define SNAIL_JUMPY_PLATFORM_H
 
 struct os_file;
-struct os_window;
+
+enum os_key_code {
+    KeyCode_NULL = 0,
+    KeyCode_Tab = '\t',
+    KeyCode_Space = ' ',
+    KeyCode_Minus = '-',
+    KeyCode_ASCIICOUNT = 96,
+    KeyCode_Shift = KeyCode_ASCIICOUNT,
+    KeyCode_Up    = 97,
+    KeyCode_Down  = 98,
+    KeyCode_Left  = 99,
+    KeyCode_Right = 100,
+    KeyCode_BackSpace  = 101,
+    KeyCode_Escape     = 102,
+    KeyCode_Return     = 103,
+    KeyCode_LeftMouse  = 104,
+    KeyCode_MiddleMouse = 105,
+    KeyCode_RightMouse = 106,
+    KeyCode_Alt = 107,
+    
+    KeyCode_TOTAL,
+};
+
+struct os_button {
+    //u8 HalfTransitionCount;
+    b8 IsDown;
+    b8 JustDown;
+    b8 Repeat;
+};
+
+struct os_mouse_button {
+    b8 IsDown;
+    b8 JustDown;
+};
+
+struct os_input {
+    f32 dTimeForFrame;
+    
+    v2 WindowSize;
+    
+    v2 MouseP;
+    v2 LastMouseP;
+    os_button LeftMouseButton;
+    os_button MiddleMouseButton;
+    os_button RightMouseButton;
+    
+    os_button Buttons[KeyCode_TOTAL];
+};
+
+enum os_event_kind {
+    OSEventKind_None,
+    OSEventKind_KeyUp,
+    OSEventKind_KeyDown,
+    OSEventKind_MouseDown,
+    OSEventKind_MouseUp,
+    OSEventKind_MouseMove,
+};
+
+struct os_event {
+    os_event_kind Kind;
+    union {
+        struct {
+            os_key_code Key;
+            b8 JustDown;
+        };
+        
+        struct {
+            os_key_code Button;
+            v2 MouseP;
+        };
+    };
+};
 
 enum _open_file_flags {
     OpenFile_Read = (1 << 0),
@@ -36,70 +107,10 @@ DefaultFree(void *Pointer);
 
 internal void
 GetProfileTime();
+internal b8
+PollEvents(os_event *Event);
 
-enum os_key_code {
-    KeyCode_NULL = 0,
-    KeyCode_Tab = '\t',
-    KeyCode_Space = ' ',
-    KeyCode_Minus = '-',
-    KeyCode_ASCIICOUNT = 96,
-    KeyCode_Shift = KeyCode_ASCIICOUNT,
-    KeyCode_Up    = 97,
-    KeyCode_Down  = 98,
-    KeyCode_Left  = 99,
-    KeyCode_Right = 100,
-    KeyCode_BackSpace  = 101,
-    KeyCode_Escape     = 102,
-    KeyCode_Return     = 103,
-    KeyCode_LeftMouse  = 104,
-    KeyCode_MiddleMouse = 105,
-    KeyCode_RightMouse = 106,
-    
-    KeyCode_TOTAL,
-};
-
-struct os_button {
-    //u8 HalfTransitionCount;
-    b8 IsDown;
-    b8 JustDown;
-    b8 Repeat;
-};
-
-struct os_input {
-    f32 dTimeForFrame;
-    
-    v2 WindowSize;
-    
-    v2 MouseP;
-    v2 LastMouseP;
-    os_button LeftMouseButton;
-    os_button MiddleMouseButton;
-    os_button RightMouseButton;
-    
-    os_button Buttons[KeyCode_TOTAL];
-};
-
-enum os_event_kind {
-    OSEventKind_None,
-    OSEventKind_KeyUp,
-    OSEventKind_KeyDown,
-    OSEventKind_MouseDown,
-    OSEventKind_MouseUp,
-};
-
-struct os_event {
-    os_event_kind Kind;
-    union {
-        struct {
-            os_key_code Key;
-            b8 JustDown;
-        };
-        
-        os_key_code Button;
-    };
-};
-
-// TODO(Tyler): Find a better home for these  procedures and variables
+//~ TODO(Tyler): Find a better home for these  procedures and variables
 global os_input OSInput;
 
 internal inline b32
@@ -131,5 +142,9 @@ IsKeyDown(u32 Key){
     return(Result);
 }
 
+//~ Helper functions/macros for file I/O
+
+#define WriteVariableToFile(File, Offset, Number) { WriteToFile(File, Offset, &Number, sizeof(Number)); \
+Offset += sizeof(Number); }
 
 #endif

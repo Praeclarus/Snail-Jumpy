@@ -11,20 +11,20 @@ UpdateAndRenderMenu(){
     
     BeginWindow("Basic test");
     UIText(&RenderGroup, "Hello!");
-    _UIButton(&RenderGroup, "Click me!");
+    UIButton(&RenderGroup, "Click me!");
     UIText(&RenderGroup, "Hello!");
     //UITextInput(&RenderGroup, "Input test", 300.0f);
-    _UIButton(&RenderGroup, "Submit", true);
-    _UIButton(&RenderGroup, "Abort");
+    UIButton(&RenderGroup, "Submit", true);
+    UIButton(&RenderGroup, "Abort");
     EndWindow(&RenderGroup);
     
     BeginWindow("Basic test 2", v2{900, 600});
     UIText(&RenderGroup, "Hello!");
-    _UIButton(&RenderGroup, "Click me!");
+    UIButton(&RenderGroup, "Click me!");
     UIText(&RenderGroup, "Hello!");
     //UITextInput(&RenderGroup, "Input test", 300.0f);
-    _UIButton(&RenderGroup, "Submit", true);
-    _UIButton(&RenderGroup, "Abort");
+    UIButton(&RenderGroup, "Submit", true);
+    UIButton(&RenderGroup, "Abort");
     EndWindow(&RenderGroup);
     
     DebugRenderAllProfileData(&RenderGroup, &Layout);

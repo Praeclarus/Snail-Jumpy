@@ -7,12 +7,14 @@ enum entity_type {
     EntityType_Wall      = 1,
     EntityType_Coin      = 2, // Possible CoinP
     
+    EntityType_Enemy     = 3,
+#if 0    
     // TODO(Tyler): Remove these, make them into a unified EntityType_Enemy
     EntityType_Snail     = 3,
     EntityType_Sally     = 4,
     EntityType_Dragonfly = 5,
     EntityType_Speedy    = 6,
-    
+#endif
     
     EntityType_Player    = 7,
     
@@ -61,12 +63,19 @@ struct door_entity {
     f32 Cooldown;
 };
 
+enum entity_flags {
+    EntityFlags_None                 = 0,
+    EntityFlags_CanBeStunned         = (1 << 0),
+    EntityFlags_NotAffectedByGravity = (1 << 1),
+};
+
 struct entity {
     // NOTE(Tyler): Needs to be u32 otherwise compiler complains
     // TODO(Tyler): Reorder to fix the above NOTE
     u32 Type;
     v2 P, dP;
     entity_state State;
+    entity_flags Flags;
     
     state_change_condition ChangeCondition;
     f32 Cooldown;
@@ -90,6 +99,16 @@ struct enemy_entity : public entity {
     s32 Damage;
 };
 
+struct projectile_entity : public entity {
+    f32 RemainingLife;
+};
+
+struct player_input {
+    v2 Direction;
+    b8 Jump;
+    b8 Shoot;
+};
+
 struct player_entity : public entity {
     s32 Health;
     f32 JumpTime;
@@ -99,9 +118,6 @@ struct player_entity : public entity {
     b8 IsRidingDragonfly;
 };
 
-struct projectile_entity : public entity {
-    f32 RemainingLife;
-};
 
 struct entity_manager {
     memory_arena Memory;
@@ -116,29 +132,69 @@ struct entity_manager {
     enemy_entity *Enemies;
     u32 EnemyCount;
     
-    teleporter *Teleporters;
-    u32 TeleporterCount;
-    
     door_entity *Doors;
     u32 DoorCount;
     
+    teleporter *Teleporters;
+    u32 TeleporterCount;
+    
+    player_input PlayerInput;
     player_entity *Player;
     
     projectile_entity *Projectiles;
     u32 ProjectileCount;
+    
+    void ProcessEvent(os_event *Event);
+    void UpdateAndRenderEntities(render_group *RenderGroup);
 };
 
+
+//~ Entity spec
+
 struct entity_spec {
-    const char *Asset;
+    char *Asset;
+    entity_flags Flags;
+    entity_type  Type;
+    
+    union {
+        // Normal enemy
+        struct {
+            f32 Speed;
+        };
+    };
+    
+    // NOTE(Tyler): The P member of the collision_boundary struct here is used as an offset,
+    // when written to file
     u8 BoundaryCount;
     collision_boundary Boundaries[2];
+    u8 SecondaryBoundaryCount;
+    collision_boundary SecondaryBoundaries[2];
 };
 
 #pragma pack(push, 1)
 struct entity_spec_file_header {
-    char Header[3]; // 'S', 'J', 'S'
+    char Header[3]; // 'S', 'J', 'E'
     u32 Version;
-    u32 EnemyCount;
+    u32 SpecCount;
+};
+
+struct packed_collision_boundary {
+    collision_boundary_type Type;
+    collision_flags Flags;
+    // This P is actually used as an offset from the entity's P
+    v2 P;
+    
+    union {
+        // Circle
+        struct {
+            f32 Radius;
+        };
+        
+        // Rectangle
+        struct {
+            v2 Size;
+        };
+    };
 };
 #pragma pack(pop)
 

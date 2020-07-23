@@ -1,22 +1,36 @@
 
+
 global f32 CompletionCooldown;
+
+internal void
+GameProcessKeyDown(os_event *Event){
+    switch((u32)Event->Key){
+        case KeyCode_Escape: ChangeState(GameMode_MainGame, "Overworld"); break;
+        case 'E':            ToggleWorldEditor(); break;
+        case 'P': {
+            CurrentWorld->Flags |= WorldFlag_IsCompleted;
+            ChangeState(GameMode_MainGame, "Overworld");
+        }break;
+    }
+}
+
+internal void
+GameProcessInput(){
+    os_event Event;
+    while(PollEvents(&Event)){
+        EntityManager.ProcessEvent(&Event);
+        switch(Event.Kind){
+            case OSEventKind_KeyDown: GameProcessKeyDown(&Event); break;
+        }
+    }
+}
 
 internal void
 UpdateAndRenderMainGame(){
     //TIMED_FUNCTION();
     
-    if(IsKeyJustPressed('E')){
-        ToggleEditor();
-    }
     
-    if(IsKeyJustPressed(KeyCode_Escape)){
-        ChangeState(GameMode_MainGame, "Overworld");
-    }
-    
-    if(IsKeyJustPressed('P')){
-        CurrentWorld->Flags |= WorldFlag_IsCompleted;
-        ChangeState(GameMode_MainGame, "Overworld");
-    }
+    GameProcessInput();
     
     render_group RenderGroup;
     
@@ -29,17 +43,7 @@ UpdateAndRenderMainGame(){
     
     CollisionSystemNewFrame();
     
-    UpdateAndRenderWalls(&RenderGroup);
-    UpdateAndRenderCoins(&RenderGroup);
-    UpdateAndRenderEnemies(&RenderGroup);
-    UpdateAndRenderDoors(&RenderGroup);
-    UpdateAndRenderTeleporters(&RenderGroup);
-    if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-        UpdateAndRenderTopDownPlayer(&RenderGroup);
-    }else{
-        UpdateAndRenderPlatformerPlayer(&RenderGroup);
-    }
-    
+    EntityManager.UpdateAndRenderEntities(&RenderGroup);
     // NOTE(Tyler): Exit
     {
         v2 P = v2{15.25f, 3.25f};
@@ -66,23 +70,6 @@ UpdateAndRenderMainGame(){
                                      "You need: %u more coins!", 
                                      RequiredCoins-Score);
             }
-        }
-    }
-    
-    // NOTE(Tyler): Update projectiles
-    {
-        projectile_entity *Projectile = EntityManager.Projectiles;
-        if(Projectile->RemainingLife > 0.0f){
-            Projectile->RemainingLife -= OSInput.dTimeForFrame;
-            
-            v2 ddP = v2{0.0f, -11.0f};
-            //MoveProjectile(0, ddP);
-            MoveEntity(Projectile, 0, ddP, 1.0f, 1.0f, 1.0f, v2{0, 0}, 0.3f);
-            
-            v2 P = Projectile->P - CameraP;
-            RenderRectangle(&RenderGroup, P-0.5f*Projectile->Boundaries[0].Size, 
-                            P+0.5f*Projectile->Boundaries[0].Size, 
-                            0.7f, WHITE);
         }
     }
     

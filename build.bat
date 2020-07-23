@@ -11,10 +11,11 @@ pushd "build"
 
 REM goto SnailJumpyPng
 
-rm *.pdb
+REM rm *.pdb
+REM /PDB:"SnailJumpy%time:~3,2%%time:~6,2%.pdb"
 
 :SnailJumpy
-cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:Win32SnailJumpy.exe ..\source\platform_win32.cpp /link /PDB:"SnailJumpy%time:~3,2%%time:~6,2%.pdb" %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
+cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:Win32SnailJumpy.exe ..\source\os_win32.cpp /link  %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
 
 REM cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:AssetProcessor.exe ..\source\tools\asset_processor.cpp /link /PDB:"SnailJumpy%time:~3,2%%time:~6,2%.pdb" %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
 

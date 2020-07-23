@@ -75,7 +75,8 @@ struct theme {
     f32 Padding;
 };
 
-enum window_flags {
+typedef u32 window_flags;
+enum _window_flags {
     WindowFlag_None,
     WindowFlag_NextButtonIsSameRow = (1 << 0),
 };
@@ -92,43 +93,52 @@ struct widget_info {
         // Window
         struct {
             v2 P;
+            v2 MinSize;
             v2 Size;
             b8 IsBeingDragged;
             v2 DraggingOffset;
             window_flags Flags;
         };
         
-        // Text input
-        struct {
-            u32 BufferIndex;
-        };
-        
     };
 };
 
 struct window {
+    const char *Name;
     window_flags Flags;
     v2 BaseP;
     v2 CurrentP;
     f32 TitleBarHeight;
-    v2 ContentSize;
     f32 Z;
+    v2 LastContentSize;
+    v2 ContentSize;
 };
 
 struct ui_manager {
-    u32 SelectedWidgetId;
-    b8 ShiftIsDown;
-    
     // TODO(Tyler): Perhaps this should be part of the os_input structure?
     b8 HandledInput;
     
     theme Theme;
     hash_table<const char *, widget_info> WidgetTable;
-    widget_info *SelectedWidget;
+    u64 SelectedWidgetID;
     
     b8 InWindow;
-    const char *CurrentWindowName; // TODO(Tyler): Move this into window struct
     window CurrentWindow;
+    
+    // Text Input
+    b8 IsShiftDown;
+    char Buffer[32];
+    u32 BufferIndex;
+    u32 BackSpaceCount;
+    
+    // Mouse input
+    v2 MouseP;
+    os_mouse_button LeftMouseButton;
+    os_mouse_button MiddleMouseButton;
+    os_mouse_button RightMouseButton;
+    
+    
+    b8 ProcessInput(os_event *Event);
 };
 
 #endif //SNAIL_JUMPY_UI_H

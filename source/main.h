@@ -38,9 +38,9 @@ enum direction {
 
 
 #include "primitive_types.h"
+#include "helpers.cpp"
 #include "allocators.cpp"
 #include "debug.h"
-#include "helpers.cpp"
 #include "hash_table.cpp"
 #include "array.cpp"
 #include "math.h"

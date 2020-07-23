@@ -366,11 +366,7 @@ LoadAssetFile(const char *Path){
     u64 NewFileWriteTime = GetLastFileWriteTime(File);
     
     if(LastAssetFileWriteTime < NewFileWriteTime){
-        u64 FileSize = GetFileSize(File);
-        u8 *FileData = PushArray(&TransientStorageArena, u8, FileSize+1);
-        ReadFile(File, 0, FileData, FileSize);
         CloseFile(File);
-        FileData[FileSize] = '\0';
         entire_file File = ReadEntireFile(&TransientStorageArena, Path);
         stream Stream = CreateReadStream(File.Data, File.Size);
         
@@ -403,6 +399,7 @@ LoadAssetFile(const char *Path){
 
 //~ Miscellaneous
 
+#if 0
 // TODO(Tyler): ROBUSTNESS
 struct asset_info {
     const char *AssetName;
@@ -435,11 +432,13 @@ GetAssetInfoFromEntityType(u32 Type){
     
     return(Result);
 }
+#endif
 
 internal void
 RenderFrameOfSpriteSheet(render_group *RenderGroup, const char *AssetName, 
                          u32 Frame, v2 Center, f32 Z){
     asset *Asset = FindInHashTablePtr(&AssetTable, AssetName);
+    if(!Asset) return;
     
     u32 FrameInSpriteSheet = Frame;
     u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
@@ -460,13 +459,9 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, const char *AssetName,
 
 //~ Animation rendering
 internal void
-UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame, 
-                         b8 Center=false){
+UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame){
     asset *Asset = FindInHashTablePtr<const char *, asset>(&AssetTable, Entity->Asset);
-    // TODO(Tyler): FIX THIS ONCE WE HAVE THE PROPER SIZED PLAYER SPRITESHEET
-    if(Entity->Type == EntityType_Player){
-        Asset->Scale = 1;
-    }
+    if(!Asset) return;
     
     u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
     if(AnimationIndex == 0) { 
@@ -485,9 +480,6 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         v2 P = Entity->P - CameraP;
         P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
         P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
-        if(!Center){
-            P.Y += 0.5f*Asset->Scale*Asset->SizeInMeters.Height - Entity->YOffset + Asset->YOffset;
-        }
         
 #if 0
         f32 R = RenderGroup->MetersToPixels*4.0f;

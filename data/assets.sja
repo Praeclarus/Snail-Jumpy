@@ -76,6 +76,20 @@
 : spritesheet dragonfly
     path dragonfly_spritesheet.png
     size 33
+    frames_per_row 6
+    frame_counts 10 10 3 3 4 4
+    base_fps 8
+	: states
+        state_moving          
+			left  1
+			right 2
+        state_turning 
+			left  3
+			right 4
+
+: spritesheet boxing_dragonfly
+    path boxing_spritesheet.png
+    size 33
     frames_per_row 7
     frame_counts 10 10 3 3
     base_fps 8
@@ -89,7 +103,7 @@
 
 : spritesheet player
     path test_avatar_spritesheet2.png
-    size 64
+    size 16
     frames_per_row 17
     frame_counts 17 17 6 6 5 5 1 1 2 2
     base_fps 8
