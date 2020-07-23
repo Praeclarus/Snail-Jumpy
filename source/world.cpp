@@ -23,6 +23,7 @@ IsLevelCompleted(const char *LevelName){
 internal void
 AddPlayer(v2 P){
     AllocateNEntities(1, EntityType_Player);
+    EntityManager.PlayerInput = {};
     *EntityManager.Player = {};
     
     EntityManager.Player->Type = EntityType_Player;
@@ -91,26 +92,25 @@ LoadWorld(const char *LevelName){
             ReloadCollisionSystem(World->Width, World->Height, 
                                   0.5f, 0.5f);
             
-            EntityManager.CoinData.Tiles = CurrentWorld->Map;
-            EntityManager.CoinData.XTiles = CurrentWorld->Width;
-            EntityManager.CoinData.YTiles = CurrentWorld->Height;
-            EntityManager.CoinData.TileSideInMeters = TILE_SIDE;
-            EntityManager.CoinData.NumberOfCoinPs = 0;
-            
+            // Walls
             u32 WallCount = 0;
-            u32 TeleporterCount = 0;
             for(u32 I = 0; 
                 I < CurrentWorld->Width*CurrentWorld->Height; 
                 I++){
                 u8 Tile = CurrentWorld->Map[I];
                 if(Tile == EntityType_Wall){
                     WallCount++;
-                }else if(Tile == EntityType_Teleporter){
-                    TeleporterCount++;
                 }
             }
             LoadWallsFromMap(CurrentWorld->Map, WallCount,
                              CurrentWorld->Width, CurrentWorld->Height);
+            
+            // Coins
+            EntityManager.CoinData.Tiles = CurrentWorld->Map;
+            EntityManager.CoinData.XTiles = CurrentWorld->Width;
+            EntityManager.CoinData.YTiles = CurrentWorld->Height;
+            EntityManager.CoinData.TileSideInMeters = TILE_SIDE;
+            EntityManager.CoinData.NumberOfCoinPs = 0;
             
             {
                 u32 N = Minimum(7, EntityManager.CoinData.NumberOfCoinPs);
@@ -124,6 +124,7 @@ LoadWorld(const char *LevelName){
                 Score = 0; // HACK: UpdateCoin changes this value
             }
             
+            // Enemies
             {
                 AllocateNEntities(CurrentWorld->Enemies.Count, EntityType_Enemy);
                 for(u32 I = 0; I < CurrentWorld->Enemies.Count; I ++){
@@ -132,27 +133,21 @@ LoadWorld(const char *LevelName){
                     EntityManager.Enemies[I] = {};
                     EntityManager.Enemies[I].Type = Spec->Type;
                     
-                    EntityManager.Enemies[I].P = Enemy->P;
+                    v2 P = Enemy->P; P.Y += 0.001f;
+                    EntityManager.Enemies[I].P = P;
                     
                     //EntityManager.Enemies[I].Speed = Spec->Speed;
                     EntityManager.Enemies[I].Speed = 1.0f;
                     
                     EntityManager.Enemies[I].BoundaryCount = Spec->BoundaryCount;
-                    f32 Radius = 0.0f;
                     for(u32 J = 0; J < Spec->BoundaryCount; J++){
                         EntityManager.Enemies[I].Boundaries[J] = Spec->Boundaries[J];
-                        EntityManager.Enemies[I].Boundaries[J].P = 
-                            Enemy->P + Spec->Boundaries[J].P;
-                        f32 NewRadius = ((Spec->Boundaries[J].Type == BoundaryType_Circle) ?
-                                         Spec->Boundaries[J].Radius : 0.5f*Spec->Boundaries[J].Size.Y);
-                        if((NewRadius < Radius) || (Radius == 0.0f)) Radius = NewRadius;
+                        EntityManager.Enemies[I].Boundaries[J].P = P + Spec->Boundaries[J].P;
                     }
                     
                     EntityManager.Enemies[I].State = State_Moving;
                     EntityManager.Enemies[I].ZLayer = -0.7f;
                     EntityManager.Enemies[I].Asset = Spec->Asset;
-                    //asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
-                    EntityManager.Enemies[I].YOffset = Radius;
                     
                     EntityManager.Enemies[I].Direction = Enemy->Direction;
                     EntityManager.Enemies[I].PathStart = Enemy->PathStart;
@@ -160,7 +155,7 @@ LoadWorld(const char *LevelName){
                 }
             }
             
-            // NOTE(Tyler): Load doors
+            // Doors
             {
                 AllocateNEntities(CurrentWorld->Doors.Count, EntityType_Door);
                 for(u32 I = 0; I < CurrentWorld->Doors.Count; I++){
@@ -177,34 +172,24 @@ LoadWorld(const char *LevelName){
                 }
             }
             
-            // NOTE(Tyler): Load teleporters
+            // Teleporters
             {
-                AllocateNEntities(TeleporterCount, EntityType_Teleporter);
+                AllocateNEntities(CurrentWorld->Teleporters.Count, EntityType_Teleporter);
                 u32 CurrentId = 0;
-                for(u32 Y = 0; Y < CurrentWorld->Height; Y++){
-                    for(u32 X = 0; X < CurrentWorld->Width; X++){
-                        u8 TileId = CurrentWorld->Map[Y*CurrentWorld->Width + X];
-                        if(TileId == EntityType_Teleporter){
-                            Assert(CurrentId < TeleporterCount);
-                            Assert(CurrentId < CurrentWorld->Teleporters.Count);
-                            
-                            EntityManager.Teleporters[CurrentId] = {};
-                            EntityManager.Teleporters[CurrentId].Boundary.P = v2{
-                                ((f32)X+0.5f)*TILE_SIDE, ((f32)Y+0.5f)*TILE_SIDE
-                            };
-                            EntityManager.Teleporters[CurrentId].Boundary.Size = v2{
-                                TILE_SIDE, TILE_SIDE
-                            };
-                            EntityManager.Teleporters[CurrentId].Level = 
-                                CurrentWorld->Teleporters[CurrentId].Level;
-                            EntityManager.Teleporters[CurrentId].IsLocked = true;
-                            
-                            EntityManager.Teleporters[CurrentId].IsLocked = 
-                                !IsLevelCompleted(CurrentWorld->Teleporters[CurrentId].RequiredLevel);
-                            
-                            CurrentId++;
-                        }
-                    }
+                for(u32 I = 0; I < CurrentWorld->Teleporters.Count; I++){
+                    teleporter_data *Teleporter = &CurrentWorld->Teleporters[I];
+                    
+                    EntityManager.Teleporters[CurrentId] = {};
+                    EntityManager.Teleporters[CurrentId].Boundary.P = Teleporter->P;
+                    EntityManager.Teleporters[CurrentId].Boundary.Size = TILE_SIZE;
+                    EntityManager.Teleporters[CurrentId].Level = 
+                        CurrentWorld->Teleporters[CurrentId].Level;
+                    EntityManager.Teleporters[CurrentId].IsLocked = true;
+                    
+                    EntityManager.Teleporters[CurrentId].IsLocked = 
+                        !IsLevelCompleted(CurrentWorld->Teleporters[CurrentId].RequiredLevel);
+                    
+                    CurrentId++;
                 }
             }
             
@@ -283,6 +268,7 @@ LoadWorldFromFile(const char *Name){
         }
         
         for(u32 I = 0; I < Header->TeleporterCount; I++){
+            NewWorld->Teleporters[I].P = *ConsumeType(&Stream, v2);
             char *Level = ConsumeString(&Stream);
             CopyCString(NewWorld->Teleporters[I].Level, Level, 512);
             char *RequiredLevel = ConsumeString(&Stream);
@@ -358,6 +344,7 @@ WriteWorldsToFiles(){
         
         for(u32 I = 0; I < World->Teleporters.Count; I++){
             teleporter_data *Data = &World->Teleporters[I];
+            WriteVariableToFile(File, Offset, Data->P);
             {
                 u32 Length = CStringLength(Data->Level);
                 WriteToFile(File, Offset, Data->Level, Length+1);

@@ -16,6 +16,7 @@ struct entity_data {
 };
 
 struct teleporter_data {
+    v2 P;
     char Level[512];
     char RequiredLevel[512];
 };

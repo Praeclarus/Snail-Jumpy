@@ -39,7 +39,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_EntityEditor;
+global game_mode GameMode = GameMode_WorldEditor;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;

@@ -28,7 +28,9 @@ enum world_editor_action {
     WorldEditorAction_EndAddDrag,
     
     WorldEditorAction_BeginRemoveDrag,
-    WorldEditorAction_RemoveDrag,
+    WorldEditorAction_RemoveDragging,
+    
+    WorldEditorAction_DraggingThing,
 };
 
 struct world_editor {

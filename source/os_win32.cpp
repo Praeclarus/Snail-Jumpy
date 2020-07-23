@@ -616,15 +616,6 @@ WinMain(HINSTANCE Instance,
                 // TODO(Tyler): Multithreading?
                 GameUpdateAndRender();
                 
-#if 0                
-                OSInput.LeftMouseButton.HalfTransitionCount = 0;
-                OSInput.MiddleMouseButton.HalfTransitionCount = 0;
-                OSInput.RightMouseButton.HalfTransitionCount = 0;
-                for(u32 I = 0; I < KeyCode_TOTAL; I++){
-                    OSInput.Buttons[I].HalfTransitionCount = 0;
-                }
-#endif
-                
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                 if(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
                 {
@@ -673,7 +664,7 @@ WinMain(HINSTANCE Instance,
         LogError("Win32: Failed to register window class!!");
     }
     
-#if 0
+#if 1
     WriteWorldsToFiles();
 #endif
     
