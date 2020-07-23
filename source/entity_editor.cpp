@@ -184,9 +184,24 @@ entity_editor::DoUI(render_group *RenderGroup){
         }
     }
     
+    
+    UIText(RenderGroup, "Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedSpec->Type]);
+    if(UIButton(RenderGroup, "<<<", true)){
+        SelectedSpec->Type = REVERSE_ENTITY_TYPE_TABLE[SelectedSpec->Type];
+        SelectedSpec->Speed = 0;
+        SelectedSpec->Damage = 0;
+        Assert(SelectedSpec->Type != EntityType_TOTAL);
+    }
+    if(UIButton(RenderGroup, ">>>")){
+        SelectedSpec->Type = FORWARD_ENTITY_TYPE_TABLE[SelectedSpec->Type];
+        SelectedSpec->Speed = 0;
+        SelectedSpec->Damage = 0;
+        Assert(SelectedSpec->Type != EntityType_TOTAL);
+    }
+    
     EndWindow(RenderGroup);
     
-    //~ Mode specific editing functions
+    //~ Boundary editing
     BeginWindow("Edit Collision Boundaries", v2{20, OSInput.WindowSize.Y-43}, v2{400, 0});
     
     const char *BoundaryTable[] = {
@@ -226,6 +241,43 @@ entity_editor::DoUI(render_group *RenderGroup){
     UIText(RenderGroup, "Use up and down arrows to change the index", CurrentBoundary);
     
     EndWindow(RenderGroup);
+    
+    //~ Type specific editing
+    switch(SelectedSpec->Type){
+        case EntityType_None: break;
+        
+        //~ Player
+        case EntityType_Player: {
+        }break;
+        
+        //~ Enemy
+        case EntityType_Enemy: {
+            BeginWindow("Edit enemy", v2{OSInput.WindowSize.X-410, 500}, v2{400, 0});
+            
+            UIText(RenderGroup, "Speed: %f", SelectedSpec->Speed);
+            if(UIButton(RenderGroup, "-", true)){
+                SelectedSpec->Speed -= 0.1f;
+            }
+            if(UIButton(RenderGroup, "+")){
+                SelectedSpec->Speed += 0.1f;
+            }
+            
+            UIText(RenderGroup, "Damage: %u", SelectedSpec->Damage);
+            if(UIButton(RenderGroup, "-", true)){
+                if(SelectedSpec->Damage > 0){
+                    SelectedSpec->Damage -= 1;
+                }
+            }
+            if(UIButton(RenderGroup, "+")){
+                SelectedSpec->Damage += 1;
+            }
+            
+            EndWindow(RenderGroup);
+        }break;
+        
+        default: INVALID_CODE_PATH; break;
+    }
+    
     
     if(UIManager.HandledInput &&
        ((Action != EntityEditorAction_LeftClickDragging) ||

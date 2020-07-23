@@ -5,22 +5,19 @@ enum entity_type {
     EntityType_None = 0,
     
     EntityType_Wall      = 1,
-    EntityType_Coin      = 2, // Possible CoinP
+    EntityType_Coin      = 2,
     
     EntityType_Enemy     = 3,
-#if 0    
-    // TODO(Tyler): Remove these, make them into a unified EntityType_Enemy
-    EntityType_Snail     = 3,
-    EntityType_Sally     = 4,
-    EntityType_Dragonfly = 5,
-    EntityType_Speedy    = 6,
-#endif
-    
+    // 4
+    // 5
+    // 6
     EntityType_Player    = 7,
     
     EntityType_Teleporter = 8,
     EntityType_Door       = 9,
     EntityType_Projectile = 10,
+    
+    EntityType_TOTAL,
 };
 
 enum state_change_condition {
@@ -160,6 +157,7 @@ struct entity_spec {
         // Normal enemy
         struct {
             f32 Speed;
+            u32 Damage;
         };
     };
     

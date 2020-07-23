@@ -136,8 +136,9 @@ LoadWorld(const char *LevelName){
                     v2 P = Enemy->P; P.Y += 0.001f;
                     EntityManager.Enemies[I].P = P;
                     
-                    //EntityManager.Enemies[I].Speed = Spec->Speed;
-                    EntityManager.Enemies[I].Speed = 1.0f;
+                    EntityManager.Enemies[I].Speed = Spec->Speed;
+                    EntityManager.Enemies[I].Damage = Spec->Damage;
+                    
                     
                     EntityManager.Enemies[I].BoundaryCount = Spec->BoundaryCount;
                     for(u32 J = 0; J < Spec->BoundaryCount; J++){

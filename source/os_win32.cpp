@@ -666,6 +666,7 @@ WinMain(HINSTANCE Instance,
     
 #if 1
     WriteWorldsToFiles();
+    WriteEntitySpecs("entities.sje");
 #endif
     
     return(0);

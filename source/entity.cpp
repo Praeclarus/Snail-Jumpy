@@ -631,6 +631,8 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
 
 //~ Entity Spec 
 
+global_constant u32 CURRENT_SPEC_HEADER_VERSION = 2;
+
 internal u32
 AddEntitySpec(){
     u32 Result = EntitySpecs.Count;
@@ -649,7 +651,7 @@ WriteEntitySpecs(const char *Path){
     Header.Header[0] = 'S';
     Header.Header[1] = 'J';
     Header.Header[2] = 'E';
-    Header.Version = 1;
+    Header.Version = CURRENT_SPEC_HEADER_VERSION;
     Header.SpecCount = EntitySpecs.Count-1;
     
     WriteToFile(File, 0, &Header, sizeof(Header));
@@ -672,6 +674,7 @@ WriteEntitySpecs(const char *Path){
             case EntityType_Player: break;
             case EntityType_Enemy: {
                 WriteVariableToFile(File, Offset, Spec->Speed);
+                WriteVariableToFile(File, Offset, Spec->Damage);
             }break;
         }
         
@@ -720,7 +723,7 @@ LoadEntitySpecs(const char *Path){
         Assert((Header->Header[0] == 'S') && 
                (Header->Header[1] == 'J') && 
                (Header->Header[2] == 'E'));
-        Assert(Header->Version == 1);
+        Assert(Header->Version <= CURRENT_SPEC_HEADER_VERSION);
         
         for(u32 I = 0; I < Header->SpecCount; I++){
             char *AssetInFile = ConsumeString(&Stream);
@@ -736,6 +739,8 @@ LoadEntitySpecs(const char *Path){
                 case EntityType_Player: break;
                 case EntityType_Enemy: {
                     Spec->Speed = *ConsumeType(&Stream, f32);
+                    if(Header->Version == 2) { Spec->Damage = *ConsumeType(&Stream, u32);
+                    }else{ Spec->Damage = 1; }
                 }break;
             }
             
