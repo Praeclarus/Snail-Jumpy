@@ -10,35 +10,21 @@ ToggleWorldEditor(){
     }else if(GameMode == GameMode_MainGame){
         // To editor from main game
         ChangeState(GameMode_WorldEditor, 0);
-        WorldEditor.SelectedThingType = EntityType_None;
+        WorldEditor.SelectedThingType = EditorThing_None;
         
         Assert(CurrentWorld);
         WorldEditor.World = CurrentWorld;
     }
 }
 
-internal inline u32
-GetTeleporterIndexFromP(world_data *World, v2 P){
-    // TODO(Tyler): There might be a better way to account for floating point inaccuracies
-    P.X = Floor(P.X);
-    P.Y = Floor(P.Y);
-    
-    u32 Index = 0;
-    for(u32 Y = 0; Y < World->Height; Y++){
-        for(u32 X = 0; X < World->Width; X++){
-            if(((u32)P.X == X) && ((u32)P.Y == Y)){
-                World->Map[Y*World->Width+X] = EntityType_Teleporter;
-                goto end_loop;
-            }
-            if(World->Map[Y*World->Width+X] == EntityType_Teleporter){
-                Index++;
-            }
-        }
-    }end_loop:;
-    
-    return(Index);
+internal inline b8
+IsPointInRectangle(v2 Point, v2 RectP, v2 RectSize){
+    v2 MinCorner = RectP-(0.5f*RectSize);
+    v2 MaxCorner = RectP+(0.5f*RectSize);
+    b8 Result = ((MinCorner.X < Point.X) && (Point.X < MaxCorner.X) &&
+                 (MinCorner.Y < Point.Y) && (Point.Y < MaxCorner.Y));
+    return(Result);
 }
-
 
 void
 world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
@@ -66,18 +52,44 @@ b8
 world_editor::HandleClick(f32 MetersToPixels, b8 ShouldRemove){
     u8 *TileId = &World->Map[((u32)CursorP.Y*World->Width)+(u32)CursorP.X];
     
-    // TODO(Tyler): CLEAN this up
-    b8 DidSelectSomething = false;
-    if(*TileId == EntityType_Teleporter){
-        u32 Index = GetTeleporterIndexFromP(World, CursorP);
-        if(!ShouldRemove){
-            SelectTeleporter(Index);
-            DidSelectSomething = true;
-        }else{
-            OrderedRemoveArrayItemAtIndex(&World->Teleporters, Index);
-            *TileId = 0;
+    //~ Telporters
+    {
+        teleporter_data *ExistingTeleporter = 0;
+        u32 TeleporterIndex;
+        for(TeleporterIndex = 0; 
+            TeleporterIndex < World->Teleporters.Count; 
+            TeleporterIndex++){
+            // TODO(Tyler): Use the proper size
+            teleporter_data *Teleporter = &World->Teleporters[TeleporterIndex];
+            v2 Size = TILE_SIZE;
+            v2 MinCorner = Teleporter->P-(0.5f*Size);
+            v2 MaxCorner = Teleporter->P+(0.5f*Size);
+            if((MinCorner.X < MouseP.X) && (MouseP.X < MaxCorner.X) &&
+               (MinCorner.Y < MouseP.Y) && (MouseP.Y < MaxCorner.Y)){
+                ExistingTeleporter = Teleporter;
+                break;
+            }
         }
-    }else{
+        
+        if(ExistingTeleporter){
+            if(!ShouldRemove){
+                SelectTeleporter(TeleporterIndex);
+                Action = WorldEditorAction_DraggingThing;
+                return(true);
+            }else{
+                UnorderedRemoveArrayItemAtIndex(&World->Teleporters, 
+                                                TeleporterIndex);
+                if((SelectedThingType == EditorThing_Teleporter) &&
+                   (SelectedThing == TeleporterIndex)){
+                    SelectedThingType = EditorThing_None;
+                    SelectedThing = 0;
+                }
+            }
+        }
+    }
+    
+    //~ Doors
+    {
         b8 ClickedOnDoor = false;
         u32 DoorIndex = 0;
         for(DoorIndex = 0; DoorIndex < World->Doors.Count; DoorIndex++){
@@ -94,95 +106,78 @@ world_editor::HandleClick(f32 MetersToPixels, b8 ShouldRemove){
         if(ClickedOnDoor){
             if(!ShouldRemove){
                 SelectDoor(DoorIndex);
-                DidSelectSomething = true;
+                Action = WorldEditorAction_DraggingThing;
+                return(true);
             }else{
                 UnorderedRemoveArrayItemAtIndex(&World->Doors, DoorIndex);
-                if(SelectedThingType == EntityType_Door){
-                    SelectedThingType = EntityType_None;
+                if(SelectedThingType == EditorThing_Door){
+                    SelectedThingType = EditorThing_None;
                     SelectedThing     = 0;
-                }
-            }
-            
-        }else{
-            entity_data *ExistingEnemy = 0;
-            u32 EnemyIndex;
-            for(EnemyIndex = 0; 
-                EnemyIndex < World->Enemies.Count; 
-                EnemyIndex++){
-                // TODO(Tyler): Use the proper size
-                entity_data *Enemy = &World->Enemies[EnemyIndex];
-                entity_spec *Spec = &EntitySpecs[Enemy->SpecID];
-                if(Spec) {
-                    asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
-                    if(Asset){
-                        v2 Size = Asset->SizeInMeters*Asset->Scale;
-                        v2 MinCorner = Enemy->P-(0.5f*Size);
-                        v2 MaxCorner = Enemy->P+(0.5f*Size);
-                        if((MinCorner.X < MouseP.X) && (MouseP.X < MaxCorner.X) &&
-                           (MinCorner.Y < MouseP.Y) && (MouseP.Y < MaxCorner.Y)){
-                            ExistingEnemy = Enemy;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            if(ExistingEnemy){
-                if(!ShouldRemove){
-                    SelectEnemy(EnemyIndex);
-                    DidSelectSomething = true;
-                }else{
-                    UnorderedRemoveArrayItemAtIndex(&World->Enemies, 
-                                                    EnemyIndex);
-                    if((SelectedThingType == EntityType_Enemy) &&
-                       (SelectedThing == EnemyIndex)){
-                        SelectedThingType = EntityType_None;
-                        SelectedThing = 0;
-                    }
-                }
-                
-            }else{
-                teleporter_data *ExistingTeleporter = 0;
-                u32 TeleporterIndex;
-                for(TeleporterIndex = 0; 
-                    TeleporterIndex < World->Teleporters.Count; 
-                    TeleporterIndex++){
-                    // TODO(Tyler): Use the proper size
-                    teleporter_data *Teleporter = &World->Teleporters[TeleporterIndex];
-                    v2 Size = TILE_SIZE;
-                    v2 MinCorner = Teleporter->P-(0.5f*Size);
-                    v2 MaxCorner = Teleporter->P+(0.5f*Size);
-                    if((MinCorner.X < MouseP.X) && (MouseP.X < MaxCorner.X) &&
-                       (MinCorner.Y < MouseP.Y) && (MouseP.Y < MaxCorner.Y)){
-                        ExistingTeleporter = Teleporter;
-                        break;
-                    }
-                }
-                
-                if(ExistingTeleporter){
-                    if(!ShouldRemove){
-                        SelectTeleporter(TeleporterIndex);
-                        DidSelectSomething = true;
-                    }else{
-                        UnorderedRemoveArrayItemAtIndex(&World->Teleporters, 
-                                                        TeleporterIndex);
-                        if((SelectedThingType == EntityType_Teleporter) &&
-                           (SelectedThing == TeleporterIndex)){
-                            SelectedThingType = EntityType_None;
-                            SelectedThing = 0;
-                        }
-                    }
-                }else{
-                    
                 }
             }
         }
     }
     
-    if(DidSelectSomething){
-        Action = WorldEditorAction_DraggingThing;
+    //~ Enemies
+    {
+        entity_data *ExistingEnemy = 0;
+        u32 EnemyIndex;
+        for(EnemyIndex = 0; 
+            EnemyIndex < World->Enemies.Count; 
+            EnemyIndex++){
+            // TODO(Tyler): Use the proper size
+            entity_data *Enemy = &World->Enemies[EnemyIndex];
+            entity_spec *Spec = &EntitySpecs[Enemy->SpecID];
+            if(Spec) {
+                asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
+                if(Asset){
+                    
+                    if(IsPointInRectangle(MouseP, Enemy->P, 
+                                          Asset->SizeInMeters*Asset->Scale)){
+                        ExistingEnemy = Enemy;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if(ExistingEnemy){
+            if(!ShouldRemove){
+                SelectEnemy(EnemyIndex);
+                Action = WorldEditorAction_DraggingThing;
+                return(true);
+            }else{
+                UnorderedRemoveArrayItemAtIndex(&World->Enemies, 
+                                                EnemyIndex);
+                if((SelectedThingType == EditorThing_Enemy) &&
+                   (SelectedThing == EnemyIndex)){
+                    SelectedThingType = EditorThing_None;
+                    SelectedThing = 0;
+                }
+            }
+        }
     }
-    return(DidSelectSomething);
+    
+    {
+        if(SelectedThingType == EditorThing_Enemy){
+            entity_data *Enemy = &World->Enemies[SelectedThing];
+            if(IsPointInRectangle(MouseP, Enemy->PathStart, v2{0.2f, 0.2f}) &&
+               !ShouldRemove){
+                SelectedThingType = EditorThing_EnemyPathStart;
+                Action = WorldEditorAction_DraggingThing;
+                return(true);
+            }else if(IsPointInRectangle(MouseP, Enemy->PathEnd, v2{0.2f, 0.2f}) &&
+                     !ShouldRemove){
+                SelectedThingType = EditorThing_EnemyPathEnd;
+                Action = WorldEditorAction_DraggingThing;
+                return(true);
+            }
+            
+        }
+        
+    }
+    
+    return(false);
 }
 
 void
@@ -218,6 +213,10 @@ world_editor::ProcessInput(f32 MetersToPixels){
                        (Action == WorldEditorAction_BeginAddDrag)){
                         Action = WorldEditorAction_EndAddDrag;
                     }else{
+                        if(SelectedThingType == EditorThing_EnemyPathStart) 
+                            SelectedThingType = EditorThing_Enemy;
+                        if(SelectedThingType == EditorThing_EnemyPathEnd) 
+                            SelectedThingType = EditorThing_Enemy;
                         Action = WorldEditorAction_None;
                     }
                 }else if((Event.Button == KeyCode_RightMouse)  &&
@@ -236,19 +235,19 @@ world_editor::ProcessInput(f32 MetersToPixels){
 
 void
 world_editor::SelectTeleporter(u32 Id){
-    SelectedThingType = EntityType_Teleporter;
+    SelectedThingType = EditorThing_Teleporter;
     SelectedThing = Id;
 }
 
 void
 world_editor::SelectDoor(u32 Id){
-    SelectedThingType = EntityType_Door;
+    SelectedThingType = EditorThing_Door;
     SelectedThing = Id;
 }
 
 void
 world_editor::SelectEnemy(u32 Id){
-    SelectedThingType = EntityType_Enemy;
+    SelectedThingType = EditorThing_Enemy;
     SelectedThing = Id;
     entity_data *Enemy = &World->Enemies[Id];
 }
@@ -407,7 +406,7 @@ world_editor::ProcessAction(f32 MetersToPixels){
             v2 Center = ViewTileP+(0.5f*TILE_SIZE);
             
             switch(SelectedThingType){
-                case EntityType_Enemy: {
+                case EditorThing_Enemy: {
                     entity_data *Enemy = &World->Enemies[SelectedThing];
                     v2 LastP = Enemy->P;
                     entity_spec *Spec = &EntitySpecs[Enemy->SpecID];
@@ -420,11 +419,11 @@ world_editor::ProcessAction(f32 MetersToPixels){
                     Enemy->PathEnd.X += Enemy->P.X - LastP.X;
                     Enemy->PathEnd.Y = Center.Y;
                 }break;
-                case EntityType_Teleporter: {
+                case EditorThing_Teleporter: {
                     teleporter_data *Teleporter = &World->Teleporters[SelectedThing];
                     Teleporter->P = Center;
                 }break;
-                case EntityType_Door: {
+                case EditorThing_Door: {
                     door_data *Door = &World->Doors[SelectedThing];
                     v2 BottomLeft = Center - 0.5f*Door->Size;
                     BottomLeft /= TILE_SIDE;
@@ -436,7 +435,14 @@ world_editor::ProcessAction(f32 MetersToPixels){
                     }
                     
                     Door->P = TILE_SIDE*BottomLeft + 0.5f*Door->Size;
-                    
+                }break;
+                case EditorThing_EnemyPathStart: {
+                    entity_data *Enemy = &World->Enemies[SelectedThing];
+                    Enemy->PathStart.X = Round(MouseP.X/TILE_SIDE)*TILE_SIDE;
+                }break;
+                case EditorThing_EnemyPathEnd: {
+                    entity_data *Enemy = &World->Enemies[SelectedThing];
+                    Enemy->PathEnd.X = Round(MouseP.X/TILE_SIDE)*TILE_SIDE;
                 }break;
             }
         }break;
@@ -477,7 +483,9 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
     TIMED_FUNCTION();
     
     switch(SelectedThingType){
-        case EntityType_Enemy: {
+        case EditorThing_Enemy:
+        case EditorThing_EnemyPathStart: 
+        case EditorThing_EnemyPathEnd: {
             BeginWindow("Edit Snail", v2{20, OSInput.WindowSize.Y-43}, v2{400, 0});
             
             UIText(RenderGroup, "Direction: ");
@@ -491,28 +499,6 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
             }
             if(UIButton(RenderGroup, ">>>")){
                 SelectedEnemy->Direction = Direction_Right;
-            }
-            
-            UIText(RenderGroup, "Change left travel distance: ");
-            
-            if(UIButton(RenderGroup, "<<<", true)){
-                SelectedEnemy->PathStart.X -= TILE_SIZE.X;
-            }
-            if(UIButton(RenderGroup, ">>>")){
-                if(SelectedEnemy->PathStart.X < SelectedEnemy->P.X-TILE_SIZE.X){
-                    SelectedEnemy->PathStart.X += TILE_SIZE.X;
-                }
-            }
-            
-            UIText(RenderGroup, "Change right travel distance: ");
-            
-            if(UIButton(RenderGroup, "<<<", true)){
-                if(SelectedEnemy->P.X+TILE_SIZE.X < SelectedEnemy->PathEnd.X){
-                    SelectedEnemy->PathEnd.X -= TILE_SIZE.X;
-                }
-            }
-            if(UIButton(RenderGroup, ">>>")){
-                SelectedEnemy->PathEnd.X += TILE_SIZE.X;
             }
             
             v2 Margin = {0};
@@ -534,20 +520,25 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
                 RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.1f, BLUE);
                 
                 v2 Radius = {0.1f, 0.1f};
-                color Color = {1.0f, 0.0f, 0.0f, 1.0f};
+                color SelectedColor = color{0.6f, 0.0f, 0.0f, 1.0f};
+                color Color = RED;
                 v2 PathStart = SelectedEnemy->PathStart - CameraP;
                 v2 PathEnd = SelectedEnemy->PathEnd - CameraP;
+                color ColorA = ((SelectedThingType == EditorThing_EnemyPathStart) ? 
+                                SelectedColor : Color);
+                color ColorB = ((SelectedThingType == EditorThing_EnemyPathEnd) ? 
+                                SelectedColor : Color);
                 RenderRectangle(RenderGroup, 
                                 PathStart-Radius, PathStart+Radius,
-                                -1.0f, Color);
+                                -1.0f, ColorA);
                 RenderRectangle(RenderGroup, 
                                 PathEnd-Radius, PathEnd+Radius,
-                                -1.0f, Color);
+                                -1.0f, ColorB);
             }
             
             EndWindow(RenderGroup);
         }break;
-        case EntityType_Teleporter: {
+        case EditorThing_Teleporter: {
             BeginWindow("Edit Teleporter", v2{20, OSInput.WindowSize.Y-43}, v2{400, 0});
             
             teleporter_data *Data = 
@@ -560,7 +551,7 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
             
             EndWindow(RenderGroup);
         }break;
-        case EntityType_Door: {
+        case EditorThing_Door: {
             BeginWindow("Edit Door", v2{20, OSInput.WindowSize.Y-43}, v2{400, 0});
             
             door_data *Data = &World->Doors[SelectedThing];
@@ -571,7 +562,7 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
             if(UIButton(RenderGroup, "Delete!")){
                 UnorderedRemoveArrayItemAtIndex(&World->Doors, 
                                                 SelectedThing);
-                SelectedThingType = EntityType_None;
+                SelectedThingType = EditorThing_None;
                 SelectedThing     = 0;
             }
             EndWindow(RenderGroup);
@@ -823,7 +814,7 @@ world_editor::UpdateAndRender(){
             if(P.X+TILE_SIDE/2 < 0.0f) continue;
             if(9.0f < P.Y-TILE_SIDE/2) continue;
             if(P.Y+TILE_SIDE/2 < 0.0f) continue;
-            if((SelectedThingType == EntityType_Teleporter) &&
+            if((SelectedThingType == EditorThing_Teleporter) &&
                (SelectedThing == I)){
                 v2 Margin = v2{0.05f, 0.05f};
                 v2 Size = TILE_SIZE-Margin;
@@ -842,7 +833,7 @@ world_editor::UpdateAndRender(){
             if(P.X+Door->Width/2 < 0.0f) continue;
             if(9.0f < P.Y-Door->Height/2) continue;
             if(P.Y+Door->Height/2 < 0.0f) continue;
-            if((SelectedThingType == EntityType_Door) &&
+            if((SelectedThingType == EditorThing_Door) &&
                (SelectedThing == I)){
                 v2 Margin = v2{0.05f, 0.05f};
                 v2 Size = Door->Size-Margin;

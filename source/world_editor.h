@@ -33,6 +33,15 @@ enum world_editor_action {
     WorldEditorAction_DraggingThing,
 };
 
+enum editor_thing_type {
+    EditorThing_None,                               // 0
+    EditorThing_EnemyPathStart = 1,                 // 1
+    EditorThing_EnemyPathEnd   = 2,                 // 2
+    EditorThing_Enemy = EntityType_Enemy,           // 3
+    EditorThing_Teleporter = EntityType_Teleporter, // 8
+    EditorThing_Door = EntityType_Door,             // 9
+};
+
 struct world_editor {
     editor_popup Popup;
     char Buffer[512];
@@ -47,7 +56,7 @@ struct world_editor {
     v2 CursorP;
     v2 CursorP2;
     
-    entity_type SelectedThingType;
+    editor_thing_type SelectedThingType;
     u32 SelectedThing;
     
     world_data *World;
