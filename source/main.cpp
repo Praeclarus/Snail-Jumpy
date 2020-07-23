@@ -227,16 +227,15 @@ ChangeState(game_mode NewMode, const char *NewLevel){
 
 internal inline void
 SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles){
-    f32 TileSide = 0.5f;
-    v2 MapSize = TileSide*v2{(f32)XTiles, (f32)YTiles};
-    CameraP = P - 0.5f*v2{32.0f, 18.0f}*TileSide;
-    if((CameraP.X+32.0f*TileSide) > MapSize.X){
-        CameraP.X = MapSize.X - 32.0f*TileSide;
+    v2 MapSize = TILE_SIDE*v2{(f32)XTiles, (f32)YTiles};
+    CameraP = P - 0.5f*v2{32.0f, 18.0f}*TILE_SIDE;
+    if((CameraP.X+32.0f*TILE_SIDE) > MapSize.X){
+        CameraP.X = MapSize.X - 32.0f*TILE_SIDE;
     }else if(CameraP.X < 0.0f){
         CameraP.X = 0.0f;
     }
-    if((CameraP.Y+18.0f*TileSide) > MapSize.Y){
-        CameraP.Y = MapSize.Y - 18.0f*TileSide;
+    if((CameraP.Y+18.0f*TILE_SIDE) > MapSize.Y){
+        CameraP.Y = MapSize.Y - 18.0f*TILE_SIDE;
     }else if(CameraP.Y < 0.0f){
         CameraP.Y = 0.0f;
     }

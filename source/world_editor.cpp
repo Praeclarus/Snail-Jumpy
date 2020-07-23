@@ -650,6 +650,20 @@ world_editor::UpdateAndRender(){
     RenderGroup.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
     
     ProcessInput(RenderGroup.MetersToPixels);
+    {
+        CameraP += CameradP;
+        v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
+        if((CameraP.X+32.0f*TILE_SIDE) > MapSize.X){
+            CameraP.X = MapSize.X - 32.0f*TILE_SIDE;
+        }else if(CameraP.X < 0.0f){
+            CameraP.X = 0.0f;
+        }
+        if((CameraP.Y+18.0f*TILE_SIDE) > MapSize.Y){
+            CameraP.Y = MapSize.Y - 18.0f*TILE_SIDE;
+        }else if(CameraP.Y < 0.0f){
+            CameraP.Y = 0.0f;
+        }
+    }
     
     
     DoPopup(&RenderGroup);
