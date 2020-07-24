@@ -82,13 +82,14 @@ BeginWindow(const char *Name, v2 StartP=v2{500, 600}, v2 StartSize=v2{0, 0}){
     Assert(!UIManager.InWindow);
     UIManager.InWindow = true;
     UIManager.CurrentWindow = {};
-    UIManager.CurrentWindow.BaseP = Info->P;
-    UIManager.CurrentWindow.CurrentP = UIManager.CurrentWindow.BaseP;
+    UIManager.CurrentWindow.BaseP       = Info->P;
+    UIManager.CurrentWindow.CurrentP    = UIManager.CurrentWindow.BaseP;
     UIManager.CurrentWindow.ContentSize = {};
     UIManager.CurrentWindow.LastContentSize = Info->Size;
-    UIManager.CurrentWindow.TitleBarHeight = UIManager.Theme.TitleFont->Size+UIManager.Theme.Padding;
-    UIManager.CurrentWindow.Flags = Info->Flags;
-    UIManager.CurrentWindow.Name = Name;
+    UIManager.CurrentWindow.TitleBarHeight  = UIManager.Theme.TitleFont->Size+UIManager.Theme.Padding;
+    UIManager.CurrentWindow.Flags       = Info->Flags;
+    UIManager.CurrentWindow.Name        = Name;
+    UIManager.CurrentWindow.Z           = -5.0f;
 }
 
 internal void
@@ -134,7 +135,7 @@ EndWindow(render_group *RenderGroup){
         RenderString(RenderGroup, UIManager.Theme.TitleFont, UIManager.Theme.TitleColor,
                      UIManager.CurrentWindow.BaseP.X+UIManager.Theme.Padding, 
                      UIManager.CurrentWindow.BaseP.Y+UIManager.Theme.Padding, 
-                     -0.1f, UIManager.CurrentWindow.Name);
+                     UIManager.CurrentWindow.Z-0.1f, UIManager.CurrentWindow.Name);
     }
     
     {
@@ -143,9 +144,10 @@ EndWindow(render_group *RenderGroup){
         Max.X += Info->Size.X;
         Max.Y += UIManager.CurrentWindow.TitleBarHeight;
         RenderRectangle(RenderGroup, Min, Max,
-                        0.0f, UIManager.Theme.TitleBarColor, true);
-        RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Max.X, Min.Y+T}, -0.2f, 
-                        UIManager.Theme.SeparatorColor, true);
+                        UIManager.CurrentWindow.Z, UIManager.Theme.TitleBarColor, true);
+        RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Max.X, Min.Y+T}, 
+                        UIManager.CurrentWindow.Z-0.2f, UIManager.Theme.SeparatorColor, 
+                        true);
     }
     
     {
@@ -154,7 +156,7 @@ EndWindow(render_group *RenderGroup){
         v2 Max = P;
         Max.X += Info->Size.X;
         RenderRectangle(RenderGroup, Min, Max,
-                        0.0f, UIManager.Theme.BackgroundColor, true);
+                        UIManager.CurrentWindow.Z, UIManager.Theme.BackgroundColor, true);
     }
     
     {
@@ -166,13 +168,13 @@ EndWindow(render_group *RenderGroup){
         Max.Y += UIManager.CurrentWindow.TitleBarHeight;
         
         RenderRectangle(RenderGroup, v2{Min.X-T, Min.Y}, v2{Min.X, Max.Y+T}, 
-                        -0.1f, SeparatorColor, true);
+                        UIManager.CurrentWindow.Z-0.1f, SeparatorColor, true);
         RenderRectangle(RenderGroup, v2{Min.X, Max.Y}, v2{Max.X+T, Max.Y+T}, 
-                        -0.1f, SeparatorColor, true);
+                        UIManager.CurrentWindow.Z-0.1f, SeparatorColor, true);
         RenderRectangle(RenderGroup, v2{Max.X, Min.Y-T}, v2{Max.X+T, Max.Y}, 
-                        -0.1f, SeparatorColor, true);
+                        UIManager.CurrentWindow.Z-0.1f, SeparatorColor, true);
         RenderRectangle(RenderGroup, v2{Min.X-T, Min.Y-T}, v2{Max.X, Min.Y}, 
-                        -0.1f, SeparatorColor, true);
+                        UIManager.CurrentWindow.Z-0.1f, SeparatorColor, true);
     }
     
     UIManager.InWindow = false;
@@ -270,7 +272,7 @@ UIText(render_group *RenderGroup, const char *Text, ...){
     VRenderFormatString(RenderGroup, UIManager.Theme.NormalFont, UIManager.Theme.NormalColor,
                         UIManager.CurrentWindow.CurrentP.X+UIManager.Theme.Padding,
                         UIManager.CurrentWindow.CurrentP.Y,
-                        -0.1f, Text, VarArgs);
+                        UIManager.CurrentWindow.Z-0.1f, Text, VarArgs);
     
     va_end(VarArgs);
 }

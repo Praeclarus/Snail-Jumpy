@@ -35,6 +35,7 @@ world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
         case 'A': if(JustDown) CameradP.X -= CAMERA_MOVE_SPEED; break;
         case 'S': if(JustDown) CameradP.Y -= CAMERA_MOVE_SPEED; break;
         case 'D': if(JustDown) CameradP.X += CAMERA_MOVE_SPEED; break;
+        case 'Q': if(JustDown && Mode == EditMode_Enemy) Popup = EditorPopup_SpecSelector;
         case KeyCode_Tab: HideUI = !HideUI; break;
         case KeyCode_Left: {
             Mode = REVERSE_EDIT_MODE_TABLE[Mode];
