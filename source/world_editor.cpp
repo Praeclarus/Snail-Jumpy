@@ -473,10 +473,13 @@ world_editor::DoPopup(render_group *RenderGroup){
                     char _Buffer[512];
                     stbsp_snprintf(_Buffer, sizeof(_Buffer), "worlds//%s.sjw", OldWorldName);
                     DeleteFileAtPath(_Buffer);
+                    
+                    Buffer[0] = '\0';
                 }
             }
             if(UIButton(RenderGroup, "Abort")){
                 Popup = EditorPopup_None;
+                Buffer[0] = '\0';
             }
             
             EndWindow(RenderGroup);
@@ -490,10 +493,12 @@ world_editor::DoPopup(render_group *RenderGroup){
                 if(NewWorld){
                     World = NewWorld;
                     Popup = EditorPopup_None;
+                    Buffer[0] = '\0';
                 }
             }
             if(UIButton(RenderGroup, "Abort")){
                 Popup = EditorPopup_None;
+                Buffer[0] = '\0';
             }
             EndWindow(RenderGroup);
         }
