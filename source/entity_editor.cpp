@@ -405,9 +405,9 @@ entity_editor::UpdateAndRender(){
 //~ Entity spec selector
 
 // TODO(Tyler): This function needs to be cleaned up
-u32
+internal u32
 UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
-                            u32 SelectedSpec=0, b8 TestY=false, f32 YMin=0.0f, f32 YMax=0.0f){
+                            u32 SelectedSpec, b8 TestY, f32 YMin, f32 YMax){
     u32 SpecToSelect = 0;
     const f32 THICKNESS = 0.03f;
     
@@ -455,36 +455,4 @@ UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 Attem
     }
     
     return(SpecToSelect);
-}
-
-u32
-spec_selector::UpdateAndRender(){
-    render_group RenderGroup;
-    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
-    
-    RenderGroup.BackgroundColor = color{0.4f, 0.5f, 0.45f, 1.0f};
-    RenderGroup.OutputSize = OSInput.WindowSize;
-    RenderGroup.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
-    
-    os_event Event;
-    while(PollEvents(&Event)){
-        switch(Event.Kind){
-            case OSEventKind_MouseDown: {
-                if(Event.Button == KeyCode_LeftMouse){
-                    AttemptSelect = true;
-                }
-            }break;
-            case OSEventKind_MouseMove: {
-                MouseP = Event.MouseP / RenderGroup.MetersToPixels;
-            }break;
-        }
-    }
-    
-    v2 P = v2{0.5f, 2.0f};
-    u32 SelectedSpec = UpdateAndRenderSpecSelector(&RenderGroup, P, MouseP, AttemptSelect);
-    AttemptSelect = false;
-    
-    if(SelectedSpec == 0) RenderGroupToScreen(&RenderGroup);
-    
-    return(SelectedSpec);
 }

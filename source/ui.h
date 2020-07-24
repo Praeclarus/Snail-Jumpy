@@ -8,17 +8,6 @@ struct font {
     f32 Size, Ascent, Descent;
 };
 
-struct text_box_data {
-    char Buffer[512];
-    u32 BufferIndex;
-};
-
-enum ui_primitive_type {
-    PrimitiveType_None,
-    PrimitiveType_Rectangle,
-    PrimitiveType_String,
-};
-
 struct layout {
     render_group *RenderGroup;
     
@@ -27,27 +16,6 @@ struct layout {
     v2 Advance;
     f32 Z;
     f32 Width;
-};
-
-struct panel {
-    render_group *RenderGroup;
-    
-    font *TitleFont;
-    font *NormalFont;
-    
-    color TitleColor;
-    color NormalColor;
-    color BackgroundColor;
-    color SeparatorColor;
-    color ButtonBaseColor;
-    color ButtonHoveredColor;
-    color ButtonClickedColor;
-    
-    v2 BaseP;
-    v2 CurrentP;
-    v2 Size;
-    v2 Margin;
-    f32 Z;
 };
 
 //~ New API
@@ -122,6 +90,7 @@ struct ui_manager {
     hash_table<const char *, widget_info> WidgetTable;
     u64 SelectedWidgetID;
     
+    b8 MouseOverWindow;
     b8 InWindow;
     window CurrentWindow;
     
@@ -136,7 +105,6 @@ struct ui_manager {
     os_mouse_button LeftMouseButton;
     os_mouse_button MiddleMouseButton;
     os_mouse_button RightMouseButton;
-    
     
     b8 ProcessInput(os_event *Event);
 };

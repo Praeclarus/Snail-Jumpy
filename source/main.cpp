@@ -20,9 +20,7 @@ global_constant v2  TILE_SIZE = v2{TILE_SIDE, TILE_SIDE};
 global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant u32 DEFAULT_BUFFER_SIZE = 512;
 
-
 global font MainFont;
-global font NormalFont;
 global font TitleFont;
 global font DebugFont;
 
@@ -155,8 +153,6 @@ InitializeGame(){
              "c:/windows/fonts/Arial.ttf", 20, 512, 512);
     LoadFont(&TransientStorageArena, &TitleFont,
              "c:/windows/fonts/Arial.ttf", 30, 512, 512);
-    LoadFont(&TransientStorageArena, &NormalFont,
-             "Press-Start-2P.ttf", 12, 512, 512);
     LoadFont(&TransientStorageArena, &MainFont,
              "Press-Start-2P.ttf", 24, 512, 512);
     
@@ -169,6 +165,7 @@ GameUpdateAndRender(){
     //~ Prepare for next frame
     ProfileData.CurrentBlockIndex = 0;
     TransientStorageArena.Used = 0;
+    UIManager.MouseOverWindow = false;
     UIManager.HandledInput = false;
     UIManager.LeftMouseButton.JustDown = false;
     UIManager.RightMouseButton.JustDown = false;

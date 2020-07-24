@@ -64,8 +64,6 @@ struct world_editor {
     edit_mode Mode;
     b8 HideUI;
     
-    spec_selector SpecSelector;
-    
     const f32 CAMERA_MOVE_SPEED = 0.1f;
     const edit_mode FORWARD_EDIT_MODE_TABLE[EditMode_TOTAL] = {
         EditMode_AddWall,       // 0

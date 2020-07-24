@@ -276,6 +276,7 @@ void
 world_editor::ProcessAction(f32 MetersToPixels){
     if(Popup != EditorPopup_None) return;
     
+    if(UIManager.MouseOverWindow) { return; }
     switch(Action){
         //~ Adding
         case WorldEditorAction_BeginAddDrag: {
@@ -640,26 +641,23 @@ world_editor::RenderCursor(render_group *RenderGroup){
     }else if(Mode == EditMode_Enemy){
         v2 ViewTileP = v2{TileP.X*TILE_SIZE.X, TileP.Y*TILE_SIZE.Y}-CameraP;
         v2 Center = ViewTileP+(0.5f*TILE_SIZE);
-        if(EntityToAddSpecID == 0) return;
-        entity_spec *Spec = &EntitySpecs[EntityToAddSpecID];
-        v2 P = v2{Center.X, ViewTileP.Y};
-        asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
-        P.Y += 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
-        RenderFrameOfSpriteSheet(RenderGroup, Spec->Asset, 0, P, 
-                                 -0.5f);
+        if(EntityToAddSpecID == 0){
+            RenderRectangle(RenderGroup,
+                            Center-((TILE_SIZE-Margin)/2), Center+((TILE_SIZE-Margin)/2),
+                            -0.11f, PINK);
+        }else{
+            entity_spec *Spec = &EntitySpecs[EntityToAddSpecID];
+            v2 P = v2{Center.X, ViewTileP.Y};
+            asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
+            P.Y += 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
+            RenderFrameOfSpriteSheet(RenderGroup, Spec->Asset, 0, P, 
+                                     -0.5f);
+        }
     }
 }
 
 void
 world_editor::UpdateAndRender(){
-    if(Popup == EditorPopup_SpecSelector) {
-        u32 SelectedSpec = SpecSelector.UpdateAndRender();
-        if(SelectedSpec != 0){ 
-            EntityToAddSpecID = SelectedSpec;
-            Popup = EditorPopup_None;
-        }
-        return;
-    }
     
     render_group RenderGroup;
     InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
@@ -667,6 +665,39 @@ world_editor::UpdateAndRender(){
     RenderGroup.BackgroundColor = color{0.4f, 0.5f, 0.45f, 1.0f};
     RenderGroup.OutputSize = OSInput.WindowSize;
     RenderGroup.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
+    
+    
+    if(Popup == EditorPopup_SpecSelector) {
+        b8 AttemptSelect = false;
+        os_event Event;
+        while(PollEvents(&Event)){
+            switch(Event.Kind){
+                case OSEventKind_MouseDown: {
+                    if(Event.Button == KeyCode_LeftMouse){
+                        AttemptSelect = true;
+                    }
+                }break;
+                case OSEventKind_MouseMove: {
+                    MouseP = Event.MouseP / RenderGroup.MetersToPixels;
+                }break;
+            }
+        }
+        
+        v2 P = v2{0.5f, 2.0f};
+        u32 SelectedSpec = UpdateAndRenderSpecSelector(&RenderGroup, P, MouseP, AttemptSelect);
+        AttemptSelect = false;
+        
+        v2 StringP = 0.5f*OSInput.WindowSize;
+        RenderCenteredString(&RenderGroup, &TitleFont, WHITE, StringP, 0.0f, "Please select a spec to add:");
+        
+        if(SelectedSpec == 0){
+            RenderGroupToScreen(&RenderGroup);
+            return;
+        }else{ 
+            EntityToAddSpecID = SelectedSpec;
+            Popup = EditorPopup_None;
+        }
+    }
     
     ProcessInput(RenderGroup.MetersToPixels);
     {
@@ -825,6 +856,10 @@ world_editor::UpdateAndRender(){
         
         DoSelectedThingUI(&RenderGroup);
     }
+    RenderString(&RenderGroup, &DebugFont, color{0.9f, 0.9f, 0.9f, 1.0f}, 
+                 100, OSInput.WindowSize.Y-100, -1.0f,
+                 "Press tab to toggle UI");
+    
     
     // This is put after UI is done, so that it doesn't handle input that was processed by,
     // the UI

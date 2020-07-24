@@ -117,6 +117,7 @@ EndWindow(render_group *RenderGroup){
            UIManager.LeftMouseButton.JustDown){
             Info->DraggingOffset = OSInput.MouseP - Info->P;
             Info->IsBeingDragged = true;
+            UIManager.MouseOverWindow = true;
         }
         if(UIManager.LeftMouseButton.IsDown && Info->IsBeingDragged){
             Info->P = OSInput.MouseP-Info->DraggingOffset;
@@ -124,6 +125,11 @@ EndWindow(render_group *RenderGroup){
         }else if(Info->IsBeingDragged){
             Info->IsBeingDragged = false;
         }
+    }
+    
+    if((Info->P.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= Info->P.X+Info->Size.X) &&
+       (Info->P.Y-Info->Size.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= Info->P.Y)){
+        UIManager.MouseOverWindow = true;
     }
     
     {
@@ -357,7 +363,7 @@ UITextInput(render_group *RenderGroup, const char *ID, char *Buffer, u32 BufferS
     
     RenderRectangle(RenderGroup, Min, Max, -0.1f, UIManager.Theme.SeparatorColor, true);
     RenderRectangle(RenderGroup, Min+BorderSize, Max-BorderSize, -0.11f, Color, true);
-    v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - NormalFont.Ascent/2};
+    v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - UIManager.Theme.NormalFont->Ascent/2};
     RenderString(RenderGroup, UIManager.Theme.NormalFont, TextColor, v2{P.X, P.Y}, -0.12f,
                  Buffer);
     
@@ -373,25 +379,27 @@ ui_manager::ProcessInput(os_event *Event){
     
     switch(Event->Kind){
         case OSEventKind_KeyDown: {
-            if(Event->Key < KeyCode_ASCIICOUNT){
-                char Char = (char)Event->Key;
-                if(IsShiftDown){
-                    if(Char == '-'){
-                        Char = '_';
+            if(SelectedWidgetID != 0){
+                if(Event->Key < KeyCode_ASCIICOUNT){
+                    char Char = (char)Event->Key;
+                    if(IsShiftDown){
+                        if(Char == '-'){
+                            Char = '_';
+                        }
+                    }else{
+                        if(('A' <= Char) && (Char <= 'Z')){
+                            Char += 'a'-'A';
+                        }
                     }
-                }else{
-                    if(('A' <= Char) && (Char <= 'Z')){
-                        Char += 'a'-'A';
-                    }
+                    Buffer[BufferIndex++] = Char;
+                }else if(Event->Key == KeyCode_Shift){
+                    IsShiftDown = true;
+                }else if(Event->Key == KeyCode_BackSpace){
+                    BackSpaceCount++;
                 }
-                Buffer[BufferIndex++] = Char;
-            }else if(Event->Key == KeyCode_Shift){
-                IsShiftDown = true;
-            }else if(Event->Key == KeyCode_BackSpace){
-                BackSpaceCount++;
+                
+                Result = true;
             }
-            
-            Result = (SelectedWidgetID != 0);
         }break;
         case OSEventKind_KeyUp: {
             if(Event->Key == KeyCode_Shift){

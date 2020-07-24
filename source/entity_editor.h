@@ -1,15 +1,6 @@
 #ifndef ENTITY_EDITOR_H
 #define ENTITY_EDITOR_H
 
-//~ spec_selector
-struct spec_selector {
-    v2 MouseP;
-    b8 AttemptSelect;
-    
-    u32 UpdateAndRender();
-};
-
-
 //~ entity_editor
 enum boundary_edit_mode {
     BoundaryEditMode_Primary,
@@ -97,8 +88,8 @@ struct entity_editor {
     void DoUI(render_group *RenderGroup);
 };
 
-u32
+internal u32
 UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
-                            u32 SelectedSpec, b8 TestY, f32 YMin, f32 YMax);
+                            u32 SelectedSpec=0, b8 TestY=false, f32 YMin=0.0f, f32 YMax=0.0f);
 
 #endif //ENTITY_EDITOR_H
