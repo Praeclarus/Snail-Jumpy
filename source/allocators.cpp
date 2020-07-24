@@ -27,7 +27,7 @@ PushMemory(memory_arena *Arena, umw Size) {
 }
 
 internal inline char *
-PushCString(memory_arena *Arena, char *String){
+PushCString(memory_arena *Arena, const char *String){
     u32 Size = CStringLength(String)+1;
     char *Result = PushArray(Arena, char, Size);
     CopyCString(Result, String, Size);

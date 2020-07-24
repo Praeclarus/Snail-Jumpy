@@ -199,6 +199,26 @@ entity_editor::DoUI(render_group *RenderGroup){
         Assert(SelectedSpec->Type != EntityType_TOTAL);
     }
     
+    UIText(RenderGroup, "Can be stunned: %s", 
+           TRUE_FALSE_TABLE[SelectedSpec->Flags & EntityFlags_CanBeStunned]);
+    if(UIButton(RenderGroup, "Toggle stun-ability")){
+        if(SelectedSpec->Flags & EntityFlags_CanBeStunned){
+            SelectedSpec->Flags &= ~EntityFlags_CanBeStunned;
+        }else{
+            SelectedSpec->Flags |= EntityFlags_CanBeStunned;
+        }
+    }
+    
+    UIText(RenderGroup, "Affected by gravity: %s", 
+           TRUE_FALSE_TABLE[!(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity)]);
+    if(UIButton(RenderGroup, "Toggle stun-ability")){
+        if(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity){
+            SelectedSpec->Flags &= ~EntityFlags_NotAffectedByGravity;
+        }else{
+            SelectedSpec->Flags |= EntityFlags_NotAffectedByGravity;
+        }
+    }
+    
     EndWindow(RenderGroup);
     
     //~ Boundary editing
@@ -254,7 +274,7 @@ entity_editor::DoUI(render_group *RenderGroup){
         case EntityType_Enemy: {
             BeginWindow("Edit enemy", v2{OSInput.WindowSize.X-410, 500}, v2{400, 0});
             
-            UIText(RenderGroup, "Speed: %f", SelectedSpec->Speed);
+            UIText(RenderGroup, "Speed: %.1f", SelectedSpec->Speed);
             if(UIButton(RenderGroup, "-", true)){
                 SelectedSpec->Speed -= 0.1f;
             }

@@ -95,11 +95,15 @@ internal u64
 GetFileSize(os_file *File);
 internal u64
 GetLastFileWriteTime(os_file *File);
+// The AtPath part of this function is because Windows has an identical function called 
+// DeleteFile with the same signature
+internal b8
+DeleteFileAtPath(const char *Path);
+
 internal void *
 AllocateVirtualMemory(umw Size);
 internal void 
 FreeVirtualMemory(void *Pointer);
-
 internal void
 *DefaultAlloc(umw Size);
 internal void 

@@ -381,6 +381,12 @@ GetLastFileWriteTime(os_file *File){
     return(Result.QuadPart);
 }
 
+internal b8
+DeleteFileAtPath(const char *Path){
+    b8 Result = (b8)DeleteFileA(Path);
+    return(Result);
+}
+
 internal void *
 AllocateVirtualMemory(umw Size){
     void *Memory = VirtualAlloc(0, Size, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);

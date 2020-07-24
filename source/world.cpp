@@ -92,6 +92,13 @@ LoadWorld(const char *LevelName){
             ReloadCollisionSystem(World->Width, World->Height, 
                                   0.5f, 0.5f);
             
+            // Coins
+            EntityManager.CoinData.Tiles = CurrentWorld->Map;
+            EntityManager.CoinData.XTiles = CurrentWorld->Width;
+            EntityManager.CoinData.YTiles = CurrentWorld->Height;
+            EntityManager.CoinData.TileSideInMeters = TILE_SIDE;
+            EntityManager.CoinData.NumberOfCoinPs = 0;
+            
             // Walls
             u32 WallCount = 0;
             for(u32 I = 0; 
@@ -105,15 +112,8 @@ LoadWorld(const char *LevelName){
             LoadWallsFromMap(CurrentWorld->Map, WallCount,
                              CurrentWorld->Width, CurrentWorld->Height);
             
-            // Coins
-            EntityManager.CoinData.Tiles = CurrentWorld->Map;
-            EntityManager.CoinData.XTiles = CurrentWorld->Width;
-            EntityManager.CoinData.YTiles = CurrentWorld->Height;
-            EntityManager.CoinData.TileSideInMeters = TILE_SIDE;
-            EntityManager.CoinData.NumberOfCoinPs = 0;
-            
             {
-                u32 N = Minimum(7, EntityManager.CoinData.NumberOfCoinPs);
+                u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
                 AllocateNEntities(N, EntityType_Coin);
                 for(u32 I = 0; I < N; I++){
                     EntityManager.Coins[I].Boundary.Type = BoundaryType_Rectangle;
@@ -131,7 +131,8 @@ LoadWorld(const char *LevelName){
                     entity_data *Enemy = &CurrentWorld->Enemies[I];
                     entity_spec *Spec = &EntitySpecs[Enemy->SpecID];
                     EntityManager.Enemies[I] = {};
-                    EntityManager.Enemies[I].Type = Spec->Type;
+                    EntityManager.Enemies[I].Type  = Spec->Type;
+                    EntityManager.Enemies[I].Flags = Spec->Flags;
                     
                     v2 P = Enemy->P; P.Y += 0.001f;
                     EntityManager.Enemies[I].P = P;
@@ -210,14 +211,18 @@ LoadWorld(const char *LevelName){
     }
 }
 
-//~ Loading
+//~ File loading
+
+global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
 
 // TODO(Tyler): This could be made more ROBUST and probably FASTER
 internal world_data *
 LoadWorldFromFile(const char *Name){
     TIMED_FUNCTION();
     
+    const char *WorldName = PushCString(&StringMemory, Name);
     world_data *NewWorld = CreateInHashTablePtr(&WorldTable, Name);
+    NewWorld->Name = WorldName;
     char Path[512];
     stbsp_snprintf(Path, 512, "worlds/%s.sjw", Name);
     entire_file File = ReadEntireFile(&TransientStorageArena, Path);
@@ -228,14 +233,14 @@ LoadWorldFromFile(const char *Name){
         Assert((Header->Header[0] == 'S') && 
                (Header->Header[1] == 'J') && 
                (Header->Header[2] == 'W'));
-        Assert(Header->Version == 1);
+        Assert(Header->Version == CURRENT_WORLD_FILE_VERSION);
         NewWorld->Width = Header->WidthInTiles;
         NewWorld->Height = Header->HeightInTiles;
         if(Header->EnemyCount > 0){
             NewWorld->Enemies = CreateNewArray<entity_data>(&EnemyMemory, 64);
             NewWorld->Enemies.Count = Header->EnemyCount;
         }
-        if(Header->TeleporterCount >0 ){
+        if(Header->TeleporterCount > 0){
             NewWorld->Teleporters = CreateNewArray<teleporter_data>(&TeleporterMemory, 64);
             NewWorld->Teleporters.Count = Header->TeleporterCount;
         }
@@ -247,11 +252,12 @@ LoadWorldFromFile(const char *Name){
             NewWorld->Flags |= WorldFlag_IsTopDown;
         }
         
-        NewWorld->CoinsRequiredToComplete = 30;
+        NewWorld->CoinsToSpawn = Header->CoinsToSpawn;
+        NewWorld->CoinsRequired = Header->CoinsRequired;
         
         // TODO(Tyler): This probably is not needed and could be removed
-        char *String = ConsumeString(&Stream);
-        CopyCString(NewWorld->Name, String, 512);
+        char *String = ConsumeString(&Stream); 
+        //CopyCString(NewWorld->Name, String, 512);
         
         u32 MapSize = NewWorld->Width*NewWorld->Height;
         u8 *Map = ConsumeBytes(&Stream, MapSize);
@@ -293,7 +299,6 @@ LoadWorldFromFile(const char *Name){
         //NewData->MapData = PushArray(&MapDataMemory, u8, MapSize);
         NewWorld->Map = (u8 *)DefaultAlloc(MapSize);
         NewWorld->Enemies = CreateNewArray<entity_data>(&EnemyMemory, 64);
-        CopyCString(NewWorld->Name, (char *)Name, 512);
     }
     return(NewWorld);
 }
@@ -315,13 +320,15 @@ WriteWorldsToFiles(){
         Header.Header[1] = 'J';
         Header.Header[2] = 'W';
         
-        Header.Version = 1;
+        Header.Version = CURRENT_WORLD_FILE_VERSION;
         Header.WidthInTiles = World->Width;
         Header.HeightInTiles = World->Height;
         Header.EnemyCount = World->Enemies.Count;
         Header.TeleporterCount = World->Teleporters.Count;
         Header.DoorCount = World->Doors.Count;
         Header.IsTopDown = (World->Flags & WorldFlag_IsTopDown);
+        Header.CoinsToSpawn = World->CoinsToSpawn;
+        Header.CoinsRequired = World->CoinsRequired;
         
         WriteToFile(File, 0, &Header, sizeof(Header));
         u32 Offset = sizeof(Header);

@@ -57,7 +57,7 @@ UpdateAndRenderMainGame(){
            (PlayerMin.X  <= P.X+Radius.X) &&
            (P.Y-Radius.Y <= PlayerMax.Y) &&
            (PlayerMin.Y  <= P.Y+Radius.Y)){
-            u32 RequiredCoins = CurrentWorld->CoinsRequiredToComplete;
+            u32 RequiredCoins = CurrentWorld->CoinsRequired;
             if((u32)Score >= RequiredCoins){
                 if(CompletionCooldown == 0.0f){
                     CompletionCooldown = 3.0f;

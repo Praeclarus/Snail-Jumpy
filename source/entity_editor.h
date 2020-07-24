@@ -72,6 +72,10 @@ struct entity_editor {
         EntityType_TOTAL,  // 9
     };
     
+    inline local_constant char *TRUE_FALSE_TABLE[2] = {
+        "false",
+        "true",
+    };
     inline local_constant char *ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
         "None",   // 0
         "Wall",   // 1

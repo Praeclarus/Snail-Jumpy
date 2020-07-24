@@ -469,7 +469,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
                 Enemy->dP = {0};
             }else{
                 v2 ddP = {
-                    PathSpeed * Enemy->Speed*((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
+                    PathSpeed * Enemy->Speed * ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
                     0.0f
                 };
                 
@@ -631,7 +631,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
 
 //~ Entity Spec 
 
-global_constant u32 CURRENT_SPEC_HEADER_VERSION = 2;
+global_constant u32 CURRENT_SPEC_FILE_VERSION = 2;
 
 internal u32
 AddEntitySpec(){
@@ -651,7 +651,7 @@ WriteEntitySpecs(const char *Path){
     Header.Header[0] = 'S';
     Header.Header[1] = 'J';
     Header.Header[2] = 'E';
-    Header.Version = CURRENT_SPEC_HEADER_VERSION;
+    Header.Version = CURRENT_SPEC_FILE_VERSION;
     Header.SpecCount = EntitySpecs.Count-1;
     
     WriteToFile(File, 0, &Header, sizeof(Header));
@@ -723,7 +723,7 @@ LoadEntitySpecs(const char *Path){
         Assert((Header->Header[0] == 'S') && 
                (Header->Header[1] == 'J') && 
                (Header->Header[2] == 'E'));
-        Assert(Header->Version <= CURRENT_SPEC_HEADER_VERSION);
+        Assert(Header->Version <= CURRENT_SPEC_FILE_VERSION);
         
         for(u32 I = 0; I < Header->SpecCount; I++){
             char *AssetInFile = ConsumeString(&Stream);

@@ -60,7 +60,8 @@ struct door_entity {
     f32 Cooldown;
 };
 
-enum entity_flags {
+typedef u32 entity_flags;
+enum _entity_flags {
     EntityFlags_None                 = 0,
     EntityFlags_CanBeStunned         = (1 << 0),
     EntityFlags_NotAffectedByGravity = (1 << 1),

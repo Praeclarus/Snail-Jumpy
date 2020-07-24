@@ -38,7 +38,7 @@ enum _world_flags {
 };
 
 struct world_data {
-    char Name[512];
+    const char *Name;
     u8 *Map;
     u32 Width;
     u32 Height;
@@ -46,8 +46,8 @@ struct world_data {
     array<teleporter_data> Teleporters;
     array<door_data> Doors;
     
-    // NOTE(Tyler): Not actually used for the overworld
-    u32 CoinsRequiredToComplete;
+    u32 CoinsToSpawn;
+    u32 CoinsRequired;
     world_flags Flags;
 };
 
@@ -61,6 +61,8 @@ struct world_file_header {
     u32 TeleporterCount;
     u32 DoorCount;
     b8 IsTopDown;
+    u32 CoinsToSpawn;
+    u32 CoinsRequired;
 };
 #pragma pack(pop)
 

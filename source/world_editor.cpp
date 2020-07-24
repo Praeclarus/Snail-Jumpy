@@ -5,7 +5,7 @@ internal void
 ToggleWorldEditor(){
     if(GameMode == GameMode_WorldEditor){
         // To main game from editor
-        ChangeState(GameMode_MainGame, CurrentWorld->Name);
+        ChangeState(GameMode_MainGame, WorldEditor.World->Name);
         Score = 0;
     }else if(GameMode == GameMode_MainGame){
         // To editor from main game
@@ -456,11 +456,34 @@ void
 world_editor::DoPopup(render_group *RenderGroup){
     switch(Popup){
         case EditorPopup_RenameLevel: {
-            NOT_IMPLEMENTED_YET;
+            BeginWindow("Rename World");
+            UITextInput(RenderGroup, "New World Name", Buffer, sizeof(Buffer));
+            if(UIButton(RenderGroup, "Submit", true)){
+                world_data *NewWorld = FindInHashTablePtr(&WorldTable, (const char *)Buffer);
+                if(!NewWorld){
+                    const char *WorldName = PushCString(&StringMemory, Buffer);
+                    NewWorld = CreateInHashTablePtr(&WorldTable, (const char *)WorldName);
+                    const char *OldWorldName = World->Name;
+                    *NewWorld = *World;
+                    RemoveFromHashTable(&WorldTable, (const char *)World->Name);
+                    NewWorld->Name = WorldName;
+                    World = NewWorld;
+                    Popup = EditorPopup_None;
+                    
+                    char _Buffer[512];
+                    stbsp_snprintf(_Buffer, sizeof(_Buffer), "worlds//%s.sjw", OldWorldName);
+                    DeleteFileAtPath(_Buffer);
+                }
+            }
+            if(UIButton(RenderGroup, "Abort")){
+                Popup = EditorPopup_None;
+            }
+            
+            EndWindow(RenderGroup);
         }break;
         case EditorPopup_LoadLevel: {
             BeginWindow("Load World");
-            UITextInput(RenderGroup, "Level to load", Buffer, sizeof(Buffer));
+            UITextInput(RenderGroup, "Level To Load", Buffer, sizeof(Buffer));
             if(UIButton(RenderGroup, "Submit", true)){
                 LoadWorld(Buffer);
                 world_data *NewWorld = FindInHashTablePtr(&WorldTable, (const char *)Buffer);
@@ -472,11 +495,10 @@ world_editor::DoPopup(render_group *RenderGroup){
             if(UIButton(RenderGroup, "Abort")){
                 Popup = EditorPopup_None;
             }
+            EndWindow(RenderGroup);
         }
-        EndWindow(RenderGroup);
     }
 }
-
 
 void
 world_editor::DoSelectedThingUI(render_group *RenderGroup){
@@ -677,7 +699,7 @@ world_editor::UpdateAndRender(){
             Popup = EditorPopup_LoadLevel;
         }
         
-        if(UIButton(&RenderGroup, "Rename level")){
+        if(UIButton(&RenderGroup, "Rename world")){
             Popup = EditorPopup_RenameLevel;
         }
         UIText(&RenderGroup, "Map size: %u %u", 
@@ -771,6 +793,26 @@ world_editor::UpdateAndRender(){
                     Action = WorldEditorAction_None;
                 }
             }break;
+        }
+        
+        UIText(&RenderGroup, "Coin required: %u", World->CoinsRequired);
+        if(UIButton(&RenderGroup, "-", true)){
+            if(World->CoinsRequired > 0){
+                World->CoinsRequired -= 1;
+            }
+        }
+        if(UIButton(&RenderGroup, "+")){
+            World->CoinsRequired += 1;
+        }
+        
+        UIText(&RenderGroup, "Coin spawned: %u", World->CoinsToSpawn);
+        if(UIButton(&RenderGroup, "-", true)){
+            if(World->CoinsToSpawn > 0){
+                World->CoinsToSpawn -= 1;
+            }
+        }
+        if(UIButton(&RenderGroup, "+")){
+            World->CoinsToSpawn += 1;
         }
         
         EndWindow(&RenderGroup);
