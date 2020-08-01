@@ -42,17 +42,15 @@ global game_mode GameMode = GameMode_WorldEditor;
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
 
-global v2 CameraP;
+global camera GameCamera;
 global v2 LastOverworldPlayerP;
 
 // TODO(Tyler): This could be fancier, like checking for string duplications?
 global memory_arena StringMemory; // I am unsure about using strings in the game, but they
 //                                   are used for level names, and entity specs
 
-global memory_arena EnemyMemory;
-global memory_arena TeleporterMemory;
-global memory_arena DoorMemory;
-global hash_table<const char *, world_data> WorldTable;
+global world_manager WorldManager;
+
 global world_data *CurrentWorld;
 
 global collision_table CollisionTable;
@@ -130,17 +128,13 @@ InitializeGame(){
     // Initialize memory and arrays
     EntityManager.Memory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
     StringMemory = PushNewArena(&PermanentStorageArena, Kilobytes(32));
-    TeleporterMemory = PushNewArena(&PermanentStorageArena, Kilobytes(256));
-    DoorMemory       = PushNewArena(&PermanentStorageArena, Kilobytes(256));
-    EnemyMemory      = PushNewArena(&PermanentStorageArena, Kilobytes(64));
-    WorldTable = PushHashTable<const char *, world_data>(&PermanentStorageArena, 512);
+    WorldManager.Initialize(&PermanentStorageArena);
     EntitySpecs = CreateNewArray<entity_spec>(&PermanentStorageArena, 128);
     PushNewArrayItem(&EntitySpecs); // Reserve the 0th index!
-    UIManager.WidgetTable = PushHashTable<const char *, widget_info>(&PermanentStorageArena, 256);
+    UIManager.Initialize(&PermanentStorageArena);
     
     // Load things
     LoadEntitySpecs("entities.sje");
-    LoadWorldFromFile(STARTUP_LEVEL);
     LoadWorld(STARTUP_LEVEL);
     if(GameMode == GameMode_WorldEditor){
         WorldEditor.World = CurrentWorld;
@@ -165,11 +159,7 @@ GameUpdateAndRender(){
     //~ Prepare for next frame
     ProfileData.CurrentBlockIndex = 0;
     TransientStorageArena.Used = 0;
-    UIManager.MouseOverWindow = false;
-    UIManager.HandledInput = false;
-    UIManager.LeftMouseButton.JustDown = false;
-    UIManager.RightMouseButton.JustDown = false;
-    UIManager.MiddleMouseButton.JustDown = false;
+    UIManager.NewFrame();
     
     //~ Do next frame
     TIMED_FUNCTION();
@@ -209,7 +199,7 @@ GameUpdateAndRender(){
         }else if(StateChangeData.NewMode == GameMode_EntityEditor){
             GameMode = GameMode_EntityEditor;
         }
-        CameraP = {0};
+        GameCamera.P = {0};
         
         StateChangeData = {0};
     }
@@ -222,18 +212,27 @@ ChangeState(game_mode NewMode, const char *NewLevel){
     StateChangeData.NewLevel = NewLevel;
 }
 
-internal inline void
-SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles){
-    v2 MapSize = TILE_SIDE*v2{(f32)XTiles, (f32)YTiles};
-    CameraP = P - 0.5f*v2{32.0f, 18.0f}*TILE_SIDE;
-    if((CameraP.X+32.0f*TILE_SIDE) > MapSize.X){
-        CameraP.X = MapSize.X - 32.0f*TILE_SIDE;
-    }else if(CameraP.X < 0.0f){
-        CameraP.X = 0.0f;
+
+//~ Camera
+
+inline void
+camera::SetCenter(v2 Center, world_data *World){
+    v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
+    P = Center - 0.5f * TILE_SIDE*v2{32.0f, 18.0f};
+    if((P.X+32.0f*TILE_SIDE) > MapSize.X){
+        P.X = MapSize.X - 32.0f*TILE_SIDE;
+    }else if(P.X < 0.0f){
+        P.X = 0.0f;
     }
-    if((CameraP.Y+18.0f*TILE_SIDE) > MapSize.Y){
-        CameraP.Y = MapSize.Y - 18.0f*TILE_SIDE;
-    }else if(CameraP.Y < 0.0f){
-        CameraP.Y = 0.0f;
+    if((P.Y+18.0f*TILE_SIDE) > MapSize.Y){
+        P.Y = MapSize.Y - 18.0f*TILE_SIDE;
+    }else if(P.Y < 0.0f){
+        P.Y = 0.0f;
     }
+}
+
+inline v2
+camera::ScreenPToWorldP(v2 ScreenP){
+    v2 Result = ScreenP / MetersToPixels + P;
+    return(Result);
 }

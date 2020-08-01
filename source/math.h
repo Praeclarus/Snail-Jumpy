@@ -133,6 +133,12 @@ union v2
     };
 };
 
+internal inline v2
+V2(f32 X, f32 Y){ 
+    v2 Result = v2{X, Y}; 
+    return(Result);
+}
+
 // TODO(Tyler): Possibly implement operations for this?
 typedef union v2s v2s;
 union v2s
@@ -302,6 +308,12 @@ SafeRatio0(u64 Numerator, u64 Denominator){
     return(Result);
 }
 
+internal inline v2
+V2(v2s A){ 
+    v2 Result = v2{(f32)A.X, (f32)A.Y}; 
+    return(Result);
+}
+
 union v4 {
     struct {
         f32 X, Y, Z, W;
@@ -312,6 +324,20 @@ union v4 {
 };
 
 typedef v4 color;
+internal inline color
+Color(f32 R, f32 G, f32 B, f32 A){
+    color Result = color{R, G, B, A};
+    return(Result);
+}
+
+internal inline b8
+IsPointInRectangle(v2 Point, v2 RectP, v2 RectSize){
+    v2 MinCorner = RectP-(0.5f*RectSize);
+    v2 MaxCorner = RectP+(0.5f*RectSize);
+    b8 Result = ((MinCorner.X < Point.X) && (Point.X < MaxCorner.X) &&
+                 (MinCorner.Y < Point.Y) && (Point.Y < MaxCorner.Y));
+    return(Result);
+}
 
 
 #endif // SNAIL_JUMPY_MATH_H

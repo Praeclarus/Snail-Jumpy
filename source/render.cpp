@@ -38,6 +38,8 @@ AddRenderItem(render_group *RenderGroup, b8 IsTranslucent, f32 ZLayer){
     Result->VertexOffset = RenderGroup->VertexCount;
     Result->IndexOffset = RenderGroup->IndexCount;
     Result->ZLayer = ZLayer;
+    Result->ClipMin = {};
+    Result->ClipMax = RenderGroup->OutputSize;
     return(Result);
 }
 
@@ -58,11 +60,17 @@ AddIndices(render_group *RenderGroup, u32 Count){
 }
 
 internal void
-RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color,
-             b8 UsePixelSpace=false, u32 Sides=30){
-    if(!UsePixelSpace){
-        P *= RenderGroup->MetersToPixels;
-        Radius *= RenderGroup->MetersToPixels;
+RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color, 
+             camera *Camera=0, u32 Sides=30){
+    if(Camera){
+        P -= Camera->P;
+        P *= Camera->MetersToPixels;
+        Radius *= Camera->MetersToPixels;
+        
+        if(RenderGroup->OutputSize.X < P.X-Radius) return;
+        if(RenderGroup->OutputSize.Y < P.Y-Radius) return;
+        if(P.X+Radius < 0.0f) return;
+        if(P.Y+Radius < 0.0f) return;
     }
     
     f32 T = 0.0f;
@@ -93,16 +101,28 @@ RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color,
 }
 
 internal void
-RenderRectangle(render_group *RenderGroup,
-                v2 MinCorner, v2 MaxCorner, f32 Z, color Color, b8 UsePixelSpace = false){
-    if(!UsePixelSpace){
-        MinCorner *= RenderGroup->MetersToPixels;
-        MaxCorner *= RenderGroup->MetersToPixels;
+RenderRectangle(render_group *RenderGroup,v2 MinCorner, v2 MaxCorner, f32 Z, color Color, 
+                camera *Camera=0, v2 ClipMin={}, v2 ClipMax={}){
+    if(Camera){
+        MinCorner -= Camera->P;
+        MaxCorner -= Camera->P;
+        MinCorner *= Camera->MetersToPixels;
+        MaxCorner *= Camera->MetersToPixels;
+        
+        if(RenderGroup->OutputSize.X < MinCorner.X) return;
+        if(RenderGroup->OutputSize.Y < MinCorner.Y) return;
+        if(MaxCorner.X < 0.0f) return;
+        if(MaxCorner.Y < 0.0f) return;
     }
     
     render_item *RenderItem = AddRenderItem(RenderGroup, ((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = DefaultTexture;
+    
+    if((ClipMax.X < 0) || (ClipMax.Y < 0)){ 
+        RenderItem->ClipMin = ClipMin;
+        RenderItem->ClipMax = ClipMax; 
+    }
     
     vertex *Vertices = AddVertices(RenderGroup, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
@@ -120,19 +140,30 @@ RenderRectangle(render_group *RenderGroup,
 }
 
 internal void
-RenderTexture(render_group *RenderGroup,
-              v2 MinCorner, v2 MaxCorner, f32 Z, render_texture_handle Texture, 
-              v2 MinTexCoord, v2 MaxTexCoord, b8 IsTranslucent, b32 UsePixelSpace = false){
+RenderTexture(render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, f32 Z, 
+              render_texture_handle Texture, v2 MinTexCoord=V2(0,0), v2 MaxTexCoord=V2(1,1), 
+              b8 IsTranslucent=false, camera *Camera=0, v2 ClipMin={}, v2 ClipMax={}){
     Assert(Texture);
-    
-    if(!UsePixelSpace){
-        MinCorner *= RenderGroup->MetersToPixels;
-        MaxCorner *= RenderGroup->MetersToPixels;
+    if(Camera){
+        MinCorner -= Camera->P;
+        MaxCorner -= Camera->P;
+        MinCorner *= Camera->MetersToPixels;
+        MaxCorner *= Camera->MetersToPixels;
+        
+        if(RenderGroup->OutputSize.X < MinCorner.X) return;
+        if(RenderGroup->OutputSize.Y < MinCorner.Y) return;
+        if(MaxCorner.X < 0.0f) return;
+        if(MaxCorner.Y < 0.0f) return;
     }
     
     render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent, Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
+    
+    if((ClipMax.X < 0) || (ClipMax.Y < 0)){ 
+        RenderItem->ClipMin = ClipMin;
+        RenderItem->ClipMax = ClipMax; 
+    }
     
     vertex *Vertices = AddVertices(RenderGroup, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
@@ -153,12 +184,13 @@ internal void
 RenderTextureWithColor(render_group *RenderGroup,
                        v2 MinCorner, v2 MaxCorner, f32 Z,
                        render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord, 
-                       b8 IsTranslucent, color Color, b8 UsePixelSpace = false){
+                       b8 IsTranslucent, color Color, camera *Camera=0){
     Assert(Texture);
-    
-    if(!UsePixelSpace){
-        MinCorner *= RenderGroup->MetersToPixels;
-        MaxCorner *= RenderGroup->MetersToPixels;
+    if(Camera){
+        MinCorner -= Camera->P;
+        MaxCorner -= Camera->P;
+        MinCorner *= Camera->MetersToPixels;
+        MaxCorner *= Camera->MetersToPixels;
     }
     
     render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent || ((0 < Color.A) && (Color.A < 1)), Z);
@@ -180,12 +212,20 @@ RenderTextureWithColor(render_group *RenderGroup,
     Indices[5] = 3;
 }
 
+internal inline void
+RenderCenteredTexture(render_group *RenderGroup, v2 Center, v2 Size, f32 Z, 
+                      render_texture_handle Texture, v2 MinTexCoord=V2(0,0), 
+                      v2 MaxTexCoord=V2(1,1), b8 IsTranslucent=false, camera *Camera=0, 
+                      v2 ClipMin={}, v2 ClipMax={}){
+    RenderTexture(RenderGroup, Center-Size/2, Center+Size/2, Z, Texture, MinTexCoord,
+                  MaxTexCoord, IsTranslucent, Camera, ClipMin, ClipMax);
+}
+
 internal void
-RenderString(render_group *RenderGroup,
-             font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String){
+RenderString(render_group *RenderGroup, font *Font, color Color, f32 X, f32 Y, f32 Z, 
+             const char *String, camera *Camera=0){
     Y = RenderGroup->OutputSize.Y - Y;
     
-#if 0
     u32 Length = CStringLength(String);
     
     render_item *RenderItem = AddRenderItem(RenderGroup, true, Z);
@@ -199,12 +239,11 @@ RenderString(render_group *RenderGroup,
         stbtt_GetBakedQuad(Font->CharData,
                            Font->TextureWidth, Font->TextureHeight,
                            C-32, &X, &Y, &Q, 1);
-        Q.x0 /= RenderGroup->MetersToPixels;
-        Q.x1 /= RenderGroup->MetersToPixels;
         Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
         Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
-        Q.y0 /= RenderGroup->MetersToPixels;
-        Q.y1 /= RenderGroup->MetersToPixels;
+        if(Camera){
+            NOT_IMPLEMENTED_YET;
+        }
         Vertices[VertexOffset]   = {Q.x0, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
         Vertices[VertexOffset+1] = {Q.x0, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
         Vertices[VertexOffset+2] = {Q.x1, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
@@ -224,20 +263,6 @@ RenderString(render_group *RenderGroup,
         Indices[IndexOffset+5] = FaceOffset+3;
         FaceOffset += 4;
     }
-    
-    
-#else
-    for(char C = *String; C; C = *(++String)){
-        stbtt_aligned_quad Q;
-        stbtt_GetBakedQuad(Font->CharData,
-                           Font->TextureWidth, Font->TextureHeight,
-                           C-32, &X, &Y, &Q, 1);
-        Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
-        Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
-        RenderTextureWithColor(RenderGroup, {Q.x0, Q.y0}, {Q.x1, Q.y1}, Z, Font->Texture, {Q.s0, Q.t0}, {Q.s1, Q.t1}, true, Color, true);
-    }
-#endif
-    
 }
 
 internal inline void
@@ -249,7 +274,8 @@ RenderString(render_group *RenderGroup,
 // TODO(Tyler): Figure out a better way to do the buffer
 internal inline void
 VRenderFormatString(render_group *RenderGroup,
-                    font *Font, color Color, f32 X, f32 Y, f32 Z, const char *Format, va_list VarArgs){
+                    font *Font, color Color, f32 X, f32 Y, f32 Z, const char *Format, 
+                    va_list VarArgs){
     char Buffer[1024];
     stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
     RenderString(RenderGroup, Font,
@@ -320,6 +346,24 @@ RenderCenteredString(render_group *RenderGroup, font *Font, color Color, v2 Cent
 
 internal inline void
 RenderCenteredRectangle(render_group *RenderGroup, 
-                        v2 Center, v2 Size, f32 Z, color Color){
-    RenderRectangle(RenderGroup, Center-Size/2, Center+Size/2, Z, Color);
+                        v2 Center, v2 Size, f32 Z, color Color, camera *Camera=0){
+    RenderRectangle(RenderGroup, Center-Size/2, Center+Size/2, Z, Color, Camera);
+}
+
+internal inline void
+RenderRectangleOutline(render_group *RenderGroup,v2 Center, v2 Size, f32 Z, 
+                       color Color, camera *Camera=0, f32 Thickness=0.03f){
+    v2 Min = Center-Size/2;
+    v2 Max = Center+Size/2;
+    RenderRectangle(RenderGroup, Min, {Max.X, Min.Y+Thickness}, Z, Color, Camera);
+    RenderRectangle(RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, Z, Color, Camera);
+    RenderRectangle(RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, Z, Color, Camera);
+    RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, Z, Color, Camera);
+}
+
+internal inline color
+Alphiphy(color Color, f32 Alpha){
+    color Result = Color;
+    Result.A *= Alpha;
+    return(Result);
 }

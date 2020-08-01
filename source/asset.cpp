@@ -33,6 +33,50 @@ ReadEntireFile(memory_arena *Arena, const char *Path) {
     return(Result);
 }
 
+internal image *
+LoadImageFromPath(const char *Path){
+    os_file *File = OpenFile(Path, OpenFile_Read);
+    u64 LastFileWriteTime = GetLastFileWriteTime(File);
+    CloseFile(File);
+    u8 *ImageData;
+    s32 Components;
+    
+    image *Result = FindOrCreateInHashTablePtr(&LoadedImageTable, Path);
+    if(Result->HasBeenLoadedBefore){
+        if(Result->LastWriteTime < LastFileWriteTime){
+            entire_file File = ReadEntireFile(&TransientStorageArena, Path);
+            
+            ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
+                                                    (int)File.Size,
+                                                    &Result->Width, &Result->Height,
+                                                    &Components, 4);
+            Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height);
+            stbi_image_free(ImageData);
+        }
+    }else{
+        char *String = PushCString(&StringMemory, Path);
+        image NewImage = {
+            .HasBeenLoadedBefore = true, 
+            .LastWriteTime = LastFileWriteTime,
+        };
+        entire_file File = ReadEntireFile(&PermanentStorageArena, String);
+        s32 Components = 0;
+        stbi_info_from_memory((u8 *)File.Data, (int)File.Size, 
+                              &Result->Width, &Result->Height, &Components);
+        NewImage.IsTranslucent = ((Components == 2) || (Components == 4));
+        
+        ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
+                                                (int)File.Size,
+                                                &Result->Width, &Result->Height,
+                                                &Components, 4);
+        Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height);
+        
+        stbi_image_free(ImageData);
+    }
+    
+    return(Result);
+}
+
 internal void
 ConsumeWhiteSpace(stream *Stream){
     u8 *NextBytePtr = PeekBytes(Stream, 1);
@@ -56,8 +100,9 @@ ConsumeWhiteSpace(stream *Stream){
     }
 }
 
-internal void
-ProcessString(stream *Stream, char *Buffer, u32 BufferSize){
+internal char *
+ProcessString(stream *Stream){
+    char *Buffer = PushArray(&TransientStorageArena, char, DEFAULT_BUFFER_SIZE);
     u32 BufferIndex = 0;
     u8 *CharPtr = ConsumeBytes(Stream, 1);
     if(CharPtr){
@@ -69,7 +114,7 @@ ProcessString(stream *Stream, char *Buffer, u32 BufferSize){
               (Char == '.') ||
               (Char == '/') ||
               (Char == '\\')){
-            if(BufferIndex >= BufferSize-1) break;
+            if(BufferIndex >= DEFAULT_BUFFER_SIZE-1) break;
             Buffer[BufferIndex++] = Char;
             CharPtr = ConsumeBytes(Stream, 1);
             if(!CharPtr) break;
@@ -79,6 +124,8 @@ ProcessString(stream *Stream, char *Buffer, u32 BufferSize){
     }else{
         Buffer[0] = '\0';
     }
+    
+    return(Buffer);
 }
 
 internal u32
@@ -114,18 +161,16 @@ ProcessStates(stream *Stream, asset *NewAsset){
         u8 NextByte = *NextBytePtr;
         if(NextByte == ':') break;
         
-        char Buffer[512];
-        ProcessString(Stream, Buffer, sizeof(Buffer));
+        char *StateName = ProcessString(Stream);
         
-        entity_state State = FindInHashTable<const char *, entity_state>(&StateTable, Buffer);
+        entity_state State = FindInHashTable(&StateTable, (const char *)StateName);
         Assert(State != State_None);
         
         while(true){
             ConsumeWhiteSpace(Stream);
             umw CurrentIndex = Stream->CurrentIndex;
-            char Buffer[512];
-            ProcessString(Stream, Buffer, sizeof(Buffer));
-            direction Direction = FindInHashTable<const char *, direction>(&DirectionTable, Buffer);
+            const char *DirectionName = ProcessString(Stream);
+            direction Direction = FindInHashTable(&DirectionTable, DirectionName);
             if(Direction == Direction_None){
                 Stream->CurrentIndex = CurrentIndex;
                 break;
@@ -144,12 +189,7 @@ ProcessStates(stream *Stream, asset *NewAsset){
 
 internal void
 ProcessSpriteSheet(stream *Stream, asset *NewAsset){
-    
-    
-    s32 Width = 0;
-    s32 Height = 0;
     s32 Components = 0;
-    u8 *ImageData = 0;
     u32 Size = 0;
     
     b8 DoProcessStates = false;
@@ -159,52 +199,19 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
         if(!NextBytePtr) break;
         u8 NextByte = *NextBytePtr;
         if(NextByte == ':') break;
-        char Buffer[512];
-        ProcessString(Stream, Buffer, sizeof(Buffer));
+        const char *SpecName = ProcessString(Stream);
         
-        asset_spec Spec = FindInHashTable(&AssetSpecTable, (const char *)Buffer);
+        asset_spec Spec = FindInHashTable(&AssetSpecTable, SpecName);
         Assert(Spec != AssetSpec_None);
         switch(Spec){
             case AssetSpec_Path: {
                 ConsumeWhiteSpace(Stream);
-                char Buffer[512];
-                ProcessString(Stream, Buffer, sizeof(Buffer));
-                os_file *File = OpenFile(Buffer, OpenFile_Read);
-                u64 LastFileWriteTime = GetLastFileWriteTime(File);
-                CloseFile(File);
-                
-                image LoadedImage = FindInHashTable(&LoadedImageTable, (const char *)Buffer);
-                if(LoadedImage.HasBeenLoadedBefore){
-                    if(LoadedImage.LastWriteTime < LastFileWriteTime){
-                        entire_file File = ReadEntireFile(&TransientStorageArena, Buffer);
-                        
-                        ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
-                                                                (int)File.Size,
-                                                                &Width, &Height,
-                                                                &Components, 4);
-                    }
-                    NewAsset->IsTranslucent = LoadedImage.IsTranslucent;
-                }else{
-                    char *String = PushArray(&PermanentStorageArena, char, CStringLength(Buffer)+1);
-                    CopyCString(String, Buffer, CStringLength(Buffer)+1);
-                    image NewImage = {
-                        .HasBeenLoadedBefore = true, 
-                        .LastWriteTime = LastFileWriteTime,
-                    };
-                    entire_file File = ReadEntireFile(&PermanentStorageArena, String);
-                    s32 Components = 0;
-                    stbi_info_from_memory((u8 *)File.Data, (int)File.Size, 
-                                          &Width, &Height, &Components);
-                    NewImage.IsTranslucent = ((Components == 2) || (Components == 4));
-                    
-                    InsertIntoHashTable(&LoadedImageTable, (const char *)String, NewImage);
-                    
-                    ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
-                                                            (int)File.Size,
-                                                            &Width, &Height,
-                                                            &Components, 4);
-                }
-                
+                const char *Path = ProcessString(Stream);
+                image *Image = LoadImageFromPath(Path);
+                NewAsset->IsTranslucent = Image->IsTranslucent;
+                NewAsset->SizeInPixels.Width = Image->Width;
+                NewAsset->SizeInPixels.Height = Image->Height;
+                NewAsset->SpriteSheet = Image->Texture;
             }break;
             case AssetSpec_Size: {
                 ConsumeWhiteSpace(Stream);
@@ -252,16 +259,6 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
     }
     
     Assert(Size != 0);
-    if(ImageData){
-        Assert(Width != 0);
-        Assert(Height != 0);
-        
-        NewAsset->SizeInPixels.Width = Width;
-        NewAsset->SizeInPixels.Height = Height;
-        NewAsset->SpriteSheet = CreateRenderTexture(ImageData, Width, Height);
-        stbi_image_free(ImageData);
-    }
-    
     f32 MetersToPixels = 60.0f / 0.5f; // TODO(Tyler): GET THIS FROM THE RenderGroup
     f32 WidthF32 = (f32)NewAsset->SizeInPixels.Width;
     f32 HeightF32 = (f32)NewAsset->SizeInPixels.Height;
@@ -278,28 +275,63 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
 }
 
 internal void
+ProcessArt(stream *Stream, asset *Asset){
+    while(true){
+        ConsumeWhiteSpace(Stream);
+        u8 *NextBytePtr = PeekBytes(Stream, 1);
+        if(!NextBytePtr) break;
+        u8 NextByte = *NextBytePtr;
+        if(NextByte == ':') break;
+        const char *SpecName = ProcessString(Stream);
+        
+        asset_spec Spec = FindInHashTable(&AssetSpecTable, SpecName);
+        Assert(Spec != AssetSpec_None);
+        switch(Spec){
+            case AssetSpec_Path: {
+                ConsumeWhiteSpace(Stream);
+                const char *Path = ProcessString(Stream);
+                image *Image = LoadImageFromPath(Path);
+                Asset->IsTranslucent = Image->IsTranslucent;
+                Asset->SizeInPixels.X = Image->Width;
+                Asset->SizeInPixels.Y = Image->Height;
+                Asset->Texture = Image->Texture;
+                Asset->Scale = 4;
+            }break;
+            default: {
+                Assert(0);
+            }break;
+        }
+    }
+}
+
+internal void
 ProcessCommand(stream *Stream){
-    
-    
-    char Buffer[512];
-    ProcessString(Stream,  Buffer, sizeof(Buffer));
-    asset_command Command = FindInHashTable<const char *, asset_command>(&CommandTable, Buffer);
+    const char *CommandName = ProcessString(Stream);
+    asset_command Command = FindInHashTable(&CommandTable, CommandName);
     Assert(Command != AssetCommand_None);
     
     switch(Command){
         case AssetCommand_BeginSpriteSheet: {
-            char Buffer[512];
-            ProcessString(Stream, Buffer, sizeof(Buffer));
-            CurrentAsset = FindInHashTablePtr(&AssetTable, (const char *)Buffer);
+            const char *AssetName = ProcessString(Stream);
+            CurrentAsset = FindInHashTablePtr(&AssetTable, AssetName);
             if(!CurrentAsset){
-                char *String = PushArray(&PermanentStorageArena, char, CStringLength(Buffer)+1);
-                CopyCString(String, Buffer, CStringLength(Buffer)+1);
-                InsertIntoHashTable(&AssetTable, (const char *)String, {});
-                CurrentAsset = FindInHashTablePtr(&AssetTable, (const char *)Buffer);
+                const char *String = PushCString(&StringMemory, AssetName);
+                CurrentAsset = CreateInHashTablePtr(&AssetTable, String);
             }
             
             CurrentAsset->Type = AssetType_SpriteSheet;
             ProcessSpriteSheet(Stream, CurrentAsset);
+        }break;
+        case AssetCommand_BeginArt: {
+            const char *AssetName = ProcessString(Stream);
+            CurrentAsset = FindInHashTablePtr(&AssetTable, AssetName);
+            if(!CurrentAsset){
+                const char *String = PushCString(&StringMemory, AssetName);
+                CurrentAsset = CreateInHashTablePtr(&AssetTable, String);
+            }
+            
+            CurrentAsset->Type = AssetType_Art;
+            ProcessArt(Stream, CurrentAsset);
         }break;
         case AssetCommand_BeginStates: {
             Assert(CurrentAsset);
@@ -316,6 +348,7 @@ InitializeAssetLoader(){
     {
         CommandTable = PushHashTable<const char *, asset_command>(&PermanentStorageArena, AssetCommand_TOTAL);
         InsertIntoHashTable(&CommandTable, "spritesheet", AssetCommand_BeginSpriteSheet);
+        InsertIntoHashTable(&CommandTable, "art", AssetCommand_BeginArt);
         InsertIntoHashTable(&CommandTable, "states", AssetCommand_BeginStates);
     }
     
@@ -435,10 +468,11 @@ GetAssetInfoFromEntityType(u32 Type){
 #endif
 
 internal void
-RenderFrameOfSpriteSheet(render_group *RenderGroup, const char *AssetName, 
+RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *AssetName, 
                          u32 Frame, v2 Center, f32 Z){
     asset *Asset = FindInHashTablePtr(&AssetTable, AssetName);
     if(!Asset) return;
+    Assert(Asset->Type == AssetType_SpriteSheet);
     
     u32 FrameInSpriteSheet = Frame;
     u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
@@ -454,14 +488,15 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, const char *AssetName,
     
     RenderTexture(RenderGroup, Center-0.5f*Asset->Scale*Asset->SizeInMeters, 
                   Center+0.5f*Asset->Scale*Asset->SizeInMeters, Z, Asset->SpriteSheet, 
-                  MinTexCoord, MaxTexCoord, Asset->IsTranslucent);
+                  MinTexCoord, MaxTexCoord, Asset->IsTranslucent, Camera);
 }
 
 //~ Animation rendering
 internal void
-UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeForFrame){
+UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Entity, f32 dTimeForFrame){
     asset *Asset = FindInHashTablePtr<const char *, asset>(&AssetTable, Entity->Asset);
     if(!Asset) return;
+    Assert(Asset->Type == AssetType_SpriteSheet);
     
     u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
     if(AnimationIndex == 0) { 
@@ -477,7 +512,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
             Entity->NumberOfTimesAnimationHasPlayed++;
         }
         
-        v2 P = Entity->P - CameraP;
+        v2 P = Entity->P;
         P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
         P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
         
@@ -504,20 +539,21 @@ UpdateAndRenderAnimation(render_group *RenderGroup, entity *Entity, f32 dTimeFor
         v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
         
         RenderTexture(RenderGroup, P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
-                      Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent);
+                      Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
+                      Camera);
         
 #if 1
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 
             switch(Boundary->Type){
                 case BoundaryType_Rectangle: {
-                    RenderRectangle(RenderGroup, Boundary->P-CameraP-0.5f*Boundary->Size, 
-                                    Boundary->P-CameraP+0.5f*Boundary->Size, -1.0f, 
-                                    {1.0f, 0.0f, 0.0f, 0.5f});
+                    RenderRectangle(RenderGroup, Boundary->P-0.5f*Boundary->Size, 
+                                    Boundary->P+0.5f*Boundary->Size, -1.0f, 
+                                    Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
                 }break;
                 case BoundaryType_Circle: {
-                    RenderCircle(RenderGroup, Boundary->P-CameraP, -1.0f, Boundary->Radius,
-                                 {1.0f, 0.0f, 0.0f, 0.5f});
+                    RenderCircle(RenderGroup, Boundary->P, -1.0f, Boundary->Radius,
+                                 Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
                 }break;
             }
         }

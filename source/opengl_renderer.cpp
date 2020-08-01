@@ -44,7 +44,7 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
         if(!Status){
             // TODO(Tyler): Logging
             glGetShaderInfoLog(VertexShader, 512, 0, Buffer);
-            LogError(Buffer);
+            LogMessage(Buffer);
             Assert(0);
         }
     }
@@ -59,7 +59,7 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
         if(!Status){
             // TODO(Tyler): Logging
             glGetShaderInfoLog(FragmentShader, 1024, 0, Buffer);
-            LogError(Buffer);
+            LogMessage(Buffer);
             Assert(0);
         }
     }
@@ -75,7 +75,7 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
         if(!Status){
             // TODO(Tyler): Logging
             glGetProgramInfoLog(Result.Id, 1024, 0, Buffer);
-            LogError(Buffer);
+            LogMessage(Buffer);
             Assert(0);
         }
     }
@@ -83,7 +83,7 @@ GlCompileShaderProgram(const char *VertexShaderSource, const char *FragmentShade
     glUseProgram(Result.Id);
     Result.ProjectionLocation = glGetUniformLocation(Result.Id, "Projection");
     if(Result.ProjectionLocation == -1){
-        LogError("Couldn't find the location of the 'Projection' uniform");
+        LogMessage("Couldn't find the location of the 'Projection' uniform");
     }
     Assert(Result.ProjectionLocation != -1);
     return(Result);
@@ -97,6 +97,7 @@ INITIALIZE_RENDERER(InitializeRenderer){
         GlCompileShaderProgram(TextureVertexShaderSource, TextureFragmentShaderSource);
     
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_SCISSOR_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
@@ -166,6 +167,8 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     
     for(u32 Index = 0; Index < RenderGroup->OpaqueItems.Count; Index++){
         render_item *Item = &RenderGroup->OpaqueItems[Index];
+        glScissor((GLint)Item->ClipMin.X, (GLint)Item->ClipMin.Y, 
+                  (GLsizei)(Item->ClipMax.X-Item->ClipMin.X), (GLsizei)(Item->ClipMax.Y-Item->ClipMin.Y));
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
         glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
                                  GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
@@ -175,10 +178,11 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     f32 LastZ = 0.0f;
     for(u32 Index = 0; Index < RenderGroup->TranslucentItems.Count; Index++){
         render_item *Item = &RenderGroup->TranslucentItems[Index];
-        
         if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
         LastZ = Item->ZLayer;
         
+        glScissor((GLint)Item->ClipMin.X, (GLint)Item->ClipMin.Y, 
+                  (GLsizei)(Item->ClipMax.X-Item->ClipMin.X), (GLsizei)(Item->ClipMax.Y-Item->ClipMin.Y));
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
         glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
                                  GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 

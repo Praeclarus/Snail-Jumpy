@@ -151,3 +151,7 @@
 	path heart_8x8.png
 	size 8
 	frames_per_row 4
+
+: art art_test
+	path test_art.png
+	

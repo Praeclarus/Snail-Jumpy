@@ -14,5 +14,7 @@ DebugRenderAllProfileData(render_group *RenderGroup, layout *Layout){
                            ActualX, Layout->CurrentP.Y, -1.0f,
                            "%s: %'8llucy", Block->Name, Block->CycleCount);
         Layout->CurrentP.Y -= DebugFont.Size;
+        
+        //LogMessage("%s: %'8llucy", Block->Name, Block->CycleCount);
     }
 }

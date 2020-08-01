@@ -3,7 +3,7 @@
 
 struct entity_data {
     v2 P;
-    
+    u32 Type;
     u32 SpecID;
     
     union {
@@ -12,22 +12,35 @@ struct entity_data {
             direction Direction;
             v2 PathStart, PathEnd;
         };
+        
+        // Teleporter
+        struct {
+            char *Level;
+            char *TRequiredLevel;
+        };
+        
+        // Door
+        struct {
+            union {
+                struct { f32 Width, Height; };
+                v2 Size;
+            };
+            char *DRequiredLevel;
+        };
+        
+        // Player there is nothing here yet
+        
+        // Gate
+        struct {
+            u32 CoinsRequiredToOpen;
+        };
+        
+        // Art
+        struct {
+            char *Asset;
+            f32 Z;
+        };
     };
-};
-
-struct teleporter_data {
-    v2 P;
-    char Level[512];
-    char RequiredLevel[512];
-};
-
-struct door_data {
-    v2 P;
-    union {
-        struct { f32 Width, Height; };
-        v2 Size;
-    };
-    char RequiredLevel[512];
 };
 
 typedef u32 world_flags;
@@ -42,13 +55,23 @@ struct world_data {
     u8 *Map;
     u32 Width;
     u32 Height;
-    array<entity_data> Enemies;
-    array<teleporter_data> Teleporters;
-    array<door_data> Doors;
+    array<entity_data> Entities;
     
     u32 CoinsToSpawn;
     u32 CoinsRequired;
     world_flags Flags;
+};
+
+struct world_manager {
+    memory_arena Memory;
+    hash_table<const char *, world_data> WorldTable;
+    
+    void        Initialize(memory_arena *Arena);
+    world_data *GetWorld(const char *Name, b8 AlwaysWork=true);
+    world_data *CreateNewWorld(const char *Name);
+    world_data *LoadWorldFromFile(const char *Name, b8 AlwaysWork=true);
+    void        RemoveWorld(const char *Name);
+    void        WriteWorldsToFiles();
 };
 
 #pragma pack(push, 1)
@@ -57,9 +80,7 @@ struct world_file_header {
     u32 Version;
     u32 WidthInTiles;
     u32 HeightInTiles;
-    u32 EnemyCount;
-    u32 TeleporterCount;
-    u32 DoorCount;
+    u32 EntityCount;
     b8 IsTopDown;
     u32 CoinsToSpawn;
     u32 CoinsRequired;

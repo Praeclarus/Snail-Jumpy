@@ -1,6 +1,65 @@
 
+#define ENTITY_EDITOR_GET_BOUNDARIES() u8 *BoundaryCount; collision_boundary *Boundaries; GetBoundaries(&Boundaries, &BoundaryCount);
+
+internal inline b8
+IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Offset=V2(0,0)){
+    b8 Result = false;
+    if(Boundary->Type == BoundaryType_Rectangle){
+        Result = IsPointInRectangle(Point, Offset+Boundary->P, Boundary->Size);
+    }else{
+        f32 Distance = SquareRoot(LengthSquared(Point-(Offset+Boundary->P)));
+        Result = (Distance <= Boundary->Radius);
+    }
+    return(Result);
+}
+
+internal inline void
+RenderBoundary(render_group *RenderGroup, camera *Camera, collision_boundary *Boundary, 
+               f32 Z, v2 Offset=V2(0,0)){
+    switch(Boundary->Type){
+        case BoundaryType_Rectangle: {
+            RenderCenteredRectangle(RenderGroup, Offset+Boundary->P, 
+                                    Boundary->Size, Z, 
+                                    Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
+        }break;
+        case BoundaryType_Circle: {
+            RenderCircle(RenderGroup, Offset+Boundary->P, Z, Boundary->Radius,
+                         Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
+        }break;
+    }
+}
+
+inline void
+entity_editor::CanonicalizeBoundary(collision_boundary *Boundary){
+    switch(Boundary->Type){
+        case BoundaryType_Rectangle: {
+            if((EntityP.Y+Boundary->P.Y - 0.5f*Boundary->Size.Y) < FloorY){
+                Boundary->P.Y = FloorY+0.5f*Boundary->Size.Y - EntityP.Y;
+            }
+        }break;
+        case BoundaryType_Circle: {
+            if((EntityP.Y+Boundary->P.Y-Boundary->Radius) < FloorY){
+                Boundary->P.Y = FloorY+Boundary->Radius - EntityP.Y;
+            }
+        }break;
+        default: INVALID_CODE_PATH; break;
+    }
+}
+
+inline void
+entity_editor::GetBoundaries(collision_boundary **Boundaries, u8 **Count){
+    if(BoundaryEditMode == BoundaryEditMode_Primary){
+        *Count = &SelectedSpec->BoundaryCount;
+        *Boundaries = SelectedSpec->Boundaries; 
+    }else{
+        *Count = &SelectedSpec->SecondaryBoundaryCount;
+        *Boundaries = SelectedSpec->SecondaryBoundaries; 
+    }
+    
+}
+
 void 
-entity_editor::ProcessKeyDown(os_key_code KeyCode) {
+entity_editor::ProcessKeyDown(os_key_code KeyCode){
     switch(KeyCode){
         case KeyCode_Up: {
             if(CurrentBoundary >= 1){
@@ -20,7 +79,7 @@ entity_editor::ProcessKeyDown(os_key_code KeyCode) {
 }
 
 void 
-entity_editor::ProcessInput(f32 MetersToPixels){
+entity_editor::ProcessInput(){
     os_event Event;
     while(PollEvents(&Event)){
         if(UIManager.ProcessInput(&Event)) continue;
@@ -31,12 +90,7 @@ entity_editor::ProcessInput(f32 MetersToPixels){
             }break;
             case OSEventKind_MouseDown: {
                 if(Event.Button == KeyCode_LeftMouse){
-                    if(CursorP.Y < (FloorY-1.0f)){
-                        Action = EntityEditorAction_AttemptToSelectSpec;
-                    }else{
-                        Action = EntityEditorAction_LeftClick;
-                    }
-                    
+                    Action = EntityEditorAction_LeftClick;
                 }else if(Event.Button == KeyCode_RightMouse){
                     Action = EntityEditorAction_RightClick;
                 }
@@ -46,8 +100,9 @@ entity_editor::ProcessInput(f32 MetersToPixels){
                     if((Action == EntityEditorAction_LeftClick) ||
                        (Action == EntityEditorAction_LeftClickDragging)){
                         Action = EntityEditorAction_EndLeftClick;
+                    }else if(Action == EntityEditorAction_DraggingBoundary){
+                        Action = EntityEditorAction_None;
                     }
-                    
                 }else if(Event.Button == KeyCode_RightMouse){
                     if((Action == EntityEditorAction_RightClick) ||
                        (Action == EntityEditorAction_RightClickDragging)){
@@ -56,30 +111,52 @@ entity_editor::ProcessInput(f32 MetersToPixels){
                 }
             }break;
             case OSEventKind_MouseMove: {
-                CursorP = Event.MouseP / MetersToPixels;
+                CursorP = Camera.ScreenPToWorldP(Event.MouseP);
             }break;
         }
     }
 }
 
 void
+entity_editor::ProcessAction(render_group *RenderGroup){
+    ENTITY_EDITOR_GET_BOUNDARIES();
+    switch(Action){
+        case EntityEditorAction_LeftClick: {
+            if(CursorP.Y < (FloorY-1.0f)){
+                Action = EntityEditorAction_AttemptToSelectSpec;
+                return;
+            }else if(!DoEditBoundaries){
+                Action = EntityEditorAction_None;
+                
+                b8 ClickedOnBoundary = false;
+                for(u32 I = 0; I < *BoundaryCount; I++){
+                    collision_boundary *Boundary = &Boundaries[I];
+                    if(IsPointInBoundary(CursorP, Boundary, EntityP)){
+                        ClickedOnBoundary = true;
+                        DraggingOffset = CursorP - Boundary->P;
+                        Action = EntityEditorAction_DraggingBoundary;
+                        CurrentBoundary = (u8)I;
+                        break;
+                    }
+                }
+            }
+        }break;
+        case EntityEditorAction_DraggingBoundary: {
+            Boundaries[CurrentBoundary].P = CursorP - DraggingOffset;
+            CanonicalizeBoundary(&Boundaries[CurrentBoundary]);
+        }break;
+    }
+    
+    if(DoEditBoundaries) ProcessBoundaryAction(RenderGroup); 
+}
+
+void
 entity_editor::ProcessBoundaryAction(render_group *RenderGroup){
     if(CursorP.Y < (FloorY-1.0f)) return;
-    if(!DoEditBoundaries) return;
     
     asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)SelectedSpec->Asset);
     Assert(Asset);
-    
-    u8 *BoundaryCount = 0;
-    collision_boundary *Boundaries = 0;
-    if(BoundaryEditMode == BoundaryEditMode_Primary){
-        BoundaryCount = &SelectedSpec->BoundaryCount;
-        Boundaries = SelectedSpec->Boundaries; 
-    }else{
-        BoundaryCount = &SelectedSpec->SecondaryBoundaryCount;
-        Boundaries = SelectedSpec->SecondaryBoundaries; 
-    }
-    
+    ENTITY_EDITOR_GET_BOUNDARIES();
     switch(Action){
         case EntityEditorAction_None: break;
         case EntityEditorAction_LeftClick: {
@@ -94,9 +171,8 @@ entity_editor::ProcessBoundaryAction(render_group *RenderGroup){
                     if(CursorP.Y < FloorY) CursorP.Y = FloorY;
                     if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY;
                     
-                    RenderRectangle(RenderGroup, Cursor2P,
-                                    CursorP, -1.0f, 
-                                    {1.0f, 0.0f, 0.0f, 0.5f});
+                    RenderRectangle(RenderGroup, Cursor2P, CursorP, -2.0f,  
+                                    Color(0.0f, 1.0f, 0.0f, 0.5f), &Camera);
                 }break;
                 case BoundaryType_Circle: {
                     if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY; // Center 
@@ -110,9 +186,8 @@ entity_editor::ProcessBoundaryAction(render_group *RenderGroup){
                         ActualRadius = NewRadius;
                     }
                     
-                    RenderCircle(RenderGroup, Cursor2P, -1.0f, 
-                                 ActualRadius,
-                                 {1.0f, 0.0f, 0.0f, 0.5f});
+                    RenderCircle(RenderGroup, Cursor2P, -2.0f, ActualRadius,
+                                 Color(0.0f, 1.0f, 0.0f, 0.5f), &Camera);
                 }break;
             }
         }break;
@@ -154,113 +229,120 @@ void
 entity_editor::DoUI(render_group *RenderGroup){
     
     //~ Basic editing functions
-    BeginWindow("Entity Editor", v2{OSInput.WindowSize.X-410, OSInput.WindowSize.Y-43}, v2{400, 0});
-    
-    if(UIButton(RenderGroup, "Switch to world editor")){
-        ChangeState(GameMode_WorldEditor, 0);
-        WorldEditor.World = CurrentWorld;
-    }
-    
-    if(UIButton(RenderGroup, "Save all", true)){
-        WriteEntitySpecs("entities.sje");
-    }
-    
-    if(UIButton(RenderGroup, "Add new", true)){
-        u32 NewSpec = AddEntitySpec();
-        SelectedSpecID = NewSpec;
-        SelectedSpec = &EntitySpecs[NewSpec];
-    }
-    
-    UIText(RenderGroup, "Asset:");
-    UITextInput(RenderGroup, "Spec Asset Name", SelectedSpec->Asset, DEFAULT_BUFFER_SIZE);
-    
-    if(DoEditBoundaries){
-        if(UIButton(RenderGroup, "Stop editing boundaries")){
-            DoEditBoundaries = false;
+    {
+        window *Window = 
+            UIManager.BeginWindow("Entity Editor", 
+                                  v2{OSInput.WindowSize.X-410, OSInput.WindowSize.Y-43}, 
+                                  v2{400, 0});
+        
+        if(Window->Button(RenderGroup, "Switch to world editor")){
+            ChangeState(GameMode_WorldEditor, 0);
+            WorldEditor.World = CurrentWorld;
         }
-    }else{
-        if(UIButton(RenderGroup, "Edit boundaries")){
-            DoEditBoundaries = true;
+        
+        if(Window->Button(RenderGroup, "Save all", true)){
+            WriteEntitySpecs("entities.sje");
         }
-    }
-    
-    
-    UIText(RenderGroup, "Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedSpec->Type]);
-    if(UIButton(RenderGroup, "<<<", true)){
-        SelectedSpec->Type = REVERSE_ENTITY_TYPE_TABLE[SelectedSpec->Type];
-        SelectedSpec->Speed = 0;
-        SelectedSpec->Damage = 0;
-        Assert(SelectedSpec->Type != EntityType_TOTAL);
-    }
-    if(UIButton(RenderGroup, ">>>")){
-        SelectedSpec->Type = FORWARD_ENTITY_TYPE_TABLE[SelectedSpec->Type];
-        SelectedSpec->Speed = 0;
-        SelectedSpec->Damage = 0;
-        Assert(SelectedSpec->Type != EntityType_TOTAL);
-    }
-    
-    UIText(RenderGroup, "Can be stunned: %s", 
-           TRUE_FALSE_TABLE[SelectedSpec->Flags & EntityFlags_CanBeStunned]);
-    if(UIButton(RenderGroup, "Toggle stun-ability")){
-        if(SelectedSpec->Flags & EntityFlags_CanBeStunned){
-            SelectedSpec->Flags &= ~EntityFlags_CanBeStunned;
+        
+        if(Window->Button(RenderGroup, "Add new", true)){
+            u32 NewSpec = AddEntitySpec();
+            SelectedSpecID = NewSpec;
+            SelectedSpec = &EntitySpecs[NewSpec];
+        }
+        
+        Window->Text(RenderGroup, "Asset:");
+        Window->TextInput(RenderGroup, "Spec Asset Name", SelectedSpec->Asset, DEFAULT_BUFFER_SIZE);
+        
+        if(DoEditBoundaries){
+            if(Window->Button(RenderGroup, "Stop editing boundaries")){
+                DoEditBoundaries = false;
+            }
         }else{
-            SelectedSpec->Flags |= EntityFlags_CanBeStunned;
+            if(Window->Button(RenderGroup, "Edit boundaries")){
+                DoEditBoundaries = true;
+            }
         }
-    }
-    
-    UIText(RenderGroup, "Affected by gravity: %s", 
-           TRUE_FALSE_TABLE[!(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity)]);
-    if(UIButton(RenderGroup, "Toggle stun-ability")){
-        if(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity){
-            SelectedSpec->Flags &= ~EntityFlags_NotAffectedByGravity;
-        }else{
-            SelectedSpec->Flags |= EntityFlags_NotAffectedByGravity;
+        
+        Window->Text(RenderGroup, "Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedSpec->Type]);
+        if(Window->Button(RenderGroup, "<<<", true)){
+            SelectedSpec->Type = REVERSE_ENTITY_TYPE_TABLE[SelectedSpec->Type];
+            SelectedSpec->Speed = 0;
+            SelectedSpec->Damage = 0;
+            Assert(SelectedSpec->Type != EntityType_TOTAL);
         }
+        if(Window->Button(RenderGroup, ">>>")){
+            SelectedSpec->Type = FORWARD_ENTITY_TYPE_TABLE[SelectedSpec->Type];
+            SelectedSpec->Speed = 0;
+            SelectedSpec->Damage = 0;
+            Assert(SelectedSpec->Type != EntityType_TOTAL);
+        }
+        
+        Window->Text(RenderGroup, "Can be stunned: %s", 
+                     TRUE_FALSE_TABLE[SelectedSpec->Flags & EntityFlags_CanBeStunned]);
+        if(Window->Button(RenderGroup, "Toggle stun-ability")){
+            if(SelectedSpec->Flags & EntityFlags_CanBeStunned){
+                SelectedSpec->Flags &= ~EntityFlags_CanBeStunned;
+            }else{
+                SelectedSpec->Flags |= EntityFlags_CanBeStunned;
+            }
+        }
+        
+        Window->Text(RenderGroup, "Affected by gravity: %s", 
+                     TRUE_FALSE_TABLE[!(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity)]);
+        if(Window->Button(RenderGroup, "Toggle gravity")){
+            if(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity){
+                SelectedSpec->Flags &= ~EntityFlags_NotAffectedByGravity;
+            }else{
+                SelectedSpec->Flags |= EntityFlags_NotAffectedByGravity;
+            }
+        }
+        
+        Window->End(RenderGroup);
     }
-    
-    EndWindow(RenderGroup);
     
     //~ Boundary editing
-    BeginWindow("Edit Collision Boundaries", v2{20, OSInput.WindowSize.Y-43}, v2{400, 0});
-    
-    const char *BoundaryTable[] = {
-        "Rectangle", "Circle"
-    };
-    UIText(RenderGroup, "Current boundary type: %s", 
-           BoundaryTable[BoundaryType]);
-    
-    if(UIButton(RenderGroup, "<<< Mode", true)){
-        if(BoundaryType == BoundaryType_Circle){
-            BoundaryType = BoundaryType_Rectangle;
-        }else if(BoundaryType == BoundaryType_Rectangle){
-            BoundaryType = BoundaryType_Circle;
+    {
+        window *Window = UIManager.BeginWindow("Edit Collision Boundaries", 
+                                               v2{20, OSInput.WindowSize.Y-43}, v2{400, 0});
+        
+        const char *BoundaryTable[] = {
+            "Rectangle", "Circle"
+        };
+        Window->Text(RenderGroup, "Current boundary type: %s", 
+                     BoundaryTable[BoundaryType]);
+        
+        if(Window->Button(RenderGroup, "<<< Mode", true)){
+            if(BoundaryType == BoundaryType_Circle){
+                BoundaryType = BoundaryType_Rectangle;
+            }else if(BoundaryType == BoundaryType_Rectangle){
+                BoundaryType = BoundaryType_Circle;
+            }
         }
+        if(Window->Button(RenderGroup, "Mode >>>")){
+            if(BoundaryType == BoundaryType_Circle){
+                BoundaryType = BoundaryType_Rectangle;
+            }else if(BoundaryType == BoundaryType_Rectangle){
+                BoundaryType = BoundaryType_Circle;
+            }
+        }
+        
+        if(BoundaryEditMode == BoundaryEditMode_Primary){
+            Window->Text(RenderGroup, "Currently: primary");
+            if(Window->Button(RenderGroup, "Toggle to secondary")){ 
+                BoundaryEditMode = BoundaryEditMode_Secondary;
+            }
+        }else{
+            Window->Text(RenderGroup, "Currently: secondary");
+            if(Window->Button(RenderGroup, "Toggle to primary")){ 
+                BoundaryEditMode = BoundaryEditMode_Primary;
+            }
+        }
+        
+        Window->Text(RenderGroup, "Current boundary index: %u", CurrentBoundary);
+        Window->Text(RenderGroup, "Use up and down arrows to change the index", CurrentBoundary);
+        
+        Window->End(RenderGroup);
     }
-    if(UIButton(RenderGroup, "Mode >>>")){
-        if(BoundaryType == BoundaryType_Circle){
-            BoundaryType = BoundaryType_Rectangle;
-        }else if(BoundaryType == BoundaryType_Rectangle){
-            BoundaryType = BoundaryType_Circle;
-        }
-    }
-    
-    if(BoundaryEditMode == BoundaryEditMode_Primary){
-        UIText(RenderGroup, "Currently: primary");
-        if(UIButton(RenderGroup, "Toggle to secondary")){ 
-            BoundaryEditMode = BoundaryEditMode_Secondary;
-        }
-    }else{
-        UIText(RenderGroup, "Currently: secondary");
-        if(UIButton(RenderGroup, "Toggle to primary")){ 
-            BoundaryEditMode = BoundaryEditMode_Primary;
-        }
-    }
-    
-    UIText(RenderGroup, "Current boundary index: %u", CurrentBoundary);
-    UIText(RenderGroup, "Use up and down arrows to change the index", CurrentBoundary);
-    
-    EndWindow(RenderGroup);
     
     //~ Type specific editing
     switch(SelectedSpec->Type){
@@ -272,27 +354,29 @@ entity_editor::DoUI(render_group *RenderGroup){
         
         //~ Enemy
         case EntityType_Enemy: {
-            BeginWindow("Edit enemy", v2{OSInput.WindowSize.X-410, 500}, v2{400, 0});
+            window *Window = 
+                UIManager.BeginWindow("Edit enemy", v2{OSInput.WindowSize.X-410, 300}, 
+                                      v2{400, 0});
             
-            UIText(RenderGroup, "Speed: %.1f", SelectedSpec->Speed);
-            if(UIButton(RenderGroup, "-", true)){
+            Window->Text(RenderGroup, "Speed: %.1f", SelectedSpec->Speed);
+            if(Window->Button(RenderGroup, "-", true)){
                 SelectedSpec->Speed -= 0.1f;
             }
-            if(UIButton(RenderGroup, "+")){
+            if(Window->Button(RenderGroup, "+")){
                 SelectedSpec->Speed += 0.1f;
             }
             
-            UIText(RenderGroup, "Damage: %u", SelectedSpec->Damage);
-            if(UIButton(RenderGroup, "-", true)){
+            Window->Text(RenderGroup, "Damage: %u", SelectedSpec->Damage);
+            if(Window->Button(RenderGroup, "-", true)){
                 if(SelectedSpec->Damage > 0){
                     SelectedSpec->Damage -= 1;
                 }
             }
-            if(UIButton(RenderGroup, "+")){
+            if(Window->Button(RenderGroup, "+")){
                 SelectedSpec->Damage += 1;
             }
             
-            EndWindow(RenderGroup);
+            Window->End(RenderGroup);
         }break;
         
         default: INVALID_CODE_PATH; break;
@@ -317,9 +401,9 @@ entity_editor::UpdateAndRender(){
     
     RenderGroup.BackgroundColor = color{0.4f, 0.5f, 0.45f, 1.0f};
     RenderGroup.OutputSize = OSInput.WindowSize;
-    RenderGroup.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
+    Camera.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
     
-    ProcessInput(RenderGroup.MetersToPixels);
+    ProcessInput();
     
     if(EntitySpecs.Count == 1){ // Zeroeth index is reservered so Count = 1
         u32 NewSpec = AddEntitySpec();
@@ -338,42 +422,32 @@ entity_editor::UpdateAndRender(){
         Min.X = 1.0f;
         v2 Max;
         Max.Y = FloorY;
-        Max.X = (OSInput.WindowSize.X/RenderGroup.MetersToPixels) - 1.0f;
-        RenderRectangle(&RenderGroup, Min, Max, 0.0f, color{0.7f,  0.9f,  0.7f, 1.0f});
+        Max.X = (OSInput.WindowSize.X/Camera.MetersToPixels) - 1.0f;
+        RenderRectangle(&RenderGroup, Min, Max, 0.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
     }
     
     asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)SelectedSpec->Asset);
     if(Asset){
-        EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
-        
-        ProcessBoundaryAction(&RenderGroup); 
-        
-        RenderFrameOfSpriteSheet(&RenderGroup, SelectedSpec->Asset,
-                                 1, EntityP, 0.0f);
-        u32 BoundaryCount = 0;
-        collision_boundary *Boundaries = 0;
-        if(BoundaryEditMode == BoundaryEditMode_Primary){
-            BoundaryCount = SelectedSpec->BoundaryCount;
-            Boundaries = SelectedSpec->Boundaries; 
-        }else{
-            BoundaryCount = SelectedSpec->SecondaryBoundaryCount;
-            Boundaries = SelectedSpec->SecondaryBoundaries; 
-        }
-        
-        for(u32 I = 0; I < BoundaryCount; I++){
-            collision_boundary *Boundary = &Boundaries[I];
+        if(Asset->Type == AssetType_SpriteSheet){
+            EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
             
-            switch(Boundary->Type){
-                case BoundaryType_Rectangle: {
-                    RenderRectangle(&RenderGroup, EntityP+Boundary->P-0.5f*Boundary->Size, 
-                                    EntityP+Boundary->P+0.5f*Boundary->Size, -1.0f, 
-                                    {1.0f, 0.0f, 0.0f, 0.5f});
-                }break;
-                case BoundaryType_Circle: {
-                    RenderCircle(&RenderGroup, EntityP+Boundary->P, -1.0f, Boundary->Radius,
-                                 {1.0f, 0.0f, 0.0f, 0.5f});
-                }break;
+            ProcessAction(&RenderGroup);
+            
+            RenderFrameOfSpriteSheet(&RenderGroup, &Camera, SelectedSpec->Asset,
+                                     1, EntityP, 0.0f);
+            
+            ENTITY_EDITOR_GET_BOUNDARIES();
+            f32 Z = -1.0f;
+            for(u32 I = 0; I < *BoundaryCount; I++){
+                collision_boundary *Boundary = &Boundaries[I];
+                RenderBoundary(&RenderGroup, &Camera, Boundary, Z, EntityP);
+                Z -= 0.1f;
             }
+        }else{
+            RenderFormatString(&RenderGroup, &TitleFont, color{0.9f, 0.9f, 0.9f, 1.0f}, 
+                               100, 100, -1.0f,
+                               "Asset: '%s' is not a spritesheet!", 
+                               SelectedSpec->Asset);
         }
     }else{
         RenderFormatString(&RenderGroup, &TitleFont, color{0.9f, 0.9f, 0.9f, 1.0f}, 
@@ -391,7 +465,8 @@ entity_editor::UpdateAndRender(){
         v2 P = v2{0.5f, 2.0f};
         u32 SpecToSelect = 
             UpdateAndRenderSpecSelector(&RenderGroup, P, CursorP, AttemptToSelectSpec, 
-                                        SelectedSpecID, true, 0.0f, FloorY-1.0f);
+                                        Camera.MetersToPixels, SelectedSpecID, true, 0.0f, 
+                                        FloorY-1.0f);
         if(SpecToSelect != 0){
             SelectedSpecID = SpecToSelect;
             SelectedSpec = &EntitySpecs[SpecToSelect];
@@ -406,8 +481,10 @@ entity_editor::UpdateAndRender(){
 
 // TODO(Tyler): This function needs to be cleaned up
 internal u32
-UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
+UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, f32 MetersToPixels, 
                             u32 SelectedSpec, b8 TestY, f32 YMin, f32 YMax){
+    camera Camera = {}; Camera.MetersToPixels = MetersToPixels;
+    
     u32 SpecToSelect = 0;
     const f32 THICKNESS = 0.03f;
     
@@ -417,36 +494,37 @@ UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 Attem
         v2 Size;
         v2 StartP = P;
         if(Asset){
+            if(Asset->Type == AssetType_Art) continue;
             v2 Center = P;
             Size = Asset->SizeInMeters*Asset->Scale;
             Center.X += 0.5f*Size.X;
-            RenderFrameOfSpriteSheet(RenderGroup, Spec->Asset, 0, 
+            RenderFrameOfSpriteSheet(RenderGroup, &Camera, Spec->Asset, 0, 
                                      Center, 0.0f);
             P.X += Size.X;
         }else{
             Size = v2{1, 1};
             v2 Center = P;
             Center.X += 0.5f*Size.X;
-            RenderCenteredRectangle(RenderGroup , Center, Size, 0.0f, PINK);
+            RenderCenteredRectangle(RenderGroup, Center, Size, 0.0f, PINK, &Camera);
             P.X += Size.X;
         }
         
-        v2 Min = v2{StartP.X, StartP.Y-0.5f*Size.Y,};
+        v2 Min = v2{StartP.X, StartP.Y-0.5f*Size.Y};
         v2 Max = Min + Size;
         if(I == SelectedSpec){
             f32 Thickness = 0.06f;
             f32 Offset = 0.2f;
-            RenderRectangle(RenderGroup, {Min.X, Min.Y-Offset}, {Max.X, Min.Y-Offset+Thickness}, -0.1f, BLUE);
+            RenderRectangle(RenderGroup, {Min.X, Min.Y-Offset}, {Max.X, Min.Y-Offset+Thickness}, -0.1f, BLUE, &Camera);
         }
         
         if((StartP.X <= MouseP.X) && (MouseP.X <= P.X)){
             if(TestY){
                 if(!((YMin <= MouseP.Y) && (MouseP.Y <= YMax))) continue;
             }
-            RenderRectangle(RenderGroup, Min, {Max.X, Min.Y+THICKNESS}, -0.1f, WHITE);
-            RenderRectangle(RenderGroup, {Max.X-THICKNESS, Min.Y}, {Max.X, Max.Y}, -0.1f, WHITE);
-            RenderRectangle(RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-THICKNESS}, -0.1f, WHITE);
-            RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+THICKNESS, Max.Y}, -0.1f, WHITE);
+            RenderRectangle(RenderGroup, Min, {Max.X, Min.Y+THICKNESS}, -0.1f, WHITE, &Camera);
+            RenderRectangle(RenderGroup, {Max.X-THICKNESS, Min.Y}, {Max.X, Max.Y}, -0.1f, WHITE, &Camera);
+            RenderRectangle(RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-THICKNESS}, -0.1f, WHITE, &Camera);
+            RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+THICKNESS, Max.Y}, -0.1f, WHITE, &Camera);
             
             if(AttemptSelect){
                 SpecToSelect= I;

@@ -39,7 +39,6 @@ struct theme {
     color TextInputInactiveBackColor;
     color TextInputActiveBackColor;
     
-    
     f32 Padding;
 };
 
@@ -49,50 +48,38 @@ enum _window_flags {
     WindowFlag_NextButtonIsSameRow = (1 << 0),
 };
 
-enum widget_type {
-    WidgetType_None,
-    WidgetType_Window,
-    WidgetType_TextInput,
-};
-
-struct widget_info {
-    widget_type Type;
-    union {
-        // Window
-        struct {
-            v2 P;
-            v2 MinSize;
-            v2 Size;
-            b8 IsBeingDragged;
-            v2 DraggingOffset;
-            window_flags Flags;
-        };
-        
-    };
-};
-
 struct window {
     const char *Name;
     window_flags Flags;
-    v2 BaseP;
-    v2 CurrentP;
+    
     f32 TitleBarHeight;
     f32 Z;
-    v2 LastContentSize;
-    v2 ContentSize;
+    v2 TopLeft;
+    v2 DrawP;
+    v2 MinSize;
+    v2 LastSize;
+    v2 Size;
+    f32 Fade;
+    b8 IsFaded;
+    
+    theme Theme;
+    
+    void TextInput(render_group *RenderGroup, const char *ID, char *Buffer, 
+                   u32 BufferSize, f32 Width=-1);
+    void Text(render_group *RenderGroup, const char *Text, ...);
+    b8 Button(render_group *RenderGroup, const char *Text, b8 AdvanceX=false);
+    void End(render_group *RenderGroup);
 };
 
 struct ui_manager {
-    // TODO(Tyler): Perhaps this should be part of the os_input structure?
     b8 HandledInput;
     
     theme Theme;
-    hash_table<const char *, widget_info> WidgetTable;
+    hash_table<const char *, window> WindowTable;
     u64 SelectedWidgetID;
     
     b8 MouseOverWindow;
-    b8 InWindow;
-    window CurrentWindow;
+    window *Popup;
     
     // Text Input
     b8 IsShiftDown;
@@ -106,7 +93,12 @@ struct ui_manager {
     os_mouse_button MiddleMouseButton;
     os_mouse_button RightMouseButton;
     
+    void NewFrame();
+    void EndPopup();
+    void Initialize(memory_arena *Arena);
     b8 ProcessInput(os_event *Event);
+    window *BeginWindow(const char *Name, v2 StartTopLeft=v2{500, 500}, v2 MinSize=v2{0, 0});
+    window *BeginPopup(const char *Name, v2 StartTopLeft=v2{0, 0}, v2 MinSize=v2{0, 0});
 };
 
 #endif //SNAIL_JUMPY_UI_H

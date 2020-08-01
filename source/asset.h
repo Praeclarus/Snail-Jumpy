@@ -4,19 +4,30 @@
 enum asset_type {
     AssetType_None,
     AssetType_SpriteSheet,
+    AssetType_Art,
 };
 
 struct image {
     b8 HasBeenLoadedBefore;
-    b8 IsTranslucent;
     u64 LastWriteTime;
+    b8 IsTranslucent;
+    render_texture_handle Texture;
+    union{
+        struct { s32 Width, Height; };
+        v2s Size;
+    };
 };
 
 struct asset {
     asset_type Type;
     u32 StateTable[State_TOTAL][Direction_TOTAL];
     b8 IsTranslucent;
+    
+    v2s SizeInPixels;
+    f32 Scale;
+    
     union{
+        // Spritesheet
         struct {
             v2s SizeInPixels;
             // TODO(Tyler): This is kinda a bogus attribute(SizeInMeters), change this!
@@ -28,7 +39,11 @@ struct asset {
             u32 FrameCounts[32];
             u32 FPSArray[32];
             f32 YOffset;
-            f32 Scale;
+        };
+        
+        // Art 
+        struct {
+            render_texture_handle Texture;
         };
     };
 };
@@ -37,6 +52,7 @@ struct asset {
 enum asset_command {
     AssetCommand_None,
     AssetCommand_BeginSpriteSheet,
+    AssetCommand_BeginArt,
     AssetCommand_BeginStates,
     
     AssetCommand_TOTAL,

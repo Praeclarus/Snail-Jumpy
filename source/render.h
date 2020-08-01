@@ -1,13 +1,27 @@
 #ifndef SNAIL_JUMPY_RENDER_H
 #define SNAIL_JUMPY_RENDER_H
 
+
+//~ Camera  This probably isn't the most appropriate place to have this, but it is best
+//          here for now
+
+struct render_group;
+struct world_data;
+struct camera {
+    v2 P;
+    f32 MetersToPixels;
+    
+    inline void SetCenter(v2 P, world_data *World);
+    inline v2 ScreenPToWorldP(v2 ScreenP);
+};
+
+//~
 struct vertex {
     f32 P[3];
     f32 Color[4];
     f32 TexCoord[2];
 };
 
-// TODO(Tyler): SORT THE RENDER ITEMS!!!
 typedef u32 render_texture_handle;
 struct render_item {
     u32 VertexOffset;
@@ -15,9 +29,10 @@ struct render_item {
     u32 IndexCount;
     f32 ZLayer;
     render_texture_handle Texture;
+    v2 ClipMin;
+    v2 ClipMax;
 };
 
-// TODO(Tyler): Rename this to something better
 struct render_group {
     vertex *Vertices;
     u32 VertexCount;
@@ -30,7 +45,6 @@ struct render_group {
     array<render_item> OpaqueItems;
     array<render_item> TranslucentItems;
     
-    f32 MetersToPixels;
     color BackgroundColor;
     v2 OutputSize;
 };
@@ -44,13 +58,14 @@ internal RENDER_GROUP_TO_SCREEN(RenderGroupToScreen);
 #define CREATE_RENDER_TEXTURE(Name) render_texture_handle Name(u8 *Pixels, u32 Width, u32 Height)
 internal CREATE_RENDER_TEXTURE(CreateRenderTexture);
 
-global_constant color BLACK      = color{0.0f,  0.0f,  0.0f, 1.0f};
-global_constant color WHITE      = color{1.0f,  1.0f,  1.0f, 1.0f};
-global_constant color RED        = color{1.0f,  0.0f,  0.0f, 1.0f};
-global_constant color YELLOW     = color{1.0f,  1.0f,  0.0f, 1.0f};
-global_constant color BLUE       = color{0.0f,  0.0f,  1.0f, 1.0f};
-global_constant color GREEN      = color{0.0f,  1.0f,  0.0f, 1.0f};
-global_constant color BROWN      = color{0.41f, 0.20f, 0.0f, 1.0f};
-global_constant color PINK       = color{1.0f,  0.0f,  1.0f, 1.0f};
+global_constant color BLACK  = color{0.0f,  0.0f,  0.0f, 1.0f};
+global_constant color WHITE  = color{1.0f,  1.0f,  1.0f, 1.0f};
+global_constant color RED    = color{1.0f,  0.0f,  0.0f, 1.0f};
+global_constant color YELLOW = color{1.0f,  1.0f,  0.0f, 1.0f};
+global_constant color BLUE   = color{0.0f,  0.0f,  1.0f, 1.0f};
+global_constant color GREEN  = color{0.0f,  1.0f,  0.0f, 1.0f};
+global_constant color BROWN  = color{0.41f, 0.20f, 0.0f, 1.0f};
+global_constant color PINK   = color{1.0f,  0.0f,  1.0f, 1.0f};
+global_constant color ORANGE = color{1.0f,  0.6f,  0.0f, 1.0f};
 
 #endif //SNAIL_JUMPY_RENDER_H

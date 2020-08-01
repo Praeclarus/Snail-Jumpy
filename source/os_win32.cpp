@@ -3,9 +3,6 @@
 #include <windows.h>
 #include <gl/gl.h>
 
-// TODO(Tyler): Remove this!!!
-#include <stdio.h>
-
 #ifdef CopyMemory
 #undef CopyMemory
 #endif
@@ -17,7 +14,6 @@ global b32 Running;
 global f32 GlobalPerfCounterFrequency;
 global win32_backbuffer GlobalBackbuffer;
 global HWND MainWindow;
-
 global WINDOWPLACEMENT GlobalWindowPlacement = {sizeof(GlobalWindowPlacement)};
 
 internal void
@@ -45,18 +41,6 @@ ToggleFullscreen(HWND Window){
     }
 }
 
-internal void
-Win32ProcessKeyboardInput(os_button *Button, b8 IsDown)
-{
-#if 0
-    if (Button->EndedDown != IsDown)
-    {
-        Button->EndedDown = IsDown;
-        Button->HalfTransitionCount++;
-    }
-#endif
-}
-
 LRESULT CALLBACK
 Win32MainWindowProc(HWND Window,
                     UINT Message,
@@ -82,64 +66,6 @@ Win32MainWindowProc(HWND Window,
         }break;
         case WM_DESTROY: {
             Running = false;
-        }break;
-        case WM_SYSKEYDOWN: case WM_SYSKEYUP:
-        case WM_KEYDOWN: case WM_KEYUP: {
-            u32 VkCode = (u32)WParam;
-            
-            b8 WasDown = ((LParam & (1 << 30)) != 0);
-            b8 IsDown = ((LParam & (1UL << 31)) == 0);
-            if (WasDown != IsDown)
-            {
-                if(VkCode == VK_UP){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Up], IsDown);
-                }else if(VkCode == VK_DOWN){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Down], IsDown);
-                }else if(VkCode == VK_LEFT){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Left], IsDown);
-                }else if(VkCode == VK_RIGHT){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Right], IsDown);
-                }else if(VkCode == VK_SPACE){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Space], IsDown);
-                }else if(VkCode == VK_TAB){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Tab], IsDown);
-                }else if(VkCode == VK_SHIFT){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Shift], IsDown);
-                }else if(VkCode == VK_ESCAPE){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_Escape], IsDown);
-                }else if(('0' <= VkCode) && (VkCode <= 'Z')){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[VkCode], IsDown);
-                }else if(VkCode == VK_BACK){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons[KeyCode_BackSpace], IsDown);
-                }else if(VkCode == VK_OEM_MINUS){
-                    Win32ProcessKeyboardInput(&OSInput.Buttons['-'], IsDown);
-                }
-                if(IsDown){
-                    if(VkCode == VK_F11){
-                        ToggleFullscreen(Window);
-                    }else if((VkCode == VK_F4) && (LParam & (1<<29))){
-                        Running = false;
-                    }
-                }
-            }
-        }break;
-        case WM_LBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&OSInput.LeftMouseButton, true);
-        }break;
-        case WM_LBUTTONUP: {
-            Win32ProcessKeyboardInput(&OSInput.LeftMouseButton, false);
-        }break;
-        case WM_MBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&OSInput.MiddleMouseButton, true);
-        }break;
-        case WM_MBUTTONUP: {
-            Win32ProcessKeyboardInput(&OSInput.MiddleMouseButton, false);
-        }break;
-        case WM_RBUTTONDOWN: {
-            Win32ProcessKeyboardInput(&OSInput.RightMouseButton, true);
-        }break;
-        case WM_RBUTTONUP: {
-            Win32ProcessKeyboardInput(&OSInput.RightMouseButton, false);
         }break;
         default: {
             Result = DefWindowProcA(Window, Message, WParam, LParam);
@@ -256,39 +182,48 @@ Win32InitOpenGl(HINSTANCE Instance, HWND *Window){
                                     // NOTE(Tyler): Success!!!
                                     
                                 }else{
-                                    LogError("Win32: Couldn't load OpenGL functions");
+                                    LogMessage("Win32: Couldn't load OpenGL functions");
                                     Assert(0);
                                 }
                             }else{
-                                LogError("Win32: Couldn't make OpenGL context current 2");
+                                LogMessage("Win32: Couldn't make OpenGL context current 2");
                                 Assert(0);
                             }
                         }else{
-                            LogError("Win32: Couldn't create OpenGL context");
+                            LogMessage("Win32: Couldn't create OpenGL context");
                             Assert(0);
                         }
                     }else{
-                        LogError("Win32: Couldn't set pixel format");
+                        LogMessage("Win32: Couldn't set pixel format");
                         Assert(0);
                     }
                 }else{
                     // TODO(Tyler): Logging!!!
-                    LogError("Win32: Couldn't choose pixel format 2");
+                    LogMessage("Win32: Couldn't choose pixel format 2");
                     Assert(0);
                 }
             }else{
-                LogError("Win32: Couldn't choose pixel format 1");
+                LogMessage("Win32: Couldn't choose pixel format 1");
                 Assert(0);
             }
         }else{
-            LogError("Win32: Couldn't make OpenGL context current 1");
+            LogMessage("Win32: Couldn't make OpenGL context current 1");
             Assert(0);
         }
     }else{
         // TODO(Tyler): Logging!!!
-        LogError("Win32: Couldn't set pixel format 1");
+        LogMessage("Win32: Couldn't set pixel format 1");
         Assert(0);
     }
+}
+
+internal inline v2
+Win32GetMouseP(){
+    POINT MouseP;
+    GetCursorPos(&MouseP);
+    ScreenToClient(MainWindow, &MouseP);
+    v2 Result = V2((f32)MouseP.x, (f32)(OSInput.WindowSize.Height-MouseP.y));
+    return(Result);
 }
 
 internal os_file *
@@ -418,6 +353,8 @@ PollEvents(os_event *Event){
     b8 Result = false;
     while(true){
         Result = (b8)PeekMessage(&Message, 0, 0, 0, PM_REMOVE);
+        if(!Result) break;
+        
         // TODO(Tyler): This may not actually be needed here
         if(Message.message == WM_QUIT){
             Running = false;
@@ -509,13 +446,7 @@ PollEvents(os_event *Event){
                 process_mouse_down:;
                 Event->Kind = OSEventKind_MouseDown;
                 
-                POINT MouseP;
-                GetCursorPos(&MouseP);
-                Event->MouseP = {
-                    (f32)MouseP.x,
-                    (f32)(OSInput.WindowSize.Height-MouseP.y)
-                };
-                
+                Event->MouseP = Win32GetMouseP();
             }break;
             {
                 case WM_LBUTTONUP: {
@@ -531,28 +462,14 @@ PollEvents(os_event *Event){
                 process_mouse_up:;
                 Event->Kind = OSEventKind_MouseUp;
                 
-                POINT MouseP;
-                GetCursorPos(&MouseP);
-                Event->MouseP = {
-                    (f32)MouseP.x,
-                    (f32)(OSInput.WindowSize.Height-MouseP.y)
-                };
-                
+                Event->MouseP = Win32GetMouseP();
             }break;
             case WM_MOUSEMOVE: {
-                
                 Event->Kind = OSEventKind_MouseMove;
-                
-                POINT MouseP;
-                GetCursorPos(&MouseP);
-                Event->MouseP = {
-                    (f32)MouseP.x,
-                    (f32)(OSInput.WindowSize.Height-MouseP.y)
-                };
-                
+                Event->MouseP = Win32GetMouseP();
             }break;
             default: {
-                DefWindowProcA(MainWindow, Message.message, 
+                DefWindowProcA(Message.hwnd, Message.message, 
                                Message.wParam, Message.lParam);
             }break;
         }
@@ -603,23 +520,13 @@ WinMain(HINSTANCE Instance,
             
             Running = true;
             while(Running){
-                
-                //DispatchMessageA(&Message);
-                
                 RECT ClientRect;
                 GetClientRect(MainWindow, &ClientRect);
                 OSInput.WindowSize = {
                     (f32)(ClientRect.right - ClientRect.left),
                     (f32)(ClientRect.bottom - ClientRect.top),
                 };
-                POINT MouseP;
-                GetCursorPos(&MouseP);
-                OSInput.MouseP = {
-                    (f32)MouseP.x,
-                    (f32)(OSInput.WindowSize.Height-MouseP.y)
-                };
-                
-                // TODO(Tyler): Multithreading?
+                OSInput.MouseP = Win32GetMouseP();
                 GameUpdateAndRender();
                 
                 f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
@@ -635,11 +542,8 @@ WinMain(HINSTANCE Instance,
                 }
                 else
                 {
-                    // TODO(Tyler): Error logging
-                    //Assert(0);
-                    LogError("Missed FPS");
+                    LogMessage("Missed FPS");
                     OSInput.dTimeForFrame = SecondsElapsed;
-                    // TODO(Tyler): I don't know if this is a good solution
                     if(OSInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
                         OSInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
                     }
@@ -659,7 +563,7 @@ WinMain(HINSTANCE Instance,
         {
             // TODO(Tyler): Error logging!
             OutputDebugString("Failed to create window!");
-            LogError("Win32: Failed to create window!");
+            LogMessage("Win32: Failed to create window!");
         }
         
     }
@@ -667,11 +571,11 @@ WinMain(HINSTANCE Instance,
     {
         // TODO(Tyler): Error logging!
         OutputDebugString("Failed to register window class!");
-        LogError("Win32: Failed to register window class!!");
+        LogMessage("Win32: Failed to register window class!!");
     }
     
 #if 1
-    WriteWorldsToFiles();
+    WorldManager.WriteWorldsToFiles();
     WriteEntitySpecs("entities.sje");
 #endif
     

@@ -11,13 +11,15 @@ enum entity_editor_action {
     EntityEditorAction_None,
     
     EntityEditorAction_LeftClick,
-    EntityEditorAction_AttemptToSelectSpec,
     EntityEditorAction_LeftClickDragging,
     EntityEditorAction_EndLeftClick,
     
     EntityEditorAction_RightClick,
     EntityEditorAction_RightClickDragging,
     EntityEditorAction_EndRightClick,
+    
+    EntityEditorAction_AttemptToSelectSpec,
+    EntityEditorAction_DraggingBoundary,
 };
 
 struct entity_editor {
@@ -25,11 +27,16 @@ struct entity_editor {
     u8 CurrentBoundary;
     boundary_edit_mode BoundaryEditMode;
     collision_boundary_type BoundaryType;
+    collision_boundary *DraggingBoundary;
     
     entity_editor_action Action;
     
+    camera Camera;
+    
     v2 CursorP;
     v2 Cursor2P;
+    
+    v2 DraggingOffset;
     
     f32 FloorY;
     v2 EntityP;
@@ -81,15 +88,19 @@ struct entity_editor {
         
     };
     
+    void ProcessAction(render_group *RenderGroup);
     void UpdateAndRender();
-    void ProcessInput(f32 MetersToPixels);
+    void ProcessInput();
     void ProcessKeyDown(os_key_code KeyCode);
     void ProcessBoundaryAction(render_group *RenderGroup);
     void DoUI(render_group *RenderGroup);
+    inline void GetBoundaries(collision_boundary **Boundaries, u8 **Count);
+    inline void CanonicalizeBoundary(collision_boundary *Boundary);
 };
 
 internal u32
 UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
-                            u32 SelectedSpec=0, b8 TestY=false, f32 YMin=0.0f, f32 YMax=0.0f);
+                            f32 MetersToPixels, u32 SelectedSpec=0, b8 TestY=false, 
+                            f32 YMin=0.0f, f32 YMax=0.0f);
 
 #endif //ENTITY_EDITOR_H

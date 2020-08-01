@@ -8,7 +8,7 @@ enum entity_type {
     EntityType_Coin      = 2,
     
     EntityType_Enemy     = 3,
-    // 4
+    EntityType_Art       = 4,
     // 5
     // 6
     EntityType_Player    = 7,
@@ -58,6 +58,12 @@ struct door_entity {
     b8 IsOpen;
     
     f32 Cooldown;
+};
+
+struct art_entity {
+    v2 P;
+    f32 Z;
+    char *Asset;
 };
 
 typedef u32 entity_flags;
@@ -142,8 +148,11 @@ struct entity_manager {
     projectile_entity *Projectiles;
     u32 ProjectileCount;
     
+    art_entity *Arts;
+    u32 ArtCount;
+    
     void ProcessEvent(os_event *Event);
-    void UpdateAndRenderEntities(render_group *RenderGroup);
+    void UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera);
 };
 
 

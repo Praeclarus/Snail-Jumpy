@@ -36,7 +36,6 @@ enum direction {
     Direction_Right = Direction_East,
 };
 
-
 #include "primitive_types.h"
 #include "helpers.cpp"
 #include "allocators.cpp"
@@ -70,23 +69,9 @@ struct state_change_data {
     const char *NewLevel;
 };
 
-//~  Things without a true home
-
-#pragma pack(push, 1)
-struct overworld_file_header {
-    char Header[3]; // 'S', 'J', 'O'
-    u32 Version;
-    u32 WidthInTiles;
-    u32 HeightInTiles;
-    u32 TeleporterCount;
-    u32 DoorCount;
-};
-#pragma pack(pop)
-
 //~ Forward declarations
 
 internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
-internal inline void SetCameraCenterP(v2 P, u32 XTiles, u32 YTiles);
 internal void UpdateCoin(u32 Id);
 internal inline void DamagePlayer(u32 Damage);
 internal void StunEnemy(enemy_entity *Enemy);
@@ -95,7 +80,6 @@ internal void ChangeEntityState(entity *Entity, entity_state NewState);
 internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
 internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
 internal b8 ShouldEntityUpdate(entity *Entity);
-internal world_data *LoadWorldFromFile(const char *Name);
 
 
 #endif

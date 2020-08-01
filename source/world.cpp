@@ -9,7 +9,7 @@ IsLevelCompleted(const char *LevelName){
     if(LevelName[0] == '\0'){
         Result = true;
     }else if(LevelName){
-        world_data *World = FindInHashTablePtr(&WorldTable, LevelName);
+        world_data *World = WorldManager.GetWorld(LevelName);
         if(World){
             Result = World->Flags & WorldFlag_IsCompleted;
         }
@@ -81,10 +81,7 @@ LoadWorld(const char *LevelName){
     ResetEntitySystem();
     
     if(LevelName){
-        world_data *World = FindInHashTablePtr(&WorldTable, LevelName);
-        if(!World){
-            World = LoadWorldFromFile(LevelName);
-        }
+        world_data *World = WorldManager.GetWorld(LevelName);
         
         if(World){
             CurrentWorld = World;
@@ -124,75 +121,102 @@ LoadWorld(const char *LevelName){
                 Score = 0; // HACK: UpdateCoin changes this value
             }
             
-            // Enemies
-            {
-                AllocateNEntities(CurrentWorld->Enemies.Count, EntityType_Enemy);
-                for(u32 I = 0; I < CurrentWorld->Enemies.Count; I ++){
-                    entity_data *Enemy = &CurrentWorld->Enemies[I];
-                    entity_spec *Spec = &EntitySpecs[Enemy->SpecID];
-                    EntityManager.Enemies[I] = {};
-                    EntityManager.Enemies[I].Type  = Spec->Type;
-                    EntityManager.Enemies[I].Flags = Spec->Flags;
-                    
-                    v2 P = Enemy->P; P.Y += 0.001f;
-                    EntityManager.Enemies[I].P = P;
-                    
-                    EntityManager.Enemies[I].Speed = Spec->Speed;
-                    EntityManager.Enemies[I].Damage = Spec->Damage;
-                    
-                    
-                    EntityManager.Enemies[I].BoundaryCount = Spec->BoundaryCount;
-                    for(u32 J = 0; J < Spec->BoundaryCount; J++){
-                        EntityManager.Enemies[I].Boundaries[J] = Spec->Boundaries[J];
-                        EntityManager.Enemies[I].Boundaries[J].P = P + Spec->Boundaries[J].P;
-                    }
-                    
-                    EntityManager.Enemies[I].State = State_Moving;
-                    EntityManager.Enemies[I].ZLayer = -0.7f;
-                    EntityManager.Enemies[I].Asset = Spec->Asset;
-                    
-                    EntityManager.Enemies[I].Direction = Enemy->Direction;
-                    EntityManager.Enemies[I].PathStart = Enemy->PathStart;
-                    EntityManager.Enemies[I].PathEnd = Enemy->PathEnd;
+            // TODO(Tyler): I don't know if this is a good way to do it, 
+            // but we shall see, this could possibly be something that is a product
+            // of a flaw in entity allocation, so maybe it would be better to have entity
+            // allocation be more dynamic instead of static, this would allow more 
+            // fancy things in the future, maybe with a bucket array, that allocates in 
+            // chunks?
+            u32 EnemyCount=0, DoorCount=0, TeleporterCount=0, ArtCount=0;
+            for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
+                switch(CurrentWorld->Entities[I].Type){
+                    case EntityType_Enemy: {
+                        EnemyCount++;
+                    }break;
+                    case EntityType_Teleporter: {
+                        TeleporterCount++;
+                    }break;
+                    case EntityType_Door: {
+                        DoorCount++;
+                    }break;
+                    case EntityType_Art: {
+                        ArtCount++;
+                    }break;
                 }
             }
+            AllocateNEntities(EnemyCount, EntityType_Enemy);
+            AllocateNEntities(DoorCount, EntityType_Door);
+            AllocateNEntities(TeleporterCount, EntityType_Teleporter);
+            AllocateNEntities(ArtCount, EntityType_Art);
             
-            // Doors
-            {
-                AllocateNEntities(CurrentWorld->Doors.Count, EntityType_Door);
-                for(u32 I = 0; I < CurrentWorld->Doors.Count; I++){
-                    door_data *Data = &CurrentWorld->Doors[I];
-                    door_entity *Door = &EntityManager.Doors[I];
-                    Door->Boundary.Type = BoundaryType_Rectangle;
-                    Door->Boundary.P = Data->P;
-                    Door->Boundary.Size = Data->Size;
-                    Door->IsOpen = false;
-                    
-                    if(IsLevelCompleted(Data->RequiredLevel)){
-                        OpenDoor(Door);
-                    }
+            u32 EnemyIndex=0, DoorIndex=0, TeleporterIndex=0, ArtIndex=0;
+            for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
+                entity_data *Entity = &CurrentWorld->Entities[I];
+                switch(Entity->Type){
+                    case EntityType_Enemy: {
+                        entity_spec *Spec = &EntitySpecs[Entity->SpecID];
+                        EntityManager.Enemies[EnemyIndex] = {};
+                        EntityManager.Enemies[EnemyIndex].Type  = Spec->Type;
+                        EntityManager.Enemies[EnemyIndex].Flags = Spec->Flags;
+                        
+                        v2 P = Entity->P; P.Y += 0.001f;
+                        EntityManager.Enemies[EnemyIndex].P = P;
+                        
+                        EntityManager.Enemies[EnemyIndex].Speed = Spec->Speed;
+                        EntityManager.Enemies[EnemyIndex].Damage = Spec->Damage;
+                        
+                        EntityManager.Enemies[EnemyIndex].BoundaryCount = Spec->BoundaryCount;
+                        for(u32 J = 0; J < Spec->BoundaryCount; J++){
+                            EntityManager.Enemies[EnemyIndex].Boundaries[J] = Spec->Boundaries[J];
+                            EntityManager.Enemies[EnemyIndex].Boundaries[J].P = P + Spec->Boundaries[J].P;
+                        }
+                        
+                        EntityManager.Enemies[EnemyIndex].State = State_Moving;
+                        EntityManager.Enemies[EnemyIndex].ZLayer = -0.7f;
+                        EntityManager.Enemies[EnemyIndex].Asset = Spec->Asset;
+                        
+                        EntityManager.Enemies[EnemyIndex].Direction = Entity->Direction;
+                        EntityManager.Enemies[EnemyIndex].PathStart = Entity->PathStart;
+                        EntityManager.Enemies[EnemyIndex].PathEnd = Entity->PathEnd;
+                        
+                        EnemyIndex++;
+                    }break;
+                    case EntityType_Teleporter: {
+                        EntityManager.Teleporters[TeleporterIndex] = {};
+                        EntityManager.Teleporters[TeleporterIndex].Boundary.P = Entity->P;
+                        EntityManager.Teleporters[TeleporterIndex].Boundary.Size = TILE_SIZE;
+                        EntityManager.Teleporters[TeleporterIndex].Level = Entity->Level;
+                        EntityManager.Teleporters[TeleporterIndex].IsLocked = true;
+                        
+                        EntityManager.Teleporters[TeleporterIndex].IsLocked = 
+                            !IsLevelCompleted(Entity->TRequiredLevel);
+                        
+                        TeleporterIndex++;
+                    }break;
+                    case EntityType_Door: {
+                        door_entity *Door = &EntityManager.Doors[DoorIndex];
+                        Door->Boundary.Type = BoundaryType_Rectangle;
+                        Door->Boundary.P = Entity->P;
+                        Door->Boundary.Size = Entity->Size;
+                        Door->IsOpen = false;
+                        
+                        if(IsLevelCompleted(Entity->DRequiredLevel)){
+                            OpenDoor(Door);
+                        }
+                        
+                        DoorIndex++;
+                    }break;
+                    case EntityType_Art: {
+                        art_entity *Art = &EntityManager.Arts[ArtIndex];
+                        *Art = {};
+                        Art->P = Entity->P;
+                        Art->Z = Entity->Z;
+                        Art->Asset = Entity->Asset;
+                        
+                        ArtIndex++;
+                    }break;
                 }
-            }
-            
-            // Teleporters
-            {
-                AllocateNEntities(CurrentWorld->Teleporters.Count, EntityType_Teleporter);
-                u32 CurrentId = 0;
-                for(u32 I = 0; I < CurrentWorld->Teleporters.Count; I++){
-                    teleporter_data *Teleporter = &CurrentWorld->Teleporters[I];
-                    
-                    EntityManager.Teleporters[CurrentId] = {};
-                    EntityManager.Teleporters[CurrentId].Boundary.P = Teleporter->P;
-                    EntityManager.Teleporters[CurrentId].Boundary.Size = TILE_SIZE;
-                    EntityManager.Teleporters[CurrentId].Level = 
-                        CurrentWorld->Teleporters[CurrentId].Level;
-                    EntityManager.Teleporters[CurrentId].IsLocked = true;
-                    
-                    EntityManager.Teleporters[CurrentId].IsLocked = 
-                        !IsLevelCompleted(CurrentWorld->Teleporters[CurrentId].RequiredLevel);
-                    
-                    CurrentId++;
-                }
+                
             }
             
             // TODO(Tyler): Formalize player starting position
@@ -216,17 +240,18 @@ LoadWorld(const char *LevelName){
 global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
 
 // TODO(Tyler): This could be made more ROBUST and probably FASTER
-internal world_data *
-LoadWorldFromFile(const char *Name){
+world_data *
+world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
     TIMED_FUNCTION();
     
-    const char *WorldName = PushCString(&StringMemory, Name);
-    world_data *NewWorld = CreateInHashTablePtr(&WorldTable, Name);
-    NewWorld->Name = WorldName;
+    world_data *NewWorld = 0;
     char Path[512];
     stbsp_snprintf(Path, 512, "worlds/%s.sjw", Name);
     entire_file File = ReadEntireFile(&TransientStorageArena, Path);
     if(File.Size){
+        const char *WorldName = PushCString(&StringMemory, Name);
+        NewWorld = WorldManager.CreateNewWorld(Name);
+        NewWorld->Name = WorldName;
         stream Stream = CreateReadStream(File.Data, File.Size);
         
         world_file_header *Header = ConsumeType(&Stream, world_file_header);
@@ -236,18 +261,8 @@ LoadWorldFromFile(const char *Name){
         Assert(Header->Version == CURRENT_WORLD_FILE_VERSION);
         NewWorld->Width = Header->WidthInTiles;
         NewWorld->Height = Header->HeightInTiles;
-        if(Header->EnemyCount > 0){
-            NewWorld->Enemies = CreateNewArray<entity_data>(&EnemyMemory, 64);
-            NewWorld->Enemies.Count = Header->EnemyCount;
-        }
-        if(Header->TeleporterCount > 0){
-            NewWorld->Teleporters = CreateNewArray<teleporter_data>(&TeleporterMemory, 64);
-            NewWorld->Teleporters.Count = Header->TeleporterCount;
-        }
-        if(Header->DoorCount > 0){
-            NewWorld->Doors = CreateNewArray<door_data>(&DoorMemory, 64);
-            NewWorld->Doors.Count = Header->DoorCount;
-        }
+        NewWorld->Entities = CreateNewArray<entity_data>(&Memory, 64);
+        NewWorld->Entities.Count = Header->EntityCount;
         if(Header->IsTopDown){
             NewWorld->Flags |= WorldFlag_IsTopDown;
         }
@@ -265,46 +280,55 @@ LoadWorldFromFile(const char *Name){
         NewWorld->Map = (u8 *)DefaultAlloc(MapSize);
         CopyMemory(NewWorld->Map, Map, MapSize);
         
-        for(u32 I = 0; I < NewWorld->Enemies.Count; I++){
-            entity_data *Enemy = &NewWorld->Enemies[I];
-            Enemy->P = *ConsumeType(&Stream, v2);
-            Enemy->SpecID = *ConsumeType(&Stream, u32);
-            Enemy->Direction = *ConsumeType(&Stream, direction);
-            Enemy->PathStart = *ConsumeType(&Stream, v2);
-            Enemy->PathEnd = *ConsumeType(&Stream, v2);
+        for(u32 I = 0; I < NewWorld->Entities.Count; I++){
+            entity_data *Entity = &NewWorld->Entities[I];
+            Entity->P      = *ConsumeType(&Stream, v2);
+            Entity->Type   = *ConsumeType(&Stream, u32);
+            Entity->SpecID = *ConsumeType(&Stream, u32);
+            switch(Entity->Type){
+                case EntityType_Enemy: {
+                    Entity->Direction = *ConsumeType(&Stream, direction);
+                    Entity->PathStart = *ConsumeType(&Stream, v2);
+                    Entity->PathEnd = *ConsumeType(&Stream, v2);
+                }break;
+                case EntityType_Teleporter: {
+                    Entity->Level = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    char *Level = ConsumeString(&Stream);
+                    CopyCString(Entity->Level, Level, DEFAULT_BUFFER_SIZE);
+                    Entity->TRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    char *RequiredLevel = ConsumeString(&Stream);
+                    CopyCString(Entity->TRequiredLevel, RequiredLevel, DEFAULT_BUFFER_SIZE);
+                }break;
+                case EntityType_Door: {
+                    Entity->Size = *ConsumeType(&Stream, v2);
+                    Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    char *RequiredLevel = ConsumeString(&Stream);
+                    CopyCString(Entity->DRequiredLevel, RequiredLevel, DEFAULT_BUFFER_SIZE);
+                }break;
+                case EntityType_Art: {
+                    Entity->Asset = PushCString(&StringMemory, ConsumeString(&Stream));
+                    Entity->Z = *ConsumeType(&Stream, f32);
+                }break;
+                default: INVALID_CODE_PATH; break;
+            }
         }
         
-        for(u32 I = 0; I < Header->TeleporterCount; I++){
-            NewWorld->Teleporters[I].P = *ConsumeType(&Stream, v2);
-            char *Level = ConsumeString(&Stream);
-            CopyCString(NewWorld->Teleporters[I].Level, Level, 512);
-            char *RequiredLevel = ConsumeString(&Stream);
-            CopyCString(NewWorld->Teleporters[I].RequiredLevel, 
-                        RequiredLevel, 512);
-        }
-        
-        for(u32 I = 0; I < Header->DoorCount; I++){
-            v2 *P = ConsumeType(&Stream, v2);
-            v2 *Size = ConsumeType(&Stream, v2);
-            NewWorld->Doors[I].P = *P;
-            NewWorld->Doors[I].Size = *Size;
-            char *RequiredLevel = ConsumeString(&Stream);
-            CopyCString(NewWorld->Doors[I].RequiredLevel, 
-                        RequiredLevel, 512);
-        }
-    }else{
+    }else if(AlwaysWork){
+        const char *WorldName = PushCString(&StringMemory, Name);
+        NewWorld = WorldManager.CreateNewWorld(Name);
+        NewWorld->Name = WorldName;
         NewWorld->Width = 32;
         NewWorld->Height = 18;
         u32 MapSize = NewWorld->Width*NewWorld->Height;
         //NewData->MapData = PushArray(&MapDataMemory, u8, MapSize);
         NewWorld->Map = (u8 *)DefaultAlloc(MapSize);
-        NewWorld->Enemies = CreateNewArray<entity_data>(&EnemyMemory, 64);
+        NewWorld->Entities = CreateNewArray<entity_data>(&Memory, 64);
     }
     return(NewWorld);
 }
 
-internal void
-WriteWorldsToFiles(){
+void
+world_manager::WriteWorldsToFiles(){
     for(u32 I = 0; I < WorldTable.MaxBuckets; I++){
         if(WorldTable.Hashes[I] == 0) continue;
         
@@ -323,9 +347,7 @@ WriteWorldsToFiles(){
         Header.Version = CURRENT_WORLD_FILE_VERSION;
         Header.WidthInTiles = World->Width;
         Header.HeightInTiles = World->Height;
-        Header.EnemyCount = World->Enemies.Count;
-        Header.TeleporterCount = World->Teleporters.Count;
-        Header.DoorCount = World->Doors.Count;
+        Header.EntityCount = World->Entities.Count;
         Header.IsTopDown = (World->Flags & WorldFlag_IsTopDown);
         Header.CoinsToSpawn = World->CoinsToSpawn;
         Header.CoinsRequired = World->CoinsRequired;
@@ -341,44 +363,83 @@ WriteWorldsToFiles(){
         WriteToFile(File, Offset, World->Map, MapSize);
         Offset += MapSize;
         
-        for(u32 I = 0; I < World->Enemies.Count; I++){
-            entity_data *Enemy = &World->Enemies[I];
-            WriteVariableToFile(File, Offset, Enemy->P);
-            WriteVariableToFile(File, Offset, Enemy->SpecID);
-            WriteVariableToFile(File, Offset, Enemy->Direction);
-            WriteVariableToFile(File, Offset, Enemy->PathStart);
-            WriteVariableToFile(File, Offset, Enemy->PathEnd);
-        }
-        
-        for(u32 I = 0; I < World->Teleporters.Count; I++){
-            teleporter_data *Data = &World->Teleporters[I];
-            WriteVariableToFile(File, Offset, Data->P);
-            {
-                u32 Length = CStringLength(Data->Level);
-                WriteToFile(File, Offset, Data->Level, Length+1);
-                Offset += Length+1;
-            }{
-                u32 Length = CStringLength(Data->RequiredLevel);
-                WriteToFile(File, Offset, Data->RequiredLevel, Length+1);
-                Offset += Length+1;
-            }
-        }
-        
-        for(u32 I = 0; I < World->Doors.Count; I++){
-            door_data *Data = &World->Doors[I];
-            {
-                WriteToFile(File, Offset, &Data->P, sizeof(Data->P));
-                Offset += sizeof(Data->P);
-            }{
-                WriteToFile(File, Offset, &Data->Size, sizeof(Data->Size));
-                Offset += sizeof(Data->Size);
-            }{
-                u32 Length = CStringLength(Data->RequiredLevel);
-                WriteToFile(File, Offset, Data->RequiredLevel, Length+1);
-                Offset += Length+1;
+        for(u32 I = 0; I < World->Entities.Count; I++){
+            entity_data *Entity = &World->Entities[I];
+            WriteVariableToFile(File, Offset, Entity->P);
+            WriteVariableToFile(File, Offset, Entity->Type);
+            WriteVariableToFile(File, Offset, Entity->SpecID);
+            switch(Entity->Type){
+                case EntityType_Enemy: {
+                    WriteVariableToFile(File, Offset, Entity->Direction);
+                    WriteVariableToFile(File, Offset, Entity->PathStart);
+                    WriteVariableToFile(File, Offset, Entity->PathEnd);
+                }break;
+                case EntityType_Teleporter: {
+                    {
+                        u32 Length = CStringLength(Entity->Level);
+                        WriteToFile(File, Offset, Entity->Level, Length+1);
+                        Offset += Length+1;
+                    }{
+                        u32 Length = CStringLength(Entity->TRequiredLevel);
+                        WriteToFile(File, Offset, Entity->TRequiredLevel, Length+1);
+                        Offset += Length+1;
+                    }
+                }break;
+                case EntityType_Door: {
+                    {
+                        WriteVariableToFile(File, Offset, Entity->Size);
+                    }{
+                        u32 Length = CStringLength(Entity->DRequiredLevel);
+                        WriteToFile(File, Offset, Entity->DRequiredLevel, Length+1);
+                        Offset += Length+1;
+                    }
+                }break;
+                case EntityType_Art: {
+                    u32 Length = CStringLength(Entity->Asset);
+                    WriteToFile(File, Offset, Entity->Asset, Length+1);
+                    Offset += Length+1;
+                    WriteVariableToFile(File, Offset, Entity->Z);
+                }break;
+                default: INVALID_CODE_PATH; break;
             }
         }
         
         CloseFile(File);
     }
+}
+
+void
+world_manager::Initialize(memory_arena *Arena){
+    Memory = PushNewArena(Arena, Kilobytes(512));
+    WorldTable = PushHashTable<const char *, world_data>(Arena, 512);
+}
+
+world_data *
+world_manager::GetWorld(const char *Name, b8 AlwaysWork){
+    world_data *Result = FindInHashTablePtr<const char *, world_data>(&WorldTable, Name);
+    if(!Result){
+        Result = LoadWorldFromFile(Name, AlwaysWork);
+    }
+    
+    return(Result);
+}
+
+world_data *
+world_manager::CreateNewWorld(const char *Name){
+    world_data *Result = FindInHashTablePtr<const char *, world_data>(&WorldTable, Name);
+    if(Result){
+        Result = 0;
+    }else{
+        Result = CreateInHashTablePtr<const char *, world_data>(&WorldTable, Name);
+    }
+    
+    return(Result);
+}
+
+void 
+world_manager::RemoveWorld(const char *Name){
+    char Buffer[256];
+    stbsp_snprintf(Buffer, sizeof(Buffer), "worlds//%s.sjw", Name);
+    DeleteFileAtPath(Buffer);
+    RemoveFromHashTable<const char *, world_data>(&WorldTable, Name);
 }

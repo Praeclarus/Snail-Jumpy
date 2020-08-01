@@ -41,6 +41,10 @@ AllocateNEntities(u32 N, entity_type Type){
             EntityManager.ProjectileCount = N;
             EntityManager.Projectiles = PushArray(&EntityManager.Memory, projectile_entity, N);
         }break;
+        case EntityType_Art: {
+            EntityManager.ArtCount = N;
+            EntityManager.Arts = PushArray(&EntityManager.Memory, art_entity, N);
+        }break;
         default: {
             Assert(0);
         }break;
@@ -201,7 +205,7 @@ UpdateEnemyHitBox(enemy_entity *Enemy){
 
 internal void
 StunEnemy(enemy_entity *Enemy){
-    if(!(Enemy->Flags & EntityFlags_CanBeStunned) ){
+    if(Enemy->Flags & EntityFlags_CanBeStunned){
         SetEntityStateUntilAnimationIsOver(Enemy, State_Retreating);
         UpdateEnemyHitBox(Enemy);
     }
@@ -238,7 +242,7 @@ entity_manager::ProcessEvent(os_event *Event){
 // TODO(Tyler): The functions for the platformer player and the overworld player could
 // probably be tranformed into one function, do this!!!
 internal void
-UpdateAndRenderPlatformerPlayer(render_group *RenderGroup){
+UpdateAndRenderPlatformerPlayer(render_group *RenderGroup, camera *Camera){
     player_entity *Player = EntityManager.Player;
     if(Player->Cooldown <= 0.0f){
         v2 ddP = {0};
@@ -308,8 +312,6 @@ UpdateAndRenderPlatformerPlayer(render_group *RenderGroup){
             else ChangeEntityState(Player, State_Idle);
         }
         
-        
-        
         v2 dPOffset = {0};
         if(Player->IsRidingDragonfly){
             enemy_entity *Dragonfly = &EntityManager.Enemies[Player->RidingDragonfly];
@@ -323,15 +325,14 @@ UpdateAndRenderPlatformerPlayer(render_group *RenderGroup){
             DamagePlayer(2);
         }
         
-        SetCameraCenterP(Player->P, CurrentWorld->Width, 
-                         CurrentWorld->Height);
+        Camera->SetCenter(Player->P, CurrentWorld);
     }
     
-    UpdateAndRenderAnimation(RenderGroup, Player, OSInput.dTimeForFrame);
+    UpdateAndRenderAnimation(RenderGroup, Camera, Player, OSInput.dTimeForFrame);
 }
 
 internal void
-UpdateAndRenderTopDownPlayer(render_group *RenderGroup){
+UpdateAndRenderTopDownPlayer(render_group *RenderGroup, camera *Camera){
     v2 ddP = {0};
     
     if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
@@ -390,56 +391,43 @@ UpdateAndRenderTopDownPlayer(render_group *RenderGroup){
     
     MoveEntity(EntityManager.Player, 0, ddP, 0.7f, 0.7f);
     
-    UpdateAndRenderAnimation(RenderGroup, EntityManager.Player, 
+    Camera->SetCenter(EntityManager.Player->P, CurrentWorld);
+    UpdateAndRenderAnimation(RenderGroup, Camera, EntityManager.Player, 
                              OSInput.dTimeForFrame);
-    
-#if 0
-    v2 P = EntityManager.Player->P - CameraP;
-    RenderRectangle(&RenderGroup, P-0.5f*Player->Size, P+0.5f*Player->Size,
-                    Player->ZLayer, YELLOW);
-#endif
-    
-    SetCameraCenterP(EntityManager.Player->P, CurrentWorld->Width, 
-                     CurrentWorld->Height);
 }
 
 void 
-entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
+entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera){
     //~ Walls
+    BEGIN_TIMED_BLOCK(UpdateAndRenderWalls);
     for(u32 WallId = 0; WallId < EntityManager.WallCount; WallId++){
         wall_entity *Entity = &EntityManager.Walls[WallId];
-        v2 P = Entity->Boundary.P - CameraP;
+        v2 P = Entity->Boundary.P;
         v2 Size = Entity->Boundary.Size;
-        if(16.0f < P.X-Size.Width/2) continue;
-        if(P.X+Size.Width/2 < 0.0f) continue;
-        if(9.0f < P.Y-Size.Height/2) continue;
-        if(P.Y+Size.Height/2 < 0.0f) continue;
-        RenderRectangle(RenderGroup,
-                        P-(Size/2), P+(Size/2), 0.0f,
-                        color{1.0f, 1.0f, 1.0f, 1.0f});
+        RenderCenteredRectangle(RenderGroup, P, Size, 0.0f, WHITE, Camera);
     }
+    END_TIMED_BLOCK();
     
     //~ Coins
+    BEGIN_TIMED_BLOCK(UpdateAndRenderCoins);
     for(u32 CoinId = 0; CoinId < EntityManager.CoinCount; CoinId++){
         coin_entity *Coin = &EntityManager.Coins[CoinId];
-        v2 P = Coin->Boundary.P - CameraP;
+        v2 P = Coin->Boundary.P;
         v2 Size = Coin->Boundary.Size;
-        if(16.0f < P.X-Size.Width/2) continue;
-        if(P.X+Size.Width/2 < 0.0f) continue;
-        if(9.0f < P.Y-Size.Height/2) continue;
-        if(P.Y+Size.Height/2 < 0.0f) continue;
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTimeForFrame;
         }else{
-            RenderRectangle(RenderGroup, P-(Size/2), P+(Size/2), 0.0f,
-                            {1.0f, 1.0f, 0.0f, 1.0f});
+            RenderRectangle(RenderGroup, P-(Size/2), P+(Size/2), 0.0f, BLUE, Camera);
         }
     }
+    END_TIMED_BLOCK();
     
     //~ Enemies
+    
+    BEGIN_TIMED_BLOCK(UpdateAndRenderEnemies);
     for(u32 Id = 0; Id < EntityManager.EnemyCount; Id++){
         enemy_entity *Enemy = &EntityManager.Enemies[Id];
-        v2 P = Enemy->P - CameraP;
+        v2 P = Enemy->P;
         
         if(ShouldEntityUpdate(Enemy) &&
            (Enemy->State != State_Stunned) &&
@@ -502,23 +490,20 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
         // TODO(Tyler): I don't like this function
         UpdateEnemyHitBox(Enemy);
         
-        UpdateAndRenderAnimation(RenderGroup, Enemy, OSInput.dTimeForFrame);
+        UpdateAndRenderAnimation(RenderGroup, Camera, Enemy, OSInput.dTimeForFrame);
     }
+    END_TIMED_BLOCK();
     
     //~ Doors
+    BEGIN_TIMED_BLOCK(UpdateAndRenderDoors);
     for(u32 DoorId = 0; DoorId < EntityManager.DoorCount; DoorId++){
         door_entity *Door = &EntityManager.Doors[DoorId];
-        v2 P = Door->Boundary.P - CameraP;
+        v2 P = Door->Boundary.P;
         Door->Cooldown -= OSInput.dTimeForFrame;
-        
-        if(16.0f < P.X-Door->Boundary.Size.Width/2) continue;
-        if(P.X+Door->Boundary.Size.Width/2 < 0.0f) continue;
-        if(9.0f < P.Y-Door->Boundary.Size.Height/2) continue;
-        if(P.Y+Door->Boundary.Size.Height/2 < 0.0f) continue;
         
         if(!Door->IsOpen){
             RenderRectangle(RenderGroup, P-(Door->Boundary.Size/2), 
-                            P+(Door->Boundary.Size/2), 0.0f, BROWN);
+                            P+(Door->Boundary.Size/2), 0.0f, BROWN, Camera);
         }else{
             color Color = BROWN;
             Color.A = Door->Cooldown;
@@ -526,22 +511,20 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
                 Color.A = 0.3f;
             }
             RenderRectangle(RenderGroup, P-(Door->Boundary.Size/2), 
-                            P+(Door->Boundary.Size/2), 0.0f, Color);
+                            P+(Door->Boundary.Size/2), 0.0f, Color, Camera);
         }
     }
+    END_TIMED_BLOCK();
     
     //~ Teleporters
-    // NOTE(Tyler): Teleporters
+    BEGIN_TIMED_BLOCK(UpdateAndRenderTeleporters);
     for(u32 Id = 0; Id < EntityManager.TeleporterCount; Id++){
         teleporter *Teleporter = &EntityManager.Teleporters[Id];
-        v2 P = Teleporter->Boundary.P - CameraP;
-        if(16.0f < P.X-Teleporter->Boundary.Size.Width/2) continue;
-        if(P.X+Teleporter->Boundary.Size.Width/2 < 0.0f) continue;
-        if(9.0f < P.Y-Teleporter->Boundary.Size.Height/2) continue;
-        if(P.Y+Teleporter->Boundary.Size.Height/2 < 0.0f) continue;
+        v2 P = Teleporter->Boundary.P;
+        
         if(!Teleporter->IsLocked){
             RenderRectangle(RenderGroup, P-(Teleporter->Boundary.Size/2), 
-                            P+(Teleporter->Boundary.Size/2), 0.0f, BLUE);
+                            P+(Teleporter->Boundary.Size/2), 0.0f, GREEN, Camera);
             
             v2 Radius = Teleporter->Boundary.Size/2;
             v2 PlayerMin = EntityManager.Player->P-(EntityManager.Player->Boundaries[0].Size/2);
@@ -553,7 +536,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
                 
                 // TODO(Tyler): I don't know how efficient FindInHashTable actually, it
                 // could likely be improved, and probably should be
-                world_data *World = FindInHashTablePtr(&WorldTable, (const char *)Teleporter->Level);
+                world_data *World = WorldManager.GetWorld(Teleporter->Level);
                 if(World){
                     v2 TileSize = v2{0.1f, 0.1f};
                     v2 MapSize = TileSize.X * v2{(f32)World->Width, (f32)World->Height};
@@ -574,12 +557,10 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
                         P.X,
                         P.Y + Teleporter->Boundary.Size.Y/2 + MapSize.Y + 0.07f
                     };
-                    
-                    StringP *= RenderGroup->MetersToPixels;
                     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
                     StringP.X -= Advance/2;
                     RenderString(RenderGroup, &MainFont, GREEN,
-                                 StringP.X, StringP.Y, -1.0f, Teleporter->Level);
+                                 StringP.X, StringP.Y, -1.0f, Teleporter->Level, Camera);
                     
                     f32 Thickness = 0.03f;
                     v2 Min = MapP-v2{Thickness, Thickness};
@@ -589,10 +570,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
                     RenderRectangle(RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, -0.11f, Color);
                     RenderRectangle(RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.11f, Color);
                     RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.11f, Color);
-                }else{
-                    LoadWorldFromFile(Teleporter->Level);
                 }
-                
                 if(IsKeyJustPressed(KeyCode_Space)){
                     ChangeState(GameMode_MainGame, Teleporter->Level);
                 }
@@ -600,33 +578,49 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup){
         }else{
             RenderRectangle(RenderGroup, P-(Teleporter->Boundary.Size/2), 
                             P+(Teleporter->Boundary.Size/2), 0.0f, 
-                            color{0.0f, 0.0f, 1.0f, 0.5f});
+                            Color(0.0f, 0.0f, 1.0f, 0.5f), Camera);
         }
     }
+    END_TIMED_BLOCK();
     
     //~ Player
+    BEGIN_TIMED_BLOCK(UpdateAndRenderPlayer);
     if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-        UpdateAndRenderTopDownPlayer(RenderGroup);
+        UpdateAndRenderTopDownPlayer(RenderGroup, Camera);
     }else{
-        UpdateAndRenderPlatformerPlayer(RenderGroup);
+        UpdateAndRenderPlatformerPlayer(RenderGroup, Camera);
     }
+    END_TIMED_BLOCK();
     
     //~ Projectiles
-    {
-        projectile_entity *Projectile = EntityManager.Projectiles;
-        if(Projectile->RemainingLife > 0.0f){
-            Projectile->RemainingLife -= OSInput.dTimeForFrame;
-            
-            v2 ddP = v2{0.0f, -11.0f};
-            //MoveProjectile(0, ddP);
-            MoveEntity(Projectile, 0, ddP, 1.0f, 1.0f, 1.0f, v2{0, 0}, 0.3f);
-            
-            v2 P = Projectile->P - CameraP;
-            RenderRectangle(RenderGroup, P-0.5f*Projectile->Boundaries[0].Size, 
-                            P+0.5f*Projectile->Boundaries[0].Size, 
-                            0.7f, WHITE);
-        }
+    BEGIN_TIMED_BLOCK(UpdateAndRenderProjectiles);
+    projectile_entity *Projectile = EntityManager.Projectiles;
+    if(Projectile->RemainingLife > 0.0f){
+        Projectile->RemainingLife -= OSInput.dTimeForFrame;
+        
+        v2 ddP = v2{0.0f, -11.0f};
+        //MoveProjectile(0, ddP);
+        MoveEntity(Projectile, 0, ddP, 1.0f, 1.0f, 1.0f, v2{0, 0}, 0.3f);
+        
+        v2 P = Projectile->P;
+        RenderRectangle(RenderGroup, P-0.5f*Projectile->Boundaries[0].Size, 
+                        P+0.5f*Projectile->Boundaries[0].Size, 
+                        0.7f, WHITE, Camera);
     }
+    END_TIMED_BLOCK();
+    
+    
+    //~ Arts
+    BEGIN_TIMED_BLOCK(UpdateAndRenderArts);
+    for(u32 Id = 0; Id < EntityManager.ArtCount; Id++){
+        art_entity *Art = &Arts[Id];
+        asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Art->Asset);
+        Assert(Asset);
+        v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
+        RenderCenteredTexture(RenderGroup, Art->P, Size, Art->Z, Asset->Texture, 
+                              V2(0,0), V2(1,1), false, Camera);
+    }
+    END_TIMED_BLOCK();
 }
 
 //~ Entity Spec 

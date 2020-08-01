@@ -7,6 +7,7 @@ enum edit_mode {
     EditMode_AddWall       = EntityType_Wall,       // 1
     EditMode_AddCoinP      = EntityType_Coin,       // 2
     EditMode_Enemy         = EntityType_Enemy,      // 3
+    EditMode_AddArt        = EntityType_Art,        // 4
     
     EditMode_AddTeleporter = EntityType_Teleporter, // 8
     EditMode_AddDoor       = EntityType_Door,       // 9
@@ -16,8 +17,7 @@ enum edit_mode {
 
 enum editor_popup {
     EditorPopup_None,
-    EditorPopup_RenameLevel,
-    EditorPopup_LoadLevel,
+    EditorPopup_TextInput,
     EditorPopup_SpecSelector,
 };
 
@@ -33,44 +33,53 @@ enum world_editor_action {
     WorldEditorAction_DraggingThing,
 };
 
-enum editor_thing_type {
-    EditorThing_None,                               // 0
-    EditorThing_EnemyPathStart = 1,                 // 1
-    EditorThing_EnemyPathEnd   = 2,                 // 2
-    EditorThing_Enemy = EntityType_Enemy,           // 3
-    EditorThing_Teleporter = EntityType_Teleporter, // 8
-    EditorThing_Door = EntityType_Door,             // 9
+enum editor_special_thing_type {
+    EditorSpecialThing_None,
+    EditorSpecialThing_PathStart,
+    EditorSpecialThing_PathEnd,
 };
+
+struct world_editor;
+typedef void(*world_editor_text_input_callback)(world_editor *, const char *);
+typedef void(*world_editor_spec_selector_callback)(world_editor *, u32 SpecID);
 
 struct world_editor {
     editor_popup Popup;
-    char Buffer[512];
+    union {
+        world_editor_text_input_callback    TextInputCallback;
+        world_editor_spec_selector_callback SpecSelectorCallback;
+    };
     
+    char PopupBuffer[512];
+    char ArtEntityBuffer[512];
     u32 EntityToAddSpecID;
     
-    v2 CameradP;
+    camera Camera;
+    v2 CameradP; // TODO(Tyler): This needs to be changed
     world_editor_action Action;
     
     v2 MouseP;
     v2 MouseP2;
     v2 CursorP;
     v2 CursorP2;
+    v2 DraggingOffset;
     
-    editor_thing_type SelectedThingType;
-    u32 SelectedThing;
+    editor_special_thing_type SpecialThing;
+    entity_data *SelectedThing;
     
     world_data *World;
     
     edit_mode Mode;
     b8 HideUI;
     
+    
     const f32 CAMERA_MOVE_SPEED = 0.1f;
     const edit_mode FORWARD_EDIT_MODE_TABLE[EditMode_TOTAL] = {
         EditMode_AddWall,       // 0
         EditMode_AddCoinP,      // 1
         EditMode_Enemy,         // 2
-        EditMode_AddTeleporter, // 3
-        EditMode_TOTAL,         // 4
+        EditMode_AddArt,        // 3
+        EditMode_AddTeleporter, // 4
         EditMode_TOTAL,         // 5
         EditMode_TOTAL,         // 6
         EditMode_TOTAL,         // 7
@@ -82,11 +91,11 @@ struct world_editor {
         EditMode_None,          // 1
         EditMode_AddWall,       // 2
         EditMode_AddCoinP,      // 3
-        EditMode_TOTAL,         // 4
+        EditMode_Enemy,         // 4
         EditMode_TOTAL,         // 5
         EditMode_TOTAL,         // 6
         EditMode_TOTAL,         // 7
-        EditMode_Enemy,         // 8
+        EditMode_AddArt,        // 8
         EditMode_AddTeleporter, // 9
     };
     const char *EDIT_MODE_NAME_TABLE[EditMode_TOTAL] = {
@@ -94,7 +103,7 @@ struct world_editor {
         "Add wall",       // 1
         "Add coin P",     // 2
         "Add enemy",      // 3
-        0,                // 4
+        "Add art",        // 4
         0,                // 5
         0,                // 6
         0,                // 7
@@ -102,23 +111,22 @@ struct world_editor {
         "Add door",       // 9
     };
     
+    inline entity_type GetSelectedThingType();
     void UpdateAndRender();
     void UpdateSelectionRectangle();
-    void SelectTeleporter(u32 Id);
-    void SelectDoor(u32 Id);
-    void SelectEnemy(u32 Id);
-    void DoPopup(render_group *RenderGroup);
+    b8   DoPopup(render_group *RenderGroup);
     void DoSelectedThingUI(render_group *RenderGroup);
     void RenderCursor(render_group *RenderGroup);
     
     void ProcessKeyDown(os_key_code KeyCode, b8 JustDown);
-    void ProcessInput(f32 MetersToPixels);
+    void ProcessInput();
     
-    void AddNormalTile(f32 MetersToPixels, u32 Tile);
-    void AddTeleporterTile(f32 MetersToPixels);
+    void AddNormalTile(u32 Tile);
+    void AddTeleporterTile();
     
-    b8 HandleClick(f32 MetersToPixels, b8 ShouldRemove);
-    void ProcessAction(f32 MetersToPixels);
+    void MaybeFadeWindow(window *Window); 
+    b8   HandleClick(b8 ShouldRemove);
+    void ProcessAction();
     
 };
 
