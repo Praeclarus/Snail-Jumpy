@@ -41,6 +41,8 @@ GetBoundaryMinMax(collision_boundary *Boundary, v2 Delta=v2{0}){
 
 internal void
 CollisionSystemNewFrame(){
+    TIMED_FUNCTION();
+    
     CollisionTable.Items = PushArray(&TransientStorageArena, collision_table_item *, 
                                      CollisionTable.Width*CollisionTable.Height);
     ZeroMemory(CollisionTable.Items, 

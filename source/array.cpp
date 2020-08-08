@@ -1,6 +1,11 @@
+internal void
+MoveMemory(const void *To, const void *From, umw Size) {
+    u8 *Temp = PushArray(&TransientStorageArena, u8, Size);
+    CopyMemory(Temp, From, Size);
+    CopyMemory(To, Temp, Size);
+}
 
 //~ Array
-// TODO(Tyler): This is one of the only places where templates are used
 
 // NOTE(Tyler): This is a simple static array, not really a dynamic one
 template<typename T>
@@ -14,15 +19,13 @@ struct array {
         return(Items[Index]);
     }
     
-    inline operator b8(){ return(Items); }
-    inline operator b16(){ return(Items); }
-    inline operator b32(){ return(Items); }
-    inline operator b64(){ return(Items); }
+    inline operator b8(){  return(Items != 0); }
+    inline operator b16(){ return(Items != 0); }
+    inline operator b32(){ return(Items != 0); }
+    inline operator b64(){ return(Items != 0); }
 };
 
-
-template<typename T>
-internal inline void
+template<typename T> internal inline void
 PushItemOntoArray(array<T> *Array, T Item){
     if(Array->Count+1 < Array->MaxCount){
         Array->Items[Array->Count++] = Item;
@@ -31,8 +34,7 @@ PushItemOntoArray(array<T> *Array, T Item){
     }
 }
 
-template<typename T>
-internal inline T *
+template<typename T> internal inline T *
 PushNewArrayItem(array<T> *Array){
     T *Result = 0;
     if(Array->Count+1 < Array->MaxCount){
@@ -43,8 +45,7 @@ PushNewArrayItem(array<T> *Array){
     return(Result);
 }
 
-template<typename T>
-internal inline T *
+template<typename T> internal inline T *
 PushNArrayItems(array<T> *Array, u32 N){
     T *Result = 0;
     if(Array->Count+N < Array->MaxCount){
@@ -56,8 +57,7 @@ PushNArrayItems(array<T> *Array, u32 N){
     return(Result);
 }
 
-template<typename T>
-internal inline array<T>
+template<typename T> internal inline array<T>
 CreateNewArray(memory_arena *Arena, u32 MaxCount){
     array<T> Result = {0};
     Result.Items = PushArray(Arena, T, MaxCount);
@@ -66,8 +66,7 @@ CreateNewArray(memory_arena *Arena, u32 MaxCount){
     return(Result);
 }
 
-template<typename T>
-internal inline T *
+template<typename T> internal inline T *
 InsertNewArrayItem(array<T> *Array, u32 Index){
     MoveMemory(&Array->Items[Index+1], 
                &Array->Items[Index], 
@@ -77,8 +76,7 @@ InsertNewArrayItem(array<T> *Array, u32 Index){
     return(NewItem);
 }
 
-template<typename T>
-internal inline void
+template<typename T> internal inline void
 OrderedRemoveArrayItemAtIndex(array<T> *Array, u32 Index){
     MoveMemory(&Array->Items[Index], 
                &Array->Items[Index+1], 
@@ -86,9 +84,309 @@ OrderedRemoveArrayItemAtIndex(array<T> *Array, u32 Index){
     Array->Count--;
 }
 
-template<typename T>
-internal inline void
+template<typename T> internal inline void
 UnorderedRemoveArrayItemAtIndex(array<T> *Array, u32 Index){
     Array->Items[Index] = Array->Items[Array->Count-1];
     Array->Count--;
+}
+
+//~ Dynamic array
+template <typename T>
+struct dynamic_array {
+    memory_arena *Arena;
+    
+    T *Items;
+    u32 Count;
+    u32 Capacity;
+    
+    inline T &operator[](s64 Index){
+        Assert(Index < Count);
+        return(Items[Index]);
+    }
+    
+    inline operator b8(){  return(Items != 0); }
+    inline operator b16(){ return(Items != 0); }
+    inline operator b32(){ return(Items != 0); }
+    inline operator b64(){ return(Items != 0); }
+};
+
+template <typename T> internal void 
+DynamicArrayInitialize(dynamic_array<T> *Array, int InitialCapacity, memory_arena *Arena=0){
+    *Array = {};
+    if(Arena) Array->Items = PushArray(Arena, T, InitialCapacity);
+    else Array->Items = (T *)DefaultAlloc(InitialCapacity*sizeof(T));
+    Array->Capacity = InitialCapacity;
+}
+
+template <typename T> internal void 
+DynamicArrayPushBack(dynamic_array<T> *Array, T *item){
+    if(Array->Count >= Array->Capacity){
+        umw OldSize = Array->Capacity*sizeof(T);
+        umw NewSize = Array->Capacity*sizeof(T);
+        Array->Capacity *= 2;
+        if(Array->Arena) Array->Items = (T *)ResizeMemory(Array->Arena, Array->Items, OldSize, NewSize);
+        else Array->Items = (T *)DefaultRealloc(Array->Items, NewSize);
+    }
+    Array->Items[Array->Count++] = *item;
+}
+
+template <typename T>
+void DynamicArrayPushBack(dynamic_array<T> *Array, T item){
+    DynamicArrayPushBack(Array, &item);
+}
+
+template <typename T>
+void DynamicArrayFree(dynamic_array<T> *Array){
+    if(!Array->Arena) DefaultFree(Array->Items);
+}
+
+template<typename T> internal inline void
+DynamicArrayOrderedRemove(dynamic_array<T> *Array, u32 Index){
+    MoveMemory(&Array->Items[Index], 
+               &Array->Items[Index+1], 
+               (Array->Count-Index)*sizeof(teleporter_data));
+    Array->Count--;
+}
+
+template<typename T> internal inline void
+DynamicArrayUnorderedRemove(dynamic_array<T> *Array, u32 Index){
+    Array->Items[Index] = Array->Items[Array->Count-1];
+    Array->Count--;
+}
+
+//~ Bit array
+struct bit_array {
+    u8 *Bytes;
+    u32 Count;
+    u32 MaxCount;
+};
+
+internal void
+BitArrayInitialize(bit_array *Array, memory_arena *Arena, u32 MaxCount, b8 Fill=false){
+    *Array = {};
+    Array->Bytes = PushArray(Arena, u8, MaxCount/8);
+    ZeroMemory(Array->Bytes, MaxCount/8);
+    Array->MaxCount = MaxCount;
+    if(Fill) Array->Count = MaxCount;
+}
+
+internal void
+PushBit(bit_array *Array, b8 Bit){
+    Assert(Array->Count+1 < Array->MaxCount);
+    b8 FixedBit = Bit != false; // Make sure it is either 1 or 0
+    Array->Bytes[Array->Count/8] |= (FixedBit << (Array->Count%8));
+    Array->Count++;
+}
+
+internal void
+SetBit(bit_array *Array, u32 Index){
+    Assert(Index < Array->Count);
+    Array->Bytes[Index/8] |= (1 << (Index%8));
+}
+
+internal void
+UnsetBit(bit_array *Array, u32 Index){
+    Assert(Index < Array->Count);
+    Array->Bytes[Index/8] &= ~(1 << (Index%8));
+}
+
+internal b8
+GetBit(bit_array *Array, u32 Index){
+    Assert(Index < Array->Count);
+    b8 Result = (Array->Bytes[Index/8] & (1 << (Index%8))) != 0;
+    return(Result);
+}
+
+internal u32
+BitArrayFindFirstUnsetBit(bit_array *Array){
+    u32 Result = 0;
+    for(u8 *BytePtr = Array->Bytes;
+        BytePtr < Array->Bytes+Array->Count;
+        BytePtr++){
+        bit_scan_result BitScan = ScanForLeastSignificantSetBit(~*BytePtr);
+        if(BitScan.Found){
+            Result = BitScan.Index;
+            break;
+        }
+    }
+    
+    return(Result);
+}
+
+internal u32
+BitArrayFindFirstSetBit(bit_array *Array){
+    u32 Result = 0;
+    for(u8 *BytePtr = Array->Bytes;
+        BytePtr < Array->Bytes+Array->Count;
+        BytePtr++){
+        bit_scan_result BitScan = ScanForLeastSignificantSetBit(*BytePtr);
+        if(BitScan.Found){
+            Result = BitScan.Index;
+            break;
+        }
+    }
+    
+    return(Result);
+}
+
+//~ Bucket array
+
+template <typename T, u32 U>
+struct bucket {
+    u32 Index;
+    u32 Count;
+    bit_array Occupancy; // TODO(Tyler): It might be better just to use a u64 and cap
+    // the maximum value of items per bucket;
+    T Items[U];
+};
+
+template <typename T, u32 U>
+struct bucket_array {
+    memory_arena *Arena;
+    u32 Count;
+    dynamic_array<bucket<T, U> *> Buckets;
+    dynamic_array<bucket<T, U> *> UnfullBuckets;
+};
+
+struct bucket_location {
+    u32 BucketIndex;
+    u32 ItemIndex;
+};
+
+template <typename T, u32 U>
+internal bucket<T, U> *
+AllocateBucket(bucket_array<T, U> *Array){
+    typedef bucket<T, U> this_bucket; // To avoid a comma inside the macro because it 
+    // doesn't like that bucket<T, U> has a comma
+    bucket<T,U> *Result = PushStruct(Array->Arena, this_bucket);
+    Result->Count = 0;
+    Result->Index = Array->Buckets.Count;
+    BitArrayInitialize(&Result->Occupancy, Array->Arena, U, true);
+    DynamicArrayPushBack(&Array->Buckets, Result);
+    DynamicArrayPushBack(&Array->UnfullBuckets, Result);
+    
+    return(Result);
+}
+
+template <typename T, u32 U>
+internal void
+BucketArrayInitialize(bucket_array<T, U> *Array, memory_arena *Arena, 
+                      u32 InitialBuckets=4){
+    Assert(Arena);
+    
+    *Array = {};
+    Array->Arena = Arena;
+    DynamicArrayInitialize(&Array->Buckets, InitialBuckets, Arena);
+    DynamicArrayInitialize(&Array->UnfullBuckets, InitialBuckets, Arena);
+    bucket_location Location;
+    bucket<T, U> *Bucket = AllocateBucket(Array);
+}
+
+template <typename T, u32 U>
+internal T *
+BucketArrayAlloc(bucket_array<T, U> *Array, bucket_location *Location){
+    T *Result = 0;
+    if(Array->UnfullBuckets.Count == 0){
+        AllocateBucket(Array);
+    }
+    
+    bucket<T, U> *Bucket = Array->UnfullBuckets[0];
+    Assert(Bucket->Count < U);
+    u32 ItemIndex = BitArrayFindFirstUnsetBit(&Bucket->Occupancy);
+    Result = &Bucket->Items[ItemIndex];
+    SetBit(&Bucket->Occupancy, Bucket->Count);
+    Bucket->Count++;
+    Array->Count++;
+    
+    if(Location){
+        Location->BucketIndex = Bucket->Index;
+        Location->ItemIndex   = ItemIndex;
+    }
+    
+    if(Bucket->Count >= U){ 
+        DynamicArrayUnorderedRemove(&Array->UnfullBuckets, 0);
+    }
+    
+    return Result;
+}
+
+template <typename T, u32 U>
+internal void
+BucketArrayRemove(bucket_array<T, U> *Array, bucket_location Location){
+    bucket<T, U> *Bucket = Array->Buckets[Location.BucketIndex];
+    Assert(GetBit(&Bucket->Occupancy, Location.ItemIndex));
+    
+    Array->Count--;
+    b8 WasFull = (Bucket->Count == U);
+    Bucket->Count--;
+    Bucket->Items[Location.ItemIndex] = {};
+    UnsetBit(&Bucket->Occupancy, Location.ItemIndex);
+    
+    if(WasFull) DynamicArrayPushBack(&Array->UnfullBuckets, Bucket);
+}
+
+template <typename T, u32 U>
+internal inline bucket_location
+BucketArrayBeginIteration(bucket_array<T, U> *Array){
+    bucket_location Result = {};
+    while(true){
+        bucket<T, U> *Bucket = Array->Buckets[Result.BucketIndex];
+        if(Bucket->Count > 0){
+            Result.ItemIndex = BitArrayFindFirstSetBit(&Bucket->Occupancy);
+            break;
+        }else{
+            if(Result.BucketIndex == Array->Buckets.Count-1) break;
+            Result.BucketIndex++;
+        }
+    }
+    
+    return(Result);
+}
+
+template <typename T, u32 U>
+internal inline void
+BucketArrayIterationNext(bucket_array<T, U> *Array, bucket_location *Location){
+    bucket<T, U> *Bucket = Array->Buckets[Location->BucketIndex];
+    b8 FoundNextItem = false;
+    for(u32 I = Location->ItemIndex+1; I < Bucket->Occupancy.Count; I++){
+        if(GetBit(&Bucket->Occupancy, I)){
+            FoundNextItem = true;
+            Location->ItemIndex = I;
+            break;
+        }
+    }
+    if(!FoundNextItem){
+        Location->BucketIndex++;
+        while(Location->BucketIndex < Array->Buckets.Count){
+            bucket<T, U> *Bucket = Array->Buckets[Location->BucketIndex];
+            if(Bucket->Count > 0){
+                Location->ItemIndex = BitArrayFindFirstSetBit(&Bucket->Occupancy);
+                break;
+            }else{
+                Location->BucketIndex++;
+            }
+        }
+    }
+}
+
+template <typename T, u32 U>
+internal inline b8
+BucketArrayContinueIteration(bucket_array<T, U> *Array, bucket_location Location){
+    b8 Result = ((Location.BucketIndex < Array->Buckets.Count));
+    return(Result);
+}
+
+template <typename T, u32 U>
+internal T *
+BucketArrayGetItemPtr(bucket_array<T, U> *Array, bucket_location Location){
+    bucket<T, U> *Bucket = Array->Buckets[Location.BucketIndex];
+    Assert(GetBit(&Bucket->Occupancy, Location.ItemIndex));
+    T *Result = &Bucket->Items[Location.ItemIndex];
+    return(Result);
+}
+
+internal inline bucket_location
+BucketLocation(u32 BucketIndex, u32 ItemIndex){
+    bucket_location Result = {BucketIndex, ItemIndex};
+    return(Result);
 }

@@ -119,6 +119,8 @@ world_editor::MaybeFadeWindow(window *Window){
 
 void
 world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
+    if(Action != WorldEditorAction_None) return;
+    
     switch((char)KeyCode){
         case 'E': ToggleWorldEditor(); break;
         case 'L': {
@@ -150,6 +152,24 @@ world_editor::HandleClick(b8 ShouldRemove){
     TIMED_FUNCTION();
     u8 *TileId = &World->Map[((u32)CursorP.Y*World->Width)+(u32)CursorP.X];
     
+    {
+        if(GetSelectedThingType() == EntityType_Enemy){
+            if(IsPointInRectangle(MouseP, SelectedThing->PathStart, v2{0.2f, 0.2f}) &&
+               !ShouldRemove){
+                SpecialThing = EditorSpecialThing_PathStart;
+                Action = WorldEditorAction_DraggingThing;
+                return(true);
+            }else if(IsPointInRectangle(MouseP, SelectedThing->PathEnd, v2{0.2f, 0.2f}) &&
+                     !ShouldRemove){
+                SpecialThing = EditorSpecialThing_PathEnd;
+                Action = WorldEditorAction_DraggingThing;
+                return(true);
+            }
+            
+        }
+        
+    }
+    
     for(u32 I = 0; I < World->Entities.Count; I++){
         entity_data *Entity  = &World->Entities[I];
         v2 Size = TILE_SIZE;
@@ -169,9 +189,13 @@ world_editor::HandleClick(b8 ShouldRemove){
         }
         
         if(IsPointInRectangle(MouseP, Entity->P, Size)){
+            if((Entity->Type == EntityType_Art) &&
+               ((Mode == EditMode_AddWall) || 
+                (Mode == EditMode_AddCoinP))) continue;
             if(ShouldRemove){
                 if(Entity == SelectedThing){ SelectedThing = 0; }
                 UnorderedRemoveArrayItemAtIndex(&World->Entities, I);
+                Action = WorldEditorAction_None;
             }else{
                 SelectedThing = Entity;
                 DraggingOffset = MouseP - Entity->P;
@@ -181,24 +205,6 @@ world_editor::HandleClick(b8 ShouldRemove){
             
             return(true);
         }
-    }
-    
-    {
-        if(GetSelectedThingType() == EntityType_Enemy){
-            if(IsPointInRectangle(MouseP, SelectedThing->PathStart, v2{0.2f, 0.2f}) &&
-               !ShouldRemove){
-                SpecialThing = EditorSpecialThing_PathStart;
-                Action = WorldEditorAction_DraggingThing;
-                return(true);
-            }else if(IsPointInRectangle(MouseP, SelectedThing->PathEnd, v2{0.2f, 0.2f}) &&
-                     !ShouldRemove){
-                SpecialThing = EditorSpecialThing_PathEnd;
-                Action = WorldEditorAction_DraggingThing;
-                return(true);
-            }
-            
-        }
-        
     }
     
     return(false);
@@ -336,6 +342,9 @@ world_editor::ProcessAction(){
                 Art->SpecID = 0;
                 Art->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
                 CopyCString(Art->Asset, ArtEntityBuffer, DEFAULT_BUFFER_SIZE);
+                
+                SpecialThing = EditorSpecialThing_None;
+                SelectedThing = Art;
                 
                 Action = WorldEditorAction_None;
             }
@@ -773,14 +782,10 @@ world_editor::UpdateAndRender(){
         }
         
         //~ World attributes
-        Window->Text(&RenderGroup, "World style is: %s", ((World->Flags & WorldFlag_IsTopDown) ? "Top down" : "Platformer"));
-        if(Window->Button(&RenderGroup, "Toggle world style")){
-            if(World->Flags & WorldFlag_IsTopDown){
-                World->Flags &= ~WorldFlag_IsTopDown;
-            }else{
-                World->Flags |= WorldFlag_IsTopDown;
-            }
-        }
+        Window->Text(&RenderGroup, "World style is: %s", 
+                     ((World->Flags & WorldFlag_IsTopDown) ? "Top down" : "Platformer"));
+        TOGGLE_FLAG(Window, &RenderGroup, "Toggle top down mode", World->Flags, 
+                    WorldFlag_IsTopDown);
         
         Window->Text(&RenderGroup, "Coin required: %u", World->CoinsRequired);
         if(Window->Button(&RenderGroup, "-", true)){

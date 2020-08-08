@@ -106,6 +106,8 @@ internal void
 FreeVirtualMemory(void *Pointer);
 internal void
 *DefaultAlloc(umw Size);
+internal void
+*DefaultRealloc(void *Memory, umw Size);
 internal void 
 DefaultFree(void *Pointer);
 
@@ -114,37 +116,13 @@ GetProfileTime();
 internal b8
 PollEvents(os_event *Event);
 
+internal void
+WriteToDebugConsole(os_file *Output, const char *Format, ...);
+
 //~ TODO(Tyler): Find a better home for these  procedures and variables
 global os_input OSInput;
-
-internal inline b32
-IsButtonJustPressed(os_button *Button){
-    b32 Result = Button->IsDown && Button->JustDown;
-    //b32 Result = Button->IsDown && (Button->HalfTransitionCount%2 == 1);
-    return(Result);
-}
-
-internal inline b32
-IsKeyJustPressed(u32 Key){
-    os_button *Button = &OSInput.Buttons[Key];
-    //b32 Result = Button->EndedDown && (Button->HalfTransitionCount%2 == 1);
-    b32 Result = Button->IsDown && Button->JustDown;
-    return(Result);
-}
-
-internal inline b32
-IsKeyRepeated(u32 Key){
-    os_button *Button = &OSInput.Buttons[Key];
-    //b32 Result = Button->EndedDown && (Button->HalfTransitionCount%2 == 1);
-    b32 Result = Button->IsDown && Button->Repeat;
-    return(Result);
-}
-
-internal inline b32
-IsKeyDown(u32 Key){
-    b32 Result = (OSInput.Buttons[Key].IsDown);
-    return(Result);
-}
+global os_file *ConsoleOutFile;
+global os_file *ConsoleErrorFile;
 
 //~ Helper functions/macros for file I/O
 

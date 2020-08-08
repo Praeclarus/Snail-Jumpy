@@ -253,15 +253,8 @@ entity_editor::DoUI(render_group *RenderGroup){
         Window->Text(RenderGroup, "Asset:");
         Window->TextInput(RenderGroup, "Spec Asset Name", SelectedSpec->Asset, DEFAULT_BUFFER_SIZE);
         
-        if(DoEditBoundaries){
-            if(Window->Button(RenderGroup, "Stop editing boundaries")){
-                DoEditBoundaries = false;
-            }
-        }else{
-            if(Window->Button(RenderGroup, "Edit boundaries")){
-                DoEditBoundaries = true;
-            }
-        }
+        Window->ToggleButton(RenderGroup, "Stop editing boundaries", "Edit boundaries",
+                             &DoEditBoundaries);
         
         Window->Text(RenderGroup, "Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedSpec->Type]);
         if(Window->Button(RenderGroup, "<<<", true)){
@@ -277,25 +270,10 @@ entity_editor::DoUI(render_group *RenderGroup){
             Assert(SelectedSpec->Type != EntityType_TOTAL);
         }
         
-        Window->Text(RenderGroup, "Can be stunned: %s", 
-                     TRUE_FALSE_TABLE[SelectedSpec->Flags & EntityFlags_CanBeStunned]);
-        if(Window->Button(RenderGroup, "Toggle stun-ability")){
-            if(SelectedSpec->Flags & EntityFlags_CanBeStunned){
-                SelectedSpec->Flags &= ~EntityFlags_CanBeStunned;
-            }else{
-                SelectedSpec->Flags |= EntityFlags_CanBeStunned;
-            }
-        }
-        
-        Window->Text(RenderGroup, "Affected by gravity: %s", 
-                     TRUE_FALSE_TABLE[!(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity)]);
-        if(Window->Button(RenderGroup, "Toggle gravity")){
-            if(SelectedSpec->Flags & EntityFlags_NotAffectedByGravity){
-                SelectedSpec->Flags &= ~EntityFlags_NotAffectedByGravity;
-            }else{
-                SelectedSpec->Flags |= EntityFlags_NotAffectedByGravity;
-            }
-        }
+        TOGGLE_FLAG(Window, RenderGroup, "Toggle stunnability", SelectedSpec->Flags, 
+                    EntityFlags_CanBeStunned);
+        ANTI_TOGGLE_FLAG(Window, RenderGroup, "Toggle gravity", SelectedSpec->Flags,
+                         EntityFlags_NotAffectedByGravity);
         
         Window->End(RenderGroup);
     }

@@ -17,9 +17,4 @@ REM /PDB:"SnailJumpy%time:~3,2%%time:~6,2%.pdb"
 :SnailJumpy
 cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:Win32SnailJumpy.exe ..\source\os_win32.cpp /link  %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
 
-REM cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:AssetProcessor.exe ..\source\tools\asset_processor.cpp /link /PDB:"SnailJumpy%time:~3,2%%time:~6,2%.pdb" %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
-
-:SnailJumpyPng
-REM cl %COMPILE_OPTIONS% %INCLUDE_PATHS% /Fe:SnailJumpyPng.exe ..\source\snail_jumpy_png.cpp /link  %LINK_OPTIONS% %LIBRARY_PATHS% %LIBRARIES%
-
 popd

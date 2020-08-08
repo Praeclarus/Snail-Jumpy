@@ -234,6 +234,119 @@ window::TextInput(render_group *RenderGroup, const char *ID, char *Buffer,
     DrawP.Y -= Height+Theme.Padding;
 }
 
+internal void
+SetupDefaultTheme(theme *Theme){
+    Theme->TitleFont = &TitleFont;
+    Theme->NormalFont = &DebugFont;
+    
+    Theme->TitleColor = BLACK;
+    Theme->TitleBarColor = color{0.39f, 0.46f, 0.4f, 0.9f};
+    Theme->NormalColor = color{0.8f, 0.8f, 0.8f, 1.0f};
+    Theme->BackgroundColor = color{0.2f, 0.4f, 0.3f, 0.9f};
+    Theme->SeparatorColor  = color{0.3f, 0.3f, 0.3f, 1.0f};
+    
+    Theme->ButtonBaseColor = color{0.1f, 0.3f, 0.2f, 0.9f};
+    Theme->ButtonHoveredColor = color{0.4f, 0.6f, 0.5f, 0.9f};
+    Theme->ButtonClickedColor = color{0.5f, 0.7f, 0.6f, 0.9f};
+    
+    Theme->TextInputInactiveTextColor= WHITE;
+    Theme->TextInputActiveTextColor = BLACK;
+    Theme->TextInputInactiveBackColor = color{0.1f, 0.3f, 0.2f, 0.9f};
+    Theme->TextInputActiveBackColor = color{0.5f, 0.8f, 0.6f, 0.9f};
+    
+    Theme->Padding = 10;
+}
+
+inline void
+window::ToggleButton(render_group *RenderGroup, const char *TrueText, 
+                     const char *FalseText, b8 *Value, b8 AdvanceX){
+    if(*Value){
+        if(Button(RenderGroup, TrueText, AdvanceX)) *Value = !*Value;
+    }else{
+        if(Button(RenderGroup, FalseText, AdvanceX)) *Value = !*Value;
+    }
+}
+
+b8
+window::ToggleBox(render_group *RenderGroup, const char *Text, b8 Value){
+    if(Flags & WindowFlag_NextButtonIsSameRow){
+        DrawP.X = TopLeft.X;
+        f32 Height = Theme.NormalFont->Ascent+2*Theme.Padding;
+        DrawP.Y -= Height+Theme.Padding;
+        Flags &= ~WindowFlag_NextButtonIsSameRow;
+    }
+    
+    b8 Result = Value;
+    
+    f32 Height = Theme.NormalFont->Ascent+2*Theme.Padding;
+    f32 TextWidth = GetStringAdvance(Theme.NormalFont, "X");
+    f32 ButtonWidth = TextWidth + 2*Theme.Padding;
+    f32 Width = GetStringAdvance(Theme.NormalFont, Text) + ButtonWidth + Theme.Padding;
+    {
+        if(Size.X < Width+2*Theme.Padding){
+            Size.X = Width+2*Theme.Padding;
+        }
+        f32 RelHeight = TopLeft.Y-DrawP.Y;
+        if(Size.Y < RelHeight+Height+2*UIManager.Theme.Padding){
+            Size.Y = RelHeight+Height+2*UIManager.Theme.Padding;
+        }
+    }
+    
+    b8 DoUpdate = !IsFaded;
+    if(UIManager.Popup) DoUpdate = (UIManager.Popup == this);
+    
+    f32 X = DrawP.X+Theme.Padding;
+    f32 Y = DrawP.Y-Theme.Padding;
+    color ButtonColor = Theme.ButtonBaseColor;
+    if(DoUpdate &&
+       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
+       (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
+        if(UIManager.LeftMouseButton.JustDown ){
+            ButtonColor = Theme.ButtonClickedColor;
+            Result = !Value;
+        }else{
+            ButtonColor = Theme.ButtonHoveredColor;
+        }
+        
+        if(UIManager.LeftMouseButton.IsDown){
+            UIManager.HandledInput = true;
+        }
+    }
+    
+    RenderRectangle(RenderGroup, {X, Y-Height}, {X+ButtonWidth, Y}, Z-0.1f, 
+                    Alphiphy(ButtonColor, Fade));
+    f32 HeightOffset = (UIManager.Theme.NormalFont->Ascent/2);
+    if(Value){
+        RenderString(RenderGroup, Theme.NormalFont, Alphiphy(Theme.NormalColor, Fade), 
+                     v2{X+(ButtonWidth/2)-(TextWidth/2), Y-(Height/2)-HeightOffset}, 
+                     Z-0.11f, "X");
+    }
+    
+    RenderString(RenderGroup, Theme.NormalFont, Alphiphy(Theme.NormalColor, Fade), 
+                 V2(X+ButtonWidth+Theme.Padding, Y-(Height/2)-HeightOffset), 
+                 Z-0.11f, Text);
+    
+    DrawP.Y -= Height+UIManager.Theme.Padding;
+    
+    return(Result);
+}
+
+#define TOGGLE_FLAG(Window, RenderGroup, Text, FlagVar, Flag)   \
+if(Window->ToggleBox(RenderGroup, Text, (FlagVar & Flag))){ \
+FlagVar |= Flag;                                        \
+}else{                                                      \
+FlagVar &= ~Flag;                                       \
+}
+
+#define ANTI_TOGGLE_FLAG(Window, RenderGroup, Text, FlagVar, Flag) \
+if(!Window->ToggleBox(RenderGroup, Text, !(FlagVar & Flag))){  \
+FlagVar |= Flag;                                           \
+}else{                                                         \
+FlagVar &= ~Flag;                                          \
+}
+
+#define TOGGLE_FLAG_BUTTON(Window, RenderGroup, TrueText, FalseText, FlagVar, Flag) 
+
 void
 window::End(render_group *RenderGroup){
     if(Size.Width < MinSize.Width) Size.Width = MinSize.Width;
@@ -282,29 +395,6 @@ window::End(render_group *RenderGroup){
         RenderRectangleOutline(RenderGroup, P, FullSize, Z-0.1f, 
                                Alphiphy(Theme.SeparatorColor, Fade), 0, THICKNESS);
     }
-}
-
-internal void
-SetupDefaultTheme(theme *Theme){
-    Theme->TitleFont = &TitleFont;
-    Theme->NormalFont = &DebugFont;
-    
-    Theme->TitleColor = BLACK;
-    Theme->TitleBarColor = color{0.39f, 0.46f, 0.4f, 0.9f};
-    Theme->NormalColor = color{0.8f, 0.8f, 0.8f, 1.0f};
-    Theme->BackgroundColor = color{0.2f, 0.4f, 0.3f, 0.9f};
-    Theme->SeparatorColor  = color{0.3f, 0.3f, 0.3f, 1.0f};
-    
-    Theme->ButtonBaseColor = color{0.1f, 0.3f, 0.2f, 0.9f};
-    Theme->ButtonHoveredColor = color{0.4f, 0.6f, 0.5f, 0.9f};
-    Theme->ButtonClickedColor = color{0.5f, 0.7f, 0.6f, 0.9f};
-    
-    Theme->TextInputInactiveTextColor= WHITE;
-    Theme->TextInputActiveTextColor = BLACK;
-    Theme->TextInputInactiveBackColor = color{0.1f, 0.3f, 0.2f, 0.9f};
-    Theme->TextInputActiveBackColor = color{0.5f, 0.8f, 0.6f, 0.9f};
-    
-    Theme->Padding = 10;
 }
 
 //~ ui_manager

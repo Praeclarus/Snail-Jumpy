@@ -1,6 +1,10 @@
 #if !defined(SNAIL_JUMPY_H)
 #define SNAIL_JUMPY_H
 
+// TODO(Tyler): Do this in build.bat
+#define SNAIL_JUMPY_DEBUG_BUILD
+
+
 // TODO(Tyler): I Don't want to deal with the C++ ordering craziness monster right now
 enum entity_state {
     State_None,
@@ -38,6 +42,7 @@ enum direction {
 
 #include "primitive_types.h"
 #include "helpers.cpp"
+#include "intrinsics.h"
 #include "allocators.cpp"
 #include "debug.h"
 #include "hash_table.cpp"
@@ -45,7 +50,6 @@ enum direction {
 #include "math.h"
 #include "render.h"
 #include "os.h"
-#include "intrinsics.h"
 #include "asset.h"
 #include "collision.h"
 #include "entity.h"

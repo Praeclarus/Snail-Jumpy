@@ -59,7 +59,7 @@ LoadImageFromPath(const char *Path){
             .HasBeenLoadedBefore = true, 
             .LastWriteTime = LastFileWriteTime,
         };
-        entire_file File = ReadEntireFile(&PermanentStorageArena, String);
+        entire_file File = ReadEntireFile(&TransientStorageArena, String);
         s32 Components = 0;
         stbi_info_from_memory((u8 *)File.Data, (int)File.Size, 
                               &Result->Width, &Result->Height, &Components);
@@ -344,16 +344,16 @@ ProcessCommand(stream *Stream){
 // TODO(Tyler): It would be way more efficient to do this all at startup
 // and not each frame
 internal void
-InitializeAssetLoader(){
+InitializeAssetLoader(memory_arena *Arena){
     {
-        CommandTable = PushHashTable<const char *, asset_command>(&PermanentStorageArena, AssetCommand_TOTAL);
+        CommandTable = PushHashTable<const char *, asset_command>(Arena, AssetCommand_TOTAL);
         InsertIntoHashTable(&CommandTable, "spritesheet", AssetCommand_BeginSpriteSheet);
         InsertIntoHashTable(&CommandTable, "art", AssetCommand_BeginArt);
         InsertIntoHashTable(&CommandTable, "states", AssetCommand_BeginStates);
     }
     
     {
-        AssetSpecTable = PushHashTable<const char *, asset_spec>(&PermanentStorageArena, AssetSpec_TOTAL);
+        AssetSpecTable = PushHashTable<const char *, asset_spec>(Arena, AssetSpec_TOTAL);
         InsertIntoHashTable(&AssetSpecTable, "path", AssetSpec_Path);
         InsertIntoHashTable(&AssetSpecTable, "size", AssetSpec_Size);
         InsertIntoHashTable(&AssetSpecTable, "frames_per_row", AssetSpec_FramesPerRow);
@@ -363,7 +363,7 @@ InitializeAssetLoader(){
     }
     
     {
-        StateTable = PushHashTable<const char *, entity_state>(&PermanentStorageArena, State_TOTAL);
+        StateTable = PushHashTable<const char *, entity_state>(Arena, State_TOTAL);
         InsertIntoHashTable(&StateTable, "state_idle", State_Idle);
         InsertIntoHashTable(&StateTable, "state_moving", State_Moving);
         InsertIntoHashTable(&StateTable, "state_jumping", State_Jumping);
@@ -375,7 +375,7 @@ InitializeAssetLoader(){
     }
     
     {
-        DirectionTable = PushHashTable<const char *, direction>(&PermanentStorageArena, Direction_TOTAL+8);
+        DirectionTable = PushHashTable<const char *, direction>(Arena, Direction_TOTAL+8);
         InsertIntoHashTable(&DirectionTable, "north", Direction_North);
         InsertIntoHashTable(&DirectionTable, "northeast", Direction_Northeast);
         InsertIntoHashTable(&DirectionTable, "east", Direction_East);
@@ -542,7 +542,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Enti
                       Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
                       Camera);
         
-#if 1
+#if 0
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 
             switch(Boundary->Type){

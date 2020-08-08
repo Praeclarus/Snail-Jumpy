@@ -68,6 +68,9 @@ struct window {
                    u32 BufferSize, f32 Width=-1);
     void Text(render_group *RenderGroup, const char *Text, ...);
     b8 Button(render_group *RenderGroup, const char *Text, b8 AdvanceX=false);
+    inline void ToggleButton(render_group *RenderGroup, const char *TrueText, 
+                             const char *FalseText, b8 *Value, b8 AdvanceX=false);
+    b8 ToggleBox(render_group *RenderGroup, const char *Text, b8 Value);
     void End(render_group *RenderGroup);
 };
 

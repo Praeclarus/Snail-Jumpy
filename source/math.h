@@ -62,9 +62,6 @@ CeilToS32(f32 A)
     return(Result);
 }
 
-#define Minimum(A, B) ((A) > (B) ? (B) : (A))
-#define Maximum(A, B) ((A) > (B) ? (A) : (B))
-
 internal inline f32
 Square(f32 A)
 {

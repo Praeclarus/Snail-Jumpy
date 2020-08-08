@@ -30,11 +30,19 @@ typedef double f64;
 #define local_persist   static
 #define local_constant  static const
 
+#define Minimum(A, B) ((A) > (B) ? (B) : (A))
+#define Maximum(A, B) ((A) > (B) ? (A) : (B))
 #define ArrayCount(Arr) (sizeof(Arr)/sizeof(*Arr))
 #define Kilobytes(Size) (1024*(Size))
 #define Megabytes(Size) (1024*Kilobytes(Size))
 #define Gigabytes(Size) (1024L*(u64)Megabytes(Size))
+
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
 #define Assert(Expr) {if (!(Expr)) __debugbreak();};
+#else
+#define Assert(Expr) {};
+#endif
+
 #define INVALID_CODE_PATH   Assert(0)
 #define NOT_IMPLEMENTED_YET Assert(0)
 

@@ -1,24 +1,3 @@
-//~ Helpers
-internal void
-CopyMemory(const void *To, const void *From, umw Size) {
-    for (umw I = 0; I < Size; I++)
-    {
-        *((u8*)To+I) = *((u8*)From+I);
-    }
-}
-
-internal void
-MoveMemory(const void *To, const void *From, umw Size) {
-    memmove((void *)To, (void *)From, Size);
-}
-
-internal void
-ZeroMemory(void *Memory, umw Size) {
-    for (umw I = 0; I < Size; I++){
-        *((u8*)Memory+I) = 0;
-    }
-}
-
 internal u32
 CStringLength(const char *String){
     u32 Result = 0;

@@ -155,3 +155,23 @@
 : art art_test
 	path test_art.png
 	
+: art art_test2
+	path test_art2.png
+	
+: art grass_platform_a
+	path grass_platform_a.png
+		
+: art grass_platform_b
+	path grass_platform_b.png
+		
+: art grass_platform_c
+	path grass_platform_c.png
+	
+: art grass_platform_d
+	path grass_platform_d.png
+	
+: art grass_platform_e
+	path grass_platform_e.png
+	
+: art test_background
+	path test_background.bmp

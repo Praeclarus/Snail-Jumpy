@@ -27,13 +27,9 @@ GameProcessInput(){
 
 internal void
 UpdateAndRenderMainGame(){
-    //TIMED_FUNCTION();
-    
-    
     GameProcessInput();
     
     render_group RenderGroup;
-    
     InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
@@ -145,6 +141,7 @@ UpdateAndRenderMainGame(){
     }
     
     //~ Debug UI
+    
     layout Layout = CreateLayout(&RenderGroup, 100, OSInput.WindowSize.Height-100,
                                  30, DebugFont.Size, 100, -0.9f);
     LayoutString(&Layout, &MainFont,

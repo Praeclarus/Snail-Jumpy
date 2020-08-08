@@ -28,16 +28,13 @@ global s32 Score;
 global f32 Counter; // TODO(Tyler): This is really a pointless variable, though it might 
 //                     be useful for "random" number generation as it is kinda used for now
 
-global memory_arena PermanentStorageArena;
-global memory_arena TransientStorageArena;
-
 global entity_manager EntityManager;
 global ui_manager UIManager;
 
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_WorldEditor;
+global game_mode GameMode = GameMode_MainGame;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -47,7 +44,7 @@ global v2 LastOverworldPlayerP;
 
 // TODO(Tyler): This could be fancier, like checking for string duplications?
 global memory_arena StringMemory; // I am unsure about using strings in the game, but they
-//                                   are used for level names, and entity specs
+//                                   are used for level names and assets
 
 global world_manager WorldManager;
 
@@ -122,7 +119,7 @@ InitializeGame(){
     
     LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
     
-    InitializeAssetLoader();
+    InitializeAssetLoader(&PermanentStorageArena);
     InitializeRenderer();
     
     // Initialize memory and arrays
@@ -165,7 +162,6 @@ GameUpdateAndRender(){
     TIMED_FUNCTION();
     
     LoadAssetFile(ASSET_FILE_PATH);
-    
     switch(GameMode){
         case GameMode_MainGame: {
             UpdateAndRenderMainGame();

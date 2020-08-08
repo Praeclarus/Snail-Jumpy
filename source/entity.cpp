@@ -335,6 +335,7 @@ internal void
 UpdateAndRenderTopDownPlayer(render_group *RenderGroup, camera *Camera){
     v2 ddP = {0};
     
+#if 0    
     if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
         ddP.X += 1;
     }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
@@ -394,10 +395,14 @@ UpdateAndRenderTopDownPlayer(render_group *RenderGroup, camera *Camera){
     Camera->SetCenter(EntityManager.Player->P, CurrentWorld);
     UpdateAndRenderAnimation(RenderGroup, Camera, EntityManager.Player, 
                              OSInput.dTimeForFrame);
+#endif
+    
 }
 
 void 
 entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera){
+    TIMED_FUNCTION();
+    
     //~ Walls
     BEGIN_TIMED_BLOCK(UpdateAndRenderWalls);
     for(u32 WallId = 0; WallId < EntityManager.WallCount; WallId++){
@@ -417,7 +422,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTimeForFrame;
         }else{
-            RenderRectangle(RenderGroup, P-(Size/2), P+(Size/2), 0.0f, BLUE, Camera);
+            RenderRectangle(RenderGroup, P-(Size/2), P+(Size/2), 0.0f, YELLOW, Camera);
         }
     }
     END_TIMED_BLOCK();
@@ -571,9 +576,11 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
                     RenderRectangle(RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, -0.11f, Color);
                     RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, -0.11f, Color);
                 }
+#if 0
                 if(IsKeyJustPressed(KeyCode_Space)){
                     ChangeState(GameMode_MainGame, Teleporter->Level);
                 }
+#endif
             }
         }else{
             RenderRectangle(RenderGroup, P-(Teleporter->Boundary.Size/2), 

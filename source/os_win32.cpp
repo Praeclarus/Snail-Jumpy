@@ -226,6 +226,26 @@ Win32GetMouseP(){
     return(Result);
 }
 
+internal BOOL WINAPI
+Win32DefaultHandlerRoutine(DWORD ControlSignal){
+    switch(ControlSignal)
+    {
+        case CTRL_CLOSE_EVENT:
+        case CTRL_LOGOFF_EVENT:
+        case CTRL_SHUTDOWN_EVENT: {
+            // TODO(Tyler): I don't know if this is correct, but this is the only way I can
+            // get it to close without crashing.
+            
+            WorldManager.WriteWorldsToFiles();
+            WriteEntitySpecs("entities.sje");
+            ExitProcess(0);
+        }break;
+        default: {
+            return(false); // We didn't handle the control signal
+        }break;
+    }
+}
+
 internal os_file *
 OpenFile(const char *Path, open_file_flags Flags){
     DWORD Access = 0;
@@ -340,9 +360,27 @@ DefaultAlloc(umw Size){
     return(Result);
 }
 
+internal void *
+DefaultRealloc(void *Memory, umw Size){
+    void *Result = HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, Memory, Size);
+    return(Result);
+}
+
 internal void
 DefaultFree(void *Pointer){
     Assert(HeapFree(GetProcessHeap(), 0, Pointer));
+}
+
+internal void
+WriteToDebugConsole(os_file *Output, const char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    
+    char Buffer[512];
+    stbsp_vsnprintf(Buffer, sizeof(Buffer), Format, VarArgs);
+    WriteConsole(Output, Buffer, (DWORD)CStringLength(Buffer), 0, 0);
+    
+    va_end(VarArgs);
 }
 
 internal b8
@@ -508,6 +546,13 @@ WinMain(HINSTANCE Instance,
             Win32InitOpenGl(Instance, &MainWindow);
             ToggleFullscreen(MainWindow);
             //wglSwapIntervalEXT(1);
+            
+            //~ Setup console
+            Assert(AllocConsole());
+            SetConsoleCtrlHandler(Win32DefaultHandlerRoutine, true);
+            ConsoleOutFile = (os_file *)GetStdHandle(STD_OUTPUT_HANDLE);
+            ConsoleErrorFile = (os_file *)GetStdHandle(STD_ERROR_HANDLE);
+            
             InitializeGame();
             
             //~
@@ -578,6 +623,7 @@ WinMain(HINSTANCE Instance,
     WorldManager.WriteWorldsToFiles();
     WriteEntitySpecs("entities.sje");
 #endif
+    FreeConsole();
     
     return(0);
 }
