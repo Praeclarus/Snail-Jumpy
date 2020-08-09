@@ -231,12 +231,15 @@ BitArrayFindFirstSetBit(bit_array *Array){
 
 //~ Bucket array
 
+global_constant u32 MAX_BUCKET_ITEMS = 64;
 template <typename T, u32 U>
 struct bucket {
+    static_assert(U <= MAX_BUCKET_ITEMS);
+    
     u32 Index;
     u32 Count;
-    bit_array Occupancy; // TODO(Tyler): It might be better just to use a u64 and cap
-    // the maximum value of items per bucket;
+    u64 Occupancy;// TODO(Tyler): This won't work for 32 bit systems, as there isn't
+    // a _BitScanForward64 in those systems;
     T Items[U];
 };
 
@@ -261,7 +264,6 @@ AllocateBucket(bucket_array<T, U> *Array){
     bucket<T,U> *Result = PushStruct(Array->Arena, this_bucket);
     Result->Count = 0;
     Result->Index = Array->Buckets.Count;
-    BitArrayInitialize(&Result->Occupancy, Array->Arena, U, true);
     DynamicArrayPushBack(&Array->Buckets, Result);
     DynamicArrayPushBack(&Array->UnfullBuckets, Result);
     
@@ -276,15 +278,15 @@ BucketArrayInitialize(bucket_array<T, U> *Array, memory_arena *Arena,
     
     *Array = {};
     Array->Arena = Arena;
-    DynamicArrayInitialize(&Array->Buckets, InitialBuckets, Arena);
-    DynamicArrayInitialize(&Array->UnfullBuckets, InitialBuckets, Arena);
+    DynamicArrayInitialize(&Array->Buckets, InitialBuckets, Array->Arena);
+    DynamicArrayInitialize(&Array->UnfullBuckets, InitialBuckets, Array->Arena);
     bucket_location Location;
     bucket<T, U> *Bucket = AllocateBucket(Array);
 }
 
 template <typename T, u32 U>
 internal T *
-BucketArrayAlloc(bucket_array<T, U> *Array, bucket_location *Location){
+BucketArrayAlloc(bucket_array<T, U> *Array, bucket_location *Location=0){
     T *Result = 0;
     if(Array->UnfullBuckets.Count == 0){
         AllocateBucket(Array);
@@ -292,9 +294,11 @@ BucketArrayAlloc(bucket_array<T, U> *Array, bucket_location *Location){
     
     bucket<T, U> *Bucket = Array->UnfullBuckets[0];
     Assert(Bucket->Count < U);
-    u32 ItemIndex = BitArrayFindFirstUnsetBit(&Bucket->Occupancy);
+    bit_scan_result BitScan = ScanForLeastSignificantSetBit(~Bucket->Occupancy);
+    Assert(BitScan.Found);
+    u32 ItemIndex = BitScan.Index;
     Result = &Bucket->Items[ItemIndex];
-    SetBit(&Bucket->Occupancy, Bucket->Count);
+    Bucket->Occupancy |= (1ULL << Bucket->Count);
     Bucket->Count++;
     Array->Count++;
     
@@ -332,7 +336,9 @@ BucketArrayBeginIteration(bucket_array<T, U> *Array){
     while(true){
         bucket<T, U> *Bucket = Array->Buckets[Result.BucketIndex];
         if(Bucket->Count > 0){
-            Result.ItemIndex = BitArrayFindFirstSetBit(&Bucket->Occupancy);
+            bit_scan_result BitScan = ScanForLeastSignificantSetBit(Bucket->Occupancy);
+            Assert(BitScan.Found);
+            Result.ItemIndex = BitScan.Index;
             break;
         }else{
             if(Result.BucketIndex == Array->Buckets.Count-1) break;
@@ -348,8 +354,8 @@ internal inline void
 BucketArrayIterationNext(bucket_array<T, U> *Array, bucket_location *Location){
     bucket<T, U> *Bucket = Array->Buckets[Location->BucketIndex];
     b8 FoundNextItem = false;
-    for(u32 I = Location->ItemIndex+1; I < Bucket->Occupancy.Count; I++){
-        if(GetBit(&Bucket->Occupancy, I)){
+    for(u32 I = Location->ItemIndex+1; I < U; I++){
+        if(Bucket->Occupancy & (1ULL << I)){
             FoundNextItem = true;
             Location->ItemIndex = I;
             break;
@@ -360,7 +366,9 @@ BucketArrayIterationNext(bucket_array<T, U> *Array, bucket_location *Location){
         while(Location->BucketIndex < Array->Buckets.Count){
             bucket<T, U> *Bucket = Array->Buckets[Location->BucketIndex];
             if(Bucket->Count > 0){
-                Location->ItemIndex = BitArrayFindFirstSetBit(&Bucket->Occupancy);
+                bit_scan_result BitScan = ScanForLeastSignificantSetBit(Bucket->Occupancy);
+                Assert(BitScan.Found);
+                Location->ItemIndex = BitScan.Index;
                 break;
             }else{
                 Location->BucketIndex++;
@@ -372,7 +380,8 @@ BucketArrayIterationNext(bucket_array<T, U> *Array, bucket_location *Location){
 template <typename T, u32 U>
 internal inline b8
 BucketArrayContinueIteration(bucket_array<T, U> *Array, bucket_location Location){
-    b8 Result = ((Location.BucketIndex < Array->Buckets.Count));
+    b8 Result = ((Location.BucketIndex < Array->Buckets.Count) &&
+                 (Array->Buckets[Location.BucketIndex]->Count > 0));
     return(Result);
 }
 
@@ -380,7 +389,7 @@ template <typename T, u32 U>
 internal T *
 BucketArrayGetItemPtr(bucket_array<T, U> *Array, bucket_location Location){
     bucket<T, U> *Bucket = Array->Buckets[Location.BucketIndex];
-    Assert(GetBit(&Bucket->Occupancy, Location.ItemIndex));
+    Assert(Bucket->Occupancy & (1ULL << Location.ItemIndex));
     T *Result = &Bucket->Items[Location.ItemIndex];
     return(Result);
 }
@@ -390,3 +399,8 @@ BucketLocation(u32 BucketIndex, u32 ItemIndex){
     bucket_location Result = {BucketIndex, ItemIndex};
     return(Result);
 }
+
+#define FOR_BUCKET_ARRAY(Array) \
+for(bucket_location Location = BucketArrayBeginIteration(Array); \
+BucketArrayContinueIteration(Array, Location);               \
+BucketArrayIterationNext(Array, &Location))

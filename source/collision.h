@@ -16,7 +16,7 @@ struct collision_event {
     collision_type Type;
     f32 Time;
     v2 Normal;
-    u32 EntityId;
+    void *EntityPtr;
     
     // TODO(Tyler): This could be made more efficient as flags
     b8 DoesHurt;
@@ -77,7 +77,7 @@ struct collision_table_item {
     
     // TODO(Tyler): This really isn't the most elegant way to handle this
     u32 EntityType; // TODO(Tyler): I don't like this being a u32
-    u32 EntityId;
+    void *EntityPtr;
 };
 
 struct collision_table {

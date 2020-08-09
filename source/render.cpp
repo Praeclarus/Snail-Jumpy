@@ -224,6 +224,13 @@ RenderCenteredTexture(render_group *RenderGroup, v2 Center, v2 Size, f32 Z,
 internal void
 RenderString(render_group *RenderGroup, font *Font, color Color, f32 X, f32 Y, f32 Z, 
              const char *String, camera *Camera=0){
+    if(Camera){
+        X -= Camera->P.X;
+        Y -= Camera->P.Y;
+        X *= Camera->MetersToPixels;
+        Y *= Camera->MetersToPixels;
+    }
+    
     Y = RenderGroup->OutputSize.Y - Y;
     
     u32 Length = CStringLength(String);
@@ -241,9 +248,6 @@ RenderString(render_group *RenderGroup, font *Font, color Color, f32 X, f32 Y, f
                            C-32, &X, &Y, &Q, 1);
         Q.y0 = RenderGroup->OutputSize.Y - Q.y0;
         Q.y1 = RenderGroup->OutputSize.Y - Q.y1;
-        if(Camera){
-            NOT_IMPLEMENTED_YET;
-        }
         Vertices[VertexOffset]   = {Q.x0, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
         Vertices[VertexOffset+1] = {Q.x0, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
         Vertices[VertexOffset+2] = {Q.x1, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};

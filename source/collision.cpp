@@ -48,8 +48,8 @@ CollisionSystemNewFrame(){
     ZeroMemory(CollisionTable.Items, 
                CollisionTable.Width*CollisionTable.Height*sizeof(collision_table_item));
     
-    for(u32 Id = 0; Id < EntityManager.WallCount; Id++){
-        wall_entity *Entity = &EntityManager.Walls[Id];
+    FOR_BUCKET_ARRAY(&EntityManager.Walls){
+        wall_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Walls, Location);
         collision_boundary *Boundary = &Entity->Boundary;
         
         min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
@@ -61,31 +61,13 @@ CollisionSystemNewFrame(){
                 NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                 CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                 NewItem->EntityType = EntityType_Wall;
-                NewItem->EntityId = Id;
+                NewItem->EntityPtr = Entity;
             }
         }
     }
     
-    for(u32 Id = 0; Id < EntityManager.DoorCount; Id++){
-        door_entity *Entity = &EntityManager.Doors[Id];
-        collision_boundary *Boundary = &Entity->Boundary;
-        
-        min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
-        
-        for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
-            for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
-                collision_table_item *NewItem = PushStruct(&TransientStorageArena,
-                                                           collision_table_item);
-                NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
-                CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
-                NewItem->EntityType = EntityType_Door;
-                NewItem->EntityId = Id;
-            }
-        }
-    }
-    
-    for(u32 Id = 0; Id < EntityManager.CoinCount; Id++){
-        coin_entity *Entity = &EntityManager.Coins[Id];
+    FOR_BUCKET_ARRAY(&EntityManager.Coins){
+        coin_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Coins, Location);
         collision_boundary *Boundary = &Entity->Boundary;
         
         min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
@@ -97,13 +79,31 @@ CollisionSystemNewFrame(){
                 NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                 CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                 NewItem->EntityType = EntityType_Coin;
-                NewItem->EntityId = Id;
+                NewItem->EntityPtr = Entity;
             }
         }
     }
     
-    for(u32 Id = 0; Id < EntityManager.EnemyCount; Id++){
-        enemy_entity *Entity = &EntityManager.Enemies[Id];
+    FOR_BUCKET_ARRAY(&EntityManager.Doors){
+        door_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Doors, Location);
+        collision_boundary *Boundary = &Entity->Boundary;
+        
+        min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+        
+        for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
+            for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
+                collision_table_item *NewItem = PushStruct(&TransientStorageArena,
+                                                           collision_table_item);
+                NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
+                CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
+                NewItem->EntityType = EntityType_Door;
+                NewItem->EntityPtr = Entity;
+            }
+        }
+    }
+    
+    FOR_BUCKET_ARRAY(&EntityManager.Enemies){
+        enemy_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Enemies, Location);
         
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I];
@@ -117,15 +117,15 @@ CollisionSystemNewFrame(){
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                     NewItem->EntityType = Entity->Type;
-                    NewItem->EntityId = Id;
+                    NewItem->EntityPtr = Entity;
                 }
             }
         }
     }
     
     
-    for(u32 Id = 0; Id < EntityManager.ProjectileCount; Id++){
-        projectile_entity *Entity = &EntityManager.Projectiles[Id];
+    FOR_BUCKET_ARRAY(&EntityManager.Projectiles){
+        projectile_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Projectiles, Location);
         
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I];
@@ -139,7 +139,7 @@ CollisionSystemNewFrame(){
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                     NewItem->EntityType = EntityType_Projectile;
-                    NewItem->EntityId = Id;
+                    NewItem->EntityPtr = Entity;
                 }
             }
         }
@@ -160,7 +160,7 @@ CollisionSystemNewFrame(){
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                     NewItem->EntityType = Entity->Type;
-                    NewItem->EntityId = 0;
+                    NewItem->EntityPtr = Entity;
                 }
             }
         }
@@ -414,7 +414,7 @@ HandleCollision(entity *Entity, collision_event *Event){
     if(Event->DoesHurt){
         if(Entity->Type == EntityType_Player) DamagePlayer(Event->Damage);
         else if(Entity->Type == EntityType_Projectile){
-            enemy_entity *Enemy = &EntityManager.Enemies[Event->EntityId];
+            enemy_entity *Enemy = (enemy_entity *)Event->EntityPtr;
             StunEnemy(Enemy);
         }
     }
@@ -426,8 +426,7 @@ HandleCollision(entity *Entity, collision_event *Event){
     if(Entity->Type == EntityType_Player){
         player_entity *Player = (player_entity *)Entity;
         if(Event->Type == CollisionType_Dragonfly){
-            Player->IsRidingDragonfly = true;
-            Player->RidingDragonfly = Event->EntityId;
+            Player->RidingDragonfly = (enemy_entity *)Event->EntityPtr;
             
             // TODO(Tyler): ROBUSTNESS
             Player->P += Event->StepMove;
@@ -442,8 +441,7 @@ HandleCollision(entity *Entity, collision_event *Event){
         }else if(Event->Type == CollisionType_Player){
             player_entity *Player = EntityManager.Player;
             if(Event->Type == CollisionType_Dragonfly){
-                Player->IsRidingDragonfly = true;
-                Player->RidingDragonfly = Event->EntityId;
+                Player->RidingDragonfly = (enemy_entity *)Event->EntityPtr;
                 if(Event->Normal.Y > 0.0f){
                 }else{
                     DamagePlayer(Enemy->Damage);
@@ -459,7 +457,7 @@ HandleCollision(entity *Entity, collision_event *Event){
 }
 
 internal inline void
-MoveEntity(entity *Entity, u32 Id, v2 ddP, 
+MoveEntity(entity *Entity, v2 ddP, 
            f32 XFriction=1.0f, f32 YFriction=1.0f, f32 Drag=2.0f, v2 dPOffset=v2{0, 0},
            f32 COR=0.0f){
     COR += 1.0f; // NOTE(Tyler): So that the COR is in the range of 0-1
@@ -489,7 +487,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                             case EntityType_Player: {
                                 if(Entity->Type == EntityType_Projectile) break;
                                 if((Entity->Type == EntityType_Player) && 
-                                   (Id == Item->EntityId)) break;
+                                   (Entity == Item->EntityPtr)) break;
                                 
                                 player_entity *Player = EntityManager.Player;
                                 for(u32 I = 0; I < Player->BoundaryCount; I++){
@@ -501,15 +499,15 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                 }
                             }break;
                             case EntityType_Enemy: {
-                                enemy_entity *Enemy = &EntityManager.Enemies[Item->EntityId];
+                                enemy_entity *Enemy = (enemy_entity *)Item->EntityPtr;
                                 if((Entity->Type == Enemy->Type) && 
-                                   (Id == Item->EntityId)) break;
+                                   (Entity == Item->EntityPtr)) break;
                                 for(u32 I = 0; I < Enemy->BoundaryCount; I++){
                                     collision_boundary *Boundary2 = &Enemy->Boundaries[I];
                                     if(TestBoundaryAndBoundary(Boundary, EntityDelta, Boundary2, 
                                                                &Event.Time, &Event.Normal)){
                                         
-                                        Event.EntityId = Item->EntityId;
+                                        Event.EntityPtr = Item->EntityPtr;
 #if 0
                                         if(Enemy->Type == EntityType_Dragonfly){
                                             v2 RectP1    = Enemy->Boundaries[0].P;
@@ -554,49 +552,49 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                                 }
                             }break;
                             case EntityType_Wall:{
-                                wall_entity *Wall = &EntityManager.Walls[Item->EntityId];
+                                wall_entity *Wall = (wall_entity *)Item->EntityPtr;
                                 if(TestBoundaryAndBoundary(Boundary, EntityDelta, &Wall->Boundary, 
                                                            &Event.Time, &Event.Normal)){
                                     Event.Type = CollisionType_Wall;
-                                    Event.EntityId = Item->EntityId;
+                                    Event.EntityPtr = Item->EntityPtr;
                                 }
                             }break;
                             case EntityType_Coin: {
                                 if(Entity->Type != EntityType_Player) break;
-                                coin_entity *Coin = &EntityManager.Coins[Item->EntityId];
+                                coin_entity *Coin = (coin_entity *)Item->EntityPtr;
                                 
                                 if(Coin->Cooldown <= 0.0f){
                                     f32 _DummyTime = 1.0f;
                                     v2  _DummyNormal;
                                     if(TestBoundaryAndBoundary(Boundary, EntityDelta, &Coin->Boundary,
                                                                &_DummyTime, &_DummyNormal)){
-                                        UpdateCoin(Item->EntityId);
+                                        UpdateCoin(Coin);
                                     }
                                 }
                             }break;
                             case EntityType_Projectile: {
                                 if(Entity->Type == EntityType_Player) break; 
                                 if((Entity->Type == EntityType_Projectile) && 
-                                   (Id == Item->EntityId)) break;
-                                projectile_entity *Projectile = &EntityManager.Projectiles[Item->EntityId];
+                                   (Entity == Item->EntityPtr)) break;
+                                projectile_entity *Projectile = (projectile_entity *)Item->EntityPtr;
                                 if(Projectile->RemainingLife <= 0.0f) break; 
                                 
                                 if(TestBoundaryAndBoundary(Boundary, EntityDelta, 
                                                            &Projectile->Boundaries[0],
                                                            &Event.Time, &Event.Normal)){
                                     Event.Type = CollisionType_Projectile;
-                                    Event.EntityId = Id;
+                                    Event.EntityPtr = Item->EntityPtr;
                                     Event.DoesStun = true;
                                 }
                             }break;
                             case EntityType_Door: {
-                                door_entity *Door = &EntityManager.Doors[Item->EntityId];
+                                door_entity *Door = (door_entity *)Item->EntityPtr;
                                 if(Door->IsOpen) break;
                                 if(TestBoundaryAndBoundary(Boundary, EntityDelta, 
                                                            &Door->Boundary,
                                                            &Event.Time, &Event.Normal)){
                                     Event.Type = CollisionType_Wall;
-                                    Event.EntityId = Id;
+                                    Event.EntityPtr = Item->EntityPtr;
                                     Event.DoesStun = true;
                                 }
                             }break;
@@ -625,7 +623,7 @@ MoveEntity(entity *Entity, u32 Id, v2 ddP,
                     NewItem->Next = CollisionTable.Items[Y*CollisionTable.Width + X];
                     CollisionTable.Items[Y*CollisionTable.Width + X] = NewItem;
                     NewItem->EntityType = Entity->Type;
-                    NewItem->EntityId = Id;
+                    NewItem->EntityPtr = Entity;
                 }
             }
             

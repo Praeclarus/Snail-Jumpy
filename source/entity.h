@@ -46,7 +46,7 @@ struct coin_entity {
     f32 AnimationState;
 };
 
-struct teleporter {
+struct teleporter_entity {
     collision_boundary Boundary;
     const char *Level;
     b8 IsLocked;
@@ -117,40 +117,29 @@ struct player_entity : public entity {
     s32 Health;
     f32 JumpTime;
     f32 WeaponChargeTime;
-    // TODO(Tyler): There is likely a better way to do this
-    u32 RidingDragonfly;
-    b8 IsRidingDragonfly;
+    enemy_entity *RidingDragonfly;
 };
 
 
 struct entity_manager {
     memory_arena Memory;
     
-    wall_entity *Walls;
-    u32 WallCount;
-    
     coin_data CoinData;
-    coin_entity *Coins;
-    u32 CoinCount;
-    
-    enemy_entity *Enemies;
-    u32 EnemyCount;
-    
-    door_entity *Doors;
-    u32 DoorCount;
-    
-    teleporter *Teleporters;
-    u32 TeleporterCount;
-    
     player_input PlayerInput;
+    
+    // TODO(Tyler): The numbers could be tuned better
+    // TODO(Tyler): Bucket arrays might be a bit overkill
+    // TODO(Tyler): Wall set entity
+    bucket_array<wall_entity, 64>       Walls;
+    bucket_array<art_entity, 32>        Arts;
+    bucket_array<coin_entity, 16>       Coins;
+    bucket_array<door_entity, 16>       Doors;
+    bucket_array<teleporter_entity, 16> Teleporters;
+    bucket_array<enemy_entity, 16>      Enemies;
+    bucket_array<projectile_entity, 16> Projectiles;
     player_entity *Player;
     
-    projectile_entity *Projectiles;
-    u32 ProjectileCount;
-    
-    art_entity *Arts;
-    u32 ArtCount;
-    
+    void Reset();
     void ProcessEvent(os_event *Event);
     void UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera);
 };

@@ -94,6 +94,7 @@ UpdateAndRenderMainGame(){
         }
     }
     
+    camera DummyCamera = {}; DummyCamera.MetersToPixels = GameCamera.MetersToPixels;
     // Weapon charge bar
     {
         v2 Min = v2{0.1f, 0.1f};
@@ -102,7 +103,8 @@ UpdateAndRenderMainGame(){
         Percent = EntityManager.Player->WeaponChargeTime;
         Max.X += 4.0f*Percent;
         Max.Y += 0.2f;
-        RenderRectangle(&RenderGroup, Min, Max, -1.0f, color{1.0f, 0.0f, 1.0f, 0.9f});
+        RenderRectangle(&RenderGroup, Min, Max, -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f),
+                        &DummyCamera);
     }
     
     // Health display
@@ -117,20 +119,20 @@ UpdateAndRenderMainGame(){
         Assert(FullHearts <= 3);
         u32 I;
         for(I = 0; I < FullHearts; I++){
-            RenderFrameOfSpriteSheet(&RenderGroup, 0, "heart", 0, P, -0.9f);
+            RenderFrameOfSpriteSheet(&RenderGroup,  &DummyCamera, "heart", 0, P, -0.9f);
             P.X += XAdvance;
         }
         
         if(Remainder > 0){
             Remainder = 3 - Remainder;
-            RenderFrameOfSpriteSheet(&RenderGroup, 0, "heart", Remainder, P, -0.9f);
+            RenderFrameOfSpriteSheet(&RenderGroup,  &DummyCamera, "heart", Remainder, P, -0.9f);
             P.X += XAdvance;
             I++;
         }
         
         if(I < 3){
             for(u32 J = 0; J < 3-I; J++){
-                RenderFrameOfSpriteSheet(&RenderGroup, 0, "heart", 3, P, -0.9f);
+                RenderFrameOfSpriteSheet(&RenderGroup, &DummyCamera, "heart", 3, P, -0.9f);
                 P.X += XAdvance;
             }
         }
@@ -154,7 +156,7 @@ UpdateAndRenderMainGame(){
                  BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
     
     LayoutString(&Layout, &DebugFont, BLACK,
-                 "Enemy count: %u", EntityManager.EnemyCount);
+                 "Enemy count: %u", EntityManager.Enemies.Count);
     
     {
         layout Layout = CreateLayout(&RenderGroup, OSInput.WindowSize.Width-500, OSInput.WindowSize.Height-100,

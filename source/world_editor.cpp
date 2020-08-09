@@ -579,7 +579,7 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
         }break;
     }
     if(Window){
-        if(SelectedThing->Type != EntityType_Art){
+        if(SelectedThing->Type == EntityType_Enemy){
             if(Window->Button(RenderGroup, "Change spec")){
                 Popup = EditorPopup_SpecSelector;
                 SpecSelectorCallback = ChangeSelectedEntitySpecCallback;

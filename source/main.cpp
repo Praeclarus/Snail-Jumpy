@@ -122,8 +122,11 @@ InitializeGame(){
     InitializeAssetLoader(&PermanentStorageArena);
     InitializeRenderer();
     
-    // Initialize memory and arrays
+    // Initialize entity manager
     EntityManager.Memory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
+    EntityManager.Reset();
+    
+    // Initialize memory and arrays
     StringMemory = PushNewArena(&PermanentStorageArena, Kilobytes(32));
     WorldManager.Initialize(&PermanentStorageArena);
     EntitySpecs = CreateNewArray<entity_spec>(&PermanentStorageArena, 128);

@@ -22,7 +22,6 @@ IsLevelCompleted(const char *LevelName){
 //~ World loading
 internal void
 AddPlayer(v2 P){
-    AllocateNEntities(1, EntityType_Player);
     EntityManager.PlayerInput = {};
     *EntityManager.Player = {};
     
@@ -49,9 +48,6 @@ AddPlayer(v2 P){
 internal void
 LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
                  u32 WidthInTiles, u32 HeightInTiles){
-    AllocateNEntities(WallCount, EntityType_Wall);
-    
-    u32 CurrentWallId = 0;
     for(u32 Y = 0; Y < HeightInTiles; Y++){
         for(u32 X = 0; X < WidthInTiles; X++){
             u8 TileId = MapData[(Y*WidthInTiles)+X];
@@ -59,26 +55,25 @@ LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
                 EntityManager.CoinData.NumberOfCoinPs++;
                 continue;
             }else if(TileId == EntityType_Wall){
-                EntityManager.Walls[CurrentWallId] = {};
-                EntityManager.Walls[CurrentWallId].Boundary.Type = BoundaryType_Rectangle;
-                EntityManager.Walls[CurrentWallId].Boundary.P = {
+                wall_entity *Wall = BucketArrayAlloc(&EntityManager.Walls);
+                *Wall = {};
+                Wall->Boundary.Type = BoundaryType_Rectangle;
+                Wall->Boundary.P = {
                     ((f32)X+0.5f)*TILE_SIDE, ((f32)Y+0.5f)*TILE_SIDE
                 };
-                EntityManager.Walls[CurrentWallId].Boundary.Size = {
+                Wall->Boundary.Size = {
                     TILE_SIDE, TILE_SIDE
                 };
-                CurrentWallId++;
             }
         }
     }
-    Assert(CurrentWallId == EntityManager.WallCount);
 }
 
 internal void
 LoadWorld(const char *LevelName){
     TIMED_FUNCTION();
     
-    ResetEntitySystem();
+    EntityManager.Reset();
     
     if(LevelName){
         world_data *World = WorldManager.GetWorld(LevelName);
@@ -111,90 +106,59 @@ LoadWorld(const char *LevelName){
             
             {
                 u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
-                AllocateNEntities(N, EntityType_Coin);
                 for(u32 I = 0; I < N; I++){
-                    EntityManager.Coins[I].Boundary.Type = BoundaryType_Rectangle;
-                    EntityManager.Coins[I].Boundary.Size = { 0.3f, 0.3f };
-                    UpdateCoin(I);
-                    EntityManager.Coins[I].Cooldown = 0.0f;
+                    coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
+                    Coin->Boundary.Type = BoundaryType_Rectangle;
+                    Coin->Boundary.Size = { 0.3f, 0.3f };
+                    UpdateCoin(Coin);
+                    Coin->Cooldown = 0.0f;
                 }
-                Score = 0; // HACK: UpdateCoin changes this value
+                Score = 0; // UpdateCoin changes this value
             }
             
-            // TODO(Tyler): I don't know if this is a good way to do it, 
-            // but we shall see, this could possibly be something that is a product
-            // of a flaw in entity allocation, so maybe it would be better to have entity
-            // allocation be more dynamic instead of static, this would allow more 
-            // fancy things in the future, maybe with a bucket array, that allocates in 
-            // chunks?
-            u32 EnemyCount=0, DoorCount=0, TeleporterCount=0, ArtCount=0;
-            for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
-                switch(CurrentWorld->Entities[I].Type){
-                    case EntityType_Enemy: {
-                        EnemyCount++;
-                    }break;
-                    case EntityType_Teleporter: {
-                        TeleporterCount++;
-                    }break;
-                    case EntityType_Door: {
-                        DoorCount++;
-                    }break;
-                    case EntityType_Art: {
-                        ArtCount++;
-                    }break;
-                }
-            }
-            AllocateNEntities(EnemyCount, EntityType_Enemy);
-            AllocateNEntities(DoorCount, EntityType_Door);
-            AllocateNEntities(TeleporterCount, EntityType_Teleporter);
-            AllocateNEntities(ArtCount, EntityType_Art);
-            
-            u32 EnemyIndex=0, DoorIndex=0, TeleporterIndex=0, ArtIndex=0;
             for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
                 entity_data *Entity = &CurrentWorld->Entities[I];
                 switch(Entity->Type){
                     case EntityType_Enemy: {
                         entity_spec *Spec = &EntitySpecs[Entity->SpecID];
-                        EntityManager.Enemies[EnemyIndex] = {};
-                        EntityManager.Enemies[EnemyIndex].Type  = Spec->Type;
-                        EntityManager.Enemies[EnemyIndex].Flags = Spec->Flags;
+                        enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
+                        *Enemy= {};
+                        Enemy->Type  = Spec->Type;
+                        Enemy->Flags = Spec->Flags;
                         
                         v2 P = Entity->P; P.Y += 0.001f;
-                        EntityManager.Enemies[EnemyIndex].P = P;
+                        Enemy->P = P;
                         
-                        EntityManager.Enemies[EnemyIndex].Speed = Spec->Speed;
-                        EntityManager.Enemies[EnemyIndex].Damage = Spec->Damage;
+                        Enemy->Speed = Spec->Speed;
+                        Enemy->Damage = Spec->Damage;
                         
-                        EntityManager.Enemies[EnemyIndex].BoundaryCount = Spec->BoundaryCount;
+                        Enemy->BoundaryCount = Spec->BoundaryCount;
                         for(u32 J = 0; J < Spec->BoundaryCount; J++){
-                            EntityManager.Enemies[EnemyIndex].Boundaries[J] = Spec->Boundaries[J];
-                            EntityManager.Enemies[EnemyIndex].Boundaries[J].P = P + Spec->Boundaries[J].P;
+                            Enemy->Boundaries[J] = Spec->Boundaries[J];
+                            Enemy->Boundaries[J].P = P + Spec->Boundaries[J].P;
                         }
                         
-                        EntityManager.Enemies[EnemyIndex].State = State_Moving;
-                        EntityManager.Enemies[EnemyIndex].ZLayer = -0.7f;
-                        EntityManager.Enemies[EnemyIndex].Asset = Spec->Asset;
+                        Enemy->State = State_Moving;
+                        Enemy->ZLayer = -0.7f;
+                        Enemy->Asset = Spec->Asset;
                         
-                        EntityManager.Enemies[EnemyIndex].Direction = Entity->Direction;
-                        EntityManager.Enemies[EnemyIndex].PathStart = Entity->PathStart;
-                        EntityManager.Enemies[EnemyIndex].PathEnd = Entity->PathEnd;
-                        
-                        EnemyIndex++;
+                        Enemy->Direction = Entity->Direction;
+                        Enemy->PathStart = Entity->PathStart;
+                        Enemy->PathEnd = Entity->PathEnd;
                     }break;
                     case EntityType_Teleporter: {
-                        EntityManager.Teleporters[TeleporterIndex] = {};
-                        EntityManager.Teleporters[TeleporterIndex].Boundary.P = Entity->P;
-                        EntityManager.Teleporters[TeleporterIndex].Boundary.Size = TILE_SIZE;
-                        EntityManager.Teleporters[TeleporterIndex].Level = Entity->Level;
-                        EntityManager.Teleporters[TeleporterIndex].IsLocked = true;
+                        teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
                         
-                        EntityManager.Teleporters[TeleporterIndex].IsLocked = 
-                            !IsLevelCompleted(Entity->TRequiredLevel);
+                        *Teleporter = {};
+                        Teleporter->Boundary.P = Entity->P;
+                        Teleporter->Boundary.Size = TILE_SIZE;
+                        Teleporter->Level = Entity->Level;
+                        Teleporter->IsLocked = true;
                         
-                        TeleporterIndex++;
+                        Teleporter->IsLocked = !IsLevelCompleted(Entity->TRequiredLevel);
                     }break;
                     case EntityType_Door: {
-                        door_entity *Door = &EntityManager.Doors[DoorIndex];
+                        door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
                         Door->Boundary.Type = BoundaryType_Rectangle;
                         Door->Boundary.P = Entity->P;
                         Door->Boundary.Size = Entity->Size;
@@ -203,17 +167,14 @@ LoadWorld(const char *LevelName){
                         if(IsLevelCompleted(Entity->DRequiredLevel)){
                             OpenDoor(Door);
                         }
-                        
-                        DoorIndex++;
                     }break;
                     case EntityType_Art: {
-                        art_entity *Art = &EntityManager.Arts[ArtIndex];
+                        bucket_location Location;
+                        art_entity *Art = BucketArrayAlloc(&EntityManager.Arts, &Location);
                         *Art = {};
                         Art->P = Entity->P;
                         Art->Z = Entity->Z;
                         Art->Asset = Entity->Asset;
-                        
-                        ArtIndex++;
                     }break;
                 }
                 
@@ -223,8 +184,7 @@ LoadWorld(const char *LevelName){
             AddPlayer({1.5f, 1.5f});
             
             {
-                AllocateNEntities(1, EntityType_Projectile);
-                projectile_entity *Projectile = EntityManager.Projectiles;
+                projectile_entity *Projectile = BucketArrayAlloc(&EntityManager.Projectiles);
                 Projectile->Type = EntityType_Projectile;
                 Projectile->RemainingLife = 0.0f;
                 Projectile->BoundaryCount = 1;

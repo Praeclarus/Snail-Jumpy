@@ -76,7 +76,7 @@ struct state_change_data {
 //~ Forward declarations
 
 internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
-internal void UpdateCoin(u32 Id);
+internal void UpdateCoin(coin_entity *Coin);
 internal inline void DamagePlayer(u32 Damage);
 internal void StunEnemy(enemy_entity *Enemy);
 internal void UpdateEnemyHitBox(enemy_entity *Enemy);

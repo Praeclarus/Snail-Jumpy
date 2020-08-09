@@ -1,7 +1,3 @@
-
-// TODO(Tyler): This logger is pretty terrible and could be made more
-// effective
-
 global os_file *LogFile;
 global u32 LogFileOffset;
 
