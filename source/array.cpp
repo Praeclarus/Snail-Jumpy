@@ -262,7 +262,7 @@ AllocateBucket(bucket_array<T, U> *Array){
     typedef bucket<T, U> this_bucket; // To avoid a comma inside the macro because it 
     // doesn't like that bucket<T, U> has a comma
     bucket<T,U> *Result = PushStruct(Array->Arena, this_bucket);
-    Result->Count = 0;
+    *Result = {};
     Result->Index = Array->Buckets.Count;
     DynamicArrayPushBack(&Array->Buckets, Result);
     DynamicArrayPushBack(&Array->UnfullBuckets, Result);

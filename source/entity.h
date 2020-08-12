@@ -121,8 +121,16 @@ struct player_entity : public entity {
 };
 
 
+struct entity_state_table_slot {
+    state_change_condition ChangeCondition;
+    entity_state NextState;
+    f32 Cooldown;
+};
+typedef entity_state_table_slot entity_state_table[State_TOTAL];
+
 struct entity_manager {
     memory_arena Memory;
+    entity_state_table *EntityStateTable;
     
     coin_data CoinData;
     player_input PlayerInput;
@@ -139,6 +147,7 @@ struct entity_manager {
     bucket_array<projectile_entity, 16> Projectiles;
     player_entity *Player;
     
+    void Initialize(memory_arena *Arena);
     void Reset();
     void ProcessEvent(os_event *Event);
     void UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera);

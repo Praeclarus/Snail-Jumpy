@@ -1,6 +1,7 @@
 //~ Entity allocation and management
 void
 entity_manager::Reset(){
+    Memory.Used = 0;
     BucketArrayInitialize(&Walls,       &Memory);
     BucketArrayInitialize(&Arts,        &Memory);
     BucketArrayInitialize(&Coins,       &Memory);
@@ -9,6 +10,22 @@ entity_manager::Reset(){
     BucketArrayInitialize(&Enemies,     &Memory);
     BucketArrayInitialize(&Projectiles, &Memory);
     Player = PushStruct(&Memory, player_entity);
+}
+
+void
+entity_manager::Initialize(memory_arena *Arena){
+    EntityStateTable = 
+        PushArray(Arena, entity_state_table, (u32)EntityType_TOTAL);
+    EntityStateTable[EntityType_Enemy][State_Idle]       = { ChangeCondition_None, State_TOTAL };
+    EntityStateTable[EntityType_Enemy][State_Moving]     = { ChangeCondition_None, State_TOTAL };
+    EntityStateTable[EntityType_Enemy][State_Turning]    = { ChangeCondition_AnimationOver, State_Moving };
+    EntityStateTable[EntityType_Enemy][State_Retreating] = { ChangeCondition_CooldownOver, State_Stunned, 3.0f };
+    EntityStateTable[EntityType_Enemy][State_Stunned]    = { ChangeCondition_None, State_Returning };
+    EntityStateTable[EntityType_Enemy][State_Returning]  = { ChangeCondition_AnimationOver, State_Moving };
+    
+    
+    Memory = PushNewArena(Arena, Kilobytes(64));
+    Reset();
 }
 
 //~ Helpers
@@ -20,9 +37,6 @@ OpenDoor(door_entity *Door){
 
 internal inline void
 DamagePlayer(u32 Damage){
-    //EntityManager.Player->State |= EntityState_Dead;
-    //Score = 0;
-    //EntityManager.Player->State &= ~EntityState_Dead;
     EntityManager.Player->P = {1.5, 1.5};
     EntityManager.Player->Boundaries[0].P = EntityManager.Player->P;
     EntityManager.Player->dP = {0, 0};
@@ -32,7 +46,6 @@ DamagePlayer(u32 Damage){
         Score = 0;
     }
     
-    //PlayAnimationToEnd(EntityManager.Player, PlayerAnimation_Death);
 }
 
 internal inline u8
@@ -77,6 +90,7 @@ ChangeEntityState(entity *Entity, entity_state NewState){
         Entity->State = NewState;
         Entity->AnimationState = 0.0f;
         Entity->NumberOfTimesAnimationHasPlayed = 0;
+        Entity->ChangeCondition = ChangeCondition_None;
     }
 }
 
@@ -84,6 +98,7 @@ internal void
 SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N){
     if(Entity->State != NewState){
         ChangeEntityState(Entity, NewState);
+        Entity->ChangeCondition = ChangeCondition_CooldownOver;
         Entity->Cooldown = N;
     }
 }
@@ -97,14 +112,21 @@ SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState){
 }
 
 internal b8
-ShouldEntityUpdate(entity *Entity){
-    b8 Result = true;
+_ShouldEntityUpdate(entity *Entity){
+    b8 Result = false;
     
     if(Entity->ChangeCondition == ChangeCondition_AnimationOver){
         Result = (Entity->NumberOfTimesAnimationHasPlayed > 0);
     }else if(Entity->ChangeCondition == ChangeCondition_CooldownOver){
         Result = (Entity->Cooldown <= 0);
     }
+    
+    return(Result);
+}
+
+internal b8
+ShouldEntityUpdate(entity *Entity){
+    b8 Result = (Entity->ChangeCondition == ChangeCondition_None);
     
     return(Result);
 }
@@ -488,9 +510,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         enemy_entity *Enemy = BucketArrayGetItemPtr(&Enemies, Location);
         v2 P = Enemy->P;
         
-        if(ShouldEntityUpdate(Enemy) &&
-           (Enemy->State != State_Stunned) &&
-           (Enemy->State != State_Retreating)){
+        if(ShouldEntityUpdate(Enemy)){
             // TODO(Tyler): Stop using percentages here
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
             f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
@@ -528,21 +548,6 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
                 ChangeEntityState(Enemy, State_Moving);
                 
                 MoveEntity(Enemy, ddP);
-            }
-        }else if(ShouldEntityUpdate(Enemy) &&
-                 (Enemy->State == State_Retreating)){
-            SetEntityStateForNSeconds(Enemy, State_Stunned, 3.0f);
-        }else if(Enemy->State == State_Stunned){
-            if(Enemy->Cooldown <= 0.0f){
-                if(Enemy->Cooldown <= 0.0f){
-                    if((Enemy->State == State_Returning)){
-                        ChangeEntityState(Enemy, State_Moving);
-                    }else{
-                        SetEntityStateUntilAnimationIsOver(Enemy, State_Returning);
-                    }
-                }else{
-                    Enemy->State = State_Stunned;
-                }
             }
         }
         

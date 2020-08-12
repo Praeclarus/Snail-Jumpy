@@ -493,14 +493,16 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *
 
 //~ Animation rendering
 internal void
-UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Entity, f32 dTimeForFrame){
+UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Entity, 
+                         f32 dTimeForFrame){
     asset *Asset = FindInHashTablePtr<const char *, asset>(&AssetTable, Entity->Asset);
     if(!Asset) return;
     Assert(Asset->Type == AssetType_SpriteSheet);
     
     u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
     if(AnimationIndex == 0) { 
-        Assert(0) 
+        // TODO(Tyler): MAKE THIS MORE ROBUST
+        Assert(0);
     }else{
         AnimationIndex--;
         
@@ -508,19 +510,32 @@ UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Enti
         Entity->AnimationState += Asset->FPSArray[AnimationIndex]*dTimeForFrame;
         Entity->Cooldown -= dTimeForFrame;
         if(Entity->AnimationState >= FrameCount){
-            Entity->AnimationState = ModF32(Entity->AnimationState, (f32)Asset->FrameCounts[AnimationIndex]);
+            Entity->AnimationState = ModF32(Entity->AnimationState, (f32)FrameCount);
             Entity->NumberOfTimesAnimationHasPlayed++;
+        }
+        
+        if(_ShouldEntityUpdate(Entity) &&
+           (Entity->Type == EntityType_Enemy)){
+            switch(Entity->State){
+                case State_Turning:    { 
+                    ChangeEntityState(Entity, State_Moving); 
+                }break;
+                case State_Retreating: { 
+                    SetEntityStateForNSeconds(Entity, State_Stunned, 3.0f); 
+                }break;
+                case State_Stunned:    { 
+                    SetEntityStateUntilAnimationIsOver(Entity, State_Returning); 
+                }break;
+                case State_Returning:  { 
+                    ChangeEntityState(Entity, State_Moving); 
+                }break;
+            }
+            AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction]-1;
         }
         
         v2 P = Entity->P;
         P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
         P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
-        
-#if 0
-        f32 R = RenderGroup->MetersToPixels*4.0f;
-        P.X = RoundF32(P.X*R)/R;
-        P.Y = RoundF32(P.Y*R)/R;
-#endif
         
         u32 FrameInSpriteSheet = 0;
         u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
@@ -533,6 +548,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Enti
             FrameInSpriteSheet %= Asset->FramesPerRow;
         }
         
+        
         v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
         MinTexCoord.X *= Asset->SizeInTexCoords.X;
         MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
@@ -542,6 +558,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Enti
                       Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
                       Camera);
         
+        // TODO(Tyler): Add a debug toggle to this
 #if 0
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 

@@ -15,6 +15,7 @@ global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
 global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
 global_constant char *STARTUP_LEVEL = "Debug";
+//global_constant char *STARTUP_LEVEL = "Test_World";
 global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = v2{TILE_SIDE, TILE_SIDE};
 global_constant char *ASSET_FILE_PATH = "assets.sja";
@@ -123,8 +124,7 @@ InitializeGame(){
     InitializeRenderer();
     
     // Initialize entity manager
-    EntityManager.Memory = PushNewArena(&PermanentStorageArena, Kilobytes(64));
-    EntityManager.Reset();
+    EntityManager.Initialize(&PermanentStorageArena);
     
     // Initialize memory and arrays
     StringMemory = PushNewArena(&PermanentStorageArena, Kilobytes(32));

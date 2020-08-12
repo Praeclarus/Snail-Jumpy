@@ -37,6 +37,8 @@ typedef double f64;
 #define Megabytes(Size) (1024*Kilobytes(Size))
 #define Gigabytes(Size) (1024L*(u64)Megabytes(Size))
 
+#define BEGIN_STRING(X) #X
+
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
 #define Assert(Expr) {if (!(Expr)) __debugbreak();};
 #else

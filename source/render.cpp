@@ -1,5 +1,4 @@
-
-render_texture_handle DefaultTexture;
+global render_texture_handle DefaultTexture;
 
 internal inline void
 InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCount){

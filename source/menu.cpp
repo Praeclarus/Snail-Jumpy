@@ -5,11 +5,11 @@ UpdateAndRenderMenu(){
     
     RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
     RenderGroup.OutputSize = OSInput.WindowSize;
-    //RenderGroup.MetersToPixels = 1.0f;
+    os_event Event;
+    while(PollEvents(&Event));
     
-    layout Layout = CreateLayout(&RenderGroup, 100, OSInput.WindowSize.Height-124, 30, 30);
+    RenderRectangle(&RenderGroup, V2(0, 0), V2(100, 100), 0.0f, WHITE);
+    RenderString(&RenderGroup, &MainFont, WHITE, 100, 100, 0, "Hello, world!");
     
-    DebugRenderAllProfileData(&RenderGroup, &Layout);
-    
-    //RenderGroupToScreen(&RenderGroup);
+    RenderGroupToScreen(&RenderGroup);
 }

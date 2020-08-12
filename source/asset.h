@@ -20,6 +20,8 @@ struct image {
 
 struct asset {
     asset_type Type;
+    // TODO(Tyler): I don't like the state table, because it probably takes up a lot of 
+    // space, maybe a hash table thing with state and directions as keys?
     u32 StateTable[State_TOTAL][Direction_TOTAL];
     b8 IsTranslucent;
     

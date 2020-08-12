@@ -16,3 +16,20 @@ CopyCString(char *To, const char *From, u32 MaxSize){
     }
     To[I] = '\0';
 }
+
+internal direction
+InverseDirection(direction Direction){
+    local_constant direction Table[Direction_TOTAL] = {
+        Direction_None,
+        Direction_South,
+        Direction_Southwest,
+        Direction_West,
+        Direction_Northwest,
+        Direction_North,
+        Direction_Northeast,
+        Direction_East,
+        Direction_Southeast,
+    };
+    direction Result = Table[Direction];
+    return(Result);
+}

@@ -522,6 +522,14 @@ WinMain(HINSTANCE Instance,
         HINSTANCE PrevInstance,
         LPSTR CommandLine,
         int ShowCode){
+    
+    //~ Setup console
+    Assert(AllocConsole());
+    SetConsoleCtrlHandler(Win32DefaultHandlerRoutine, true);
+    ConsoleOutFile = (os_file *)GetStdHandle(STD_OUTPUT_HANDLE);
+    ConsoleErrorFile = (os_file *)GetStdHandle(STD_ERROR_HANDLE);
+    
+    
     WNDCLASS WindowClass = {0};
     
     WindowClass.style = CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
@@ -546,12 +554,6 @@ WinMain(HINSTANCE Instance,
             Win32InitOpenGl(Instance, &MainWindow);
             ToggleFullscreen(MainWindow);
             //wglSwapIntervalEXT(1);
-            
-            //~ Setup console
-            Assert(AllocConsole());
-            SetConsoleCtrlHandler(Win32DefaultHandlerRoutine, true);
-            ConsoleOutFile = (os_file *)GetStdHandle(STD_OUTPUT_HANDLE);
-            ConsoleErrorFile = (os_file *)GetStdHandle(STD_ERROR_HANDLE);
             
             InitializeGame();
             
