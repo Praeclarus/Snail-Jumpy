@@ -14,16 +14,6 @@ entity_manager::Reset(){
 
 void
 entity_manager::Initialize(memory_arena *Arena){
-    EntityStateTable = 
-        PushArray(Arena, entity_state_table, (u32)EntityType_TOTAL);
-    EntityStateTable[EntityType_Enemy][State_Idle]       = { ChangeCondition_None, State_TOTAL };
-    EntityStateTable[EntityType_Enemy][State_Moving]     = { ChangeCondition_None, State_TOTAL };
-    EntityStateTable[EntityType_Enemy][State_Turning]    = { ChangeCondition_AnimationOver, State_Moving };
-    EntityStateTable[EntityType_Enemy][State_Retreating] = { ChangeCondition_CooldownOver, State_Stunned, 3.0f };
-    EntityStateTable[EntityType_Enemy][State_Stunned]    = { ChangeCondition_None, State_Returning };
-    EntityStateTable[EntityType_Enemy][State_Returning]  = { ChangeCondition_AnimationOver, State_Moving };
-    
-    
     Memory = PushNewArena(Arena, Kilobytes(64));
     Reset();
 }
