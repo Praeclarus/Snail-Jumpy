@@ -231,20 +231,18 @@ entity_editor::DoUI(render_group *RenderGroup){
     //~ Basic editing functions
     {
         window *Window = 
-            UIManager.BeginWindow("Entity Editor", 
-                                  v2{OSInput.WindowSize.X-410, OSInput.WindowSize.Y-43}, 
-                                  v2{400, 0});
+            UIManager.BeginWindow("Entity Editor", OSInput.WindowSize, v2{400, 0});
         
         if(Window->Button(RenderGroup, "Switch to world editor")){
             ChangeState(GameMode_WorldEditor, 0);
             WorldEditor.World = CurrentWorld;
         }
         
-        if(Window->Button(RenderGroup, "Save all", true)){
+        if(Window->Button(RenderGroup, "Save all", 2)){
             WriteEntitySpecs("entities.sje");
         }
         
-        if(Window->Button(RenderGroup, "Add new", true)){
+        if(Window->Button(RenderGroup, "Add new", 2)){
             u32 NewSpec = AddEntitySpec();
             SelectedSpecID = NewSpec;
             SelectedSpec = &EntitySpecs[NewSpec];
@@ -257,13 +255,13 @@ entity_editor::DoUI(render_group *RenderGroup){
                              &DoEditBoundaries);
         
         Window->Text(RenderGroup, "Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedSpec->Type]);
-        if(Window->Button(RenderGroup, "<<<", true)){
+        if(Window->Button(RenderGroup, "<<<", 2)){
             SelectedSpec->Type = REVERSE_ENTITY_TYPE_TABLE[SelectedSpec->Type];
             SelectedSpec->Speed = 0;
             SelectedSpec->Damage = 0;
             Assert(SelectedSpec->Type != EntityType_TOTAL);
         }
-        if(Window->Button(RenderGroup, ">>>")){
+        if(Window->Button(RenderGroup, ">>>", 2)){
             SelectedSpec->Type = FORWARD_ENTITY_TYPE_TABLE[SelectedSpec->Type];
             SelectedSpec->Speed = 0;
             SelectedSpec->Damage = 0;
@@ -281,7 +279,7 @@ entity_editor::DoUI(render_group *RenderGroup){
     //~ Boundary editing
     {
         window *Window = UIManager.BeginWindow("Edit Collision Boundaries", 
-                                               v2{20, OSInput.WindowSize.Y-43}, v2{400, 0});
+                                               V2(0, OSInput.WindowSize.Y), v2{400, 0});
         
         const char *BoundaryTable[] = {
             "Rectangle", "Circle"
@@ -289,14 +287,14 @@ entity_editor::DoUI(render_group *RenderGroup){
         Window->Text(RenderGroup, "Current boundary type: %s", 
                      BoundaryTable[BoundaryType]);
         
-        if(Window->Button(RenderGroup, "<<< Mode", true)){
+        if(Window->Button(RenderGroup, "<<< Mode", 2)){
             if(BoundaryType == BoundaryType_Circle){
                 BoundaryType = BoundaryType_Rectangle;
             }else if(BoundaryType == BoundaryType_Rectangle){
                 BoundaryType = BoundaryType_Circle;
             }
         }
-        if(Window->Button(RenderGroup, "Mode >>>")){
+        if(Window->Button(RenderGroup, "Mode >>>", 2)){
             if(BoundaryType == BoundaryType_Circle){
                 BoundaryType = BoundaryType_Rectangle;
             }else if(BoundaryType == BoundaryType_Rectangle){
@@ -333,24 +331,24 @@ entity_editor::DoUI(render_group *RenderGroup){
         //~ Enemy
         case EntityType_Enemy: {
             window *Window = 
-                UIManager.BeginWindow("Edit enemy", v2{OSInput.WindowSize.X-410, 300}, 
+                UIManager.BeginWindow("Edit enemy", v2{OSInput.WindowSize.X, 0}, 
                                       v2{400, 0});
             
             Window->Text(RenderGroup, "Speed: %.1f", SelectedSpec->Speed);
-            if(Window->Button(RenderGroup, "-", true)){
+            if(Window->Button(RenderGroup, "-", 2)){
                 SelectedSpec->Speed -= 0.1f;
             }
-            if(Window->Button(RenderGroup, "+")){
+            if(Window->Button(RenderGroup, "+", 2)){
                 SelectedSpec->Speed += 0.1f;
             }
             
             Window->Text(RenderGroup, "Damage: %u", SelectedSpec->Damage);
-            if(Window->Button(RenderGroup, "-", true)){
+            if(Window->Button(RenderGroup, "-", 2)){
                 if(SelectedSpec->Damage > 0){
                     SelectedSpec->Damage -= 1;
                 }
             }
-            if(Window->Button(RenderGroup, "+")){
+            if(Window->Button(RenderGroup, "+", 2)){
                 SelectedSpec->Damage += 1;
             }
             

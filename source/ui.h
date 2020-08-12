@@ -28,7 +28,7 @@ struct theme {
     color TitleBarColor;
     color NormalColor;
     color BackgroundColor;
-    color SeparatorColor;
+    //color SeparatorColor;
     
     color ButtonBaseColor;
     color ButtonHoveredColor;
@@ -39,6 +39,7 @@ struct theme {
     color TextInputInactiveBackColor;
     color TextInputActiveBackColor;
     
+    f32 ButtonHeight;
     f32 Padding;
 };
 
@@ -51,6 +52,8 @@ enum _window_flags {
 struct window {
     const char *Name;
     window_flags Flags;
+    u32 TargetButtonsOnRow;
+    u32 _ButtonsOnRow;
     
     f32 TitleBarHeight;
     f32 Z;
@@ -62,14 +65,15 @@ struct window {
     f32 Fade;
     b8 IsFaded;
     
-    theme Theme;
+    theme *Theme;
     
+    void NotButtonSanityCheck();
     void TextInput(render_group *RenderGroup, const char *ID, char *Buffer, 
-                   u32 BufferSize, f32 Width=-1);
+                   u32 BufferSize);
     void Text(render_group *RenderGroup, const char *Text, ...);
-    b8 Button(render_group *RenderGroup, const char *Text, b8 AdvanceX=false);
+    b8 Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow=0);
     inline void ToggleButton(render_group *RenderGroup, const char *TrueText, 
-                             const char *FalseText, b8 *Value, b8 AdvanceX=false);
+                             const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
     b8 ToggleBox(render_group *RenderGroup, const char *Text, b8 Value);
     void End(render_group *RenderGroup);
 };

@@ -3,9 +3,8 @@ OPENGL_FUNCTIONS
 #undef X
 
 global basic_program DefaultShaderProgram;
-global GLuint        DefaultVertexArray;
-global GLuint        DefaultVertexBuffer;
-global GLuint        DefaultElementBuffer;
+global GLuint DefaultVertexArray;
+global GLuint DefaultVertexBuffer;
 
 global basic_program ScreenShaderProgram;
 global GLuint ScreenVertexArray;
@@ -48,12 +47,12 @@ global_constant char *DefaultFragmentShader = BEGIN_STRING
  uniform mat4 Projection;
  
  void main(){
-     vec4 Color = texture(Texture, FragmentTexCoord);
+     vec4 Color = texture(Texture, FragmentTexCoord)*FragmentColor;
      if(Color.a == 0.0){
          discard;
      }
      
-     FragColor = Color*FragmentColor;
+     FragColor = Color;
  }
  );
 
@@ -99,26 +98,28 @@ global_constant char *ScreenFragmentShader = BEGIN_STRING
      if(Color.a == 0.0){
          discard;
      }
+     
      /*
-     vec2 LightPs[] = vec2[](vec2(200.0, 100.0),
-                             vec2(200.0, 600.0),
-                             vec2(700.0, 100.0),
-                             vec2(700.0, 600.0),
-                             vec2(1200.0, 100.0),
-                             vec2(1200.0, 600.0));
+          vec2 LightPs[] = vec2[](vec2(200.0, 100.0),
+                                  vec2(200.0, 600.0),
+                                  vec2(700.0, 100.0),
+                                  vec2(700.0, 600.0),
+                                  vec2(1200.0, 100.0),
+                                  vec2(1200.0, 600.0));
+          
+          vec3 Lighting = vec3(0.0);
+          for(int I = 0; I < LightPs.length(); I++){
+              Lighting += CalculateLight(LightPs[I], vec3(0.6, 0.5, 0.1), 300);
+          }
+          Color *= vec4(0.4+Lighting, 1.0);
+          
+          float Exposure = 1.0;
+          vec4 Vec4HDRColor = Color;
+          vec3 HDRColor = Vec4HDRColor.rgb;
+          vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
+          //FragColor = vec4(MappedColor, Vec4HDRColor.a);
+          */
      
-     vec3 Lighting = vec3(0.0);
-     for(int I = 0; I < LightPs.length(); I++){
-         Lighting += CalculateLight(LightPs[I], vec3(0.6, 0.5, 0.1), 300);
-     }
-     Color *= vec4(0.1+Lighting, 1.0);
-     
-     float Exposure = 1.0;
-     vec4 Vec4HDRColor = Color;
-     vec3 HDRColor = Vec4HDRColor.rgb;
-     vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
-    //FragColor = vec4(MappedColor, Vec4HDRColor.a);
-    */
      FragColor = Color;
  }
  );
@@ -217,6 +218,10 @@ INITIALIZE_RENDERER(InitializeRenderer){
         glGenBuffers(1, &DefaultVertexBuffer);
         glBindBuffer(GL_ARRAY_BUFFER, DefaultVertexBuffer);
         
+        GLuint ElementBuffer;
+        glGenBuffers(1, &ElementBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ElementBuffer);
+        
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, P));
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, Color));
@@ -224,10 +229,7 @@ INITIALIZE_RENDERER(InitializeRenderer){
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, TexCoord));
         glEnableVertexAttribArray(2);
         
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        
-        glGenBuffers(1, &DefaultElementBuffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DefaultElementBuffer);
+        //glBindBuffer(GL_ARRAY_BUFFER, 0);
         
         glBindVertexArray(0);
     }
@@ -305,7 +307,7 @@ internal
 RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     TIMED_FUNCTION();
     
-    glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
+    //glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_SCISSOR_TEST);
@@ -337,7 +339,7 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     glUseProgram(DefaultShaderProgram.Id);
     glBindVertexArray(DefaultVertexArray);
     glBindBuffer(GL_ARRAY_BUFFER, DefaultVertexBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DefaultElementBuffer);
+    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DefaultElementBuffer);
     glUniformMatrix4fv(DefaultShaderProgram.ProjectionLocation, 1, GL_FALSE, Projection);
     
     glBufferData(GL_ARRAY_BUFFER, RenderGroup->VertexCount*sizeof(vertex), 
@@ -369,7 +371,7 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     }
     
     //~ Render to screen
-    glViewport(0, 0, WindowWidth, WindowHeight);
+#if 0
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
     glClearColor(0.2f, 0.0f, 0.3f, 1.0f);
@@ -380,16 +382,24 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     glBindVertexArray(ScreenVertexArray);
     glBindTexture(GL_TEXTURE_2D, ScreenTexture);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+#endif
+    
 }
 
 internal
-CREATE_RENDER_TEXTURE(CreateRenderTexture){
+render_texture_handle CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, 
+                                          b8 Blend){
     u32 Result;
     glGenTextures(1, &Result);
     glBindTexture(GL_TEXTURE_2D, Result);
     
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    if(Blend){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }else{
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);

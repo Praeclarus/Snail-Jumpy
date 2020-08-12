@@ -464,13 +464,13 @@ world_editor::DoPopup(render_group *RenderGroup){
             window *Window = UIManager.BeginPopup("Rename World", V2(500, 500));
             MaybeFadeWindow(Window);
             Window->TextInput(RenderGroup, "New World Name", PopupBuffer, sizeof(PopupBuffer));
-            if(Window->Button(RenderGroup, "Submit", true)){
+            if(Window->Button(RenderGroup, "Submit", 2)){
                 TextInputCallback(this, PopupBuffer);
                 UIManager.EndPopup();
                 Popup = EditorPopup_None;
                 PopupBuffer[0] = '\0';
             }
-            if(Window->Button(RenderGroup, "Abort")){
+            if(Window->Button(RenderGroup, "Abort", 2)){
                 UIManager.EndPopup();
                 Popup = EditorPopup_None;
                 PopupBuffer[0] = '\0';
@@ -526,24 +526,23 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
     TIMED_FUNCTION();
     
     window *Window = 0;
+    v2 WindowP = V2(0, OSInput.WindowSize.Y);
     switch(GetSelectedThingType()){
         case EntityType_Enemy:{
-            Window = UIManager.BeginWindow("Edit Snail", v2{20, OSInput.WindowSize.Y-43}, 
-                                           v2{400, 0});
+            Window = UIManager.BeginWindow("Edit Snail", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             
             Window->Text(RenderGroup, "Direction: ");
             
-            if(Window->Button(RenderGroup, "<<<", true)){
+            if(Window->Button(RenderGroup, "<<<", 2)){
                 SelectedThing->Direction = Direction_Left;
             }
-            if(Window->Button(RenderGroup, ">>>")){
+            if(Window->Button(RenderGroup, ">>>", 2)){
                 SelectedThing->Direction = Direction_Right;
             }
         }break;
         case EntityType_Teleporter: {
-            Window = UIManager.BeginWindow("Edit Teleporter", v2{20, OSInput.WindowSize.Y-43}, 
-                                           v2{400, 0});
+            Window = UIManager.BeginWindow("Edit Teleporter", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             Window->Text(RenderGroup, "Level:");
             Window->TextInput(RenderGroup, "Teleporter Level", SelectedThing->Level, 
@@ -554,8 +553,7 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
                               SelectedThing->TRequiredLevel, DEFAULT_BUFFER_SIZE);
         }break;
         case EntityType_Door: {
-            Window = UIManager.BeginWindow("Edit Door", v2{20, OSInput.WindowSize.Y-43}, 
-                                           v2{400, 0});
+            Window = UIManager.BeginWindow("Edit Door", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             Window->Text(RenderGroup, "Required level to unlock:", 
                          SelectedThing->DRequiredLevel);
@@ -563,19 +561,17 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
                               SelectedThing->DRequiredLevel, DEFAULT_BUFFER_SIZE);
         }break;
         case EntityType_Art: {
-            Window = UIManager.BeginWindow("Edit Art", v2{20, OSInput.WindowSize.Y-43}, 
-                                           v2{400, 0});
+            Window = UIManager.BeginWindow("Edit Art", WindowP, v2{400, 0});
             Window->Text(RenderGroup, "Asset", SelectedThing->Asset);
             Window->TextInput(RenderGroup, "Art Entity Asset", SelectedThing->Asset,
                               DEFAULT_BUFFER_SIZE);
             Window->Text(RenderGroup, "Z: %.1f", SelectedThing->Z);
-            if(Window->Button(RenderGroup, "-", true)){
+            if(Window->Button(RenderGroup, "-", 2)){
                 SelectedThing->Z -= 0.1f;
             }
-            if(Window->Button(RenderGroup, "+")){
+            if(Window->Button(RenderGroup, "+", 2)){
                 SelectedThing->Z += 0.1f;
             }
-            
         }break;
     }
     if(Window){
@@ -685,8 +681,7 @@ world_editor::UpdateAndRender(){
     BEGIN_TIMED_BLOCK(WorldEditorDrawUI);
     if(!HideUI){
         window *Window = 
-            UIManager.BeginWindow("World Editor", 
-                                  v2{OSInput.WindowSize.X-400, OSInput.WindowSize.Y-43});
+            UIManager.BeginWindow("World Editor", OSInput.WindowSize);
         MaybeFadeWindow(Window);
         if(Window->Button(&RenderGroup, "Switch to entity editor")){
             ChangeState(GameMode_EntityEditor, 0);
@@ -697,16 +692,16 @@ world_editor::UpdateAndRender(){
         Window->Text(&RenderGroup, "Use left and right arrows to change edit mode");
         Window->Text(&RenderGroup, "Use 'e' to toggle editor");
         Window->Text(&RenderGroup, "Current mode: %s", EDIT_MODE_NAME_TABLE[Mode]);
-        if(Window->Button(&RenderGroup, "Save", true)){
+        if(Window->Button(&RenderGroup, "Save", 3)){
             WorldManager.WriteWorldsToFiles();
         }
         
-        if(Window->Button(&RenderGroup, "Load world", true)){
+        if(Window->Button(&RenderGroup, "Load world", 3)){
             Popup = EditorPopup_TextInput;
             TextInputCallback = LoadWorldCallback;
         }
         
-        if(Window->Button(&RenderGroup, "Rename world")){
+        if(Window->Button(&RenderGroup, "Rename world", 3)){
             Popup = EditorPopup_TextInput;
             TextInputCallback = RenameWorldCallback;
         }
@@ -715,7 +710,10 @@ world_editor::UpdateAndRender(){
         
         //~ Map Resizing
         
-        if(Window->Button(&RenderGroup, "- >>> -", true)){
+        Window->Button(&RenderGroup, "- <<< -", 2);
+        Window->Button(&RenderGroup, "+ <<< +", 2);
+        
+        if(Window->Button(&RenderGroup, "- >>> -", 2)){
             if(World->Width > 32){
                 u32 NewMapSize = (World->Width*World->Height) - World->Height;
                 u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
@@ -732,7 +730,7 @@ world_editor::UpdateAndRender(){
                 World->Width--;
             }
         }
-        if(Window->Button(&RenderGroup, "+ >>> +")){
+        if(Window->Button(&RenderGroup, "+ >>> +", 2)){
             u32 NewMapSize = (World->Width*World->Height) + World->Height;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
             u32 NewXTiles = World->Width+1;
@@ -748,7 +746,7 @@ world_editor::UpdateAndRender(){
             World->Width++;
         }
         
-        if(Window->Button(&RenderGroup, "- ^^^ -", true)){
+        if(Window->Button(&RenderGroup, "- ^^^ -", 2)){
             if(World->Height > 18){
                 u32 NewMapSize = (World->Width*World->Height) - World->Width;
                 u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
@@ -765,7 +763,7 @@ world_editor::UpdateAndRender(){
                 World->Height--;
             }
         }
-        if(Window->Button(&RenderGroup, "+ ^^^ +")){
+        if(Window->Button(&RenderGroup, "+ ^^^ +", 2)){
             u32 NewMapSize = (World->Width*World->Height) + World->Width;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
             u32 NewYTiles = World->Height+1;
@@ -788,22 +786,22 @@ world_editor::UpdateAndRender(){
                     WorldFlag_IsTopDown);
         
         Window->Text(&RenderGroup, "Coin required: %u", World->CoinsRequired);
-        if(Window->Button(&RenderGroup, "-", true)){
+        if(Window->Button(&RenderGroup, "-", 2)){
             if(World->CoinsRequired > 0){
                 World->CoinsRequired -= 1;
             }
         }
-        if(Window->Button(&RenderGroup, "+")){
+        if(Window->Button(&RenderGroup, "+", 2)){
             World->CoinsRequired += 1;
         }
         
         Window->Text(&RenderGroup, "Coin spawned: %u", World->CoinsToSpawn);
-        if(Window->Button(&RenderGroup, "-", true)){
+        if(Window->Button(&RenderGroup, "-", 2)){
             if(World->CoinsToSpawn > 0){
                 World->CoinsToSpawn -= 1;
             }
         }
-        if(Window->Button(&RenderGroup, "+")){
+        if(Window->Button(&RenderGroup, "+", 2)){
             World->CoinsToSpawn += 1;
         }
         
@@ -904,8 +902,8 @@ world_editor::UpdateAndRender(){
                         }
                         RenderCenteredRectangle(&RenderGroup, Entity->PathEnd, SIZE, -1.0f, Color, &Camera);
                     }
-                }else if(IsPointInRectangle(MouseP, Entity->P, 
-                                            Asset->SizeInMeters*Asset->Scale)){
+                }else if(IsPointInRectangle(MouseP, Entity->P, Asset->SizeInMeters*Asset->Scale) &&
+                         (!UIManager.MouseOverWindow)){
                     local_constant color COLOR = color{0.0f, 0.0f, 0.7f, 1.0f};
                     RenderRectangleOutline(&RenderGroup, P, Size, -0.1f, COLOR, &Camera);
                 }
@@ -915,7 +913,8 @@ world_editor::UpdateAndRender(){
                 color OutlineColor = {};
                 if(SelectedThing == Entity){
                     OutlineColor = color{0.0f, 0.0f, 1.0f, 1.0f};
-                }else if(IsPointInRectangle(MouseP, Entity->P, TILE_SIZE)){
+                }else if(IsPointInRectangle(MouseP, Entity->P, TILE_SIZE) &&
+                         (!UIManager.MouseOverWindow)){
                     OutlineColor = color{0.0f, 0.0f, 0.7f, 1.0f};
                 }
                 
@@ -928,7 +927,8 @@ world_editor::UpdateAndRender(){
                 color OutlineColor = {};
                 if(SelectedThing == Entity){
                     OutlineColor = color{0.0f, 0.0f, 1.0f, 1.0f};
-                }else if(IsPointInRectangle(MouseP, Entity->P, Entity->Size)){
+                }else if(IsPointInRectangle(MouseP, Entity->P, Entity->Size) &&
+                         (!UIManager.MouseOverWindow)){
                     OutlineColor = color{0.0f, 0.0f, 0.7f, 1.0f};
                 }
                 
@@ -948,12 +948,16 @@ world_editor::UpdateAndRender(){
                     RenderCenteredRectangle(&RenderGroup, Entity->P, TILE_SIZE, 0.0f, PINK,
                                             &Camera);
                 }
+                
                 color OutlineColor = {};
+                OutlineColor.A = 0.0f;
                 if(SelectedThing == Entity){
                     OutlineColor = color{0.0f, 0.0f, 1.0f, 1.0f};
-                }else if(IsPointInRectangle(MouseP, Entity->P, Size)){
+                }else if(IsPointInRectangle(MouseP, Entity->P, Size) &&
+                         (!UIManager.MouseOverWindow)){
                     OutlineColor = color{0.0f, 0.0f, 0.7f, 1.0f};
                 }
+                
                 RenderRectangleOutline(&RenderGroup, Entity->P, Size, Entity->Z-0.1f, 
                                        OutlineColor, &Camera);
             }break;

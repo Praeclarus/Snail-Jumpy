@@ -55,8 +55,8 @@ internal INITIALIZE_RENDERER(InitializeRenderer);
 #define RENDER_GROUP_TO_SCREEN(Name) void Name(render_group *RenderGroup)
 internal RENDER_GROUP_TO_SCREEN(RenderGroupToScreen);
 
-#define CREATE_RENDER_TEXTURE(Name) render_texture_handle Name(u8 *Pixels, u32 Width, u32 Height)
-internal CREATE_RENDER_TEXTURE(CreateRenderTexture);
+internal render_texture_handle 
+CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
 
 global_constant color BLACK  = color{0.0f,  0.0f,  0.0f, 1.0f};
 global_constant color WHITE  = color{1.0f,  1.0f,  1.0f, 1.0f};

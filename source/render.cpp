@@ -364,6 +364,15 @@ RenderRectangleOutline(render_group *RenderGroup,v2 Center, v2 Size, f32 Z,
     RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, Z, Color, Camera);
 }
 
+internal inline void
+RenderRectangleOutlineMinMax(render_group *RenderGroup, v2 Min, v2 Max, f32 Z, 
+                             color Color, camera *Camera=0, f32 Thickness=0.03f){
+    RenderRectangle(RenderGroup, Min, {Max.X, Min.Y+Thickness}, Z, Color, Camera);
+    RenderRectangle(RenderGroup, {Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, Z, Color, Camera);
+    RenderRectangle(RenderGroup, {Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, Z, Color, Camera);
+    RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, Z, Color, Camera);
+}
+
 internal inline color
 Alphiphy(color Color, f32 Alpha){
     color Result = Color;

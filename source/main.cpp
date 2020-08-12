@@ -14,8 +14,8 @@
 global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
 global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
-global_constant char *STARTUP_LEVEL = "Debug";
-//global_constant char *STARTUP_LEVEL = "Test_World";
+//global_constant char *STARTUP_LEVEL = "Debug";
+global_constant char *STARTUP_LEVEL = "Test_World";
 global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = v2{TILE_SIDE, TILE_SIDE};
 global_constant char *ASSET_FILE_PATH = "assets.sja";
@@ -35,7 +35,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_MainGame;
+global game_mode GameMode = GameMode_EntityEditor;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -94,7 +94,7 @@ LoadFont(memory_arena *Arena,
         }
     }
     
-    Font->Texture = CreateRenderTexture((u8 *)Pixels, Width, Height);
+    Font->Texture = CreateRenderTexture((u8 *)Pixels, Width, Height, true);
     Font->TextureWidth = Width;
     Font->TextureHeight = Height;
     Font->Size = Size;
@@ -144,11 +144,11 @@ InitializeGame(){
     LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);
     
     LoadFont(&TransientStorageArena, &DebugFont,
-             "c:/windows/fonts/Arial.ttf", 20, 512, 512);
+             "Roboto-Regular.ttf", 22, 512, 512);
     LoadFont(&TransientStorageArena, &TitleFont,
-             "c:/windows/fonts/Arial.ttf", 30, 512, 512);
+             "Roboto-Regular.ttf", 30, 512, 512);
     LoadFont(&TransientStorageArena, &MainFont,
-             "Press-Start-2P.ttf", 24, 512, 512);
+             "Press-Start-2P.ttf", 26, 512, 512);
     
     // Setup UI
     SetupDefaultTheme(&UIManager.Theme);

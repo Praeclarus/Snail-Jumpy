@@ -148,6 +148,14 @@ struct entity_manager {
 
 //~ Entity spec
 
+enum entity_spec_type {
+    EntitySpec_None,
+    EntitySpec_Sally,
+    EntitySpec_Snail,
+    EntitySpec_Speedy,
+    EntitySpec_Dragonfly,
+};
+
 struct entity_spec {
     char *Asset;
     entity_flags Flags;
