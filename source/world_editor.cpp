@@ -559,8 +559,10 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
         }break;
         case EntityType_Art: {
             Window = UIManager.BeginWindow("Edit Art", WindowP, v2{400, 0});
-            Window->Text(RenderGroup, "Asset", SelectedThing->Asset);
-            //Window->TextInput(RenderGroup, SelectedThing->Asset, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+            u32 Selected = 0;
+            array<const char *> AssetNames = GetAssetNameListByType(SelectedThing->Asset, AssetType_Art, &Selected);
+            Window->DropDownMenu(RenderGroup, AssetNames, &Selected, WIDGET_ID);
+            SelectedThing->Asset = AssetNames[Selected];
             
             Window->Text(RenderGroup, "Z: %.1f", SelectedThing->Z);
             if(Window->Button(RenderGroup, "-", 2)){
@@ -634,7 +636,6 @@ world_editor::RenderCursor(render_group *RenderGroup){
 
 void
 world_editor::UpdateAndRender(){
-    
     render_group RenderGroup;
     InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
     
@@ -794,13 +795,10 @@ world_editor::UpdateAndRender(){
                 }
             }break;
             case EditMode_AddArt: {
-                //Window->TextInput(&RenderGroup, ArtEntityBuffer, sizeof(ArtEntityBuffer), WIDGET_ID);
                 u32 Selected = 0;
                 array<const char *> AssetNames = GetAssetNameListByType(AssetForArtEntity, AssetType_Art, &Selected);
-                u32 ToSelect = Window->DropDownMenu(&RenderGroup, AssetNames, Selected, WIDGET_ID);
-                if(ToSelect > 0){
-                    AssetForArtEntity = AssetNames[ToSelect-1];
-                }
+                Window->DropDownMenu(&RenderGroup, AssetNames, &Selected, WIDGET_ID);
+                AssetForArtEntity = AssetNames[Selected];
             }break;
         }
         

@@ -80,8 +80,8 @@ struct window {
     inline void ToggleButton(render_group *RenderGroup, const char *TrueText, 
                              const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
     b8 ToggleBox(render_group *RenderGroup, const char *Text, b8 Value);
-    u32 DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCounts, u32 Selected, u64 ID);
-    u32 DropDownMenu(render_group *RenderGroup, array<const char *>, u32 Selected, u64 ID);
+    void DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCounts, u32 *Selected, u64 ID);
+    void DropDownMenu(render_group *RenderGroup, array<const char *>, u32 *Selected, u64 ID);
     
     void End(render_group *RenderGroup);
 };

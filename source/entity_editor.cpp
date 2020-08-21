@@ -227,43 +227,20 @@ entity_editor::DoUI(render_group *RenderGroup){
         }
         
         {
-            // TODO(Tyler): I don't like this loop
-            array<const char *> AssetNames = CreateNewArray<const char *>(&TransientStorageArena, 256);
             u32 Selected = 0;
-            for(u32 I = 0; I < AssetTable.MaxBuckets; I++){
-                const char *Key = AssetTable.Keys[I];
-                if(Key){
-                    if(Key == SelectedSpec->Asset){
-                        Selected = AssetNames.Count;
-                    }
-                    asset *Asset = &AssetTable.Values[I];
-                    if(Asset->Type == AssetType_SpriteSheet){
-                        PushItemOntoArray(&AssetNames, Key);
-                    }
-                }
-            }
-            u32 ToSelect = Window->DropDownMenu(RenderGroup, AssetNames, Selected, WIDGET_ID);
-            if(ToSelect > 0){
-                SelectedSpec->Asset = AssetNames[ToSelect-1];
-            }
+            array<const char *> AssetNames = GetAssetNameListByType(SelectedSpec->Asset, AssetType_SpriteSheet, &Selected);
+            Window->DropDownMenu(RenderGroup, AssetNames, &Selected, WIDGET_ID);
+            SelectedSpec->Asset = AssetNames[Selected];
         }
         
-        TOGGLE_FLAG(Window, RenderGroup, "Can be stunned", SelectedSpec->Flags, 
-                    EntityFlag_CanBeStunned);
-        ANTI_TOGGLE_FLAG(Window, RenderGroup, "Toggle gravity", SelectedSpec->Flags,
-                         EntityFlag_NotAffectedByGravity);
-        TOGGLE_FLAG(Window, RenderGroup, "Mirror boundaries when moving right", 
-                    SelectedSpec->Flags, EntityFlag_MirrorBoundariesWhenGoingRight);
+        TOGGLE_FLAG(Window, RenderGroup, "Can be stunned", SelectedSpec->Flags,  EntityFlag_CanBeStunned);
+        ANTI_TOGGLE_FLAG(Window, RenderGroup, "Toggle gravity", SelectedSpec->Flags, EntityFlag_NotAffectedByGravity);
+        TOGGLE_FLAG(Window, RenderGroup, "Mirror boundaries when moving right", SelectedSpec->Flags, EntityFlag_MirrorBoundariesWhenGoingRight);
         
         //~ Animation stuff
         Window->Text(RenderGroup, "");
-        {
-            u32 ToSelect = Window->DropDownMenu(RenderGroup, ENTITY_STATE_TABLE, State_TOTAL, CurrentState, WIDGET_ID);
-            if(ToSelect > 0) CurrentState = (entity_state)(ToSelect-1);
-        }{
-            u32 ToSelect = Window->DropDownMenu(RenderGroup, DIRECTION_TABLE, Direction_TOTAL, CurrentDirection, WIDGET_ID);
-            if(ToSelect > 0) CurrentDirection = (direction)(ToSelect-1);
-        }
+        Window->DropDownMenu(RenderGroup, ENTITY_STATE_TABLE, State_TOTAL, (u32 *)&CurrentState, WIDGET_ID);
+        Window->DropDownMenu(RenderGroup, DIRECTION_TABLE, Direction_TOTAL, (u32 *)&CurrentDirection, WIDGET_ID);
         Window->Text(RenderGroup, "Current frame: %u", CurrentFrame);
         if(Window->Button(RenderGroup, "<<< Frame", 2)){
             if(CurrentFrame > 0) CurrentFrame--;

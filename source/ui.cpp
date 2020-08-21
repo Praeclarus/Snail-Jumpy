@@ -350,8 +350,8 @@ FlagVar &= ~Flag;                                          \
 
 #define TOGGLE_FLAG_BUTTON(Window, RenderGroup, TrueText, FalseText, FlagVar, Flag) 
 
-u32
-window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCount, u32 Selected, u64 ID){
+void
+window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
     NotButtonSanityCheck();
     
     f32 Width = LastSize.X;
@@ -389,7 +389,6 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
         UIManager.SelectedWidgetID = 0;
     }
     
-    u32 Result = 0;
     f32 TextY = Y-TextHeight-Theme->Padding;
     f32 RectY = Y;
     f32 YAdvance = (TextHeight+2*Theme->Padding);
@@ -405,10 +404,10 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
             if((NewRectY <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= RectY)){
                 Color = Theme->ButtonHoveredColor;
                 if(UIManager.LeftMouseButton.JustDown){
-                    Result = I+1;
+                    *Selected = I;
                     Color = Theme->ButtonClickedColor;
                 }
-            }else if(I == Selected){
+            }else if(I == *Selected){
                 Color = Theme->ButtonClickedColor;
             }
             RenderRectangle(RenderGroup, V2(X, NewRectY), V2(X+Width, RectY), Z-0.5f, 
@@ -419,18 +418,16 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
         RenderRectangle(RenderGroup, {X, Y-Height}, {X+Width, Y}, Z-0.1f, 
                         Alphiphy(Theme->ButtonBaseColor, Fade));
         RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
-                     V2(X+Theme->Padding, TextY), Z-0.11f, Texts[Selected]);
+                     V2(X+Theme->Padding, TextY), Z-0.11f, Texts[*Selected]);
     }
     
     RenderRectangle(RenderGroup, {X, Y-Height}, {X+0.5f*Theme->Padding, Y}, Z-0.51f, 
                     Alphiphy(Theme->NormalColor, Fade));
-    return(Result);
 }
 
-u32 
-window::DropDownMenu(render_group *RenderGroup, array<const char *> Texts, u32 Selected, u64 ID){
-    u32 Result = DropDownMenu(RenderGroup, Texts.Items, Texts.Count, Selected, ID);
-    return(Result);
+void
+window::DropDownMenu(render_group *RenderGroup, array<const char *> Texts, u32 *Selected, u64 ID){
+    DropDownMenu(RenderGroup, Texts.Items, Texts.Count, Selected, ID);
 }
 
 void
