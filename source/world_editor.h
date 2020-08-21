@@ -72,46 +72,9 @@ struct world_editor {
     edit_mode Mode;
     b8 HideUI;
     
-    const f32 CAMERA_MOVE_SPEED = 0.1f;
-    const edit_mode FORWARD_EDIT_MODE_TABLE[EditMode_TOTAL] = {
-        EditMode_AddWall,       // 0
-        EditMode_AddCoinP,      // 1
-        EditMode_Enemy,         // 2
-        EditMode_AddArt,        // 3
-        EditMode_AddTeleporter, // 4
-        EditMode_TOTAL,         // 5
-        EditMode_TOTAL,         // 6
-        EditMode_TOTAL,         // 7
-        EditMode_AddDoor,       // 8
-        EditMode_None,          // 9
-    };
-    const edit_mode REVERSE_EDIT_MODE_TABLE[EditMode_TOTAL] = {
-        EditMode_AddDoor,       // 0
-        EditMode_None,          // 1
-        EditMode_AddWall,       // 2
-        EditMode_AddCoinP,      // 3
-        EditMode_Enemy,         // 4
-        EditMode_TOTAL,         // 5
-        EditMode_TOTAL,         // 6
-        EditMode_TOTAL,         // 7
-        EditMode_AddArt,        // 8
-        EditMode_AddTeleporter, // 9
-    };
-    const char *EDIT_MODE_NAME_TABLE[EditMode_TOTAL] = {
-        "None",           // 0
-        "Add wall",       // 1
-        "Add coin P",     // 2
-        "Add enemy",      // 3
-        "Add art",        // 4
-        0,                // 5
-        0,                // 6
-        0,                // 7
-        "Add teleporter", // 8
-        "Add door",       // 9
-    };
-    
     inline entity_type GetSelectedThingType();
     void UpdateAndRender();
+    void DoUI(render_group *RenderGroup);
     void UpdateSelectionRectangle();
     b8   DoPopup(render_group *RenderGroup);
     void DoSelectedThingUI(render_group *RenderGroup);
@@ -126,7 +89,49 @@ struct world_editor {
     void MaybeFadeWindow(window *Window); 
     b8   HandleClick(b8 ShouldRemove);
     void ProcessAction();
-    
 };
+
+//~ Constants
+global_constant v2 ENEMY_PATH_HANDLE_SIZE = V2(0.1f, 0.3f);
+global_constant color EDITOR_HOVERED_COLOR = Color(0.0f, 0.0f, 0.7f, 1.0f);
+global_constant color EDITOR_SELECTED_COLOR = Color(0.0f, 0.0f, 1.0f, 1.0f);
+global_constant f32 WORLD_EDITOR_CAMERA_MOVE_SPEED = 0.1f;
+global_constant edit_mode WORLD_EDITOR_FORWARD_EDIT_MODE_TABLE[EditMode_TOTAL] = {
+    EditMode_AddWall,       // 0
+    EditMode_AddCoinP,      // 1
+    EditMode_Enemy,         // 2
+    EditMode_AddArt,        // 3
+    EditMode_AddTeleporter, // 4
+    EditMode_TOTAL,         // 5
+    EditMode_TOTAL,         // 6
+    EditMode_TOTAL,         // 7
+    EditMode_AddDoor,       // 8
+    EditMode_None,          // 9
+};
+global_constant edit_mode WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[EditMode_TOTAL] = {
+    EditMode_AddDoor,       // 0
+    EditMode_None,          // 1
+    EditMode_AddWall,       // 2
+    EditMode_AddCoinP,      // 3
+    EditMode_Enemy,         // 4
+    EditMode_TOTAL,         // 5
+    EditMode_TOTAL,         // 6
+    EditMode_TOTAL,         // 7
+    EditMode_AddArt,        // 8
+    EditMode_AddTeleporter, // 9
+};
+global const char *WORLD_EDITOR_EDIT_MODE_NAME_TABLE[EditMode_TOTAL] = {
+    "None",           // 0
+    "Add wall",       // 1
+    "Add coin P",     // 2
+    "Add enemy",      // 3
+    "Add art",        // 4
+    0,                // 5
+    0,                // 6
+    0,                // 7
+    "Add teleporter", // 8
+    "Add door",       // 9
+};
+
 
 #endif //SNAIL_JUMPY_EDITOR_H

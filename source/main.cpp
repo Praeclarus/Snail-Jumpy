@@ -229,3 +229,8 @@ camera::ScreenPToWorldP(v2 ScreenP){
     v2 Result = ScreenP / MetersToPixels + P;
     return(Result);
 }
+
+inline void
+camera::Update(){
+    MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
+}

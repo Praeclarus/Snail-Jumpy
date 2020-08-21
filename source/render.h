@@ -13,6 +13,7 @@ struct camera {
     
     inline void SetCenter(v2 P, world_data *World);
     inline v2 ScreenPToWorldP(v2 ScreenP);
+    inline void Update();
 };
 
 //~

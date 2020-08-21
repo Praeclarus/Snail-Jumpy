@@ -360,12 +360,10 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
     f32 Height;
     if(UIManager.SelectedWidgetID == ID) Height = ((TextCount-1)*(TextHeight+2*Theme->Padding))+TextHeight; 
     else Height = TextHeight;
+    Height += 2*Theme->Padding;
     
     f32 X = DrawP.X;
     f32 Y = DrawP.Y-Theme->Padding;
-    
-    Width  += 2*Theme->Padding;
-    Height += 2*Theme->Padding;
     DrawP.Y -= TextHeight+2*Theme->Padding+Theme->Padding;
     
     {

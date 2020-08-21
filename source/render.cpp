@@ -1,13 +1,17 @@
 global render_texture_handle DefaultTexture;
 
+// TODO(Tyler): Remove "MaxCount", and make it dynamic and growable
 internal inline void
-InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCount){
+InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCount,
+                      color BackgroundColor, v2 OutputSize){
     RenderGroup->OpaqueItems = CreateNewArray<render_item>(Arena, MaxCount);
     RenderGroup->TranslucentItems = CreateNewArray<render_item>(Arena, MaxCount);
     
     RenderGroup->Vertices = CreateNewArray<vertex>(Arena, MaxCount*4);
     
     RenderGroup->Indices = CreateNewArray<u16>(Arena, MaxCount*6);
+    RenderGroup->BackgroundColor = BackgroundColor;
+    RenderGroup->OutputSize = OutputSize;
 }
 
 internal render_item *

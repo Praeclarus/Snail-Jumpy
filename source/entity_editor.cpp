@@ -380,11 +380,8 @@ entity_editor::UpdateAndRender(){
     FloorY  = 5;
     
     render_group RenderGroup;
-    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
-    
-    RenderGroup.BackgroundColor = color{0.4f, 0.5f, 0.45f, 1.0f};
-    RenderGroup.OutputSize = OSInput.WindowSize;
-    Camera.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
+    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16), Color(0.4f, 0.5f, 0.45f, 1.0f), OSInput.WindowSize);
+    Camera.Update();
     
     ProcessInput();
     

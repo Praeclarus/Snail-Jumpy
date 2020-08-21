@@ -1,10 +1,8 @@
 internal void
 UpdateAndRenderMenu(){
     render_group RenderGroup;
-    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
+    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16), Color(0.5f, 0.5f, 0.5f, 1.0f), OSInput.WindowSize);
     
-    RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    RenderGroup.OutputSize = OSInput.WindowSize;
     os_event Event;
     while(PollEvents(&Event));
     

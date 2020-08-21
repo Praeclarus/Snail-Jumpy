@@ -30,12 +30,8 @@ UpdateAndRenderMainGame(){
     GameProcessInput();
     
     render_group RenderGroup;
-    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16));
-    
-    RenderGroup.BackgroundColor = {0.5f, 0.5f, 0.5f, 1.0f};
-    RenderGroup.OutputSize = OSInput.WindowSize;
-    //RenderGroup.MetersToPixels = 60.0f / 0.5f;
-    GameCamera.MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
+    InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16), Color(0.5f, 0.5f, 0.5f, 1.0f), OSInput.WindowSize);
+    GameCamera.Update();
     
     CollisionSystemNewFrame();
     
