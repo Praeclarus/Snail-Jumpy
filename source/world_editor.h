@@ -51,7 +51,7 @@ struct world_editor {
     };
     
     char PopupBuffer[512];
-    char ArtEntityBuffer[512];
+    const char *AssetForArtEntity;
     u32 EntityToAddSpecID;
     
     camera Camera;
@@ -71,7 +71,6 @@ struct world_editor {
     
     edit_mode Mode;
     b8 HideUI;
-    
     
     const f32 CAMERA_MOVE_SPEED = 0.1f;
     const edit_mode FORWARD_EDIT_MODE_TABLE[EditMode_TOTAL] = {

@@ -5,13 +5,9 @@ InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCou
     RenderGroup->OpaqueItems = CreateNewArray<render_item>(Arena, MaxCount);
     RenderGroup->TranslucentItems = CreateNewArray<render_item>(Arena, MaxCount);
     
-    RenderGroup->Vertices = PushArray(Arena, vertex, MaxCount*4);
-    RenderGroup->VertexCount = 0;
-    RenderGroup->MaxVertexCount = MaxCount*4;
+    RenderGroup->Vertices = CreateNewArray<vertex>(Arena, MaxCount*4);
     
-    RenderGroup->Indices = PushArray(Arena, u16, MaxCount*6);
-    RenderGroup->IndexCount = 0;
-    RenderGroup->MaxIndexCount = MaxCount*6;
+    RenderGroup->Indices = CreateNewArray<u16>(Arena, MaxCount*6);
 }
 
 internal render_item *
@@ -34,27 +30,11 @@ AddRenderItem(render_group *RenderGroup, b8 IsTranslucent, f32 ZLayer){
     }else{
         Result = PushNewArrayItem(&RenderGroup->OpaqueItems);
     }
-    Result->VertexOffset = RenderGroup->VertexCount;
-    Result->IndexOffset = RenderGroup->IndexCount;
+    Result->VertexOffset = RenderGroup->Vertices.Count;
+    Result->IndexOffset = RenderGroup->Indices.Count;
     Result->ZLayer = ZLayer;
     Result->ClipMin = {};
     Result->ClipMax = RenderGroup->OutputSize;
-    return(Result);
-}
-
-internal vertex *
-AddVertices(render_group *RenderGroup, u32 Count){
-    Assert(RenderGroup->VertexCount+Count < RenderGroup->MaxVertexCount);
-    vertex *Result = &RenderGroup->Vertices[RenderGroup->VertexCount];
-    RenderGroup->VertexCount += Count;
-    return(Result);
-}
-
-internal u16 *
-AddIndices(render_group *RenderGroup, u32 Count){
-    Assert(RenderGroup->IndexCount+Count < RenderGroup->MaxIndexCount);
-    u16 *Result = &RenderGroup->Indices[RenderGroup->IndexCount];
-    RenderGroup->IndexCount += Count;
     return(Result);
 }
 
@@ -79,14 +59,14 @@ RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color,
     RenderItem->IndexCount = Sides*3;
     RenderItem->Texture = DefaultTexture;
     
-    vertex *Vertices = AddVertices(RenderGroup, Sides+2);
+    vertex *Vertices = PushNArrayItems(&RenderGroup->Vertices, Sides+2);
     Vertices[0] = {P.X, P.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     for(u32 I = 0; I <= Sides; I++){
         Vertices[I+1] = {P.X+Radius*Sin(T*TAU), P.Y+Radius*Cos(T*TAU), Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
         T += Step;
     }
     
-    u16 *Indices = AddIndices(RenderGroup, Sides*3);
+    u16 *Indices = PushNArrayItems(&RenderGroup->Indices, Sides*3);
     u16 CurrentIndex = 1;
     for(u32 I = 0; I < Sides*3; I += 3){
         Indices[I] = 0;
@@ -123,13 +103,13 @@ RenderRectangle(render_group *RenderGroup,v2 MinCorner, v2 MaxCorner, f32 Z, col
         RenderItem->ClipMax = ClipMax; 
     }
     
-    vertex *Vertices = AddVertices(RenderGroup, 4);
+    vertex *Vertices = PushNArrayItems(&RenderGroup->Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 1.0f};
     Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 1.0f};
     Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 0.0f};
     
-    u16 *Indices = AddIndices(RenderGroup, 6);
+    u16 *Indices = PushNArrayItems(&RenderGroup->Indices, 6);
     Indices[0] = 0;
     Indices[1] = 1;
     Indices[2] = 2;
@@ -164,13 +144,13 @@ RenderTexture(render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, f32 Z,
         RenderItem->ClipMax = ClipMax; 
     }
     
-    vertex *Vertices = AddVertices(RenderGroup, 4);
+    vertex *Vertices = PushNArrayItems(&RenderGroup->Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
     Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
     Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
     Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
     
-    u16 *Indices = AddIndices(RenderGroup, 6);
+    u16 *Indices = PushNArrayItems(&RenderGroup->Indices, 6);
     Indices[0] = 0;
     Indices[1] = 1;
     Indices[2] = 2;
@@ -196,13 +176,13 @@ RenderTextureWithColor(render_group *RenderGroup,
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
-    vertex *Vertices = AddVertices(RenderGroup, 4);
+    vertex *Vertices = PushNArrayItems(&RenderGroup->Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MinTexCoord.X, MinTexCoord.Y};
     Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MinTexCoord.X, MaxTexCoord.Y};
     Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MaxTexCoord.X, MaxTexCoord.Y};
     Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MaxTexCoord.X, MinTexCoord.Y};
     
-    u16 *Indices = AddIndices(RenderGroup, 6);
+    u16 *Indices = PushNArrayItems(&RenderGroup->Indices, 6);
     Indices[0] = 0;
     Indices[1] = 1;
     Indices[2] = 2;
@@ -238,8 +218,9 @@ RenderString(render_group *RenderGroup, font *Font, color Color, f32 X, f32 Y, f
     RenderItem->IndexCount = 6*Length;
     RenderItem->Texture = Font->Texture;
     
-    vertex *Vertices = AddVertices(RenderGroup, 4*Length);
+    vertex *Vertices = PushNArrayItems(&RenderGroup->Vertices, 4*Length);
     u32 VertexOffset = 0;
+    float ActualY = RenderGroup->OutputSize.Y - Y;
     for(char C = *String; C; C = *(++String)){
         stbtt_aligned_quad Q;
         stbtt_GetBakedQuad(Font->CharData,
@@ -255,7 +236,7 @@ RenderString(render_group *RenderGroup, font *Font, color Color, f32 X, f32 Y, f
         VertexOffset += 4;
     }
     
-    u16 *Indices = AddIndices(RenderGroup, 6*Length);
+    u16 *Indices = PushNArrayItems(&RenderGroup->Indices, 6*Length);
     u16 FaceOffset = 0;
     for(u32 IndexOffset = 0; IndexOffset < 6*Length; IndexOffset += 6){
         Indices[IndexOffset]   = FaceOffset;
@@ -269,9 +250,9 @@ RenderString(render_group *RenderGroup, font *Font, color Color, f32 X, f32 Y, f
 }
 
 internal inline void
-RenderString(render_group *RenderGroup,
-             font *Font, color Color, v2 P, f32 Z, const char *String){
-    RenderString(RenderGroup, Font, Color, P.X, P.Y, Z, String);
+RenderString(render_group *RenderGroup, font *Font, color Color, v2 P, f32 Z, 
+             const char *String, camera *Camera=0){
+    RenderString(RenderGroup, Font, Color, P.X, P.Y, Z, String, Camera);
 }
 
 // TODO(Tyler): Figure out a better way to do the buffer

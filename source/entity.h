@@ -1,25 +1,6 @@
 #ifndef SNAIL_JUMPY_ENTITY_H
 #define SNAIL_JUMPY_ENTITY_H
 
-enum entity_type {
-    EntityType_None = 0,
-    
-    EntityType_Wall      = 1,
-    EntityType_Coin      = 2,
-    
-    EntityType_Enemy     = 3,
-    EntityType_Art       = 4,
-    // 5
-    // 6
-    EntityType_Player    = 7,
-    
-    EntityType_Teleporter = 8,
-    EntityType_Door       = 9,
-    EntityType_Projectile = 10,
-    
-    EntityType_TOTAL,
-};
-
 enum state_change_condition {
     ChangeCondition_None,
     ChangeCondition_CooldownOver,
@@ -63,23 +44,17 @@ struct door_entity {
 struct art_entity {
     v2 P;
     f32 Z;
-    char *Asset;
-};
-
-typedef u32 entity_flags;
-enum _entity_flags {
-    EntityFlags_None                 = 0,
-    EntityFlags_CanBeStunned         = (1 << 0),
-    EntityFlags_NotAffectedByGravity = (1 << 1),
+    const char *Asset;
 };
 
 struct entity {
     // NOTE(Tyler): Needs to be u32 otherwise compiler complains
     // TODO(Tyler): Reorder to fix the above NOTE
-    u32 Type;
+    entity_type Type;
     v2 P, dP;
     entity_state State;
     entity_flags Flags;
+    u32 Spec;
     
     state_change_condition ChangeCondition;
     f32 Cooldown;
@@ -92,7 +67,9 @@ struct entity {
     b8 IsGrounded;
     direction Direction;
     
+    
     // TODO(Tyler): Reordering this struct might be helpful for packing reasons
+    u8 BoundarySet;
     u8 BoundaryCount;
     collision_boundary Boundaries[2];
 };
@@ -145,37 +122,7 @@ struct entity_manager {
     void UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera);
 };
 
-
-//~ Entity spec
-
-enum entity_spec_type {
-    EntitySpec_None,
-    EntitySpec_Sally,
-    EntitySpec_Snail,
-    EntitySpec_Speedy,
-    EntitySpec_Dragonfly,
-};
-
-struct entity_spec {
-    char *Asset;
-    entity_flags Flags;
-    entity_type  Type;
-    
-    union {
-        // Normal enemy
-        struct {
-            f32 Speed;
-            u32 Damage;
-        };
-    };
-    
-    // NOTE(Tyler): The P member of the collision_boundary struct here is used as an offset,
-    // when written to file
-    u8 BoundaryCount;
-    collision_boundary Boundaries[2];
-    u8 SecondaryBoundaryCount;
-    collision_boundary SecondaryBoundaries[2];
-};
+//~ File stuff
 
 #pragma pack(push, 1)
 struct entity_spec_file_header {

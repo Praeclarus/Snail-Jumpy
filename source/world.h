@@ -37,7 +37,7 @@ struct entity_data {
         
         // Art
         struct {
-            char *Asset;
+            const char *Asset;
             f32 Z;
         };
     };
@@ -70,6 +70,8 @@ struct world_manager {
     world_data *GetWorld(const char *Name, b8 AlwaysWork=true);
     world_data *CreateNewWorld(const char *Name);
     world_data *LoadWorldFromFile(const char *Name, b8 AlwaysWork=true);
+    void LoadWorld(const char *LevelName);
+    b8 IsLevelCompleted(const char *LevelName);
     void        RemoveWorld(const char *Name);
     void        WriteWorldsToFiles();
 };

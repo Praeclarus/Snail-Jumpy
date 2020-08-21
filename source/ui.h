@@ -37,6 +37,7 @@ struct theme {
     color TextInputInactiveTextColor;
     color TextInputActiveTextColor;
     color TextInputInactiveBackColor;
+    color TextInputHoveredBackColor;
     color TextInputActiveBackColor;
     
     f32 ButtonHeight;
@@ -48,6 +49,9 @@ enum _window_flags {
     WindowFlag_None,
     WindowFlag_NextButtonIsSameRow = (1 << 0),
 };
+
+// TODO(Tyler): This probably isn't very robust, but should work in general
+#define WIDGET_ID (HashKey(__FILE__) * __LINE__)
 
 struct window {
     const char *Name;
@@ -68,13 +72,17 @@ struct window {
     theme *Theme;
     
     void NotButtonSanityCheck();
-    void TextInput(render_group *RenderGroup, const char *ID, char *Buffer, 
-                   u32 BufferSize);
+    // TODO(Tyler): Pehaps instead of using a const char *ID for the ID, use macros like
+    // __FILE__ and __LINE__ possibly even __FUNCTION__.
+    void TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 ID);
     void Text(render_group *RenderGroup, const char *Text, ...);
     b8 Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow=0);
     inline void ToggleButton(render_group *RenderGroup, const char *TrueText, 
                              const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
     b8 ToggleBox(render_group *RenderGroup, const char *Text, b8 Value);
+    u32 DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCounts, u32 Selected, u64 ID);
+    u32 DropDownMenu(render_group *RenderGroup, array<const char *>, u32 Selected, u64 ID);
+    
     void End(render_group *RenderGroup);
 };
 

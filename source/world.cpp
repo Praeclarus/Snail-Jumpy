@@ -2,8 +2,8 @@
 
 //~ Helpers
 
-internal b8
-IsLevelCompleted(const char *LevelName){
+b8
+world_manager::IsLevelCompleted(const char *LevelName){
     b8 Result = false;
     
     if(LevelName[0] == '\0'){
@@ -69,14 +69,14 @@ LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
     }
 }
 
-internal void
-LoadWorld(const char *LevelName){
+void
+world_manager::LoadWorld(const char *LevelName){
     TIMED_FUNCTION();
     
     EntityManager.Reset();
     
     if(LevelName){
-        world_data *World = WorldManager.GetWorld(LevelName);
+        world_data *World = GetWorld(LevelName);
         
         if(World){
             CurrentWorld = World;
@@ -122,21 +122,16 @@ LoadWorld(const char *LevelName){
                     case EntityType_Enemy: {
                         entity_spec *Spec = &EntitySpecs[Entity->SpecID];
                         enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
-                        *Enemy= {};
+                        *Enemy = {};
                         Enemy->Type  = Spec->Type;
                         Enemy->Flags = Spec->Flags;
+                        Enemy->Spec = Entity->SpecID;
                         
                         v2 P = Entity->P; P.Y += 0.001f;
                         Enemy->P = P;
                         
                         Enemy->Speed = Spec->Speed;
                         Enemy->Damage = Spec->Damage;
-                        
-                        Enemy->BoundaryCount = Spec->BoundaryCount;
-                        for(u32 J = 0; J < Spec->BoundaryCount; J++){
-                            Enemy->Boundaries[J] = Spec->Boundaries[J];
-                            Enemy->Boundaries[J].P = P + Spec->Boundaries[J].P;
-                        }
                         
                         Enemy->State = State_Moving;
                         Enemy->ZLayer = -0.7f;
@@ -145,6 +140,18 @@ LoadWorld(const char *LevelName){
                         Enemy->Direction = Entity->Direction;
                         Enemy->PathStart = Entity->PathStart;
                         Enemy->PathEnd = Entity->PathEnd;
+                        
+                        u8 SetIndex = Spec->BoundaryTable[Enemy->State];
+                        if(SetIndex > 0){
+                            SetIndex--;
+                            Assert(SetIndex < ENTITY_SPEC_BOUNDARY_SET_COUNT);
+                            
+                            Enemy->BoundaryCount = Spec->Counts[SetIndex];
+                            for(u32 J = 0; J < Enemy->BoundaryCount; J++){
+                                Enemy->Boundaries[J] = Spec->Boundaries[SetIndex][J];
+                                Enemy->Boundaries[J].P = P + Spec->Boundaries[SetIndex][J].P;
+                            }
+                        }
                     }break;
                     case EntityType_Teleporter: {
                         teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
@@ -210,7 +217,7 @@ world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
     entire_file File = ReadEntireFile(&TransientStorageArena, Path);
     if(File.Size){
         const char *WorldName = PushCString(&StringMemory, Name);
-        NewWorld = WorldManager.CreateNewWorld(Name);
+        NewWorld = CreateNewWorld(Name);
         NewWorld->Name = WorldName;
         stream Stream = CreateReadStream(File.Data, File.Size);
         
@@ -275,7 +282,7 @@ world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
         
     }else if(AlwaysWork){
         const char *WorldName = PushCString(&StringMemory, Name);
-        NewWorld = WorldManager.CreateNewWorld(Name);
+        NewWorld = CreateNewWorld(Name);
         NewWorld->Name = WorldName;
         NewWorld->Width = 32;
         NewWorld->Height = 18;

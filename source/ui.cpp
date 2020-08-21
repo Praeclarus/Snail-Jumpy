@@ -67,29 +67,7 @@ window::Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow){
     
     b8 DoUpdate = !IsFaded;
     if(UIManager.Popup) DoUpdate = (UIManager.Popup == this);
-    
-    if(DoUpdate &&
-       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
-       (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
-        if(UIManager.LeftMouseButton.JustDown ){
-            ButtonColor = Theme->ButtonClickedColor;
-            Result = true;
-        }else{
-            ButtonColor = Theme->ButtonHoveredColor;
-        }
-        
-        if(UIManager.LeftMouseButton.IsDown){
-            UIManager.HandledInput = true;
-        }
-    }
-    
-    RenderRectangle(RenderGroup, {X, Y-Height}, {X+Width, Y}, Z-0.1f, 
-                    Alphiphy(ButtonColor, Fade));
-    f32 TextWidth = GetStringAdvance(Theme->NormalFont, Text);
-    f32 HeightOffset = (Theme->NormalFont->Ascent/2);
-    RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
-                 v2{X+(Width/2)-(TextWidth/2), Y-(Height/2)-HeightOffset}, 
-                 Z-0.11f, Text);
+    if(UIManager.SelectedWidgetID != 0) DoUpdate = false;
     
     {
         f32 RelHeight = TopLeft.Y-DrawP.Y;
@@ -109,6 +87,37 @@ window::Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow){
         DrawP.Y -= Height+Theme->Padding;
         _ButtonsOnRow = 0;
     }
+    
+    if(DoUpdate &&
+       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
+       (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
+        b8 DoHovered = false;
+        if(UIManager.LeftMouseButton.JustDown){
+            ButtonColor = Theme->ButtonClickedColor;
+            Result = true;
+            DoHovered = true;
+        }else{
+            ButtonColor = Theme->ButtonHoveredColor;
+            DoHovered = true;
+        }
+        
+        if(DoHovered){
+            Height -= 10;
+            Width -= 10;
+            X += 5;
+            Y -= 5;
+        }
+        
+        if(UIManager.LeftMouseButton.IsDown){ UIManager.HandledInput = true; }
+    }
+    
+    RenderRectangle(RenderGroup, {X, Y-Height}, {X+Width, Y}, Z-0.1f, 
+                    Alphiphy(ButtonColor, Fade));
+    f32 TextWidth = GetStringAdvance(Theme->NormalFont, Text);
+    f32 HeightOffset = (Theme->NormalFont->Ascent/2);
+    RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+                 v2{X+(Width/2)-(TextWidth/2), Y-(Height/2)-HeightOffset}, 
+                 Z-0.11f, Text);
     
     return(Result);
 }
@@ -152,8 +161,7 @@ window::Text(render_group *RenderGroup, const char *Text, ...){
 }
 
 void 
-window::TextInput(render_group *RenderGroup, const char *ID, char *Buffer, 
-                  u32 BufferSize){
+window::TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 ID){
     NotButtonSanityCheck();
     
     f32 Width = LastSize.X;
@@ -170,7 +178,7 @@ window::TextInput(render_group *RenderGroup, const char *ID, char *Buffer,
     
     color Color;
     color TextColor;
-    if(UIManager.SelectedWidgetID == HashKey(ID)){
+    if(UIManager.SelectedWidgetID == ID){
         for(u32 I = 0; 
             (I < UIManager.BufferIndex) && (BufferIndex < BufferSize);
             I++){
@@ -196,23 +204,36 @@ window::TextInput(render_group *RenderGroup, const char *ID, char *Buffer,
     Min.Y -= Height+Theme->Padding;
     v2 Max = Min + v2{Width, Height};
     
+    DrawP.Y -= Height+Theme->Padding;
+    
     b8 DoUpdate = !IsFaded;
     if(UIManager.Popup) DoUpdate = (UIManager.Popup == this);
     
     if(DoUpdate &&
        (Min.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= Max.X) &&
        (Min.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= Max.Y)){
+        b8 DoHovered = false;
         if(UIManager.LeftMouseButton.JustDown){
-            UIManager.SelectedWidgetID = HashKey(ID);
-        }else if(UIManager.SelectedWidgetID != HashKey(ID)){
-            Color = color{0.25f, 0.4f, 0.3f, 0.9f};
+            UIManager.SelectedWidgetID = ID;
+            DoHovered = true;
+        }else if(UIManager.SelectedWidgetID != ID){
+            Color = Theme->TextInputHoveredBackColor;
+            DoHovered = true;
+        }
+        
+        if(DoHovered){
+            Height -= 10;
+            Width -= 10;
+            Min.X += 5;
+            Min.Y += 5;
+            Max = Min + v2{Width, Height};
         }
         
         if(UIManager.LeftMouseButton.IsDown){
             UIManager.HandledInput = true;
         }
     }else if(UIManager.LeftMouseButton.JustDown && 
-             (UIManager.SelectedWidgetID == HashKey(ID))){
+             (UIManager.SelectedWidgetID == ID)){
         UIManager.SelectedWidgetID = 0;
         UIManager.HandledInput = true;
     }
@@ -225,14 +246,12 @@ window::TextInput(render_group *RenderGroup, const char *ID, char *Buffer,
     v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - Theme->NormalFont->Size/2};
     RenderString(RenderGroup, Theme->NormalFont, Alphiphy(TextColor, Fade), 
                  v2{P.X, P.Y}, Z-0.12f, Buffer);
-    if(UIManager.SelectedWidgetID == HashKey(ID)){
+    if(UIManager.SelectedWidgetID == ID){
         f32 Advance = GetStringAdvance(Theme->NormalFont, Buffer);
         f32 CursorWidth = 10;
         RenderRectangle(RenderGroup, V2(P.X+Advance, P.Y-2), 
                         V2(P.X+Advance+CursorWidth, P.Y), Z-0.12f, TextColor);
     }
-    
-    DrawP.Y -= Height+Theme->Padding;
 }
 
 inline void
@@ -267,18 +286,31 @@ window::ToggleBox(render_group *RenderGroup, const char *Text, b8 Value){
     
     b8 DoUpdate = !IsFaded;
     if(UIManager.Popup) DoUpdate = (UIManager.Popup == this);
+    if(UIManager.SelectedWidgetID != 0) DoUpdate = false;
     
     f32 X = DrawP.X+Theme->Padding;
     f32 Y = DrawP.Y-Theme->Padding;
+    DrawP.Y -= Height+Theme->Padding;
+    
     color ButtonColor = Theme->ButtonBaseColor;
     if(DoUpdate &&
        (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
        (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
+        b8 DoHovered = false;
         if(UIManager.LeftMouseButton.JustDown ){
             ButtonColor = Theme->ButtonClickedColor;
             Result = !Value;
+            DoHovered = true;
         }else{
             ButtonColor = Theme->ButtonHoveredColor;
+            DoHovered = true;
+        }
+        
+        if(DoHovered){
+            Height -= 8;
+            ButtonWidth -= 8;
+            X += 4;
+            Y -= 4;
         }
         
         if(UIManager.LeftMouseButton.IsDown){
@@ -299,8 +331,6 @@ window::ToggleBox(render_group *RenderGroup, const char *Text, b8 Value){
                  V2(X+ButtonWidth+Theme->Padding, Y-(Height/2)-HeightOffset), 
                  Z-0.11f, Text);
     
-    DrawP.Y -= Height+Theme->Padding;
-    
     return(Result);
 }
 
@@ -319,6 +349,89 @@ FlagVar &= ~Flag;                                          \
 }
 
 #define TOGGLE_FLAG_BUTTON(Window, RenderGroup, TrueText, FalseText, FlagVar, Flag) 
+
+u32
+window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCount, u32 Selected, u64 ID){
+    NotButtonSanityCheck();
+    
+    f32 Width = LastSize.X;
+    
+    f32 TextHeight = Theme->NormalFont->Ascent;
+    f32 Height;
+    if(UIManager.SelectedWidgetID == ID) Height = ((TextCount-1)*(TextHeight+2*Theme->Padding))+TextHeight; 
+    else Height = TextHeight;
+    
+    f32 X = DrawP.X;
+    f32 Y = DrawP.Y-Theme->Padding;
+    
+    Width  += 2*Theme->Padding;
+    Height += 2*Theme->Padding;
+    DrawP.Y -= TextHeight+2*Theme->Padding+Theme->Padding;
+    
+    {
+        f32 RelHeight = TopLeft.Y-DrawP.Y;
+        if(Size.Y < RelHeight+TextHeight){
+            Size.Y = RelHeight+TextHeight;
+        }
+    }
+    
+    b8 DoUpdate = !IsFaded;
+    if(UIManager.Popup) DoUpdate = (UIManager.Popup == this);
+    
+    if(DoUpdate &&
+       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
+       (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y) &&
+       ((UIManager.SelectedWidgetID == 0) || (UIManager.SelectedWidgetID == ID))){
+        UIManager.SelectedWidgetID = ID;
+        
+        if(UIManager.LeftMouseButton.IsDown){ UIManager.HandledInput = true; }
+    }else if(UIManager.SelectedWidgetID == ID){
+        UIManager.SelectedWidgetID = 0;
+    }
+    
+    u32 Result = 0;
+    f32 TextY = Y-TextHeight-Theme->Padding;
+    f32 RectY = Y;
+    f32 YAdvance = (TextHeight+2*Theme->Padding);
+    if(UIManager.SelectedWidgetID == ID){
+        for(u32 I = 0; I < TextCount; I++){
+            const char *ItemText = Texts[I];
+            RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+                         V2(X+Theme->Padding, TextY), Z-0.51f, ItemText);
+            TextY -= YAdvance;
+            f32 NewRectY = RectY-YAdvance;
+            
+            color Color = Theme->ButtonBaseColor;
+            if((NewRectY <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= RectY)){
+                Color = Theme->ButtonHoveredColor;
+                if(UIManager.LeftMouseButton.JustDown){
+                    Result = I+1;
+                    Color = Theme->ButtonClickedColor;
+                }
+            }else if(I == Selected){
+                Color = Theme->ButtonClickedColor;
+            }
+            RenderRectangle(RenderGroup, V2(X, NewRectY), V2(X+Width, RectY), Z-0.5f, 
+                            Alphiphy(Color, Fade));
+            RectY = NewRectY;
+        }
+    }else{
+        RenderRectangle(RenderGroup, {X, Y-Height}, {X+Width, Y}, Z-0.1f, 
+                        Alphiphy(Theme->ButtonBaseColor, Fade));
+        RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+                     V2(X+Theme->Padding, TextY), Z-0.11f, Texts[Selected]);
+    }
+    
+    RenderRectangle(RenderGroup, {X, Y-Height}, {X+0.5f*Theme->Padding, Y}, Z-0.51f, 
+                    Alphiphy(Theme->NormalColor, Fade));
+    return(Result);
+}
+
+u32 
+window::DropDownMenu(render_group *RenderGroup, array<const char *> Texts, u32 Selected, u64 ID){
+    u32 Result = DropDownMenu(RenderGroup, Texts.Items, Texts.Count, Selected, ID);
+    return(Result);
+}
 
 void
 window::End(render_group *RenderGroup){
@@ -341,7 +454,7 @@ window::End(render_group *RenderGroup){
     // Title bar rendering
     RenderString(RenderGroup, Theme->TitleFont, Alphiphy(Theme->TitleColor, Fade),
                  TopLeft.X+Theme->Padding, 
-                 TopLeft.Y+Theme->Padding, 
+                 TopLeft.Y+(TitleBarHeight/2)-(Theme->TitleFont->Ascent/2), 
                  Z-0.1f, Name);
     {
         v2 Min = TopLeft;
@@ -381,18 +494,21 @@ SetupDefaultTheme(theme *Theme){
     Theme->NormalFont = &DebugFont;
     
     Theme->TitleColor = BLACK;
-    Theme->TitleBarColor = color{0.39f, 0.46f, 0.4f, 0.8f};
-    Theme->NormalColor = color{0.8f, 0.8f, 0.8f, 1.0f};
-    Theme->BackgroundColor = color{0.2f, 0.4f, 0.3f, 0.8f};
+    Theme->TitleBarColor = Color(0.39f, 0.46f, 0.4f, 0.8f);
+    Theme->NormalColor = Color(0.8f, 0.8f, 0.8f, 1.0f);
+    Theme->BackgroundColor = Color(0.2f, 0.4f, 0.3f, 0.8f);
     
-    Theme->ButtonBaseColor = color{0.1f, 0.3f, 0.2f, 0.8f};
-    Theme->ButtonHoveredColor = color{0.4f, 0.6f, 0.5f, 0.9f};
-    Theme->ButtonClickedColor = color{0.5f, 0.7f, 0.6f, 0.9f};
+    Theme->ButtonBaseColor = Color(0.1f, 0.3f, 0.2f, 0.8f);
+    Theme->ButtonHoveredColor = Color(0.4f, 0.6f, 0.5f, 0.9f);
+    Theme->ButtonClickedColor = Color(0.5f, 0.7f, 0.6f, 0.9f);
     
-    Theme->TextInputInactiveTextColor= WHITE;
-    Theme->TextInputActiveTextColor = BLACK;
-    Theme->TextInputInactiveBackColor = color{0.1f, 0.3f, 0.2f, 0.8f};
-    Theme->TextInputActiveBackColor = color{0.5f, 0.8f, 0.6f, 0.9f};
+    Theme->TextInputInactiveTextColor = Theme->NormalColor;
+    Theme->TextInputActiveTextColor = Color(0.0f, 0.0f, 0.0f, Theme->NormalColor.A);
+    //Theme->TextInputInactiveBackColor = Color(0.1f, 0.3f, 0.2f, 0.8f);
+    Theme->TextInputInactiveBackColor = Color(0.1f, 0.3f, 0.2f, 0.8f);
+    //Theme->TextInputActiveBackColor = Color(0.5f, 0.8f, 0.6f, 0.9f);
+    Theme->TextInputHoveredBackColor = Color(0.4f, 0.6f, 0.5f, 0.9f);
+    Theme->TextInputActiveBackColor = Color(0.5f, 0.7f, 0.6f, 0.9f);
     
     Theme->ButtonHeight = 40;
     Theme->Padding = 10;
@@ -408,9 +524,11 @@ ui_manager::BeginWindow(const char *Name, v2 StartTopLeft, v2 MinSize){
         Window->Z = -5.0f;
         Window->Theme = &Theme;
         Window->Fade = 1.0f;
+        Window->LastSize = MinSize;
     }
     
-    Window->TitleBarHeight  = Window->Theme->TitleFont->Size+Window->Theme->Padding;
+    Window->TitleBarHeight = Maximum(Window->Theme->TitleFont->Size+Window->Theme->Padding,
+                                     60);
     
     Window->Flags = 0;
     Window->TargetButtonsOnRow = 1;
@@ -418,6 +536,7 @@ ui_manager::BeginWindow(const char *Name, v2 StartTopLeft, v2 MinSize){
     Window->DrawP = Window->TopLeft;
     Window->LastSize = Window->Size;
     Window->Size = Window->MinSize;
+    
     return(Window);
 }
 

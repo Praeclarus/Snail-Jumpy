@@ -6,154 +6,16 @@ global hash_table<const char *, asset_command> CommandTable;
 global hash_table<const char *, direction> DirectionTable;
 global hash_table<const char *, entity_state> StateTable;
 global hash_table<const char *, asset_spec> AssetSpecTable;
-global hash_table<const char *, asset> AssetTable;
-
-global hash_table<const char *, image> LoadedImageTable;
 global asset *CurrentAsset;
 global u64 LastAssetFileWriteTime;
 
-//~ Loading
-struct entire_file {
-    u8 *Data;
-    u64 Size;
-};
-internal entire_file
-ReadEntireFile(memory_arena *Arena, const char *Path) {
-    os_file *File = 0;
-    File = OpenFile(Path, OpenFile_Read);
-    u64 FileSize = GetFileSize(File);
-    u8 *FileData = PushArray(Arena, u8, FileSize+1);
-    ReadFile(File, 0, FileData, FileSize);
-    FileData[FileSize] = '\0';
-    CloseFile(File);
-    
-    entire_file Result;
-    Result.Size = FileSize;
-    Result.Data = FileData;
-    return(Result);
-}
+global asset DummySpriteSheetAsset;
+global asset DummyArtAsset;
 
-internal image *
-LoadImageFromPath(const char *Path){
-    os_file *File = OpenFile(Path, OpenFile_Read);
-    u64 LastFileWriteTime = GetLastFileWriteTime(File);
-    CloseFile(File);
-    u8 *ImageData;
-    s32 Components;
-    
-    image *Result = FindOrCreateInHashTablePtr(&LoadedImageTable, Path);
-    if(Result->HasBeenLoadedBefore){
-        if(Result->LastWriteTime < LastFileWriteTime){
-            entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-            
-            ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
-                                                    (int)File.Size,
-                                                    &Result->Width, &Result->Height,
-                                                    &Components, 4);
-            Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height);
-            stbi_image_free(ImageData);
-        }
-    }else{
-        char *String = PushCString(&StringMemory, Path);
-        image NewImage = {
-            .HasBeenLoadedBefore = true, 
-            .LastWriteTime = LastFileWriteTime,
-        };
-        entire_file File = ReadEntireFile(&TransientStorageArena, String);
-        s32 Components = 0;
-        stbi_info_from_memory((u8 *)File.Data, (int)File.Size, 
-                              &Result->Width, &Result->Height, &Components);
-        NewImage.IsTranslucent = ((Components == 2) || (Components == 4));
-        
-        ImageData = (u8 *)stbi_load_from_memory((u8 *)File.Data,
-                                                (int)File.Size,
-                                                &Result->Width, &Result->Height,
-                                                &Components, 4);
-        Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height);
-        
-        stbi_image_free(ImageData);
-    }
-    
-    return(Result);
-}
-
-internal void
-ConsumeWhiteSpace(stream *Stream){
-    u8 *NextBytePtr = PeekBytes(Stream, 1);
-    if(NextBytePtr){
-        u8 NextByte = *NextBytePtr;
-        if((NextByte == ' ') ||
-           (NextByte == '\t') ||
-           (NextByte == '\n') ||
-           (NextByte == '\r')){
-            b8 DoDecrement = true;
-            while((NextByte == ' ') ||
-                  (NextByte == '\t') ||
-                  (NextByte == '\n') ||
-                  (NextByte == '\r')){
-                u8 *NextBytePtr = ConsumeBytes(Stream, 1);
-                if(!NextBytePtr) { DoDecrement = false; break; }
-                NextByte = *NextBytePtr;
-            }
-            if(DoDecrement) Stream->CurrentIndex--;
-        }
-    }
-}
-
-internal char *
-ProcessString(stream *Stream){
-    char *Buffer = PushArray(&TransientStorageArena, char, DEFAULT_BUFFER_SIZE);
-    u32 BufferIndex = 0;
-    u8 *CharPtr = ConsumeBytes(Stream, 1);
-    if(CharPtr){
-        u8 Char = *CharPtr;
-        while((('a' <= Char) && (Char <= 'z')) ||
-              (('A' <= Char) && (Char <= 'Z')) ||
-              (('0' <= Char) && (Char <= '9')) ||
-              (Char == '_') ||
-              (Char == '.') ||
-              (Char == '/') ||
-              (Char == '\\')){
-            if(BufferIndex >= DEFAULT_BUFFER_SIZE-1) break;
-            Buffer[BufferIndex++] = Char;
-            CharPtr = ConsumeBytes(Stream, 1);
-            if(!CharPtr) break;
-            Char = *CharPtr;
-        }
-        Buffer[BufferIndex] = '\0';
-    }else{
-        Buffer[0] = '\0';
-    }
-    
-    return(Buffer);
-}
-
-internal u32
-ProcessNumber(stream *Stream){
-    u32 Number = 0;
-    u8 *CharPtr = PeekBytes(Stream, 1);
-    if(CharPtr){
-        u8 Char = *CharPtr;
-        if(('0' <= Char) && (Char <= '9')){
-            b8 DoDecrement = true;
-            while(true){
-                CharPtr = ConsumeBytes(Stream, 1);
-                if(!CharPtr) { DoDecrement = false; break; }
-                Char = *CharPtr;
-                if(!(('0' <= Char) && (Char <= '9'))) break;
-                Number *= 10;
-                Number += Char -'0';
-            }
-            if(DoDecrement) Stream->CurrentIndex--;
-        }
-    }
-    return(Number);
-}
+//~ Asset loading
 
 internal void
 ProcessStates(stream *Stream, asset *NewAsset){
-    
-    
     while(true){
         ConsumeWhiteSpace(Stream);
         u8 *NextBytePtr = PeekBytes(Stream, 1);
@@ -182,8 +44,6 @@ ProcessStates(stream *Stream, asset *NewAsset){
                 NewAsset->StateTable[State][Direction] = Index;
             }
         }
-        
-        //InsertIntoHashTable<const char *, u32>(&NewAsset->StateTable, String, Index);
     }
 }
 
@@ -341,8 +201,6 @@ ProcessCommand(stream *Stream){
     }
 }
 
-// TODO(Tyler): It would be way more efficient to do this all at startup
-// and not each frame
 internal void
 InitializeAssetLoader(memory_arena *Arena){
     {
@@ -430,42 +288,75 @@ LoadAssetFile(const char *Path){
     LastAssetFileWriteTime = NewFileWriteTime;
 }
 
-//~ Miscellaneous
+//~ 
 
-#if 0
-// TODO(Tyler): ROBUSTNESS
-struct asset_info {
-    const char *AssetName;
-    asset *Asset;
-    f32 YOffset;
-};
-internal inline asset_info
-GetAssetInfoFromEntityType(u32 Type){
-    asset_info Result = {0};
-    f32 YOffset = 0;
-    if(Type == EntityType_Snail){
-        Result.AssetName = "snail";
-        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
-        Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
-    }else if(Type == EntityType_Sally){
-        Result.AssetName = "sally";
-        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
-        Result.YOffset = 0.3f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
-    }else if(Type == EntityType_Dragonfly){
-        Result.AssetName = "dragonfly";
-        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
-        Result.YOffset = 0.25f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
-    }else if(Type == EntityType_Speedy){
-        Result.AssetName = "speedy";
-        Result.Asset = FindInHashTablePtr(&AssetTable, Result.AssetName);
-        Result.YOffset = 0.1f*Result.Asset->SizeInMeters.Y*Result.Asset->Scale;
-    }else{
-        Assert(0);
+internal void
+InitializeAssetSystem(memory_arena *Arena){
+    AssetTable = PushHashTable<const char *, asset>(&PermanentStorageArena, 256);
+    LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);
+    InitializeAssetLoader(&PermanentStorageArena);
+    LoadAssetFile(ASSET_FILE_PATH);
+    
+    DummySpriteSheetAsset.Type = AssetType_SpriteSheet;
+    for(u32 I = 0; I < State_TOTAL; I++){
+        for(u32 J = 0; J < Direction_TOTAL; J++){
+            DummySpriteSheetAsset.StateTable[I][J] = 1;
+        }
     }
     
+    DummySpriteSheetAsset.Scale = 4.0f;
+    DummySpriteSheetAsset.SizeInPixels = V2S(128, 128);
+    DummySpriteSheetAsset.SizeInMeters = 2.0f*TILE_SIZE;
+    DummySpriteSheetAsset.SizeInTexCoords = V2(1.0f, 1.0f);
+    DummySpriteSheetAsset.SpriteSheet = DefaultTexture;
+    DummySpriteSheetAsset.FramesPerRow = 1;
+    DummySpriteSheetAsset.FrameCounts[0] = 1;
+    DummySpriteSheetAsset.FPSArray[0]    = 1;
+    
+    DummyArtAsset.Type = AssetType_Art;
+    DummyArtAsset.SizeInPixels = V2S(128, 128);
+    DummyArtAsset.Scale = 4.0f;
+    DummyArtAsset.Texture = DefaultTexture;
+}
+
+internal asset *
+GetSpriteSheet(const char *Name){
+    asset *Result = &DummySpriteSheetAsset;
+    if(Name){
+        Result = FindInHashTablePtr(&AssetTable, Name);
+        if(!Result || (Result->Type != AssetType_SpriteSheet)) Result = &DummySpriteSheetAsset; 
+    }
     return(Result);
 }
-#endif
+
+internal asset *
+GetArt(const char *Name){
+    asset *Result = &DummyArtAsset;
+    if(Name){
+        Result = FindInHashTablePtr(&AssetTable, Name);
+        if(!Result || (Result->Type != AssetType_Art)) Result = &DummyArtAsset; 
+    }
+    return(Result);
+}
+
+internal array<const char *>
+GetAssetNameListByType(const char *_CurrentAsset, asset_type Type, u32 *OutSelected){
+    array<const char *> AssetNames = CreateNewArray<const char *>(&TransientStorageArena, 256);
+    for(u32 I = 0; I < AssetTable.MaxBuckets; I++){
+        const char *Key = AssetTable.Keys[I];
+        if(Key){
+            if(Key == _CurrentAsset){
+                if(OutSelected) *OutSelected = AssetNames.Count;
+            }
+            asset *Asset = &AssetTable.Values[I];
+            if(Asset->Type == Type){
+                PushItemOntoArray(&AssetNames, Key);
+            }
+        }
+    }
+    
+    return(AssetNames);
+}
 
 internal void
 RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *AssetName, 
@@ -491,7 +382,6 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *
                   MinTexCoord, MaxTexCoord, Asset->IsTranslucent, Camera);
 }
 
-//~ Animation rendering
 internal void
 UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Entity, 
                          f32 dTimeForFrame){
@@ -559,20 +449,10 @@ UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Enti
                       Camera);
         
         // TODO(Tyler): Add a debug toggle to this
-#if 0
+#if 1
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 
-            switch(Boundary->Type){
-                case BoundaryType_Rectangle: {
-                    RenderRectangle(RenderGroup, Boundary->P-0.5f*Boundary->Size, 
-                                    Boundary->P+0.5f*Boundary->Size, -1.0f, 
-                                    Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
-                }break;
-                case BoundaryType_Circle: {
-                    RenderCircle(RenderGroup, Boundary->P, -1.0f, Boundary->Radius,
-                                 Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
-                }break;
-            }
+            RenderBoundary(RenderGroup, Camera, Boundary, Entity->ZLayer-0.1f);
         }
 #endif
     }

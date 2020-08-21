@@ -152,6 +152,12 @@ union v2s
     };
 };
 
+internal inline v2s
+V2S(s32 X, s32 Y){ 
+    v2s Result = v2s{X, Y}; 
+    return(Result);
+}
+
 internal inline v2
 operator+(v2 A, v2 B)
 {

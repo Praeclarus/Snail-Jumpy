@@ -5,91 +5,22 @@ TODOS:
      - Variables file a la Jonathan Blow's games
 
  - Editor
-     - Drag entity path endpoints
-     - Allow a variable number of coins in a level
      - Able to set PLAYER and GATE position!!!
-     - Able to edit most entity attributes
-         - Collision boundary editing
-     - Undo/Redo
-         - Maybe!!!
-
- - TODOS for release
-     - True random number generation
-     - BAKE FONTS AT COMPILE TIME!
-         - Use the new stb_truetype baking API
-     - Bake asset file
-     - Bake PNGs into a custom format, or maybe just a BMP
-     - Better platform layer/s
-     - Multiple rendering APIs
-         - Fixed function OpenGL
-         - Linux
-             - Modern OpenGL
-             - Vulkan???
-         - Mac        
-             - Metal
-         - Windows
-             - Direct3D
- 
- - Better profiler, use milliseconds
-
- - Do step up onto dragonfly body better! Make it more generalized and apply to all 
-   ledges, and only move the player upwards, instead of moving them so that when the 
-   collide to be on it
+     - Undo/Redo - Maybe!!!
 
  - Collision system
-     - Switch to using a discrete collision system, or do continuous collision detection
-       more CORRECTLY where things are all moved at once and are tested that way, instead 
-       of moving one thing at a time
-     - Make teleporters, use the collision system
+     - Use GJK
+     - Triangle wedges
+     - Support steps for like stairs
 
- - Perhaps make entity ids fixed point, where the first few bits specify the entity type,
-   and then the next few bits specify the index
-
- - Improve user input, it could be done way better! Maybe not have user input be global?
-   or maybe have it driven by events?
-
- - Dragonfly wings in a separate asset
- - Improve the Z layer
-
- - Entity system
-     - Fix don't use a percent for Snail AI
-     - Allow different AIs for enemies
-     - Snail spawner
-     - Perhaps a system to calculate the snail endpoints in the editor
-
-     - Add a wall_group entity instead of having an individual entity for each wall
-     - When the player is riding a dragonfly when it turns, possibly interpolate the player
-       position to look better when riding the dragonfly
-
- - Asset system
-     - Asset 'specs' like Y-Offset, etc.
-     - Allow a variable number of animations in a spritesheet_asset instead of having it
-       fixed size
-
- - Audio!!!
-     - Load WAV files
-
- - Proper random number generation
-
- - Multithreading & SIMD, should this be done if we want compatibility with older lower end
-   machines?
-     - SSE2 is supported on all the machines that are ideal, though it might be good to still 
-       have a non-sse version maybe?
-
- - Possibly create a 'legacy' OpenGL renderer that uses the fixed function pipeline
-   for older machines
-
-BUGS:
+NOTES FOR RELEASE:
 -----------------------------------------------
- - Player can jump while falling
- - Player can get stuck when walking onto the dragonfly's torso, if the dragonfly happens
-   to be under a platform
-     - Might not be a problem if the player size changes
- - Riding on dragonfly go directly under a wall can cause the riding player to get stuck
- - Snail falls through the floor
- - Things can get stuck inside Sally, when the collision boundary changes from circle to
-   square, also the current solution to this in the dragonfly is not very good
+ - Rendering backends
+     - Modern OpenGL(Linux + Windows)  DONE
+     - Legacy OpenGL(OLD)
+     - DirectX(Windows)
+     - Metal(Apple)
 
-IDEAS:
------------------------------------------------
- - Randomize enemy directions on start
+ - Custom asset format
+ - Bake fonts
+ - Use Tags instead of strings for assets

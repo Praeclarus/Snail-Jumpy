@@ -333,7 +333,7 @@ world_editor::ProcessAction(){
                 
                 Action = WorldEditorAction_None;
             }else if(Mode == EditMode_AddArt){
-                asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)ArtEntityBuffer);
+                asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)AssetForArtEntity);
                 if(!Asset) return;
                 if(Asset->Type == AssetType_SpriteSheet) return;
                 entity_data *Art = PushNewArrayItem(&World->Entities);
@@ -341,7 +341,8 @@ world_editor::ProcessAction(){
                 Art->Type = EntityType_Art;
                 Art->SpecID = 0;
                 Art->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                CopyCString(Art->Asset, ArtEntityBuffer, DEFAULT_BUFFER_SIZE);
+                Art->Asset = AssetForArtEntity;
+                //CopyCString(Art->Asset, AssetForArtEntity, DEFAULT_BUFFER_SIZE);
                 
                 SpecialThing = EditorSpecialThing_None;
                 SelectedThing = Art;
@@ -463,7 +464,7 @@ world_editor::DoPopup(render_group *RenderGroup){
         case EditorPopup_TextInput: {
             window *Window = UIManager.BeginPopup("Rename World", V2(500, 500));
             MaybeFadeWindow(Window);
-            Window->TextInput(RenderGroup, "New World Name", PopupBuffer, sizeof(PopupBuffer));
+            Window->TextInput(RenderGroup, PopupBuffer, sizeof(PopupBuffer), WIDGET_ID);
             if(Window->Button(RenderGroup, "Submit", 2)){
                 TextInputCallback(this, PopupBuffer);
                 UIManager.EndPopup();
@@ -545,26 +546,22 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
             Window = UIManager.BeginWindow("Edit Teleporter", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             Window->Text(RenderGroup, "Level:");
-            Window->TextInput(RenderGroup, "Teleporter Level", SelectedThing->Level, 
-                              DEFAULT_BUFFER_SIZE);
-            Window->Text(RenderGroup, "Required level to unlock:", 
-                         SelectedThing->TRequiredLevel);
-            Window->TextInput(RenderGroup, "Teleporter Required Level", 
-                              SelectedThing->TRequiredLevel, DEFAULT_BUFFER_SIZE);
+            Window->TextInput(RenderGroup, SelectedThing->Level, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+            Window->Text(RenderGroup, "Required level to unlock:", SelectedThing->TRequiredLevel);
+            Window->TextInput(RenderGroup, SelectedThing->TRequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
         }break;
         case EntityType_Door: {
             Window = UIManager.BeginWindow("Edit Door", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             Window->Text(RenderGroup, "Required level to unlock:", 
                          SelectedThing->DRequiredLevel);
-            Window->TextInput(RenderGroup, "Door Required Level", 
-                              SelectedThing->DRequiredLevel, DEFAULT_BUFFER_SIZE);
+            Window->TextInput(RenderGroup, SelectedThing->DRequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
         }break;
         case EntityType_Art: {
             Window = UIManager.BeginWindow("Edit Art", WindowP, v2{400, 0});
             Window->Text(RenderGroup, "Asset", SelectedThing->Asset);
-            Window->TextInput(RenderGroup, "Art Entity Asset", SelectedThing->Asset,
-                              DEFAULT_BUFFER_SIZE);
+            //Window->TextInput(RenderGroup, SelectedThing->Asset, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+            
             Window->Text(RenderGroup, "Z: %.1f", SelectedThing->Z);
             if(Window->Button(RenderGroup, "-", 2)){
                 SelectedThing->Z -= 0.1f;
@@ -627,21 +624,7 @@ world_editor::RenderCursor(render_group *RenderGroup){
             }
         }break;
         case EditMode_AddArt: {
-            asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)ArtEntityBuffer);
-            if(!Asset){
-                RenderFormatString(RenderGroup, &TitleFont, Color(0.9f, 0.9f, 0.9f, 1.0f), 
-                                   100, 100, -1.0f,
-                                   "Unable to load asset: '%s', please check if it exists", 
-                                   ArtEntityBuffer);
-                return;
-            }
-            if(Asset->Type == AssetType_SpriteSheet){
-                RenderFormatString(RenderGroup, &TitleFont, Color(0.9f, 0.9f, 0.9f, 1.0f), 
-                                   100, 100, -1.0f,
-                                   "Asset: '%s' is a spritesheet! not art", 
-                                   ArtEntityBuffer);
-                return;
-            }
+            asset *Asset = GetArt(AssetForArtEntity);
             v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera.MetersToPixels;
             RenderCenteredTexture(RenderGroup, MouseP, Size, 0.0f,
                                   Asset->Texture, V2(0,0), V2(1,1), false, &Camera);
@@ -709,9 +692,6 @@ world_editor::UpdateAndRender(){
                      World->Width, World->Height);
         
         //~ Map Resizing
-        
-        Window->Button(&RenderGroup, "- <<< -", 2);
-        Window->Button(&RenderGroup, "+ <<< +", 2);
         
         if(Window->Button(&RenderGroup, "- >>> -", 2)){
             if(World->Width > 32){
@@ -814,9 +794,13 @@ world_editor::UpdateAndRender(){
                 }
             }break;
             case EditMode_AddArt: {
-                Window->Text(&RenderGroup, "Art asset:");
-                Window->TextInput(&RenderGroup, "Art Entity To Add Asset", ArtEntityBuffer, 
-                                  sizeof(ArtEntityBuffer));
+                //Window->TextInput(&RenderGroup, ArtEntityBuffer, sizeof(ArtEntityBuffer), WIDGET_ID);
+                u32 Selected = 0;
+                array<const char *> AssetNames = GetAssetNameListByType(AssetForArtEntity, AssetType_Art, &Selected);
+                u32 ToSelect = Window->DropDownMenu(&RenderGroup, AssetNames, Selected, WIDGET_ID);
+                if(ToSelect > 0){
+                    AssetForArtEntity = AssetNames[ToSelect-1];
+                }
             }break;
         }
         

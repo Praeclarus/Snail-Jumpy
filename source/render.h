@@ -34,13 +34,8 @@ struct render_item {
 };
 
 struct render_group {
-    vertex *Vertices;
-    u32 VertexCount;
-    u32 MaxVertexCount;
-    
-    u16 *Indices;
-    u32 IndexCount;
-    u32 MaxIndexCount;
+    array<vertex> Vertices;
+    array<u16> Indices;
     
     array<render_item> OpaqueItems;
     array<render_item> TranslucentItems;

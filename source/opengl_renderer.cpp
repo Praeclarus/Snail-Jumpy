@@ -18,9 +18,9 @@ global_constant char *DefaultVertexShader = BEGIN_STRING
  
  layout (location = 0) in vec3 Position;
  layout (location = 1) in vec4 Color;
- layout (location = 2) in vec2 TexCoord;
+ layout (location = 2) in vec2 UV;
  
- out vec2 FragmentTexCoord;
+ out vec2 FragmentUV;
  out vec4 FragmentColor;
  out vec3 FragmentP;
  uniform mat4 Projection;
@@ -28,7 +28,7 @@ global_constant char *DefaultVertexShader = BEGIN_STRING
  void main(){
      gl_Position = Projection * vec4(Position, 1.0);
      //gl_Position = vec4(Position, 1.0);
-     FragmentTexCoord = TexCoord;
+     FragmentUV = UV;
      FragmentP = Position;
      FragmentColor = Color;
  };
@@ -40,14 +40,14 @@ global_constant char *DefaultFragmentShader = BEGIN_STRING
  
  out vec4 FragColor;
  
- in vec2 FragmentTexCoord;
+ in vec2 FragmentUV;
  in vec4 FragmentColor;
  in vec3 FragmentP;
  uniform sampler2D Texture;
  uniform mat4 Projection;
  
  void main(){
-     vec4 Color = texture(Texture, FragmentTexCoord)*FragmentColor;
+     vec4 Color = texture(Texture, FragmentUV)*FragmentColor;
      if(Color.a == 0.0){
          discard;
      }
@@ -63,15 +63,15 @@ global_constant char *ScreenVertexShader = BEGIN_STRING
 #version 330 core \n
  
  layout (location = 0) in vec2 Position;
- layout (location = 1) in vec2 TexCoord;
+ layout (location = 1) in vec2 UV;
  
- out vec2 FragmentTexCoord;
+ out vec2 FragmentUV;
  out vec2 FragmentP;
  
  void main(){
      gl_Position = vec4(Position, 0.0, 1.0);
      FragmentP = Position;
-     FragmentTexCoord = TexCoord;
+     FragmentUV = UV;
  }
  );
 
@@ -80,7 +80,7 @@ global_constant char *ScreenFragmentShader = BEGIN_STRING
 #version 330 core \n
  
  out vec4 FragColor;
- in vec2 FragmentTexCoord;
+ in vec2 FragmentUV;
  in vec2 FragmentP;
  uniform sampler2D Texture;
  uniform mat4 Projection;
@@ -94,7 +94,23 @@ global_constant char *ScreenFragmentShader = BEGIN_STRING
  }
  
  void main(){
-     vec4 Color = texture(Texture, FragmentTexCoord);
+     /*
+          int PixelSize = 4;
+          
+          float X = int(gl_FragCoord.x) % PixelSize;
+          float Y = int(gl_FragCoord.y) % PixelSize;
+          
+          X = floor(PixelSize / 2.0) - X;
+          Y = floor(PixelSize / 2.0) - Y;
+          
+          X = gl_FragCoord.x + X;
+          Y = gl_FragCoord.y + Y;
+          
+          vec2 TextureSize = textureSize(Texture, 0).xy;
+          vec2 UV = vec2(X, Y) / TextureSize;
+          */
+     
+     vec4 Color = texture(Texture, FragmentUV);
      if(Color.a == 0.0){
          discard;
      }
@@ -307,7 +323,7 @@ internal
 RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     TIMED_FUNCTION();
     
-    //glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_SCISSOR_TEST);
@@ -342,10 +358,10 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DefaultElementBuffer);
     glUniformMatrix4fv(DefaultShaderProgram.ProjectionLocation, 1, GL_FALSE, Projection);
     
-    glBufferData(GL_ARRAY_BUFFER, RenderGroup->VertexCount*sizeof(vertex), 
-                 RenderGroup->Vertices, GL_STREAM_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderGroup->IndexCount*sizeof(u16), 
-                 RenderGroup->Indices, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, RenderGroup->Vertices.Count*sizeof(vertex), 
+                 RenderGroup->Vertices.Items, GL_STREAM_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderGroup->Indices.Count*sizeof(u16), 
+                 RenderGroup->Indices.Items, GL_STREAM_DRAW);
     
     for(u32 Index = 0; Index < RenderGroup->OpaqueItems.Count; Index++){
         render_item *Item = &RenderGroup->OpaqueItems[Index];
@@ -371,7 +387,7 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     }
     
     //~ Render to screen
-#if 0
+#if 1
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
     glClearColor(0.2f, 0.0f, 0.3f, 1.0f);

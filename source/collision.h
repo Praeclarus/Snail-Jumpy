@@ -43,7 +43,8 @@ enum collision_boundary_type {
     BoundaryType_Circle,
 };
 
-enum collision_flags {
+typedef u32 collision_flags;
+enum _collision_flags {
     CollisionFlag_None = 0,
     CollisionFlag_CanStandOn = (1 << 0),
 };

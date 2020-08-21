@@ -191,6 +191,35 @@ FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
     return(Result);
 }
 
+template <typename KeyType, typename ValueType>
+internal constexpr KeyType
+GetHashTableKey(hash_table<KeyType, ValueType> *Table, KeyType Key){
+    //TIMED_FUNCTION();
+    
+    u64 Hash = HashKey(Key);
+    if(Hash == 0) Hash++; 
+    
+    b8 IsValid = true;
+    u32 Index = Hash % Table->MaxBuckets;
+    while(true){
+        u64 TestHash = Table->Hashes[Index];
+        if((TestHash == Hash) &&
+           CompareKeys(Key, Table->Keys[Index])){
+            break;
+        }else if(TestHash == 0){
+            IsValid = false;
+            break;
+        }else{
+            Index++;
+            Index %= Table->MaxBuckets;
+        }
+    }
+    
+    KeyType Result = 0;
+    if(IsValid) Result = Table->Keys[Index];
+    return(Result);
+}
+
 // TODO(Tyler): This could be way more efficient
 template <typename KeyType, typename ValueType>
 internal constexpr ValueType *

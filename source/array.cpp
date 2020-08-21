@@ -42,6 +42,7 @@ PushNewArrayItem(array<T> *Array){
     }else{
         Assert(0);
     }
+    ZeroMemory(Result, sizeof(T));
     return(Result);
 }
 

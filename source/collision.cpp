@@ -1,4 +1,32 @@
 
+internal inline b8
+IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Offset=V2(0,0)){
+    b8 Result = false;
+    if(Boundary->Type == BoundaryType_Rectangle){
+        Result = IsPointInRectangle(Point, Offset+Boundary->P, Boundary->Size);
+    }else{
+        f32 Distance = SquareRoot(LengthSquared(Point-(Offset+Boundary->P)));
+        Result = (Distance <= Boundary->Radius);
+    }
+    return(Result);
+}
+
+internal inline void
+RenderBoundary(render_group *RenderGroup, camera *Camera, collision_boundary *Boundary, 
+               f32 Z, v2 Offset){
+    switch(Boundary->Type){
+        case BoundaryType_Rectangle: {
+            RenderCenteredRectangle(RenderGroup, Offset+Boundary->P, 
+                                    Boundary->Size, Z, 
+                                    Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
+        }break;
+        case BoundaryType_Circle: {
+            RenderCircle(RenderGroup, Offset+Boundary->P, Z, Boundary->Radius,
+                         Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
+        }break;
+    }
+}
+
 internal void
 ReloadCollisionSystem(u32 Width, u32 Height, f32 TileWidth, f32 TileHeight){
     CollisionTable.Width = Truncate((f32)Width / TileWidth);
@@ -7,8 +35,40 @@ ReloadCollisionSystem(u32 Width, u32 Height, f32 TileWidth, f32 TileHeight){
     CollisionTable.TileHeight = TileHeight;
 }
 
-internal min_max_boundary_s32
+internal min_max_boundary
 GetBoundaryMinMax(collision_boundary *Boundary, v2 Delta=v2{0}){
+    min_max_boundary Result = {0};
+    
+    if(Boundary->Type == BoundaryType_Rectangle){
+        Result.Min.X = Boundary->P.X-(0.5f*Boundary->Size.X);
+        Result.Min.Y = Boundary->P.Y-(0.5f*Boundary->Size.Y);
+        Result.Max.X = Boundary->P.X+Delta.X+(0.5f*Boundary->Size.X);
+        Result.Max.Y = Boundary->P.Y+Delta.Y+(0.5f*Boundary->Size.Y);
+    }else if(Boundary->Type == BoundaryType_Circle){
+        Result.Min.X = Boundary->P.X-Boundary->Radius;
+        Result.Min.Y = Boundary->P.Y-Boundary->Radius;
+        Result.Max.X = Boundary->P.X+Delta.X+Boundary->Radius;
+        Result.Max.Y = Boundary->P.Y+Delta.Y+Boundary->Radius;
+    }else{
+        Assert(0);
+    }
+    f32 TempMinX = Result.Min.X;
+    Result.Min.X = Minimum(Result.Min.X, Result.Max.X);
+    Result.Max.X = Maximum(TempMinX, Result.Max.X);
+    f32 TempMinY = Result.Min.Y;
+    Result.Min.Y = Minimum(Result.Min.Y, Result.Max.Y);
+    Result.Max.Y = Maximum(TempMinY, Result.Max.Y);
+    
+    Result.Min.X = Maximum(0, Result.Min.X);
+    Result.Min.Y = Maximum(0, Result.Min.Y);
+    Result.Max.X = Minimum((s32)CollisionTable.Width, Result.Max.X);
+    Result.Max.Y = Minimum((s32)CollisionTable.Height, Result.Max.Y);
+    
+    return(Result);
+}
+
+internal min_max_boundary_s32
+GetBoundaryMinMaxS32(collision_boundary *Boundary, v2 Delta=v2{0}){
     min_max_boundary_s32 Result = {0};
     
     if(Boundary->Type == BoundaryType_Rectangle){
@@ -52,7 +112,7 @@ CollisionSystemNewFrame(){
         wall_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Walls, Location);
         collision_boundary *Boundary = &Entity->Boundary;
         
-        min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+        min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary);
         
         for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
             for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
@@ -70,7 +130,7 @@ CollisionSystemNewFrame(){
         coin_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Coins, Location);
         collision_boundary *Boundary = &Entity->Boundary;
         
-        min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+        min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary);
         
         for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
             for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
@@ -88,7 +148,7 @@ CollisionSystemNewFrame(){
         door_entity *Entity = BucketArrayGetItemPtr(&EntityManager.Doors, Location);
         collision_boundary *Boundary = &Entity->Boundary;
         
-        min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+        min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary);
         
         for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
             for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
@@ -107,7 +167,7 @@ CollisionSystemNewFrame(){
         
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I];
-            min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+            min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary);
             
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
@@ -129,7 +189,7 @@ CollisionSystemNewFrame(){
         
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I];
-            min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+            min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary);
             
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
@@ -150,7 +210,7 @@ CollisionSystemNewFrame(){
         player_entity *Entity = EntityManager.Player;
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I];
-            min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+            min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary);
             
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
@@ -474,7 +534,7 @@ MoveEntity(entity *Entity, v2 ddP,
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I];
             
-            min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary, EntityDelta);
+            min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary, EntityDelta);
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){
@@ -506,8 +566,8 @@ MoveEntity(entity *Entity, v2 ddP,
                                     collision_boundary *Boundary2 = &Enemy->Boundaries[I];
                                     if(TestBoundaryAndBoundary(Boundary, EntityDelta, Boundary2, 
                                                                &Event.Time, &Event.Normal)){
-                                        
                                         Event.EntityPtr = Item->EntityPtr;
+                                        
 #if 0
                                         if(Enemy->Type == EntityType_Dragonfly){
                                             v2 RectP1    = Enemy->Boundaries[0].P;
@@ -541,6 +601,7 @@ MoveEntity(entity *Entity, v2 ddP,
                                             }
                                         }else
 #endif
+                                        
                                         {
                                             Event.Type = CollisionType_Snail;
                                             Event.DoesHurt = ((Enemy->State != State_Retreating) && 
@@ -598,6 +659,7 @@ MoveEntity(entity *Entity, v2 ddP,
                                     Event.DoesStun = true;
                                 }
                             }break;
+                            case EntityType_None: break;
                             default: { Assert(0); }break;
                         }
                         
@@ -614,7 +676,7 @@ MoveEntity(entity *Entity, v2 ddP,
             // NOTE(Tyler): This can put the same entity into the same collision tile 
             // multiple times, but is necessary for correctness, if the delta moves 
             // the entity into another collision tile
-            min_max_boundary_s32 MinMax = GetBoundaryMinMax(Boundary);
+            min_max_boundary_s32 MinMax = GetBoundaryMinMaxS32(Boundary);
             
             for(s32 Y = MinMax.Min.Y; Y <= MinMax.Max.Y; Y++){
                 for(s32 X = MinMax.Min.X; X <= MinMax.Max.X; X++){

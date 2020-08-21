@@ -522,7 +522,6 @@ WinMain(HINSTANCE Instance,
         HINSTANCE PrevInstance,
         LPSTR CommandLine,
         int ShowCode){
-    
     //~ Setup console
     Assert(AllocConsole());
     SetConsoleCtrlHandler(Win32DefaultHandlerRoutine, true);

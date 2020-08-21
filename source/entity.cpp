@@ -122,64 +122,46 @@ ShouldEntityUpdate(entity *Entity){
 }
 
 internal void
-UpdateEnemyHitBox(enemy_entity *Enemy){
-#if 0
-    if(Enemy->Type == EntityType_Sally){
-        if(Enemy->State == State_Stunned){
-            Enemy->Boundaries[0].Type = BoundaryType_Circle;
-            Enemy->Boundaries[0].Radius = 0.4f;
-            Enemy->Boundaries[0].P = v2{
-                Enemy->P.X, Enemy->P.Y,
-            };
-        }else{
-            Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
-            Enemy->Boundaries[0].Size = { 0.95f, 0.85f };
-            Enemy->Boundaries[0].P = v2{
-                Enemy->P.X, Enemy->P.Y,
-            };
-        }
-    }else if(Enemy->Type == EntityType_Dragonfly){
-        f32 DirectionF32 = ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f);
-        // Tail
-        v2 RectP1 = {Enemy->P.X+DirectionF32*-0.23f, Enemy->P.Y+0.1f};
-        v2 RectSize1 = {0.55f, 0.17f};
+UpdateEnemyBoundary(enemy_entity *Enemy){
+    u8 NewBoundarySet = GetBoundarySetIndex(Enemy->Spec, Enemy->State);
+    if((NewBoundarySet > 0) &&
+       (NewBoundarySet != Enemy->BoundarySet)){
+        Enemy->BoundarySet = NewBoundarySet;
+        NewBoundarySet--;
+        Assert(NewBoundarySet < ENTITY_SPEC_BOUNDARY_SET_COUNT);
         
-        // Body
-        v2 RectP2 = {Enemy->P.X+DirectionF32*0.29f, Enemy->P.Y+0.07f};
-        v2 RectSize2 = {0.45f, 0.48f};
-        if(ShouldEntityUpdate(Enemy)){
-            // Tail
-            Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
-            Enemy->Boundaries[0].Size = RectSize1;
-            Enemy->Boundaries[0].P = RectP1;
-            
-            // Body
-            Enemy->Boundaries[1].Type = BoundaryType_Rectangle;
-            Enemy->Boundaries[1].Size = RectSize2;
-            Enemy->Boundaries[1].P = RectP2;
-        }else{
-            // Tail
-            v2 RectP2 = {Enemy->P.X+DirectionF32*0.29f, Enemy->P.Y+0.07f};
-            v2 RectSize2 = {0.45f, 0.48f};
-            Enemy->Boundaries[0].Type = BoundaryType_Rectangle;
-            Enemy->Boundaries[0].Size = {1.0f, RectSize1.Y/2};
-            Enemy->Boundaries[0].P = {Enemy->P.X, RectP1.Y};
-            
-            // Body
-            Enemy->Boundaries[1].Type = BoundaryType_Rectangle;
-            Enemy->Boundaries[1].Size = {1.0f, RectSize2.Y};
-            Enemy->Boundaries[1].P = {Enemy->P.X, RectP2.Y};
+        entity_spec *Spec = &EntitySpecs[Enemy->Spec];
+        Enemy->BoundaryCount = Spec->Counts[NewBoundarySet];
+        for(u32 J = 0; J < Enemy->BoundaryCount; J++){
+            Enemy->Boundaries[J] = Spec->Boundaries[NewBoundarySet][J];
+            Enemy->Boundaries[J].P = Enemy->P+Spec->Boundaries[NewBoundarySet][J].P;
         }
     }
-#endif
     
+    if((Enemy->Flags & EntityFlag_MirrorBoundariesWhenGoingRight) &&
+       (Enemy->State == State_Turning)){
+        entity_spec *Spec = &EntitySpecs[Enemy->Spec];
+        u8 BoundarySet = Enemy->BoundarySet;
+        if(BoundarySet > 0){
+            BoundarySet--;
+            if(Enemy->Direction == Direction_Left){
+                for(u32 J = 0; J < Spec->Counts[BoundarySet]; J++){
+                    Enemy->Boundaries[J].P.X = Enemy->P.X + Spec->Boundaries[BoundarySet][J].P.X;
+                }
+            }else if(Enemy->Direction == Direction_Right){
+                for(u32 J = 0; J < Spec->Counts[BoundarySet]; J++){
+                    Enemy->Boundaries[J].P.X = Enemy->P.X - Spec->Boundaries[BoundarySet][J].P.X;
+                }
+            }else{ INVALID_CODE_PATH; }
+        }
+    }
 }
 
 internal void
 StunEnemy(enemy_entity *Enemy){
-    if(Enemy->Flags & EntityFlags_CanBeStunned){
+    if(Enemy->Flags & EntityFlag_CanBeStunned){
         SetEntityStateUntilAnimationIsOver(Enemy, State_Retreating);
-        UpdateEnemyHitBox(Enemy);
+        UpdateEnemyBoundary(Enemy);
     }
 }
 
@@ -216,16 +198,8 @@ entity_manager::ProcessEvent(os_event *Event){
 internal void
 UpdateAndRenderPlatformerPlayer(render_group *RenderGroup, camera *Camera){
     player_entity *Player = EntityManager.Player;
-    if(Player->Cooldown <= 0.0f){
+    if(ShouldEntityUpdate(Player)){
         v2 ddP = {0};
-        
-#if 0            
-        if(Player->CurrentAnimation == PlayerAnimation_Death){
-            Player->State &= ~EntityState_Dead;
-            Player->P = {1.5, 1.5};
-            Player->dP = {0, 0};
-        }
-#endif
         
         if(Player->IsGrounded) Player->JumpTime = 0.0f;
         if((Player->JumpTime < 0.1f) && EntityManager.PlayerInput.Jump){
@@ -289,6 +263,17 @@ UpdateAndRenderPlatformerPlayer(render_group *RenderGroup, camera *Camera){
         if(Player->RidingDragonfly){
             enemy_entity *Dragonfly = Player->RidingDragonfly;
             dPOffset = Dragonfly->dP;
+            if(Dragonfly->State == State_Turning){
+                f32 Height = 0.0f;
+                for(u32 I = 0; I < Dragonfly->BoundaryCount; I++){
+                    min_max_boundary Boundary = GetBoundaryMinMax(&Dragonfly->Boundaries[I]);
+                    if(Boundary.Max.Y > Height){
+                        Height = Boundary.Max.Y;
+                    }
+                }
+                
+                Player->P.Y = Height;
+            }
             
             Player->RidingDragonfly = 0;
         }
@@ -514,23 +499,23 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
                 PathSpeed = (StateAlongPath/0.2f);
             }
             
-            if((StateAlongPath < 0.05f) &&
+            if((Enemy->P.X <= Enemy->PathStart.X) &&
                (Enemy->Direction == Direction_Left)){
                 SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
                 Enemy->Direction = Direction_Right;
                 Enemy->dP = {0};
-            }else if((StateAlongPath > (1.0f-0.05f)) &&
+            }else if((Enemy->P.X >= Enemy->PathEnd.X) &&
                      (Enemy->Direction == Direction_Right)){
                 SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
                 Enemy->Direction = Direction_Left;
                 Enemy->dP = {0};
             }else{
                 v2 ddP = {
-                    PathSpeed * Enemy->Speed * ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
+                    Enemy->Speed * ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
                     0.0f
                 };
                 
-                if(Enemy->Flags & EntityFlags_NotAffectedByGravity){
+                if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
                 }else{
                     ddP.Y = -11.0f;
                 }
@@ -541,10 +526,8 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
             }
         }
         
-        // TODO(Tyler): I don't like this function
-        UpdateEnemyHitBox(Enemy);
-        
         UpdateAndRenderAnimation(RenderGroup, Camera, Enemy, OSInput.dTimeForFrame);
+        UpdateEnemyBoundary(Enemy);
     }
     END_TIMED_BLOCK();
     
@@ -575,146 +558,4 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
     }
     END_TIMED_BLOCK();
     
-}
-
-//~ Entity Spec 
-
-global_constant u32 CURRENT_SPEC_FILE_VERSION = 2;
-
-internal u32
-AddEntitySpec(){
-    u32 Result = EntitySpecs.Count;
-    entity_spec *Spec = PushNewArrayItem(&EntitySpecs);
-    
-    Spec->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-    Spec->Type = EntityType_Enemy;
-    return(Result);
-}
-
-internal void
-WriteEntitySpecs(const char *Path){
-    os_file *File = OpenFile(Path, OpenFile_Write | OpenFile_Clear);
-    
-    entity_spec_file_header Header = {};
-    Header.Header[0] = 'S';
-    Header.Header[1] = 'J';
-    Header.Header[2] = 'E';
-    Header.Version = CURRENT_SPEC_FILE_VERSION;
-    Header.SpecCount = EntitySpecs.Count-1;
-    
-    WriteToFile(File, 0, &Header, sizeof(Header));
-    u32 Offset = sizeof(Header);
-    
-    for(u32 I = 1; I < EntitySpecs.Count; I++){
-        entity_spec *Spec = &EntitySpecs[I];
-        
-        {
-            u32 Length = CStringLength(Spec->Asset);
-            WriteToFile(File, Offset, Spec->Asset, Length+1);
-            Offset += Length+1;
-        }
-        
-        WriteVariableToFile(File, Offset, Spec->Flags);
-        WriteVariableToFile(File, Offset, Spec->Type);
-        
-        switch(Spec->Type){
-            case EntityType_None: break;
-            case EntityType_Player: break;
-            case EntityType_Enemy: {
-                WriteVariableToFile(File, Offset, Spec->Speed);
-                WriteVariableToFile(File, Offset, Spec->Damage);
-            }break;
-        }
-        
-        if(Spec->Type != EntityType_None){
-            WriteVariableToFile(File, Offset, Spec->BoundaryCount);
-            for(u32 I = 0; I < Spec->BoundaryCount; I++){
-                collision_boundary *Boundary = &Spec->Boundaries[I];
-                packed_collision_boundary Packed = {};
-                Packed.Type = Boundary->Type;
-                Packed.Flags = Boundary->Flags;
-                Packed.P = Boundary->P;
-                // It is a union so even if it is a circle this should produce the 
-                // correct results
-                Packed.Size.X = Boundary->Size.X;
-                Packed.Size.Y = Boundary->Size.Y;
-                WriteVariableToFile(File, Offset, Packed);
-            }
-            
-            WriteVariableToFile(File, Offset, Spec->SecondaryBoundaryCount);
-            for(u32 I = 0; I < Spec->SecondaryBoundaryCount; I++){
-                collision_boundary *Boundary = &Spec->SecondaryBoundaries[I];
-                packed_collision_boundary Packed = {};
-                Packed.Type = Boundary->Type;
-                Packed.Flags = Boundary->Flags;
-                Packed.P = Boundary->P;
-                // It is a union so even if it is a circle this should produce the 
-                // correct results
-                Packed.Size.X = Boundary->Size.X;
-                Packed.Size.Y = Boundary->Size.Y;
-                WriteVariableToFile(File, Offset, Packed);
-            }
-        }
-    }
-    
-    CloseFile(File);
-}
-
-internal void
-LoadEntitySpecs(const char *Path){
-    entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-    
-    if(File.Size){
-        stream Stream = CreateReadStream(File.Data, File.Size);
-        
-        entity_spec_file_header *Header = ConsumeType(&Stream, entity_spec_file_header);
-        Assert((Header->Header[0] == 'S') && 
-               (Header->Header[1] == 'J') && 
-               (Header->Header[2] == 'E'));
-        Assert(Header->Version <= CURRENT_SPEC_FILE_VERSION);
-        
-        for(u32 I = 0; I < Header->SpecCount; I++){
-            char *AssetInFile = ConsumeString(&Stream);
-            entity_spec *Spec = PushNewArrayItem(&EntitySpecs);
-            Spec->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-            CopyCString(Spec->Asset, AssetInFile, DEFAULT_BUFFER_SIZE);
-            
-            Spec->Flags = *ConsumeType(&Stream, entity_flags);
-            Spec->Type = *ConsumeType(&Stream, entity_type);
-            
-            switch(Spec->Type){
-                case EntityType_None: break;
-                case EntityType_Player: break;
-                case EntityType_Enemy: {
-                    Spec->Speed = *ConsumeType(&Stream, f32);
-                    if(Header->Version == 2) { Spec->Damage = *ConsumeType(&Stream, u32);
-                    }else{ Spec->Damage = 1; }
-                }break;
-            }
-            
-            if(Spec->Type != EntityType_None){
-                Spec->BoundaryCount = *ConsumeType(&Stream, u8);
-                
-                for(u32 I = 0; I < Spec->BoundaryCount; I++){
-                    packed_collision_boundary *Packed = ConsumeType(&Stream, packed_collision_boundary);
-                    Spec->Boundaries[I].Type = Packed->Type;
-                    Spec->Boundaries[I].Flags = Packed->Flags;
-                    Spec->Boundaries[I].P = Packed->P;
-                    Spec->Boundaries[I].Size.X = Packed->Size.X;
-                    Spec->Boundaries[I].Size.Y = Packed->Size.Y;
-                }
-                
-                Spec->SecondaryBoundaryCount = *ConsumeType(&Stream, u8);
-                for(u32 I = 0; I < Spec->SecondaryBoundaryCount; I++){
-                    packed_collision_boundary *Packed = ConsumeType(&Stream, packed_collision_boundary);
-                    Spec->SecondaryBoundaries[I].Type = Packed->Type;
-                    Spec->SecondaryBoundaries[I].Flags = Packed->Flags;
-                    Spec->SecondaryBoundaries[I].P = Packed->P;
-                    Spec->SecondaryBoundaries[I].Size.X = Packed->Size.X;
-                    Spec->SecondaryBoundaries[I].Size.Y = Packed->Size.Y;
-                }
-                
-            }
-        }
-    }
 }

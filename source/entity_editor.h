@@ -2,11 +2,6 @@
 #define ENTITY_EDITOR_H
 
 //~ entity_editor
-enum boundary_edit_mode {
-    BoundaryEditMode_Primary,
-    BoundaryEditMode_Secondary,
-};
-
 enum entity_editor_action {
     EntityEditorAction_None,
     
@@ -25,7 +20,6 @@ enum entity_editor_action {
 struct entity_editor {
     b8 DoEditBoundaries;
     u8 CurrentBoundary;
-    boundary_edit_mode BoundaryEditMode;
     collision_boundary_type BoundaryType;
     collision_boundary *DraggingBoundary;
     
@@ -40,10 +34,25 @@ struct entity_editor {
     
     f32 FloorY;
     v2 EntityP;
+    u32          CurrentFrame;
+    entity_state CurrentState;
+    direction    CurrentDirection;
+    u8           CurrentBoundarySet;
     
     u32 SelectedSpecID;
     entity_spec *SelectedSpec;
     
+    void ProcessAction(render_group *RenderGroup);
+    void UpdateAndRender();
+    void ProcessInput();
+    void ProcessKeyDown(os_key_code KeyCode);
+    void ProcessBoundaryAction(render_group *RenderGroup);
+    void DoUI(render_group *RenderGroup);
+    inline void GetBoundaries(collision_boundary **Boundaries, u8 **Count, u8 *MaxCount);
+    inline void CanonicalizeBoundary(collision_boundary *Boundary);
+    b8 IsMouseInBoundary(u8 *Index, collision_boundary **Boundary);
+    
+    //~ Tables
     // I have no clue why C++ needs inline here, but it complains otherwise
     inline local_constant entity_type FORWARD_ENTITY_TYPE_TABLE[EntityType_TOTAL] {
         EntityType_Enemy,  // 0
@@ -70,34 +79,9 @@ struct entity_editor {
         EntityType_TOTAL,  // 9
     };
     
-    inline local_constant char *TRUE_FALSE_TABLE[2] = {
-        "false",
-        "true",
-    };
-    inline local_constant char *ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
-        "None",   // 0
-        "Wall",   // 1
-        "Coin",   // 2
-        "Enemy",  // 3
-        0,        // 4
-        0,        // 5
-        0,        // 6
-        "Player", // 7
-        "Door",   // 8
-        "Projectile", // 9
-        
-    };
-    
-    void ProcessAction(render_group *RenderGroup);
-    void UpdateAndRender();
-    void ProcessInput();
-    void ProcessKeyDown(os_key_code KeyCode);
-    void ProcessBoundaryAction(render_group *RenderGroup);
-    void DoUI(render_group *RenderGroup);
-    inline void GetBoundaries(collision_boundary **Boundaries, u8 **Count);
-    inline void CanonicalizeBoundary(collision_boundary *Boundary);
 };
 
+//~ MiscellaneousS
 internal u32
 UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
                             f32 MetersToPixels, u32 SelectedSpec=0, b8 TestY=false, 

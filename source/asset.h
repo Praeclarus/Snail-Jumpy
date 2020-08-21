@@ -20,8 +20,7 @@ struct image {
 
 struct asset {
     asset_type Type;
-    // TODO(Tyler): I don't like the state table, because it probably takes up a lot of 
-    // space, maybe a hash table thing with state and directions as keys?
+    // TODO(Tyler): StateTable might not be too scaleable
     u32 StateTable[State_TOTAL][Direction_TOTAL];
     b8 IsTranslucent;
     
@@ -40,7 +39,6 @@ struct asset {
             // TODO(Tyler): Find a better way to make this array instead of having them fixed length
             u32 FrameCounts[32];
             u32 FPSArray[32];
-            f32 YOffset;
         };
         
         // Art 
