@@ -141,7 +141,7 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Direction = Entity->Direction;
                         Enemy->PathStart = Entity->PathStart;
                         Enemy->PathEnd = Entity->PathEnd;
-                        Enemy->Mass = 1.2f;
+                        Enemy->Mass = Spec->Mass;
                         
                         u8 SetIndex = Spec->BoundaryTable[Enemy->State];
                         if(SetIndex > 0){

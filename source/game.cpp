@@ -22,6 +22,7 @@ GameProcessInput(){
         switch(Event.Kind){
             case OSEventKind_KeyDown: GameProcessKeyDown(&Event); break;
         }
+        ProcessDefaultEvent(&Event);
     }
 }
 
@@ -140,44 +141,9 @@ UpdateAndRenderMainGame(){
     
     //~ Debug UI
     
-    layout Layout = CreateLayout(&RenderGroup, 100, OSInput.WindowSize.Height-100,
-                                 30, DebugFont.Size, 100, -0.9f);
-    LayoutString(&Layout, &MainFont,
-                 GREEN, "Score: %u", Score);
-    LayoutString(&Layout, &DebugFont,
-                 BLACK, "Counter: %.2f", Counter);
-    LayoutString(&Layout, &DebugFont,
-                 BLACK, "TransientMemory:  %'jd", TransientStorageArena.Used);
-    LayoutString(&Layout, &DebugFont,
-                 BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
+    RenderFormatString(&RenderGroup, &MainFont, GREEN, 100, OSInput.WindowSize.Height-100,
+                       -0.9f, "Score: %u", Score);
     
-    LayoutString(&Layout, &DebugFont, BLACK,
-                 "Enemy count: %u", EntityManager.Enemies.Count);
-    
-    {
-        layout Layout = CreateLayout(&RenderGroup, OSInput.WindowSize.Width-500, OSInput.WindowSize.Height-100,
-                                     30, DebugFont.Size);
-        LayoutString(&Layout, &DebugFont,
-                     BLACK, "Current level: %s", CurrentWorld->Name);
-        LayoutString(&Layout, &DebugFont,
-                     BLACK, "Use up and down arrows to change levels");
-        LayoutString(&Layout, &DebugFont,
-                     BLACK, "Use 'e' to open the editor");
-    }
-    
-    LayoutFps(&Layout);
-    
-    Layout.CurrentP.X += Layout.Advance.X;
-    LayoutString(&Layout, &DebugFont,
-                 BLACK, "Player: vel: %.2f %.2f, state: %u %.2f %.2f",
-                 EntityManager.Player->dP.X, EntityManager.Player->dP.Y,
-                 EntityManager.Player->State,
-                 EntityManager.Player->AnimationState,
-                 EntityManager.Player->Cooldown);
-    
-    Layout.CurrentP.X -= Layout.Advance.X;
-    
-    DebugRenderAllProfileData(&RenderGroup, &Layout);
-    
+    DEBUGRenderOverlay(&RenderGroup);
     RenderGroupToScreen(&RenderGroup);
 }

@@ -68,11 +68,13 @@ SafeRatio0(ProfileData.TotalCycleCounts[TimedScope##Id.Index], ProfileData.Profi
 
 typedef u32 debug_overlay_flags;
 enum _debug_overlay_flags {
-    
+    DebugOverlay_None     = (0 << 0),
+    DebugOverlay_Profiler = (1 << 0),
+    DebugOverlay_Miscellaneous = (1 << 1),
 };
 
 struct debug_config {
-    
+    debug_overlay_flags Overlay;
 };
 
 #endif //SNAIL_JUMPY_DEBUG_H

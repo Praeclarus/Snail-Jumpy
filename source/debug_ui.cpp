@@ -1,6 +1,6 @@
 // TODO(Tyler): This also logs all the data
 internal void
-DebugRenderAllProfileData(render_group *RenderGroup, layout *Layout){
+DEBUGRenderAllProfileData(render_group *RenderGroup, layout *Layout){
     for(u32 ProfileIndex = 0;
         ProfileIndex < ProfileData.CurrentBlockIndex+1;
         ProfileIndex++){
@@ -16,5 +16,23 @@ DebugRenderAllProfileData(render_group *RenderGroup, layout *Layout){
         Layout->CurrentP.Y -= DebugFont.Size;
         
         //LogMessage("%s: %'8llucy", Block->Name, Block->CycleCount);
+    }
+}
+
+internal void
+DEBUGRenderOverlay(render_group *RenderGroup){
+    layout Layout = CreateLayout(RenderGroup, 100, OSInput.WindowSize.Height-150, 30, DebugFont.Size, 100, -0.9f);
+    if(DebugConfig.Overlay & DebugOverlay_Miscellaneous){
+        LayoutString(&Layout, &DebugFont,
+                     BLACK, "Counter: %.2f", Counter);
+        LayoutString(&Layout, &DebugFont,
+                     BLACK, "TransientMemory:  %'jd", TransientStorageArena.Used);
+        LayoutString(&Layout, &DebugFont,
+                     BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
+        
+    }
+    if(DebugConfig.Overlay & DebugOverlay_Profiler){
+        LayoutFps(&Layout);
+        DEBUGRenderAllProfileData(RenderGroup, &Layout);
     }
 }

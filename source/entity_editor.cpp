@@ -305,6 +305,16 @@ entity_editor::DoUI(render_group *RenderGroup){
                     SelectedSpec->Damage += 1;
                 }
                 
+                Window->Text(RenderGroup, "Mass: %.1f", SelectedSpec->Mass);
+                if(Window->Button(RenderGroup, "-", 2)){
+                    if(SelectedSpec->Mass > 0){
+                        SelectedSpec->Mass -= 0.1f;
+                    }
+                }
+                if(Window->Button(RenderGroup, "+", 2)){
+                    SelectedSpec->Mass += 0.1f;
+                }
+                
             }break;
             
             default: INVALID_CODE_PATH; break;
@@ -455,11 +465,7 @@ entity_editor::UpdateAndRender(){
         }
     }
     
-    {
-        layout Layout = CreateLayout(&RenderGroup, 100, 500, 30, DebugFont.Size, 100, -0.9f);
-        DebugRenderAllProfileData(&RenderGroup, &Layout);
-    }
-    
+    DEBUGRenderOverlay(&RenderGroup);
     RenderGroupToScreen(&RenderGroup);
 }
 

@@ -208,6 +208,12 @@ ChangeState(game_mode NewMode, const char *NewLevel){
 }
 
 internal inline void
+ToggleOverlay(_debug_overlay_flags Overlay){
+    if(!(DebugConfig.Overlay & Overlay)) DebugConfig.Overlay |= Overlay;
+    else DebugConfig.Overlay &= ~Overlay;
+}
+
+internal void
 ProcessDefaultEvent(os_event *Event){
     switch(Event->Kind){
         case OSEventKind_KeyDown: {
@@ -215,6 +221,8 @@ ProcessDefaultEvent(os_event *Event){
                 case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift; break;
                 case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Ctrl;  break;
                 case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
+                case KeyCode_F1:    ToggleOverlay(DebugOverlay_Profiler); break;
+                case KeyCode_F2:    ToggleOverlay(DebugOverlay_Miscellaneous); break;
             }
         }break;
         case OSEventKind_KeyUp: {

@@ -434,35 +434,37 @@ PollEvents(os_event *Event){
                     }
                 }
                 
-                if(VKCode == VK_UP){
-                    Event->Key = KeyCode_Up;
-                }else if(VKCode == VK_DOWN){
-                    Event->Key = KeyCode_Down;
-                }else if(VKCode == VK_LEFT){
-                    Event->Key = KeyCode_Left;
-                }else if(VKCode == VK_RIGHT){
-                    Event->Key = KeyCode_Right;
-                }else if(VKCode == VK_SPACE){
-                    Event->Key = KeyCode_Space;
-                }else if(VKCode == VK_TAB){
-                    Event->Key = KeyCode_Tab;
-                }else if(VKCode == VK_SHIFT){
-                    Event->Key = KeyCode_Shift;
-                }else if(VKCode == VK_ESCAPE){
-                    Event->Key = KeyCode_Escape;
-                }else if(('0' <= VKCode) && (VKCode <= 'Z')){
-                    Event->Key = (os_key_code)VKCode;;
-                }else if(VKCode == VK_BACK){
-                    Event->Key = KeyCode_BackSpace;
-                }else if(VKCode == VK_OEM_MINUS){
-                    Event->Key = KeyCode_Minus;
-                }else if(VKCode == VK_RETURN){
-                    Event->Key = KeyCode_Return;
-                }else if(VKCode == VK_MENU){
-                    Event->Key = KeyCode_Alt;
+                if(('0' <= VKCode) && (VKCode <= 'Z')) {
+                    Event->Key = (os_key_code)VKCode; 
                 }else{
-                    continue;
+                    switch(VKCode){
+                        case VK_UP: Event->Key = KeyCode_Up;               break;
+                        case VK_DOWN:      Event->Key = KeyCode_Down;      break;
+                        case VK_LEFT:      Event->Key = KeyCode_Left;      break;
+                        case VK_RIGHT:     Event->Key = KeyCode_Right;     break;
+                        case VK_SPACE:     Event->Key = KeyCode_Space;     break;
+                        case VK_TAB:       Event->Key = KeyCode_Tab;       break;
+                        case VK_SHIFT:     Event->Key = KeyCode_Shift;     break;
+                        case VK_ESCAPE:    Event->Key = KeyCode_Escape;    break;
+                        case VK_BACK:      Event->Key = KeyCode_BackSpace; break;
+                        case VK_OEM_MINUS: Event->Key = KeyCode_Minus;     break;
+                        case VK_RETURN:    Event->Key = KeyCode_Return;    break;
+                        case VK_MENU:      Event->Key = KeyCode_Alt;       break;
+                        case VK_F1:        Event->Key = KeyCode_F1;        break;
+                        case VK_F2:        Event->Key = KeyCode_F2;        break;
+                        case VK_F3:        Event->Key = KeyCode_F3;        break;
+                        case VK_F4:        Event->Key = KeyCode_F4;        break;
+                        case VK_F5:        Event->Key = KeyCode_F5;        break;
+                        case VK_F6:        Event->Key = KeyCode_F6;        break;
+                        case VK_F7:        Event->Key = KeyCode_F7;        break;
+                        case VK_F8:        Event->Key = KeyCode_F8;        break;
+                        case VK_F9:        Event->Key = KeyCode_F9;        break;
+                        case VK_F10:       Event->Key = KeyCode_F10;       break;
+                        case VK_F11:       Event->Key = KeyCode_F11;       break;
+                        case VK_F12:       Event->Key = KeyCode_F12;       break;
+                    }
                 }
+                
                 
                 if(IsDown){
                     Event->Kind = OSEventKind_KeyDown;

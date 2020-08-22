@@ -1,5 +1,5 @@
 
-global_constant u32 CURRENT_SPEC_FILE_VERSION = 3;
+global_constant u32 CURRENT_SPEC_FILE_VERSION = 4;
 
 internal u8
 GetBoundarySetIndex(u32 SpecID, entity_state State){
@@ -57,6 +57,7 @@ WriteEntitySpecs(const char *Path){
             case EntityType_Enemy: {
                 WriteVariableToFile(File, Offset, Spec->Speed);
                 WriteVariableToFile(File, Offset, Spec->Damage);
+                WriteVariableToFile(File, Offset, Spec->Mass);
             }break;
         }
         
@@ -124,6 +125,8 @@ InitializeEntitySpecs(memory_arena *Arena, const char *Path){
                     Spec->Speed = *ConsumeType(&Stream, f32);
                     if(Header->Version >= 2) { Spec->Damage = *ConsumeType(&Stream, u32);
                     }else{ Spec->Damage = 1; }
+                    if(Header->Version >= 4) { Spec->Mass = *ConsumeType(&Stream, f32);
+                    }else { Spec->Mass = 1.0f; }
                 }break;
             }
             
