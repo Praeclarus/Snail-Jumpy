@@ -470,7 +470,7 @@ CalculateEntitydPAndDelta(entity *Entity, v2 ddP,
 
 // TODO(Tyler): There needs to be a better means of handling collisions
 internal inline void
-HandleCollision(entity *Entity, collision_event *Event){
+HandleCollision(entity *Entity, v2 StartingdP, collision_event *Event){
     if(Event->DoesHurt){
         if(Entity->Type == EntityType_Player) DamagePlayer(Event->Damage);
         else if(Entity->Type == EntityType_Projectile){
@@ -480,7 +480,10 @@ HandleCollision(entity *Entity, collision_event *Event){
     }
     
     if(Event->Normal.Y > 0.5f){
-        if(!Entity->IsGrounded) GameCamera.Shake(0.1f);
+        if(!Entity->IsGrounded){
+            f32 ShakeTime = 0.05f*-StartingdP.Y*Entity->Mass;
+            if(ShakeTime > 0.1f) GameCamera.Shake(ShakeTime);
+        }
         Entity->IsGrounded = true;
     }
     
@@ -524,6 +527,7 @@ MoveEntity(entity *Entity, v2 ddP,
     COR += 1.0f; // NOTE(Tyler): So that the COR is in the range of 0-1
     v2 EntityDelta = 
         CalculateEntitydPAndDelta(Entity, ddP, XFriction, YFriction, Drag, dPOffset);
+    v2 StartingdP = Entity->dP;
     
     f32 TimeRemaining = 1.0f;
     for(u32 Iteration = 0;
@@ -568,40 +572,6 @@ MoveEntity(entity *Entity, v2 ddP,
                                     if(TestBoundaryAndBoundary(Boundary, EntityDelta, Boundary2, 
                                                                &Event.Time, &Event.Normal)){
                                         Event.EntityPtr = Item->EntityPtr;
-                                        
-#if 0
-                                        if(Enemy->Type == EntityType_Dragonfly){
-                                            v2 RectP1    = Enemy->Boundaries[0].P;
-                                            v2 RectSize1 = Enemy->Boundaries[0].Size;
-                                            v2 RectP2    = Enemy->Boundaries[1].P;
-                                            v2 RectSize2 = Enemy->Boundaries[1].Size;
-                                            
-                                            v2 Step = {0};
-                                            Step.Y = (RectP2.Y+(RectSize2.Y/2))-(RectP1.Y+(RectSize1.Y/2));
-                                            
-                                            Event.Type = CollisionType_Dragonfly;
-                                            if(!ShouldEntityUpdate(Enemy)){
-                                                if(I == 0){ // Tail collision boundary
-                                                    if(Event.Normal.Y > 0.0f){
-                                                        Event.DoesHurt = false;
-                                                        Event.StepMove = Step;
-                                                    }
-                                                }
-                                            }else{
-                                                f32 F32Direction = ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f); 
-                                                Step.X = 0.1f*F32Direction;
-                                                if(Event.Normal.Y > 0.0f){
-                                                    Event.DoesHurt = false;
-                                                }else if(Event.Normal.X == -F32Direction){
-                                                    Event.DoesHurt = false;
-                                                    Event.StepMove = Step;
-                                                }else{
-                                                    Event.DoesHurt = true;
-                                                    Event.Damage = Enemy->Damage;
-                                                }
-                                            }
-                                        }else
-#endif
                                         
                                         {
                                             Event.Type = CollisionType_Snail;
@@ -698,7 +668,7 @@ MoveEntity(entity *Entity, v2 ddP,
         EntityDelta = (EntityDelta-COR*Dot(EntityDelta, Event.Normal)*Event.Normal);
         
         if(Event.Time < 1.0f){
-            HandleCollision(Entity, &Event);
+            HandleCollision(Entity, StartingdP, &Event);
         }
         
         TimeRemaining -= Event.Time*TimeRemaining;

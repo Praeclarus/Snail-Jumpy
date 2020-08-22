@@ -284,6 +284,6 @@ camera::Update(){
 
 inline void
 camera::Shake(f32 Time, f32 Frequency){
-    ShakeTimeRemaining = Time;
+    ShakeTimeRemaining += Time;
     ShakeFrequency = Frequency;
 }

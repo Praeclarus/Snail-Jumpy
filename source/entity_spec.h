@@ -15,6 +15,7 @@ struct entity_spec {
     union {
         // Normal enemy
         struct {
+            f32 Mass;
             f32 Speed;
             u32 Damage;
         };

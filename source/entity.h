@@ -52,8 +52,9 @@ struct entity {
     // TODO(Tyler): Reorder to fix the above NOTE
     entity_type Type;
     v2 P, dP;
-    entity_state State;
     entity_flags Flags;
+    entity_state State;
+    direction Direction;
     u32 Spec;
     
     state_change_condition ChangeCondition;
@@ -65,13 +66,12 @@ struct entity {
     u32 NumberOfTimesAnimationHasPlayed;
     
     b8 IsGrounded;
-    direction Direction;
-    
     
     // TODO(Tyler): Reordering this struct might be helpful for packing reasons
     u8 BoundarySet;
     u8 BoundaryCount;
     collision_boundary Boundaries[2];
+    f32 Mass;
 };
 
 struct enemy_entity : public entity {

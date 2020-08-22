@@ -43,6 +43,7 @@ AddPlayer(v2 P){
     EntityManager.Player->JumpTime = 1.0f;
     
     EntityManager.Player->Health = 9;
+    EntityManager.Player->Mass = 0.1f;
 }
 
 internal void
@@ -140,6 +141,7 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Direction = Entity->Direction;
                         Enemy->PathStart = Entity->PathStart;
                         Enemy->PathEnd = Entity->PathEnd;
+                        Enemy->Mass = 1.2f;
                         
                         u8 SetIndex = Spec->BoundaryTable[Enemy->State];
                         if(SetIndex > 0){
