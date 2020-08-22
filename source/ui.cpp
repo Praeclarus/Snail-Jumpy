@@ -578,7 +578,7 @@ ui_manager::MouseButtonIsDown(os_mouse_button Button){
 }
 
 b8
-ui_manager::ProcessInput(os_event *Event){
+ui_manager::ProcessEvent(os_event *Event){
     b8 Result = (Popup) ? true : false;
     
     switch(Event->Kind){

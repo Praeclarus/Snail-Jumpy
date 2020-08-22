@@ -8,12 +8,18 @@
 struct render_group;
 struct world_data;
 struct camera {
+    v2 ActualP;
     v2 P;
     f32 MetersToPixels;
     
+    f32 ShakeTimeRemaining;
+    f32 ShakeFrequency;
+    
     inline void SetCenter(v2 P, world_data *World);
+    inline void Move(v2 dP, world_data *World);
     inline v2 ScreenPToWorldP(v2 ScreenP);
     inline void Update();
+    inline void Shake(f32 Time, f32 Frequency=50);
 };
 
 //~

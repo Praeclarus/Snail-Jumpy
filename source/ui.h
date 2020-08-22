@@ -112,7 +112,7 @@ struct ui_manager {
     void NewFrame();
     void EndPopup();
     void Initialize(memory_arena *Arena);
-    b8 ProcessInput(os_event *Event);
+    b8 ProcessEvent(os_event *Event);
     window *BeginWindow(const char *Name, v2 StartTopLeft=V2(500,500), v2 MinSize=V2(400, 0));
     window *BeginPopup(const char *Name, v2 StartTopLeft=v2{0, 0}, v2 MinSize=v2{0, 0});
 };

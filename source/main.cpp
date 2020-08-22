@@ -11,6 +11,8 @@
 
 #include "main.h"
 
+global debug_config DebugConfig;
+
 // TODO(Tyler): Luckily we aren't doing anything too crazy with fonts like animating a 
 // change in size
 global font MainFont;
@@ -60,6 +62,7 @@ global hash_table<const char *, asset> AssetTable;
 #include "entity_spec.cpp"
 #include "entity.cpp"
 #include "ui.cpp"
+#include "debug.cpp"
 #include "debug_ui.cpp"
 #include "world.cpp"
 
@@ -156,8 +159,8 @@ GameUpdateAndRender(){
     
     //~ Do next frame
     TIMED_FUNCTION();
-    
     LoadAssetFile(ASSET_FILE_PATH);
+    
     switch(GameMode){
         case GameMode_MainGame: {
             UpdateAndRenderMainGame();
@@ -204,22 +207,57 @@ ChangeState(game_mode NewMode, const char *NewLevel){
     StateChangeData.NewLevel = NewLevel;
 }
 
+internal inline void
+ProcessDefaultEvent(os_event *Event){
+    switch(Event->Kind){
+        case OSEventKind_KeyDown: {
+            switch((u32)Event->Key){
+                case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift; break;
+                case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Ctrl;  break;
+                case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
+            }
+        }break;
+        case OSEventKind_KeyUp: {
+            switch((u32)Event->Key){
+                case KeyCode_Shift: OSInput.KeyFlags &= ~KeyFlag_Shift; break;
+                case KeyCode_Ctrl:  OSInput.KeyFlags &= ~KeyFlag_Ctrl;  break;
+                case KeyCode_Alt:   OSInput.KeyFlags &= ~KeyFlag_Alt;   break;
+            }
+        }break;
+    }
+}
 
 //~ Camera
 
 inline void
+camera::Move(v2 dP, world_data *World){
+    ActualP += dP;
+    v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
+    if((ActualP.X+32.0f*TILE_SIDE) > MapSize.X){
+        ActualP.X = MapSize.X - 32.0f*TILE_SIDE;
+    }else if(ActualP.X < 0.0f){
+        ActualP.X = 0.0f;
+    }
+    if((ActualP.Y+18.0f*TILE_SIDE) > MapSize.Y){
+        ActualP.Y = MapSize.Y - 18.0f*TILE_SIDE;
+    }else if(ActualP.Y < 0.0f){
+        ActualP.Y = 0.0f;
+    }
+}
+
+inline void
 camera::SetCenter(v2 Center, world_data *World){
     v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
-    P = Center - 0.5f * TILE_SIDE*v2{32.0f, 18.0f};
-    if((P.X+32.0f*TILE_SIDE) > MapSize.X){
-        P.X = MapSize.X - 32.0f*TILE_SIDE;
-    }else if(P.X < 0.0f){
-        P.X = 0.0f;
+    ActualP = Center - 0.5f * TILE_SIDE*v2{32.0f, 18.0f};
+    if((ActualP.X+32.0f*TILE_SIDE) > MapSize.X){
+        ActualP.X = MapSize.X - 32.0f*TILE_SIDE;
+    }else if(ActualP.X < 0.0f){
+        ActualP.X = 0.0f;
     }
-    if((P.Y+18.0f*TILE_SIDE) > MapSize.Y){
-        P.Y = MapSize.Y - 18.0f*TILE_SIDE;
-    }else if(P.Y < 0.0f){
-        P.Y = 0.0f;
+    if((ActualP.Y+18.0f*TILE_SIDE) > MapSize.Y){
+        ActualP.Y = MapSize.Y - 18.0f*TILE_SIDE;
+    }else if(ActualP.Y < 0.0f){
+        ActualP.Y = 0.0f;
     }
 }
 
@@ -232,4 +270,20 @@ camera::ScreenPToWorldP(v2 ScreenP){
 inline void
 camera::Update(){
     MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
+    
+    if(ShakeTimeRemaining > 0.0f){
+        f32 Strength = 0.02f;
+        P.X = ActualP.X + Strength*Cos(ShakeTimeRemaining*ShakeFrequency);
+        P.Y = ActualP.X + Strength*Cos(ShakeTimeRemaining*ShakeFrequency*1.5f);
+        
+        ShakeTimeRemaining -= OSInput.dTimeForFrame;
+    }else{
+        P = ActualP;
+    }
+}
+
+inline void
+camera::Shake(f32 Time, f32 Frequency){
+    ShakeTimeRemaining = Time;
+    ShakeFrequency = Frequency;
 }

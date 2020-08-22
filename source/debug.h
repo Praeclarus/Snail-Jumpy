@@ -66,6 +66,10 @@ SafeRatio0(ProfileData.TotalCycleCounts[TimedScope##Id.Index], ProfileData.Profi
 
 //~ Debug/developer stuff
 
+typedef u32 debug_overlay_flags;
+enum _debug_overlay_flags {
+    
+};
 
 struct debug_config {
     

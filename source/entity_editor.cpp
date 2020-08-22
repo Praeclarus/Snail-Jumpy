@@ -54,7 +54,7 @@ void
 entity_editor::ProcessInput(){
     os_event Event;
     while(PollEvents(&Event)){
-        if(UIManager.ProcessInput(&Event)) continue;
+        if(UIManager.ProcessEvent(&Event)) continue;
         
         switch(Event.Kind){
             case OSEventKind_KeyDown: {
@@ -86,6 +86,8 @@ entity_editor::ProcessInput(){
                 CursorP = Camera.ScreenPToWorldP(Event.MouseP);
             }break;
         }
+        
+        ProcessDefaultEvent(&Event);
     }
 }
 
@@ -316,7 +318,6 @@ entity_editor::DoUI(render_group *RenderGroup){
         window *Window = UIManager.BeginWindow("Edit Collision Boundaries", 
                                                V2(0, OSInput.WindowSize.Y), v2{400, 0});
         
-        
         Window->ToggleButton(RenderGroup, "Stop editing boundaries", "Edit boundaries",
                              &DoEditBoundaries);
         
@@ -365,7 +366,6 @@ entity_editor::DoUI(render_group *RenderGroup){
         Window->End(RenderGroup);
     }
     
-    
     if(UIManager.HandledInput &&
        ((Action != EntityEditorAction_LeftClickDragging) ||
         (Action != EntityEditorAction_RightClickDragging))){
@@ -392,7 +392,7 @@ entity_editor::UpdateAndRender(){
     
     DoUI(&RenderGroup);
     
-    {
+    { // Draw floor
         v2 Min;
         Min.Y = FloorY - 0.05f;
         Min.X = 1.0f;
@@ -402,9 +402,8 @@ entity_editor::UpdateAndRender(){
         RenderRectangle(&RenderGroup, Min, Max, 0.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
     }
     
+    
     asset *Asset = GetSpriteSheet(SelectedSpec->Asset);
-    //if(Asset){
-    //if(Asset->Type == AssetType_SpriteSheet){
     EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
     
     ProcessAction(&RenderGroup);
@@ -438,19 +437,6 @@ entity_editor::UpdateAndRender(){
             Z -= 0.1f;
         }
     }
-    /*}else{
-        RenderFormatString(&RenderGroup, &TitleFont, color{0.9f, 0.9f, 0.9f, 1.0f}, 
-                           100, 100, -1.0f,
-                           "Asset: '%s' is not a spritesheet!", 
-                           SelectedSpec->Asset);
-    }
-    }else{
-        RenderFormatString(&RenderGroup, &TitleFont, color{0.9f, 0.9f, 0.9f, 1.0f}, 
-                           100, 100, -1.0f,
-                           "Unable to load asset: '%s', please check if it exists", 
-                           SelectedSpec->Asset);
-    }
-    */
     
     {
         b8 AttemptToSelectSpec = false;

@@ -361,6 +361,8 @@ GetAssetNameListByType(const char *_CurrentAsset, asset_type Type, u32 *OutSelec
 internal const char *
 AssetNameDropDown(window *Window, render_group *RenderGroup, const char *SelectedAsset, 
                   asset_type AssetType, u64 WidgetID){
+    TIMED_FUNCTION();
+    
     u32 Selected = 0;
     array<const char *> AssetNames = GetAssetNameListByType(SelectedAsset, AssetType, &Selected);
     Window->DropDownMenu(RenderGroup, AssetNames, &Selected, WidgetID);

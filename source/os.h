@@ -21,6 +21,18 @@ enum os_key_code {
     KeyCode_Alt, 
     KeyCode_Ctrl,
     KeyCode_Shift,
+    KeyCode_F1,
+    KeyCode_F2,
+    KeyCode_F3,
+    KeyCode_F4,
+    KeyCode_F5,
+    KeyCode_F6,
+    KeyCode_F7,
+    KeyCode_F8,
+    KeyCode_F9,
+    KeyCode_F10,
+    KeyCode_F11,
+    KeyCode_F12,
     
     KeyCode_TOTAL,
 };
@@ -55,6 +67,7 @@ struct os_input {
     
     v2 MouseP;
     v2 LastMouseP;
+    os_key_flags KeyFlags;
 };
 
 enum os_event_kind {
@@ -70,7 +83,6 @@ struct os_event {
     os_event_kind Kind;
     union {
         struct {
-            os_key_flags Flags;
             os_key_code Key;
             b8 JustDown;
         };
@@ -130,6 +142,12 @@ WriteToDebugConsole(os_file *Output, const char *Format, ...);
 global os_input OSInput;
 global os_file *ConsoleOutFile;
 global os_file *ConsoleErrorFile;
+
+internal inline b8
+TestModifier(os_key_flags Flags){
+    b8 Result = ((OSInput.KeyFlags & Flags) == Flags);
+    return(Result);
+}
 
 //~ Helper functions/macros for file I/O
 

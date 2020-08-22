@@ -6,7 +6,7 @@ enum edit_mode {
     // NOTE(Tyler): These correspond to the actual numbers used in the map
     EditMode_AddWall       = EntityType_Wall,       // 1
     EditMode_AddCoinP      = EntityType_Coin,       // 2
-    EditMode_Enemy         = EntityType_Enemy,      // 3
+    EditMode_AddEnemy         = EntityType_Enemy,      // 3
     EditMode_AddArt        = EntityType_Art,        // 4
     
     EditMode_AddTeleporter = EntityType_Teleporter, // 8
@@ -55,7 +55,10 @@ struct world_editor {
     u32 EntityToAddSpecID;
     
     camera Camera;
-    v2 CameradP; // TODO(Tyler): This needs to be changed
+    b8 CameraUp;
+    b8 CameraDown;
+    b8 CameraLeft;
+    b8 CameraRight;
     world_editor_action Action;
     
     v2 MouseP;
@@ -99,7 +102,7 @@ global_constant f32 WORLD_EDITOR_CAMERA_MOVE_SPEED = 0.1f;
 global_constant edit_mode WORLD_EDITOR_FORWARD_EDIT_MODE_TABLE[EditMode_TOTAL] = {
     EditMode_AddWall,       // 0
     EditMode_AddCoinP,      // 1
-    EditMode_Enemy,         // 2
+    EditMode_AddEnemy,      // 2
     EditMode_AddArt,        // 3
     EditMode_AddTeleporter, // 4
     EditMode_TOTAL,         // 5
@@ -113,7 +116,7 @@ global_constant edit_mode WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[EditMode_TOTAL] =
     EditMode_None,          // 1
     EditMode_AddWall,       // 2
     EditMode_AddCoinP,      // 3
-    EditMode_Enemy,         // 4
+    EditMode_AddEnemy,      // 4
     EditMode_TOTAL,         // 5
     EditMode_TOTAL,         // 6
     EditMode_TOTAL,         // 7

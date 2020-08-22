@@ -480,6 +480,7 @@ HandleCollision(entity *Entity, collision_event *Event){
     }
     
     if(Event->Normal.Y > 0.5f){
+        if(!Entity->IsGrounded) GameCamera.Shake(0.1f);
         Entity->IsGrounded = true;
     }
     

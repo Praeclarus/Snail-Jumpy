@@ -120,14 +120,12 @@ world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
     
     switch((u32)KeyCode){
         case 'E': ToggleWorldEditor(); break;
-        case 'L': {
-            Popup = EditorPopup_TextInput; TextInputCallback = LoadWorldCallback; 
-        } break;
-        case 'W': if(JustDown) CameradP.Y += WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
-        case 'A': if(JustDown) CameradP.X -= WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
-        case 'S': if(JustDown) CameradP.Y -= WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
-        case 'D': if(JustDown) CameradP.X += WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
-        case 'Q': if(JustDown && Mode == EditMode_Enemy){
+        case 'L': { Popup = EditorPopup_TextInput; TextInputCallback = LoadWorldCallback; } break;
+        case 'W': if(JustDown) CameraUp    = true; break;
+        case 'A': if(JustDown) CameraLeft  = true; break;
+        case 'S': if(JustDown) CameraDown  = true; break;
+        case 'D': if(JustDown) CameraRight = true; break;
+        case 'Q': if(JustDown && Mode == EditMode_AddEnemy){
             Popup = EditorPopup_SpecSelector;
             SpecSelectorCallback = SelectSpecForEntityToAddCallback;
         }
@@ -211,7 +209,7 @@ void
 world_editor::ProcessInput(){
     os_event Event;
     while(PollEvents(&Event)){
-        if(UIManager.ProcessInput(&Event)) continue;
+        if(UIManager.ProcessEvent(&Event)) continue;
         
         switch(Event.Kind){
             case OSEventKind_KeyDown: {
@@ -219,10 +217,10 @@ world_editor::ProcessInput(){
             }break;
             case OSEventKind_KeyUp: {
                 switch((char)Event.Key ){
-                    case 'W': CameradP.Y -= WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
-                    case 'A': CameradP.X += WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
-                    case 'S': CameradP.Y += WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
-                    case 'D': CameradP.X -= WORLD_EDITOR_CAMERA_MOVE_SPEED; break;
+                    case 'W': CameraUp    = false; break;
+                    case 'A': CameraLeft  = false; break;
+                    case 'S': CameraDown  = false; break;
+                    case 'D': CameraRight = false; break;
                 }
             }break;
             case OSEventKind_MouseDown: {
@@ -254,6 +252,7 @@ world_editor::ProcessInput(){
                 CursorP = v2{Floor(MouseP.X/TILE_SIDE), Floor(MouseP.Y/TILE_SIDE)};
             }break;
         }
+        ProcessDefaultEvent(&Event);
     }
 }
 
@@ -324,7 +323,7 @@ world_editor::ProcessAction(){
                 case EditMode_AddDoor: {
                     UpdateSelectionRectangle();
                 }break;
-                case EditMode_Enemy: {
+                case EditMode_AddEnemy: {
                     if(EntityToAddSpecID == 0){
                         Popup = EditorPopup_SpecSelector;
                         SpecSelectorCallback = AddEnemyCallback;
@@ -352,26 +351,29 @@ world_editor::ProcessAction(){
             }
         }break;
         case WorldEditorAction_EndAddDrag: {
-            if(Mode == EditMode_AddDoor){
-                UpdateSelectionRectangle();
-                
-                v2 Size = CursorP - CursorP2;
-                Size.X *= TILE_SIZE.X;
-                Size.Y *= TILE_SIZE.Y;
-                Size.X = AbsoluteValue(Size.X);
-                Size.Y = AbsoluteValue(Size.Y);
-                
-                Assert((Size.X != 0.0f) && (Size.Y != 0.0f));
-                
-                v2 P = (CursorP+CursorP2)/2.0f * TILE_SIDE;
-                
-                entity_data *Entity = PushNewArrayItem(&World->Entities);
-                Entity->Type = EntityType_Door;
-                Entity->P = P;
-                Entity->Size = Size;
-                Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                SpecialThing = EditorSpecialThing_None;
-                SelectedThing = Entity;
+            switch(Mode){
+                case EditMode_AddDoor: {
+                    UpdateSelectionRectangle();
+                    
+                    v2 Size = CursorP - CursorP2;
+                    Size.X *= TILE_SIZE.X;
+                    Size.Y *= TILE_SIZE.Y;
+                    Size.X = AbsoluteValue(Size.X);
+                    Size.Y = AbsoluteValue(Size.Y);
+                    
+                    Assert((Size.X != 0.0f) && (Size.Y != 0.0f));
+                    
+                    v2 P = (CursorP+CursorP2)/2.0f * TILE_SIDE;
+                    
+                    entity_data *Entity = PushNewArrayItem(&World->Entities);
+                    Entity->Type = EntityType_Door;
+                    Entity->P = P;
+                    Entity->Size = Size;
+                    Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    SpecialThing = EditorSpecialThing_None;
+                    SelectedThing = Entity;
+                }break;
+                default: break;
             }
             
             Action = WorldEditorAction_None;
@@ -613,7 +615,7 @@ world_editor::RenderCursor(render_group *RenderGroup){
             RenderCenteredRectangle(RenderGroup, Center, Size, 0.0f, BLACK, &Camera);
             RenderCenteredRectangle(RenderGroup, Center, (Size-2*Margin), -0.1f, YELLOW, &Camera);
         }break;
-        case EditMode_Enemy: {
+        case EditMode_AddEnemy: {
             if(EntityToAddSpecID == 0){
                 RenderCenteredRectangle(RenderGroup, Center, TILE_SIZE, -0.11f, PINK, &Camera);
             }else{ 
@@ -758,8 +760,12 @@ world_editor::DoUI(render_group *RenderGroup){
         World->CoinsToSpawn += 1;
     }
     
+    if(Window->Button(RenderGroup, "Test camera shake")){
+        Camera.Shake(0.1f);
+    }
+    
     switch(Mode){
-        case EditMode_Enemy: {
+        case EditMode_AddEnemy: {
             if(Window->Button(RenderGroup, "Select spec")){
                 Popup = EditorPopup_SpecSelector;
                 SpecSelectorCallback = SelectSpecForEntityToAddCallback;
@@ -770,6 +776,7 @@ world_editor::DoUI(render_group *RenderGroup){
             AssetForArtEntity = AssetNameDropDown(Window, RenderGroup, AssetForArtEntity, AssetType_Art, WIDGET_ID);
         }break;
     }
+    
     
     Window->End(RenderGroup);
     
@@ -787,18 +794,20 @@ world_editor::UpdateAndRender(){
     if(DoPopup(&RenderGroup)) return;
     
     {
-        Camera.P += CameradP;
-        v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
-        if((Camera.P.X+32.0f*TILE_SIDE) > MapSize.X){
-            Camera.P.X = MapSize.X - 32.0f*TILE_SIDE;
-        }else if(Camera.P.X < 0.0f){
-            Camera.P.X = 0.0f;
+        v2 CameradP = V2(0, 0);
+        if(CameraUp && !CameraDown){
+            CameradP.Y = 1.0f;
+        }else if(CameraDown && !CameraUp){
+            CameradP.Y = -1.0f;
         }
-        if((Camera.P.Y+18.0f*TILE_SIDE) > MapSize.Y){
-            Camera.P.Y = MapSize.Y - 18.0f*TILE_SIDE;
-        }else if(Camera.P.Y < 0.0f){
-            Camera.P.Y = 0.0f;
+        if(CameraRight && !CameraLeft){
+            CameradP.X = 1.0f;
+        }else if(CameraLeft && !CameraRight){
+            CameradP.X = -1.0f;
         }
+        
+        CameradP *= WORLD_EDITOR_CAMERA_MOVE_SPEED;
+        Camera.Move(CameradP, World);
     }
     
     if(!HideUI){
