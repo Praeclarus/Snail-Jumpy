@@ -18,12 +18,9 @@ ToggleWorldEditor(){
 
 internal inline v2
 GetSizeFromSpecID(u32 SpecID){
-    v2 Result = {};
     entity_spec *Spec = &EntitySpecs[SpecID];
-    asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
-    if(Asset){
-        Result = Asset->SizeInMeters*Asset->Scale;
-    }
+    asset *Asset = GetSpriteSheet(Spec->Asset);
+    v2 Result = Asset->SizeInMeters*Asset->Scale;
     return(Result);
 }
 
@@ -121,7 +118,7 @@ void
 world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
     if(Action != WorldEditorAction_None) return;
     
-    switch((char)KeyCode){
+    switch((u32)KeyCode){
         case 'E': ToggleWorldEditor(); break;
         case 'L': {
             Popup = EditorPopup_TextInput; TextInputCallback = LoadWorldCallback; 
@@ -183,7 +180,7 @@ world_editor::HandleClick(b8 ShouldRemove){
                 Size = Entity->Size;
             }break;
             case EntityType_Art: {
-                asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Entity->Asset);
+                asset *Asset = GetArt(Entity->Asset);
                 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera.MetersToPixels;
             }break;
         }
@@ -231,14 +228,14 @@ world_editor::ProcessInput(){
             case OSEventKind_MouseDown: {
                 if(Action == WorldEditorAction_DraggingThing) continue;
                 
-                if(Event.Button == KeyCode_LeftMouse){
+                if(Event.Button == MouseButton_Left){
                     Action = WorldEditorAction_BeginAddDrag;
-                }else if(Event.Button == KeyCode_RightMouse){
+                }else if(Event.Button == MouseButton_Right){
                     Action = WorldEditorAction_BeginRemoveDrag;
                 }
             }break;
             case OSEventKind_MouseUp: {
-                if(Event.Button == KeyCode_LeftMouse){
+                if(Event.Button == MouseButton_Left){
                     if((Action == WorldEditorAction_AddDragging) ||
                        (Action == WorldEditorAction_BeginAddDrag)){
                         Action = WorldEditorAction_EndAddDrag;
@@ -246,7 +243,7 @@ world_editor::ProcessInput(){
                         if(SpecialThing != EditorSpecialThing_None) SpecialThing = EditorSpecialThing_None;
                         Action = WorldEditorAction_None;
                     }
-                }else if((Event.Button == KeyCode_RightMouse)  &&
+                }else if((Event.Button == MouseButton_Right)  &&
                          (Action == WorldEditorAction_RemoveDragging ||
                           Action == WorldEditorAction_BeginRemoveDrag)){
                     Action = WorldEditorAction_None;
@@ -306,48 +303,52 @@ world_editor::ProcessAction(){
             v2 ViewTileP = TILE_SIDE*CursorP;
             v2 Center = ViewTileP+(0.5f*TILE_SIZE);
             
-            if((Mode == EditMode_AddWall) ||
-               (Mode == EditMode_AddCoinP)){
-                u8 *TileId = &World->Map[((u32)CursorP.Y*World->Width)+(u32)CursorP.X];
-                *TileId = (u8)Mode;
-            }else if(Mode == EditMode_AddTeleporter){
-                entity_data *Entity = PushNewArrayItem(&World->Entities);
-                
-                Entity->Level          = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                Entity->TRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                Entity->Type = EntityType_Teleporter;
-                Entity->P = Center;
-                Action = WorldEditorAction_None;
-                
-                SpecialThing = EditorSpecialThing_None;
-                SelectedThing = Entity;
-            }else if(Mode == EditMode_AddDoor){
-                UpdateSelectionRectangle();
-            }else if(Mode == EditMode_Enemy){
-                if(EntityToAddSpecID == 0){
-                    Popup = EditorPopup_SpecSelector;
-                    SpecSelectorCallback = AddEnemyCallback;
-                }else{
-                    AddEnemyCallback(this, EntityToAddSpecID);
-                }
-                
-                Action = WorldEditorAction_None;
-            }else if(Mode == EditMode_AddArt){
-                asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)AssetForArtEntity);
-                if(!Asset) return;
-                if(Asset->Type == AssetType_SpriteSheet) return;
-                entity_data *Art = PushNewArrayItem(&World->Entities);
-                Art->P = MouseP;
-                Art->Type = EntityType_Art;
-                Art->SpecID = 0;
-                Art->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                Art->Asset = AssetForArtEntity;
-                //CopyCString(Art->Asset, AssetForArtEntity, DEFAULT_BUFFER_SIZE);
-                
-                SpecialThing = EditorSpecialThing_None;
-                SelectedThing = Art;
-                
-                Action = WorldEditorAction_None;
+            switch(Mode){
+                case EditMode_AddWall: 
+                case EditMode_AddCoinP: {
+                    u8 *TileId = &World->Map[((u32)CursorP.Y*World->Width)+(u32)CursorP.X];
+                    *TileId = (u8)Mode;
+                }break;
+                case EditMode_AddTeleporter: {
+                    entity_data *Entity = PushNewArrayItem(&World->Entities);
+                    
+                    Entity->Level          = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    Entity->TRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    Entity->Type = EntityType_Teleporter;
+                    Entity->P = Center;
+                    Action = WorldEditorAction_None;
+                    
+                    SpecialThing = EditorSpecialThing_None;
+                    SelectedThing = Entity;
+                }break;
+                case EditMode_AddDoor: {
+                    UpdateSelectionRectangle();
+                }break;
+                case EditMode_Enemy: {
+                    if(EntityToAddSpecID == 0){
+                        Popup = EditorPopup_SpecSelector;
+                        SpecSelectorCallback = AddEnemyCallback;
+                    }else{
+                        AddEnemyCallback(this, EntityToAddSpecID);
+                    }
+                    
+                    Action = WorldEditorAction_None;
+                }break;
+                case EditMode_AddArt: {
+                    asset *Asset = GetArt(AssetForArtEntity);
+                    entity_data *Art = PushNewArrayItem(&World->Entities);
+                    Art->P = MouseP;
+                    Art->Type = EntityType_Art;
+                    Art->SpecID = 0;
+                    Art->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    Art->Asset = AssetForArtEntity;
+                    //CopyCString(Art->Asset, AssetForArtEntity, DEFAULT_BUFFER_SIZE);
+                    
+                    SpecialThing = EditorSpecialThing_None;
+                    SelectedThing = Art;
+                    
+                    Action = WorldEditorAction_None;
+                }break;
             }
         }break;
         case WorldEditorAction_EndAddDrag: {
@@ -485,7 +486,7 @@ world_editor::DoPopup(render_group *RenderGroup){
             while(PollEvents(&Event)){
                 switch(Event.Kind){
                     case OSEventKind_MouseDown: {
-                        if(Event.Button == KeyCode_LeftMouse){
+                        if(Event.Button == MouseButton_Left){
                             AttemptSelect = true;
                         }
                     }break;
@@ -841,8 +842,7 @@ world_editor::UpdateAndRender(){
             case EntityType_Enemy: {
                 Assert(Entity->SpecID != 0);
                 entity_spec *Spec = &EntitySpecs[Entity->SpecID];
-                asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
-                if(!Asset) continue;
+                asset *Asset = GetSpriteSheet(Spec->Asset);
                 
                 v2 Size = Asset->SizeInMeters*Asset->Scale;
                 v2 P = Entity->P;
@@ -911,7 +911,7 @@ world_editor::UpdateAndRender(){
                 RenderCenteredRectangle(&RenderGroup, Entity->P, Entity->Size, 0.0f, BROWN, &Camera);
             }break;
             case EntityType_Art: {
-                asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Entity->Asset);
+                asset *Asset = GetArt(Entity->Asset);
                 v2 Size = TILE_SIZE;
                 if(Asset &&
                    (Asset->Type == AssetType_Art)){

@@ -53,6 +53,8 @@ internal RENDER_GROUP_TO_SCREEN(RenderGroupToScreen);
 
 internal render_texture_handle 
 CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
+internal void
+DeleteRenderTexture(render_texture_handle Texture);
 
 global_constant color BLACK  = color{0.0f,  0.0f,  0.0f, 1.0f};
 global_constant color WHITE  = color{1.0f,  1.0f,  1.0f, 1.0f};

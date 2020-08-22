@@ -71,7 +71,9 @@ global hash_table<const char *, asset> AssetTable;
 // TODO(Tyler): This should be done at compile time
 internal void
 LoadFont(memory_arena *Arena,
-         font *Font, const char *FontPath, f32 Size, u32 Width, u32 Height){
+         font *Font, const char *FontPath, f32 Size){
+    const u32 Width = 512;
+    const u32 Height = 512;
     os_file *File = OpenFile(FontPath, OpenFile_Read);
     u64 FileSize = GetFileSize(File);
     u8 *FileData = PushArray(Arena, u8, FileSize);
@@ -130,12 +132,9 @@ InitializeGame(){
     
     InitializeAssetSystem(&PermanentStorageArena);
     
-    LoadFont(&TransientStorageArena, &DebugFont,
-             "Roboto-Regular.ttf", 22, 512, 512);
-    LoadFont(&TransientStorageArena, &TitleFont,
-             "Roboto-Regular.ttf", 30, 512, 512);
-    LoadFont(&TransientStorageArena, &MainFont,
-             "Press-Start-2P.ttf", 26, 512, 512);
+    LoadFont(&TransientStorageArena, &DebugFont, "Roboto-Regular.ttf", 22);
+    LoadFont(&TransientStorageArena, &TitleFont, "Roboto-Regular.ttf", 30);
+    LoadFont(&TransientStorageArena, &MainFont,  "Press-Start-2P.ttf", 26);
     
     // Setup UI
     SetupDefaultTheme(&UIManager.Theme);

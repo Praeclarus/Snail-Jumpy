@@ -8,21 +8,37 @@ enum os_key_code {
     KeyCode_Tab = '\t',
     KeyCode_Space = ' ',
     KeyCode_Minus = '-',
-    KeyCode_ASCIICOUNT = 96,
-    KeyCode_Shift = KeyCode_ASCIICOUNT,
-    KeyCode_Up    = 97,
-    KeyCode_Down  = 98,
-    KeyCode_Left  = 99,
-    KeyCode_Right = 100,
-    KeyCode_BackSpace  = 101,
-    KeyCode_Escape     = 102,
-    KeyCode_Return     = 103,
-    KeyCode_LeftMouse  = 104,
-    KeyCode_MiddleMouse = 105,
-    KeyCode_RightMouse = 106,
-    KeyCode_Alt = 107,
+    
+    // Insert all possible char values here
+    
+    KeyCode_Up = 256,
+    KeyCode_Down,
+    KeyCode_Left,
+    KeyCode_Right,
+    KeyCode_BackSpace,
+    KeyCode_Escape,
+    KeyCode_Return,
+    KeyCode_Alt, 
+    KeyCode_Ctrl,
+    KeyCode_Shift,
     
     KeyCode_TOTAL,
+};
+
+typedef u32 os_key_flags;
+enum _os_key_flags {
+    KeyFlag_None  = (0 << 0),
+    KeyFlag_Shift = (1 << 0),
+    KeyFlag_Alt   = (1 << 1),
+    KeyFlag_Ctrl  = (1 << 2),
+};
+
+enum os_mouse_button {
+    MouseButton_Left,
+    MouseButton_Middle,
+    MouseButton_Right,
+    
+    MouseButton_TOTAL,
 };
 
 struct os_button {
@@ -32,11 +48,6 @@ struct os_button {
     b8 Repeat;
 };
 
-struct os_mouse_button {
-    b8 IsDown;
-    b8 JustDown;
-};
-
 struct os_input {
     f32 dTimeForFrame;
     
@@ -44,11 +55,6 @@ struct os_input {
     
     v2 MouseP;
     v2 LastMouseP;
-    os_button LeftMouseButton;
-    os_button MiddleMouseButton;
-    os_button RightMouseButton;
-    
-    os_button Buttons[KeyCode_TOTAL];
 };
 
 enum os_event_kind {
@@ -64,12 +70,13 @@ struct os_event {
     os_event_kind Kind;
     union {
         struct {
+            os_key_flags Flags;
             os_key_code Key;
             b8 JustDown;
         };
         
         struct {
-            os_key_code Button;
+            os_mouse_button Button;
             v2 MouseP;
         };
     };

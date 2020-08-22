@@ -92,7 +92,7 @@ window::Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow){
        (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
        (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
         b8 DoHovered = false;
-        if(UIManager.LeftMouseButton.JustDown){
+        if(UIManager.MouseButtonJustDown(MouseButton_Left)){
             ButtonColor = Theme->ButtonClickedColor;
             Result = true;
             DoHovered = true;
@@ -108,7 +108,7 @@ window::Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow){
             Y -= 5;
         }
         
-        if(UIManager.LeftMouseButton.IsDown){ UIManager.HandledInput = true; }
+        if(UIManager.MouseButtonIsDown(MouseButton_Left)){ UIManager.HandledInput = true; }
     }
     
     RenderRectangle(RenderGroup, {X, Y-Height}, {X+Width, Y}, Z-0.1f, 
@@ -213,7 +213,7 @@ window::TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 I
        (Min.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= Max.X) &&
        (Min.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= Max.Y)){
         b8 DoHovered = false;
-        if(UIManager.LeftMouseButton.JustDown){
+        if(UIManager.MouseButtonJustDown(MouseButton_Left)){
             UIManager.SelectedWidgetID = ID;
             DoHovered = true;
         }else if(UIManager.SelectedWidgetID != ID){
@@ -229,10 +229,10 @@ window::TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 I
             Max = Min + v2{Width, Height};
         }
         
-        if(UIManager.LeftMouseButton.IsDown){
+        if(UIManager.MouseButtonIsDown(MouseButton_Left)){
             UIManager.HandledInput = true;
         }
-    }else if(UIManager.LeftMouseButton.JustDown && 
+    }else if(UIManager.MouseButtonJustDown(MouseButton_Left) && 
              (UIManager.SelectedWidgetID == ID)){
         UIManager.SelectedWidgetID = 0;
         UIManager.HandledInput = true;
@@ -297,7 +297,7 @@ window::ToggleBox(render_group *RenderGroup, const char *Text, b8 Value){
        (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
        (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
         b8 DoHovered = false;
-        if(UIManager.LeftMouseButton.JustDown ){
+        if(UIManager.MouseButtonJustDown(MouseButton_Left)){
             ButtonColor = Theme->ButtonClickedColor;
             Result = !Value;
             DoHovered = true;
@@ -313,7 +313,7 @@ window::ToggleBox(render_group *RenderGroup, const char *Text, b8 Value){
             Y -= 4;
         }
         
-        if(UIManager.LeftMouseButton.IsDown){
+        if(UIManager.MouseButtonIsDown(MouseButton_Left)){
             UIManager.HandledInput = true;
         }
     }
@@ -382,7 +382,7 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
        ((UIManager.SelectedWidgetID == 0) || (UIManager.SelectedWidgetID == ID))){
         UIManager.SelectedWidgetID = ID;
         
-        if(UIManager.LeftMouseButton.IsDown){ UIManager.HandledInput = true; }
+        if(UIManager.MouseButtonIsDown(MouseButton_Left)){ UIManager.HandledInput = true; }
     }else if(UIManager.SelectedWidgetID == ID){
         UIManager.SelectedWidgetID = 0;
     }
@@ -401,7 +401,7 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
             color Color = Theme->ButtonBaseColor;
             if((NewRectY <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= RectY)){
                 Color = Theme->ButtonHoveredColor;
-                if(UIManager.LeftMouseButton.JustDown){
+                if(UIManager.MouseButtonJustDown(MouseButton_Left)){
                     *Selected = I;
                     Color = Theme->ButtonClickedColor;
                 }
@@ -554,11 +554,27 @@ ui_manager::Initialize(memory_arena *Arena){
 
 void
 ui_manager::NewFrame(){
-    UIManager.MouseOverWindow = false;
-    UIManager.HandledInput    = false;
-    UIManager.LeftMouseButton.JustDown   = false;
-    UIManager.RightMouseButton.JustDown  = false;
-    UIManager.MiddleMouseButton.JustDown = false;
+    MouseOverWindow = false;
+    HandledInput    = false;
+    for(u32 I = 0; I < MouseButton_TOTAL; I++) PreviousMouseState[I] = MouseState[I];
+}
+
+b8
+ui_manager::MouseButtonJustDown(os_mouse_button Button){
+    b8 Result = (!PreviousMouseState[Button] && MouseState[Button]);
+    return(Result);
+}
+
+b8
+ui_manager::MouseButtonJustUp(os_mouse_button Button){
+    b8 Result = (PreviousMouseState[Button] && !MouseState[Button]);
+    return(Result);
+}
+
+b8
+ui_manager::MouseButtonIsDown(os_mouse_button Button){
+    b8 Result = (MouseState[Button]);
+    return(Result);
 }
 
 b8
@@ -568,7 +584,7 @@ ui_manager::ProcessInput(os_event *Event){
     switch(Event->Kind){
         case OSEventKind_KeyDown: {
             if(SelectedWidgetID != 0){
-                if(Event->Key < KeyCode_ASCIICOUNT){
+                if(Event->Key < U8_MAX){
                     char Char = (char)Event->Key;
                     if(IsShiftDown){
                         if(Char == '-'){
@@ -601,20 +617,13 @@ ui_manager::ProcessInput(os_event *Event){
             }
         }break;
         case OSEventKind_MouseDown: {
-            switch(Event->Button){
-                case KeyCode_LeftMouse:   UIManager.LeftMouseButton   = {true, true}; break;
-                case KeyCode_RightMouse:  UIManager.RightMouseButton  = {true, true}; break;
-                case KeyCode_MiddleMouse: UIManager.MiddleMouseButton = {true, true}; break;
-                default: Assert(0); break;
-            }
+            Assert(Event->Button < MouseButton_TOTAL);
+            UIManager.MouseState[Event->Button] = true;
+            
         }break;
         case OSEventKind_MouseUp: {
-            switch(Event->Button){
-                case KeyCode_LeftMouse:   UIManager.LeftMouseButton   = {false, false}; break;
-                case KeyCode_RightMouse:  UIManager.RightMouseButton  = {false, false}; break;
-                case KeyCode_MiddleMouse: UIManager.MiddleMouseButton = {false, false}; break;
-                default: Assert(0); break;
-            }
+            Assert(Event->Button < MouseButton_TOTAL);
+            UIManager.MouseState[Event->Button] = false;
         }break;
     }
     

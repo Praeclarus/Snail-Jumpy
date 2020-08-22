@@ -371,8 +371,7 @@ AssetNameDropDown(window *Window, render_group *RenderGroup, const char *Selecte
 internal void
 RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *AssetName, 
                          u32 Frame, v2 Center, f32 Z){
-    asset *Asset = FindInHashTablePtr(&AssetTable, AssetName);
-    if(!Asset) return;
+    asset *Asset = GetSpriteSheet(AssetName);
     Assert(Asset->Type == AssetType_SpriteSheet);
     
     u32 FrameInSpriteSheet = Frame;
@@ -395,9 +394,7 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *
 internal void
 UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Entity, 
                          f32 dTimeForFrame){
-    asset *Asset = FindInHashTablePtr<const char *, asset>(&AssetTable, Entity->Asset);
-    if(!Asset) return;
-    Assert(Asset->Type == AssetType_SpriteSheet);
+    asset *Asset = GetSpriteSheet(Entity->Asset);
     
     u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
     if(AnimationIndex == 0) { 

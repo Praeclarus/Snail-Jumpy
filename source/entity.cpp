@@ -375,8 +375,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
     BEGIN_TIMED_BLOCK(UpdateAndRenderArts);
     FOR_BUCKET_ARRAY(&Arts){
         art_entity *Art = BucketArrayGetItemPtr(&Arts, Location);
-        asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Art->Asset);
-        Assert(Asset);
+        asset *Asset = GetArt(Art->Asset);
         v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
         RenderCenteredTexture(RenderGroup, Art->P, Size, Art->Z, Asset->Texture, 
                               V2(0,0), V2(1,1), false, Camera);

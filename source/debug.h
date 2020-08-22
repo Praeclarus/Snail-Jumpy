@@ -1,6 +1,7 @@
 #if !defined(SNAIL_JUMPY_DEBUG_H)
 #define SNAIL_JUMPY_DEBUG_H
 
+//~ Basic profiling stuff
 struct profiled_block {
     const char *Name;
     u64 CycleCount;
@@ -62,5 +63,12 @@ SafeRatio0(ProfileData.TotalCycleCounts[TimedScope##Id.Index], ProfileData.Profi
 
 #define BEGIN_BLOCK(Id) u32 ProfileIndex##Id = BeginProfiledBlock(#Id); u64 StartCycle##Id = __rdtsc();
 #define END_BLOCK(Id) EndProfiledBlock(ProfileIndex##Id, __rdtsc()-StartCycle##Id);
+
+//~ Debug/developer stuff
+
+
+struct debug_config {
+    
+};
 
 #endif //SNAIL_JUMPY_DEBUG_H

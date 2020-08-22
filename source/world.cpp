@@ -206,7 +206,6 @@ world_manager::LoadWorld(const char *LevelName){
 
 global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
 
-// TODO(Tyler): This could be made more ROBUST and probably FASTER
 world_data *
 world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
     TIMED_FUNCTION();
@@ -273,7 +272,9 @@ world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
                     CopyCString(Entity->DRequiredLevel, RequiredLevel, DEFAULT_BUFFER_SIZE);
                 }break;
                 case EntityType_Art: {
-                    Entity->Asset = PushCString(&StringMemory, ConsumeString(&Stream));
+                    char *AssetInFile = ConsumeString(&Stream);
+                    Entity->Asset = GetHashTableKey(&AssetTable, (const char *)AssetInFile);
+                    if(!Entity->Asset) Entity->Asset = PushCString(&StringMemory, AssetInFile);
                     Entity->Z = *ConsumeType(&Stream, f32);
                 }break;
                 default: INVALID_CODE_PATH; break;

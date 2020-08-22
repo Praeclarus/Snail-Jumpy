@@ -77,8 +77,7 @@ struct window {
     void TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 ID);
     void Text(render_group *RenderGroup, const char *Text, ...);
     b8 Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow=0);
-    inline void ToggleButton(render_group *RenderGroup, const char *TrueText, 
-                             const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
+    inline void ToggleButton(render_group *RenderGroup, const char *TrueText, const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
     b8 ToggleBox(render_group *RenderGroup, const char *Text, b8 Value);
     void DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCounts, u32 *Selected, u64 ID);
     void DropDownMenu(render_group *RenderGroup, array<const char *>, u32 *Selected, u64 ID);
@@ -104,15 +103,17 @@ struct ui_manager {
     
     // Mouse input
     v2 MouseP;
-    os_mouse_button LeftMouseButton;
-    os_mouse_button MiddleMouseButton;
-    os_mouse_button RightMouseButton;
+    b8 PreviousMouseState[MouseButton_TOTAL];
+    b8 MouseState[MouseButton_TOTAL];
     
+    b8 MouseButtonJustDown(os_mouse_button Button);
+    b8 MouseButtonJustUp(os_mouse_button Button);
+    b8 MouseButtonIsDown(os_mouse_button Button);
     void NewFrame();
     void EndPopup();
     void Initialize(memory_arena *Arena);
     b8 ProcessInput(os_event *Event);
-    window *BeginWindow(const char *Name, v2 StartTopLeft=v2{500, 500}, v2 MinSize=v2{0, 0});
+    window *BeginWindow(const char *Name, v2 StartTopLeft=V2(500,500), v2 MinSize=V2(400, 0));
     window *BeginPopup(const char *Name, v2 StartTopLeft=v2{0, 0}, v2 MinSize=v2{0, 0});
 };
 

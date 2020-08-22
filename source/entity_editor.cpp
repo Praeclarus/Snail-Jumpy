@@ -61,21 +61,21 @@ entity_editor::ProcessInput(){
                 ProcessKeyDown(Event.Key);
             }break;
             case OSEventKind_MouseDown: {
-                if(Event.Button == KeyCode_LeftMouse){
+                if(Event.Button == MouseButton_Left){
                     Action = EntityEditorAction_LeftClick;
-                }else if(Event.Button == KeyCode_RightMouse){
+                }else if(Event.Button == MouseButton_Right){
                     Action = EntityEditorAction_RightClick;
                 }
             }break;
             case OSEventKind_MouseUp: {
-                if(Event.Button == KeyCode_LeftMouse){
+                if(Event.Button == MouseButton_Left){
                     if((Action == EntityEditorAction_LeftClick) ||
                        (Action == EntityEditorAction_LeftClickDragging)){
                         Action = EntityEditorAction_EndLeftClick;
                     }else if(Action == EntityEditorAction_DraggingBoundary){
                         Action = EntityEditorAction_None;
                     }
-                }else if(Event.Button == KeyCode_RightMouse){
+                }else if(Event.Button == MouseButton_Right){
                     if((Action == EntityEditorAction_RightClick) ||
                        (Action == EntityEditorAction_RightClickDragging)){
                         Action = EntityEditorAction_EndRightClick;
@@ -491,24 +491,15 @@ UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 Attem
     
     for(u32 I = 1; I < EntitySpecs.Count; I++){
         entity_spec *Spec = &EntitySpecs[I];
-        asset *Asset = FindInHashTablePtr(&AssetTable, (const char *)Spec->Asset);
+        asset *Asset = GetSpriteSheet(Spec->Asset);
         v2 Size;
         v2 StartP = P;
-        if(Asset){
-            if(Asset->Type == AssetType_Art) continue;
-            v2 Center = P;
-            Size = Asset->SizeInMeters*Asset->Scale;
-            Center.X += 0.5f*Size.X;
-            RenderFrameOfSpriteSheet(RenderGroup, &Camera, Spec->Asset, 0, 
-                                     Center, 0.0f);
-            P.X += Size.X;
-        }else{
-            Size = v2{1, 1};
-            v2 Center = P;
-            Center.X += 0.5f*Size.X;
-            RenderCenteredRectangle(RenderGroup, Center, Size, 0.0f, PINK, &Camera);
-            P.X += Size.X;
-        }
+        v2 Center = P;
+        Size = Asset->SizeInMeters*Asset->Scale;
+        Center.X += 0.5f*Size.X;
+        RenderFrameOfSpriteSheet(RenderGroup, &Camera, Spec->Asset, 0, 
+                                 Center, 0.0f);
+        P.X += Size.X;
         
         v2 Min = v2{StartP.X, StartP.Y-0.5f*Size.Y};
         v2 Max = Min + Size;

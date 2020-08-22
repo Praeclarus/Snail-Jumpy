@@ -472,13 +472,13 @@ PollEvents(os_event *Event){
             }break;
             {
                 case WM_LBUTTONDOWN: {
-                    Event->Key = KeyCode_LeftMouse;
+                    Event->Button = MouseButton_Left;
                 }goto process_mouse_down;
                 case WM_MBUTTONDOWN: {
-                    Event->Key = KeyCode_MiddleMouse;
+                    Event->Button = MouseButton_Middle;
                 }goto process_mouse_down;
                 case WM_RBUTTONDOWN: {
-                    Event->Key = KeyCode_RightMouse;
+                    Event->Button = MouseButton_Right;
                 }goto process_mouse_down;
                 
                 process_mouse_down:;
@@ -488,13 +488,13 @@ PollEvents(os_event *Event){
             }break;
             {
                 case WM_LBUTTONUP: {
-                    Event->Key = KeyCode_LeftMouse;
+                    Event->Button = MouseButton_Left;
                 }goto process_mouse_up;
                 case WM_MBUTTONUP: {
-                    Event->Key = KeyCode_MiddleMouse;
+                    Event->Button = MouseButton_Middle;
                 }goto process_mouse_up;
                 case WM_RBUTTONUP: {
-                    Event->Key = KeyCode_RightMouse;
+                    Event->Button = MouseButton_Right;
                 }goto process_mouse_up;
                 
                 process_mouse_up:;
