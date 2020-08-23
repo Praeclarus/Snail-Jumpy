@@ -28,7 +28,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_WorldEditor;
+global game_mode GameMode = GameMode_EntityEditor;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -48,8 +48,8 @@ global world_data *CurrentWorld;
 
 global collision_table CollisionTable;
 
-global memory_arena EntitySpecMemory;
-global array<entity_spec> EntitySpecs;
+global memory_arena EntityInfoMemory;
+global array<entity_info> EntityInfos;
 
 global hash_table<const char *, asset> AssetTable;
 
@@ -59,7 +59,7 @@ global hash_table<const char *, asset> AssetTable;
 #include "render.cpp"
 #include "asset.cpp"
 #include "collision.cpp"
-#include "entity_spec.cpp"
+#include "entity_info.cpp"
 #include "entity.cpp"
 #include "ui.cpp"
 #include "debug.cpp"
@@ -143,7 +143,7 @@ InitializeGame(){
     SetupDefaultTheme(&UIManager.Theme);
     
     // Load things
-    InitializeEntitySpecs(&PermanentStorageArena, "entities.sje");
+    InitializeEntityInfos(&PermanentStorageArena, "entities.sje");
     WorldManager.LoadWorld(STARTUP_LEVEL);
     if(GameMode == GameMode_WorldEditor){
         WorldEditor.World = CurrentWorld;
@@ -280,9 +280,8 @@ camera::Update(){
     MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
     
     if(ShakeTimeRemaining > 0.0f){
-        f32 Strength = 0.02f;
-        P.X = ActualP.X + Strength*Cos(ShakeTimeRemaining*ShakeFrequency);
-        P.Y = ActualP.X + Strength*Cos(ShakeTimeRemaining*ShakeFrequency*1.5f);
+        P.X = ActualP.X + ShakeStrength*0.5f*Cos(ShakeTimeRemaining*ShakeFrequency*1.5f);
+        P.Y = ActualP.X + ShakeStrength*Cos(ShakeTimeRemaining*ShakeFrequency);
         
         ShakeTimeRemaining -= OSInput.dTimeForFrame;
     }else{
@@ -291,7 +290,8 @@ camera::Update(){
 }
 
 inline void
-camera::Shake(f32 Time, f32 Frequency){
+camera::Shake(f32 Time, f32 Strength, f32 Frequency){
     ShakeTimeRemaining += Time;
     ShakeFrequency = Frequency;
+    ShakeStrength = Strength;
 }

@@ -18,7 +18,7 @@ struct layout {
     f32 Width;
 };
 
-//~ New API
+//~ Basic API
 
 struct theme {
     font *TitleFont;
@@ -53,6 +53,13 @@ enum _window_flags {
 // TODO(Tyler): This probably isn't very robust, but should work in general
 #define WIDGET_ID (HashKey(__FILE__) * __LINE__)
 
+enum button_behavior {
+    ButtonBehavior_None,
+    ButtonBehavior_Hovered,
+    ButtonBehavior_Clicked,
+};
+
+struct ui_manager;
 struct window {
     const char *Name;
     window_flags Flags;
@@ -69,7 +76,7 @@ struct window {
     f32 Fade;
     b8 IsFaded;
     
-    theme *Theme;
+    ui_manager *Manager;
     
     void NotButtonSanityCheck();
     // TODO(Tyler): Pehaps instead of using a const char *ID for the ID, use macros like
@@ -77,6 +84,7 @@ struct window {
     void TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 ID);
     void Text(render_group *RenderGroup, const char *Text, ...);
     b8 Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow=0);
+    button_behavior ButtonBehavior(f32 X, f32 Y, f32 Width, f32 Height);
     inline void ToggleButton(render_group *RenderGroup, const char *TrueText, const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
     b8 ToggleBox(render_group *RenderGroup, const char *Text, b8 Value);
     void DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCounts, u32 *Selected, u64 ID);
@@ -116,5 +124,7 @@ struct ui_manager {
     window *BeginWindow(const char *Name, v2 StartTopLeft=V2(500,500), v2 MinSize=V2(400, 0));
     window *BeginPopup(const char *Name, v2 StartTopLeft=v2{0, 0}, v2 MinSize=v2{0, 0});
 };
+
+
 
 #endif //SNAIL_JUMPY_UI_H

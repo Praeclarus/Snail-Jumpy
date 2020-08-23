@@ -22,9 +22,9 @@ inline void
 entity_editor::GetBoundaries(collision_boundary **Boundaries, u8 **Count, u8 *MaxCount){
     u8 Index = CurrentBoundarySet;
     Assert(Index < ENTITY_SPEC_BOUNDARY_SET_COUNT);
-    *Boundaries = SelectedSpec->Boundaries[Index];
-    *Count = &SelectedSpec->Counts[Index];
-    *MaxCount = SelectedSpec->MaxCounts[Index];
+    *Boundaries = SelectedInfo->Boundaries[Index];
+    *Count = &SelectedInfo->Counts[Index];
+    *MaxCount = SelectedInfo->MaxCounts[Index];
 }
 
 b8
@@ -96,7 +96,7 @@ entity_editor::ProcessAction(render_group *RenderGroup){
     switch(Action){
         case EntityEditorAction_LeftClick: {
             if(CursorP.Y < (FloorY-1.0f)){
-                Action = EntityEditorAction_AttemptToSelectSpec;
+                Action = EntityEditorAction_AttemptToSelectInfo;
                 return;
             }else if(!DoEditBoundaries){
                 Action = EntityEditorAction_None;
@@ -209,12 +209,69 @@ entity_editor::ProcessBoundaryAction(render_group *RenderGroup){
 
 //~ UI
 void
+entity_editor::DoStateTableUI(window *Window, render_group *RenderGroup){
+    Window->NotButtonSanityCheck();
+    const f32 LINE_THICKNESS = 2;
+    
+    u8 *BoundaryTable = SelectedInfo->BoundaryTable;
+    theme *Theme = &Window->Manager->Theme;
+    f32 Width = Window->Size.X;
+    f32 RowHeight = Theme->NormalFont->Size + 2*Theme->Padding;
+    f32 X  = Window->DrawP.X;
+    f32 X1 = X + Theme->Padding;
+    f32 X2 = X1 + 200;
+    f32 Y = Window->DrawP.Y - Theme->Padding;
+    
+    f32 Button1X = X + 0.7f*Width;
+    f32 Button2X = Button1X + RowHeight + Theme->Padding;
+    v2 ButtonOffset = V2(0.5f*RowHeight, Theme->Padding+0.25f*Theme->NormalFont->Size);
+    
+    RenderRectangle(RenderGroup, V2(Window->DrawP.X, Y), V2(Window->DrawP.X+Window->Size.X, Y+LINE_THICKNESS), Window->Z-0.11f, Theme->NormalColor);
+    for(u32 I = 0; I < State_TOTAL; I++){
+        Y -= Theme->NormalFont->Size + Theme->Padding;
+        RenderString(RenderGroup, Theme->NormalFont, Theme->NormalColor, X1, Y, Window->Z-0.11f, ENTITY_STATE_TABLE[I]);
+        RenderFormatString(RenderGroup, Theme->NormalFont, Theme->NormalColor, X2, Y, Window->Z-0.11f,
+                           "%u/%u", BoundaryTable[I], ENTITY_SPEC_BOUNDARY_SET_COUNT);
+        Y -= Theme->Padding;
+        RenderRectangle(RenderGroup, V2(Window->DrawP.X, Y), V2(Window->DrawP.X+Window->Size.X, Y+LINE_THICKNESS), Window->Z-0.11f, Theme->NormalColor);
+        {
+            color Color = Theme->ButtonBaseColor;
+            button_behavior Behavior = Window->ButtonBehavior(Button1X, Y, RowHeight, RowHeight);
+            if(Behavior == ButtonBehavior_Hovered){
+                Color = Theme->ButtonHoveredColor;
+            }else if(Behavior == ButtonBehavior_Clicked){
+                Color = Theme->ButtonClickedColor;
+                if(BoundaryTable[I] > 0) BoundaryTable[I]--;
+            }
+            RenderRectangleBySize(RenderGroup, V2(Button1X, Y), V2(RowHeight, RowHeight), Window->Z-0.1f, Color);
+            RenderCenteredString(RenderGroup, Theme->NormalFont, Theme->NormalColor, V2(Button1X, Y)+ButtonOffset, Window->Z-0.11f, "<");
+        }{
+            color Color = Theme->ButtonBaseColor;
+            button_behavior Behavior = Window->ButtonBehavior(Button2X, Y, RowHeight, RowHeight);
+            if(Behavior == ButtonBehavior_Hovered){
+                Color = Theme->ButtonHoveredColor;
+            }else if(Behavior == ButtonBehavior_Clicked){
+                Color = Theme->ButtonClickedColor;
+                if(BoundaryTable[I] < ENTITY_SPEC_BOUNDARY_SET_COUNT) BoundaryTable[I]++;
+            }
+            RenderRectangleBySize(RenderGroup, V2(Button2X, Y), V2(RowHeight, RowHeight), Window->Z-0.1f, Color);
+            RenderCenteredString(RenderGroup, Theme->NormalFont, Theme->NormalColor, V2(Button2X, Y)+ButtonOffset, Window->Z-0.11f, ">");
+        }
+    }
+    
+    Window->DrawP.Y = Y;
+    f32 RelHeight = Window->TopLeft.Y-Window->DrawP.Y;
+    if(Window->Size.Y < RelHeight+RowHeight+2*Theme->Padding){
+        Window->Size.Y = RelHeight+RowHeight;
+    }
+}
+
+void
 entity_editor::DoUI(render_group *RenderGroup){
     
     //~ Basic editing functions
     {
-        window *Window = 
-            UIManager.BeginWindow("Entity Editor", OSInput.WindowSize, v2{400, 0});
+        window *Window = UIManager.BeginWindow("Entity Editor", OSInput.WindowSize, V2(400, 0));
         
         if(Window->Button(RenderGroup, "Switch to world editor")){
             ChangeState(GameMode_WorldEditor, 0);
@@ -222,27 +279,27 @@ entity_editor::DoUI(render_group *RenderGroup){
         }
         
         if(Window->Button(RenderGroup, "Save all", 2)){
-            WriteEntitySpecs("entities.sje");
+            WriteEntityInfos("entities.sje");
         }
         if(Window->Button(RenderGroup, "Add new", 2)){
-            AddEntitySpec();
+            AddEntityInfo();
         }
         
         {
             u32 Selected = 0;
-            array<const char *> AssetNames = GetAssetNameListByType(SelectedSpec->Asset, AssetType_SpriteSheet, &Selected);
+            array<const char *> AssetNames = GetAssetNameListByType(SelectedInfo->Asset, AssetType_SpriteSheet, &Selected);
             Window->DropDownMenu(RenderGroup, AssetNames, &Selected, WIDGET_ID);
-            SelectedSpec->Asset = AssetNames[Selected];
+            SelectedInfo->Asset = AssetNames[Selected];
         }
         
-        TOGGLE_FLAG(Window, RenderGroup, "Can be stunned", SelectedSpec->Flags,  EntityFlag_CanBeStunned);
-        ANTI_TOGGLE_FLAG(Window, RenderGroup, "Toggle gravity", SelectedSpec->Flags, EntityFlag_NotAffectedByGravity);
-        TOGGLE_FLAG(Window, RenderGroup, "Mirror boundaries when moving right", SelectedSpec->Flags, EntityFlag_MirrorBoundariesWhenGoingRight);
+        TOGGLE_FLAG(Window, RenderGroup, "Can be stunned", SelectedInfo->Flags,  EntityFlag_CanBeStunned);
+        ANTI_TOGGLE_FLAG(Window, RenderGroup, "Toggle gravity", SelectedInfo->Flags, EntityFlag_NotAffectedByGravity);
+        TOGGLE_FLAG(Window, RenderGroup, "Mirror boundaries when moving right", SelectedInfo->Flags, EntityFlag_MirrorBoundariesWhenGoingRight);
         
         //~ Animation stuff
         Window->Text(RenderGroup, "");
         Window->DropDownMenu(RenderGroup, ENTITY_STATE_TABLE, State_TOTAL, (u32 *)&CurrentState, WIDGET_ID);
-        Window->DropDownMenu(RenderGroup, DIRECTION_TABLE, Direction_TOTAL, (u32 *)&CurrentDirection, WIDGET_ID);
+        Window->DropDownMenu(RenderGroup, SIMPLE_DIRECTION_TABLE, Direction_TOTAL, (u32 *)&CurrentDirection, WIDGET_ID);
         Window->Text(RenderGroup, "Current frame: %u", CurrentFrame);
         if(Window->Button(RenderGroup, "<<< Frame", 2)){
             if(CurrentFrame > 0) CurrentFrame--;
@@ -251,33 +308,34 @@ entity_editor::DoUI(render_group *RenderGroup){
             CurrentFrame++;
             // Upper bounds checking is done elsewhere
         }
-        
+#if 0        
         Window->Text(RenderGroup, "Current boundary set for state: %u/%u", 
-                     SelectedSpec->BoundaryTable[CurrentState], ENTITY_SPEC_BOUNDARY_SET_COUNT);
+                     SelectedInfo->BoundaryTable[CurrentState], ENTITY_SPEC_BOUNDARY_SET_COUNT);
         if(Window->Button(RenderGroup, "<<< Boundary set", 2)){
-            if(SelectedSpec->BoundaryTable[CurrentState] > 0) SelectedSpec->BoundaryTable[CurrentState]--;
+            
         }
         if(Window->Button(RenderGroup, "Boundary set >>>", 2)){
-            if(SelectedSpec->BoundaryTable[CurrentState] < ENTITY_SPEC_BOUNDARY_SET_COUNT) SelectedSpec->BoundaryTable[CurrentState]++;
+            
         }
+#endif
         
-        //~ Type specific editing
+        //~ Type infoific editing
         Window->Text(RenderGroup, "");
-        Window->Text(RenderGroup, "Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedSpec->Type]);
+        Window->Text(RenderGroup, "Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedInfo->Type]);
         if(Window->Button(RenderGroup, "<<< Entity type", 2)){
-            SelectedSpec->Type = REVERSE_ENTITY_TYPE_TABLE[SelectedSpec->Type];
-            SelectedSpec->Speed = 0;
-            SelectedSpec->Damage = 0;
-            Assert(SelectedSpec->Type != EntityType_TOTAL);
+            SelectedInfo->Type = REVERSE_ENTITY_TYPE_TABLE[SelectedInfo->Type];
+            SelectedInfo->Speed = 0;
+            SelectedInfo->Damage = 0;
+            Assert(SelectedInfo->Type != EntityType_TOTAL);
         }
         if(Window->Button(RenderGroup, "Entity type >>>", 2)){
-            SelectedSpec->Type = FORWARD_ENTITY_TYPE_TABLE[SelectedSpec->Type];
-            SelectedSpec->Speed = 0;
-            SelectedSpec->Damage = 0;
-            Assert(SelectedSpec->Type != EntityType_TOTAL);
+            SelectedInfo->Type = FORWARD_ENTITY_TYPE_TABLE[SelectedInfo->Type];
+            SelectedInfo->Speed = 0;
+            SelectedInfo->Damage = 0;
+            Assert(SelectedInfo->Type != EntityType_TOTAL);
         }
         
-        switch(SelectedSpec->Type){
+        switch(SelectedInfo->Type){
             case EntityType_None: break;
             
             //~ Player
@@ -287,39 +345,38 @@ entity_editor::DoUI(render_group *RenderGroup){
             //~ Enemy
             case EntityType_Enemy: {
                 
-                Window->Text(RenderGroup, "Speed: %.1f", SelectedSpec->Speed);
+                Window->Text(RenderGroup, "Speed: %.1f", SelectedInfo->Speed);
                 if(Window->Button(RenderGroup, "-", 2)){
-                    SelectedSpec->Speed -= 0.1f;
+                    SelectedInfo->Speed -= 0.1f;
                 }
                 if(Window->Button(RenderGroup, "+", 2)){
-                    SelectedSpec->Speed += 0.1f;
+                    SelectedInfo->Speed += 0.1f;
                 }
                 
-                Window->Text(RenderGroup, "Damage: %u", SelectedSpec->Damage);
+                Window->Text(RenderGroup, "Damage: %u", SelectedInfo->Damage);
                 if(Window->Button(RenderGroup, "-", 2)){
-                    if(SelectedSpec->Damage > 0){
-                        SelectedSpec->Damage -= 1;
+                    if(SelectedInfo->Damage > 0){
+                        SelectedInfo->Damage -= 1;
                     }
                 }
                 if(Window->Button(RenderGroup, "+", 2)){
-                    SelectedSpec->Damage += 1;
+                    SelectedInfo->Damage += 1;
                 }
                 
-                Window->Text(RenderGroup, "Mass: %.1f", SelectedSpec->Mass);
+                Window->Text(RenderGroup, "Mass: %.1f", SelectedInfo->Mass);
                 if(Window->Button(RenderGroup, "-", 2)){
-                    if(SelectedSpec->Mass > 0){
-                        SelectedSpec->Mass -= 0.1f;
+                    if(SelectedInfo->Mass > 0){
+                        SelectedInfo->Mass -= 0.1f;
                     }
                 }
                 if(Window->Button(RenderGroup, "+", 2)){
-                    SelectedSpec->Mass += 0.1f;
+                    SelectedInfo->Mass += 0.1f;
                 }
                 
             }break;
             
             default: INVALID_CODE_PATH; break;
         }
-        
         Window->End(RenderGroup);
     }
     
@@ -352,7 +409,7 @@ entity_editor::DoUI(render_group *RenderGroup){
             }
         }
         
-        TOGGLE_FLAG(Window, RenderGroup, "Can stand on", SelectedSpec->CollisionFlags,
+        TOGGLE_FLAG(Window, RenderGroup, "Can stand on", SelectedInfo->CollisionFlags,
                     CollisionFlag_CanStandOn);
         
         //~ Boundary set management
@@ -361,24 +418,24 @@ entity_editor::DoUI(render_group *RenderGroup){
             if(CurrentBoundarySet > 0) CurrentBoundarySet--;
         }
         if(Window->Button(RenderGroup, "Boundary set >>>", 2)){
-            if(CurrentBoundarySet < ENTITY_SPEC_BOUNDARY_SET_COUNT) CurrentBoundarySet++;
+            if(CurrentBoundarySet < ENTITY_SPEC_BOUNDARY_SET_COUNT-1) CurrentBoundarySet++;
         }
         
-        Window->Text(RenderGroup, "Boundary counts: %u/2", SelectedSpec->MaxCounts[CurrentBoundarySet]);
+        Window->Text(RenderGroup, "Boundary counts: %u/2", SelectedInfo->MaxCounts[CurrentBoundarySet]);
         
         if(Window->Button(RenderGroup, "-", 2)){
-            if(SelectedSpec->MaxCounts[CurrentBoundarySet] > 0) SelectedSpec->MaxCounts[CurrentBoundarySet]--;
+            if(SelectedInfo->MaxCounts[CurrentBoundarySet] > 0) SelectedInfo->MaxCounts[CurrentBoundarySet]--;
         }
         if(Window->Button(RenderGroup, "+", 2)){
-            if(SelectedSpec->MaxCounts[CurrentBoundarySet] < 2) SelectedSpec->MaxCounts[CurrentBoundarySet]++;
+            if(SelectedInfo->MaxCounts[CurrentBoundarySet] < 2) SelectedInfo->MaxCounts[CurrentBoundarySet]++;
         }
+        
+        DoStateTableUI(Window, RenderGroup);
         
         Window->End(RenderGroup);
     }
     
-    if(UIManager.HandledInput &&
-       ((Action != EntityEditorAction_LeftClickDragging) ||
-        (Action != EntityEditorAction_RightClickDragging))){
+    if(UIManager.HandledInput){
         Action = EntityEditorAction_None;
     }
 }
@@ -395,9 +452,9 @@ entity_editor::UpdateAndRender(){
     
     ProcessInput();
     
-    if(!SelectedSpec){
-        SelectedSpecID = 1;
-        SelectedSpec = &EntitySpecs[1];
+    if(!SelectedInfo){
+        SelectedInfoID = 1;
+        SelectedInfo = &EntityInfos[1];
     }
     
     DoUI(&RenderGroup);
@@ -413,7 +470,7 @@ entity_editor::UpdateAndRender(){
     }
     
     
-    asset *Asset = GetSpriteSheet(SelectedSpec->Asset);
+    asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
     EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
     
     ProcessAction(&RenderGroup);
@@ -430,11 +487,11 @@ entity_editor::UpdateAndRender(){
             for(u32 Index = 0; Index < AnimationIndex; Index++){
                 FrameInSpriteSheet += Asset->FrameCounts[Index];
             }
-            RenderFrameOfSpriteSheet(&RenderGroup, &Camera, SelectedSpec->Asset, 
+            RenderFrameOfSpriteSheet(&RenderGroup, &Camera, SelectedInfo->Asset, 
                                      FrameInSpriteSheet, EntityP, 0.0f);
         }
     }else{
-        RenderFrameOfSpriteSheet(&RenderGroup, &Camera, SelectedSpec->Asset, 
+        RenderFrameOfSpriteSheet(&RenderGroup, &Camera, SelectedInfo->Asset, 
                                  0, EntityP, 0.0f);
     }
     
@@ -449,19 +506,19 @@ entity_editor::UpdateAndRender(){
     }
     
     {
-        b8 AttemptToSelectSpec = false;
-        if(Action == EntityEditorAction_AttemptToSelectSpec){
-            AttemptToSelectSpec = true;
+        b8 AttemptToSelectInfo = false;
+        if(Action == EntityEditorAction_AttemptToSelectInfo){
+            AttemptToSelectInfo = true;
             Action = EntityEditorAction_None;
         }
         v2 P = v2{0.5f, 2.0f};
-        u32 SpecToSelect = 
-            UpdateAndRenderSpecSelector(&RenderGroup, P, CursorP, AttemptToSelectSpec, 
-                                        Camera.MetersToPixels, SelectedSpecID, true, 0.0f, 
+        u32 InfoToSelect = 
+            UpdateAndRenderInfoSelector(&RenderGroup, P, CursorP, AttemptToSelectInfo, 
+                                        Camera.MetersToPixels, SelectedInfoID, true, 0.0f, 
                                         FloorY-1.0f);
-        if(SpecToSelect > 0){
-            SelectedSpecID = SpecToSelect;
-            SelectedSpec = &EntitySpecs[SpecToSelect];
+        if(InfoToSelect > 0){
+            SelectedInfoID = InfoToSelect;
+            SelectedInfo = &EntityInfos[InfoToSelect];
         }
     }
     
@@ -470,32 +527,32 @@ entity_editor::UpdateAndRender(){
 }
 
 
-//~ Entity spec selector
+//~ Entity info selector
 
 // TODO(Tyler): This function needs to be cleaned up
 internal u32
-UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, f32 MetersToPixels, 
-                            u32 SelectedSpec, b8 TestY, f32 YMin, f32 YMax){
+UpdateAndRenderInfoSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, f32 MetersToPixels, 
+                            u32 SelectedInfo, b8 TestY, f32 YMin, f32 YMax){
     camera Camera = {}; Camera.MetersToPixels = MetersToPixels;
     
-    u32 SpecToSelect = 0;
+    u32 InfoToSelect = 0;
     const f32 THICKNESS = 0.03f;
     
-    for(u32 I = 1; I < EntitySpecs.Count; I++){
-        entity_spec *Spec = &EntitySpecs[I];
-        asset *Asset = GetSpriteSheet(Spec->Asset);
+    for(u32 I = 1; I < EntityInfos.Count; I++){
+        entity_info *Info = &EntityInfos[I];
+        asset *Asset = GetSpriteSheet(Info->Asset);
         v2 Size;
         v2 StartP = P;
         v2 Center = P;
         Size = Asset->SizeInMeters*Asset->Scale;
         Center.X += 0.5f*Size.X;
-        RenderFrameOfSpriteSheet(RenderGroup, &Camera, Spec->Asset, 0, 
+        RenderFrameOfSpriteSheet(RenderGroup, &Camera, Info->Asset, 0, 
                                  Center, 0.0f);
         P.X += Size.X;
         
         v2 Min = v2{StartP.X, StartP.Y-0.5f*Size.Y};
         v2 Max = Min + Size;
-        if(I == SelectedSpec){
+        if(I == SelectedInfo){
             f32 Thickness = 0.06f;
             f32 Offset = 0.2f;
             RenderRectangle(RenderGroup, {Min.X, Min.Y-Offset}, {Max.X, Min.Y-Offset+Thickness}, -0.1f, BLUE, &Camera);
@@ -511,10 +568,10 @@ UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 Attem
             RenderRectangle(RenderGroup, {Min.X, Min.Y}, {Min.X+THICKNESS, Max.Y}, -0.1f, WHITE, &Camera);
             
             if(AttemptSelect){
-                SpecToSelect= I;
+                InfoToSelect= I;
             }
         }
     }
     
-    return(SpecToSelect);
+    return(InfoToSelect);
 }

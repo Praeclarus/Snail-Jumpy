@@ -13,7 +13,7 @@ enum entity_editor_action {
     EntityEditorAction_RightClickDragging,
     EntityEditorAction_EndRightClick,
     
-    EntityEditorAction_AttemptToSelectSpec,
+    EntityEditorAction_AttemptToSelectInfo,
     EntityEditorAction_DraggingBoundary,
 };
 
@@ -35,18 +35,19 @@ struct entity_editor {
     f32 FloorY;
     v2 EntityP;
     u32          CurrentFrame;
-    entity_state CurrentState;
-    direction    CurrentDirection;
+    entity_state CurrentState     = State_None;
+    direction    CurrentDirection = Direction_Left;
     u8           CurrentBoundarySet;
     
-    u32 SelectedSpecID;
-    entity_spec *SelectedSpec;
+    u32 SelectedInfoID;
+    entity_info *SelectedInfo;
     
     void ProcessAction(render_group *RenderGroup);
     void UpdateAndRender();
     void ProcessInput();
     void ProcessKeyDown(os_key_code KeyCode);
     void ProcessBoundaryAction(render_group *RenderGroup);
+    void DoStateTableUI(window *Window, render_group *RenderGroup);
     void DoUI(render_group *RenderGroup);
     inline void GetBoundaries(collision_boundary **Boundaries, u8 **Count, u8 *MaxCount);
     inline void CanonicalizeBoundary(collision_boundary *Boundary);
@@ -83,8 +84,8 @@ struct entity_editor {
 
 //~ MiscellaneousS
 internal u32
-UpdateAndRenderSpecSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
-                            f32 MetersToPixels, u32 SelectedSpec=0, b8 TestY=false, 
+UpdateAndRenderInfoSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
+                            f32 MetersToPixels, u32 SelectedInfo=0, b8 TestY=false, 
                             f32 YMin=0.0f, f32 YMax=0.0f);
 
 #endif //ENTITY_EDITOR_H

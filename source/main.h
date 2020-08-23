@@ -99,7 +99,6 @@ local_constant char *ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
     "Player", // 7
     "Door",   // 8
     "Projectile", // 9
-    
 };
 
 local_constant char *ENTITY_STATE_TABLE[State_TOTAL] = {
@@ -126,6 +125,18 @@ local_constant char *DIRECTION_TABLE[Direction_TOTAL] = {
     "Direction northwest",
 };
 
+local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
+    "Direction none",
+    "Direction up",
+    "Direction up right",
+    "Direction right",
+    "Direction down right",
+    "Direction down",
+    "Direction down left",
+    "Direction left",
+    "Direction up left",
+};
+
 //~ Includes
 #include "helpers.cpp"
 #include "intrinsics.h"
@@ -137,7 +148,7 @@ local_constant char *DIRECTION_TABLE[Direction_TOTAL] = {
 #include "os.h"
 #include "asset.h"
 #include "collision.h"
-#include "entity_spec.h"
+#include "entity_info.h"
 #include "entity.h"
 #include "random.h"
 #include "ui.h"

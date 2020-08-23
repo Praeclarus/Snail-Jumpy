@@ -140,7 +140,6 @@ UpdateAndRenderMainGame(){
     }
     
     //~ Debug UI
-    
     RenderFormatString(&RenderGroup, &MainFont, GREEN, 100, OSInput.WindowSize.Height-100,
                        -0.9f, "Score: %u", Score);
     

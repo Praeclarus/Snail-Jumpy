@@ -55,7 +55,7 @@ struct entity {
     entity_flags Flags;
     entity_state State;
     direction Direction;
-    u32 Spec;
+    u32 Info;
     
     state_change_condition ChangeCondition;
     f32 Cooldown;
@@ -121,34 +121,5 @@ struct entity_manager {
     void ProcessEvent(os_event *Event);
     void UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera);
 };
-
-//~ File stuff
-
-#pragma pack(push, 1)
-struct entity_spec_file_header {
-    char Header[3]; // 'S', 'J', 'E'
-    u32 Version;
-    u32 SpecCount;
-};
-
-struct packed_collision_boundary {
-    collision_boundary_type Type;
-    collision_flags Flags;
-    // This P is actually used as an offset from the entity's P
-    v2 P;
-    
-    union {
-        // Circle
-        struct {
-            f32 Radius;
-        };
-        
-        // Rectangle
-        struct {
-            v2 Size;
-        };
-    };
-};
-#pragma pack(pop)
 
 #endif //SNAIL_JUMPY_ENTITY_H

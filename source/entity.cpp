@@ -123,34 +123,34 @@ ShouldEntityUpdate(entity *Entity){
 
 internal void
 UpdateEnemyBoundary(enemy_entity *Enemy){
-    u8 NewBoundarySet = GetBoundarySetIndex(Enemy->Spec, Enemy->State);
+    u8 NewBoundarySet = GetBoundarySetIndex(Enemy->Info, Enemy->State);
     if((NewBoundarySet > 0) &&
        (NewBoundarySet != Enemy->BoundarySet)){
         Enemy->BoundarySet = NewBoundarySet;
         NewBoundarySet--;
         Assert(NewBoundarySet < ENTITY_SPEC_BOUNDARY_SET_COUNT);
         
-        entity_spec *Spec = &EntitySpecs[Enemy->Spec];
-        Enemy->BoundaryCount = Spec->Counts[NewBoundarySet];
+        entity_info *Info = &EntityInfos[Enemy->Info];
+        Enemy->BoundaryCount = Info->Counts[NewBoundarySet];
         for(u32 J = 0; J < Enemy->BoundaryCount; J++){
-            Enemy->Boundaries[J] = Spec->Boundaries[NewBoundarySet][J];
-            Enemy->Boundaries[J].P = Enemy->P+Spec->Boundaries[NewBoundarySet][J].P;
+            Enemy->Boundaries[J] = Info->Boundaries[NewBoundarySet][J];
+            Enemy->Boundaries[J].P = Enemy->P+Info->Boundaries[NewBoundarySet][J].P;
         }
     }
     
     if((Enemy->Flags & EntityFlag_MirrorBoundariesWhenGoingRight) &&
        (Enemy->State == State_Turning)){
-        entity_spec *Spec = &EntitySpecs[Enemy->Spec];
+        entity_info *Info = &EntityInfos[Enemy->Info];
         u8 BoundarySet = Enemy->BoundarySet;
         if(BoundarySet > 0){
             BoundarySet--;
             if(Enemy->Direction == Direction_Left){
-                for(u32 J = 0; J < Spec->Counts[BoundarySet]; J++){
-                    Enemy->Boundaries[J].P.X = Enemy->P.X + Spec->Boundaries[BoundarySet][J].P.X;
+                for(u32 J = 0; J < Info->Counts[BoundarySet]; J++){
+                    Enemy->Boundaries[J].P.X = Enemy->P.X + Info->Boundaries[BoundarySet][J].P.X;
                 }
             }else if(Enemy->Direction == Direction_Right){
-                for(u32 J = 0; J < Spec->Counts[BoundarySet]; J++){
-                    Enemy->Boundaries[J].P.X = Enemy->P.X - Spec->Boundaries[BoundarySet][J].P.X;
+                for(u32 J = 0; J < Info->Counts[BoundarySet]; J++){
+                    Enemy->Boundaries[J].P.X = Enemy->P.X - Info->Boundaries[BoundarySet][J].P.X;
                 }
             }else{ INVALID_CODE_PATH; }
         }

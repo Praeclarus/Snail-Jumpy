@@ -14,12 +14,13 @@ struct camera {
     
     f32 ShakeTimeRemaining;
     f32 ShakeFrequency;
+    f32 ShakeStrength;
     
     inline void SetCenter(v2 P, world_data *World);
     inline void Move(v2 dP, world_data *World);
     inline v2 ScreenPToWorldP(v2 ScreenP);
     inline void Update();
-    inline void Shake(f32 Time, f32 Frequency=50);
+    inline void Shake(f32 Time, f32 Strength=0.02f, f32 Frequency=100);
 };
 
 //~

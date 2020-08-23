@@ -18,7 +18,7 @@ enum edit_mode {
 enum editor_popup {
     EditorPopup_None,
     EditorPopup_TextInput,
-    EditorPopup_SpecSelector,
+    EditorPopup_InfoSelector,
 };
 
 enum world_editor_action {
@@ -34,25 +34,25 @@ enum world_editor_action {
 };
 
 enum editor_special_thing_type {
-    EditorSpecialThing_None,
-    EditorSpecialThing_PathStart,
-    EditorSpecialThing_PathEnd,
+    EditorInfoialThing_None,
+    EditorInfoialThing_PathStart,
+    EditorInfoialThing_PathEnd,
 };
 
 struct world_editor;
 typedef void(*world_editor_text_input_callback)(world_editor *, const char *);
-typedef void(*world_editor_spec_selector_callback)(world_editor *, u32 SpecID);
+typedef void(*world_editor_spec_selector_callback)(world_editor *, u32 InfoID);
 
 struct world_editor {
     editor_popup Popup;
     union {
         world_editor_text_input_callback    TextInputCallback;
-        world_editor_spec_selector_callback SpecSelectorCallback;
+        world_editor_spec_selector_callback InfoSelectorCallback;
     };
     
     char PopupBuffer[512];
     const char *AssetForArtEntity;
-    u32 EntityToAddSpecID;
+    u32 EntityToAddInfoID;
     
     camera Camera;
     b8 CameraUp;
@@ -67,7 +67,7 @@ struct world_editor {
     v2 CursorP2;
     v2 DraggingOffset;
     
-    editor_special_thing_type SpecialThing;
+    editor_special_thing_type InfoialThing;
     entity_data *SelectedThing;
     
     world_data *World;

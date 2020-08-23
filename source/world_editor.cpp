@@ -17,9 +17,9 @@ ToggleWorldEditor(){
 }
 
 internal inline v2
-GetSizeFromSpecID(u32 SpecID){
-    entity_spec *Spec = &EntitySpecs[SpecID];
-    asset *Asset = GetSpriteSheet(Spec->Asset);
+GetSizeFromInfoID(u32 InfoID){
+    entity_info *Info = &EntityInfos[InfoID];
+    asset *Asset = GetSpriteSheet(Info->Asset);
     v2 Result = Asset->SizeInMeters*Asset->Scale;
     return(Result);
 }
@@ -27,22 +27,22 @@ GetSizeFromSpecID(u32 SpecID){
 
 //~ Popup callbacks
 internal void
-SelectSpecForEntityToAddCallback(world_editor *Editor, u32 SpecID){
-    Editor->EntityToAddSpecID = SpecID;
+SelectInfoForEntityToAddCallback(world_editor *Editor, u32 InfoID){
+    Editor->EntityToAddInfoID = InfoID;
 }
 
 internal void
-ChangeSelectedEntitySpecCallback(world_editor *Editor, u32 SpecID){
+ChangeSelectedEntityInfoCallback(world_editor *Editor, u32 InfoID){
     entity_data *Enemy = Editor->SelectedThing;
-    f32 Bottom = Enemy->P.Y-0.5f*GetSizeFromSpecID(Enemy->SpecID).Y;
+    f32 Bottom = Enemy->P.Y-0.5f*GetSizeFromInfoID(Enemy->InfoID).Y;
     
-    Enemy->SpecID = SpecID;
-    Enemy->P.Y = Bottom+0.5f*GetSizeFromSpecID(Enemy->SpecID).Y;
+    Enemy->InfoID = InfoID;
+    Enemy->P.Y = Bottom+0.5f*GetSizeFromInfoID(Enemy->InfoID).Y;
 }
 
 internal void
-AddEnemyCallback(world_editor *Editor, u32 SpecID){
-    Editor->EntityToAddSpecID = SpecID;
+AddEnemyCallback(world_editor *Editor, u32 InfoID){
+    Editor->EntityToAddInfoID = InfoID;
     entity_data *NewEnemy = PushNewArrayItem(&Editor->World->Entities);
     *NewEnemy = {0};
     
@@ -50,18 +50,18 @@ AddEnemyCallback(world_editor *Editor, u32 SpecID){
     v2 Center = ViewTileP+(0.5f*TILE_SIZE);
     
     v2 P = v2{Center.X, ViewTileP.Y};
-    v2 AssetSize = GetSizeFromSpecID(SpecID);
+    v2 AssetSize = GetSizeFromInfoID(InfoID);
     P.Y += 0.5f*AssetSize.X;
     NewEnemy->Type = EntityType_Enemy;
     NewEnemy->P = P;
-    NewEnemy->SpecID = SpecID;
+    NewEnemy->InfoID = InfoID;
     NewEnemy->Direction = Direction_Left;
     NewEnemy->PathStart = {Center.X - AssetSize.X/2, Center.Y};
     NewEnemy->PathStart.X = Floor(NewEnemy->PathStart.X/TILE_SIDE)*TILE_SIDE;
     NewEnemy->PathEnd = {Center.X + AssetSize.X/2, Center.Y};
     NewEnemy->PathEnd.X = Ceil(NewEnemy->PathEnd.X/TILE_SIDE)*TILE_SIDE;
     
-    Editor->SpecialThing = EditorSpecialThing_None;
+    Editor->InfoialThing = EditorInfoialThing_None;
     Editor->SelectedThing = NewEnemy;
 }
 
@@ -126,8 +126,8 @@ world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
         case 'S': if(JustDown) CameraDown  = true; break;
         case 'D': if(JustDown) CameraRight = true; break;
         case 'Q': if(JustDown && Mode == EditMode_AddEnemy){
-            Popup = EditorPopup_SpecSelector;
-            SpecSelectorCallback = SelectSpecForEntityToAddCallback;
+            Popup = EditorPopup_InfoSelector;
+            InfoSelectorCallback = SelectInfoForEntityToAddCallback;
         }
         case KeyCode_Tab: HideUI = !HideUI; break;
         case KeyCode_Left: {
@@ -151,12 +151,12 @@ world_editor::HandleClick(b8 ShouldRemove){
         if(GetSelectedThingType() == EntityType_Enemy){
             if(IsPointInRectangle(MouseP, SelectedThing->PathStart, v2{0.2f, 0.2f}) &&
                !ShouldRemove){
-                SpecialThing = EditorSpecialThing_PathStart;
+                InfoialThing = EditorInfoialThing_PathStart;
                 Action = WorldEditorAction_DraggingThing;
                 return(true);
             }else if(IsPointInRectangle(MouseP, SelectedThing->PathEnd, v2{0.2f, 0.2f}) &&
                      !ShouldRemove){
-                SpecialThing = EditorSpecialThing_PathEnd;
+                InfoialThing = EditorInfoialThing_PathEnd;
                 Action = WorldEditorAction_DraggingThing;
                 return(true);
             }
@@ -171,7 +171,7 @@ world_editor::HandleClick(b8 ShouldRemove){
         f32 Offset = 0;
         switch(Entity->Type){
             case EntityType_Enemy: {
-                Size = GetSizeFromSpecID(Entity->SpecID);
+                Size = GetSizeFromInfoID(Entity->InfoID);
                 Offset = 0.5f*TILE_SIDE;
             }break;
             case EntityType_Door: {
@@ -238,7 +238,7 @@ world_editor::ProcessInput(){
                        (Action == WorldEditorAction_BeginAddDrag)){
                         Action = WorldEditorAction_EndAddDrag;
                     }else{
-                        if(SpecialThing != EditorSpecialThing_None) SpecialThing = EditorSpecialThing_None;
+                        if(InfoialThing != EditorInfoialThing_None) InfoialThing = EditorInfoialThing_None;
                         Action = WorldEditorAction_None;
                     }
                 }else if((Event.Button == MouseButton_Right)  &&
@@ -317,18 +317,18 @@ world_editor::ProcessAction(){
                     Entity->P = Center;
                     Action = WorldEditorAction_None;
                     
-                    SpecialThing = EditorSpecialThing_None;
+                    InfoialThing = EditorInfoialThing_None;
                     SelectedThing = Entity;
                 }break;
                 case EditMode_AddDoor: {
                     UpdateSelectionRectangle();
                 }break;
                 case EditMode_AddEnemy: {
-                    if(EntityToAddSpecID == 0){
-                        Popup = EditorPopup_SpecSelector;
-                        SpecSelectorCallback = AddEnemyCallback;
+                    if(EntityToAddInfoID == 0){
+                        Popup = EditorPopup_InfoSelector;
+                        InfoSelectorCallback = AddEnemyCallback;
                     }else{
-                        AddEnemyCallback(this, EntityToAddSpecID);
+                        AddEnemyCallback(this, EntityToAddInfoID);
                     }
                     
                     Action = WorldEditorAction_None;
@@ -338,12 +338,12 @@ world_editor::ProcessAction(){
                     entity_data *Art = PushNewArrayItem(&World->Entities);
                     Art->P = MouseP;
                     Art->Type = EntityType_Art;
-                    Art->SpecID = 0;
+                    Art->InfoID = 0;
                     Art->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
                     Art->Asset = AssetForArtEntity;
                     //CopyCString(Art->Asset, AssetForArtEntity, DEFAULT_BUFFER_SIZE);
                     
-                    SpecialThing = EditorSpecialThing_None;
+                    InfoialThing = EditorInfoialThing_None;
                     SelectedThing = Art;
                     
                     Action = WorldEditorAction_None;
@@ -370,7 +370,7 @@ world_editor::ProcessAction(){
                     Entity->P = P;
                     Entity->Size = Size;
                     Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                    SpecialThing = EditorSpecialThing_None;
+                    InfoialThing = EditorInfoialThing_None;
                     SelectedThing = Entity;
                 }break;
                 default: break;
@@ -411,12 +411,12 @@ world_editor::ProcessAction(){
             v2 ViewTileP = TILE_SIDE*DraggingCursorP;
             v2 Center = ViewTileP+(0.5f*TILE_SIZE);
             
-            switch(SpecialThing){
-                case EditorSpecialThing_PathStart: {
+            switch(InfoialThing){
+                case EditorInfoialThing_PathStart: {
                     SelectedThing->PathStart.X = Round(MouseP.X/TILE_SIDE)*TILE_SIDE;
                     return;
                 }break;
-                case EditorSpecialThing_PathEnd: {
+                case EditorInfoialThing_PathEnd: {
                     SelectedThing->PathEnd.X = Round(MouseP.X/TILE_SIDE)*TILE_SIDE;
                     return;
                 }break;
@@ -426,7 +426,7 @@ world_editor::ProcessAction(){
                 case EntityType_Enemy: {
                     v2 LastP = SelectedThing->P;
                     v2 P = v2{Center.X, ViewTileP.Y};
-                    P.Y += 0.5f*GetSizeFromSpecID(SelectedThing->SpecID).Y;
+                    P.Y += 0.5f*GetSizeFromInfoID(SelectedThing->InfoID).Y;
                     SelectedThing->P = P;
                     SelectedThing->PathStart.X += SelectedThing->P.X - LastP.X;
                     SelectedThing->PathStart.Y = Center.Y;
@@ -482,7 +482,7 @@ world_editor::DoPopup(render_group *RenderGroup){
             
             Window->End(RenderGroup);
         }break;
-        case EditorPopup_SpecSelector: {
+        case EditorPopup_InfoSelector: {
             b8 AttemptSelect = false;
             os_event Event;
             while(PollEvents(&Event)){
@@ -499,17 +499,17 @@ world_editor::DoPopup(render_group *RenderGroup){
             }
             
             v2 P = v2{0.5f, 2.0f};
-            u32 SelectedSpec = UpdateAndRenderSpecSelector(RenderGroup, P, MouseP, AttemptSelect, Camera.MetersToPixels);
+            u32 SelectedInfo = UpdateAndRenderInfoSelector(RenderGroup, P, MouseP, AttemptSelect, Camera.MetersToPixels);
             AttemptSelect = false;
             
             v2 StringP = 0.5f*OSInput.WindowSize;
-            RenderCenteredString(RenderGroup, &TitleFont, WHITE, StringP, 0.0f, "Please select a spec to add:");
+            RenderCenteredString(RenderGroup, &TitleFont, WHITE, StringP, 0.0f, "Please select a info to add:");
             
-            if(SelectedSpec == 0){
+            if(SelectedInfo == 0){
                 RenderGroupToScreen(RenderGroup);
                 Result = true;
             }else{ 
-                SpecSelectorCallback(this, SelectedSpec);
+                InfoSelectorCallback(this, SelectedInfo);
                 Popup = EditorPopup_None;
             }
         }break;
@@ -575,9 +575,9 @@ world_editor::DoSelectedThingUI(render_group *RenderGroup){
     }
     if(Window){
         if(SelectedThing->Type == EntityType_Enemy){
-            if(Window->Button(RenderGroup, "Change spec")){
-                Popup = EditorPopup_SpecSelector;
-                SpecSelectorCallback = ChangeSelectedEntitySpecCallback;
+            if(Window->Button(RenderGroup, "Change info")){
+                Popup = EditorPopup_InfoSelector;
+                InfoSelectorCallback = ChangeSelectedEntityInfoCallback;
             }
         }
         
@@ -616,13 +616,13 @@ world_editor::RenderCursor(render_group *RenderGroup){
             RenderCenteredRectangle(RenderGroup, Center, (Size-2*Margin), -0.1f, YELLOW, &Camera);
         }break;
         case EditMode_AddEnemy: {
-            if(EntityToAddSpecID == 0){
+            if(EntityToAddInfoID == 0){
                 RenderCenteredRectangle(RenderGroup, Center, TILE_SIZE, -0.11f, PINK, &Camera);
             }else{ 
-                entity_spec *Spec = &EntitySpecs[EntityToAddSpecID];
+                entity_info *Info = &EntityInfos[EntityToAddInfoID];
                 v2 P = v2{Center.X, ViewTileP.Y};
-                P.Y += 0.5f*GetSizeFromSpecID(EntityToAddSpecID).Y;
-                RenderFrameOfSpriteSheet(RenderGroup, &Camera, Spec->Asset, 0, P, -0.5f);
+                P.Y += 0.5f*GetSizeFromInfoID(EntityToAddInfoID).Y;
+                RenderFrameOfSpriteSheet(RenderGroup, &Camera, Info->Asset, 0, P, -0.5f);
             }
         }break;
         case EditMode_AddArt: {
@@ -766,9 +766,9 @@ world_editor::DoUI(render_group *RenderGroup){
     
     switch(Mode){
         case EditMode_AddEnemy: {
-            if(Window->Button(RenderGroup, "Select spec")){
-                Popup = EditorPopup_SpecSelector;
-                SpecSelectorCallback = SelectSpecForEntityToAddCallback;
+            if(Window->Button(RenderGroup, "Select info")){
+                Popup = EditorPopup_InfoSelector;
+                InfoSelectorCallback = SelectInfoForEntityToAddCallback;
                 Action = WorldEditorAction_None;
             }
         }break;
@@ -789,7 +789,7 @@ world_editor::UpdateAndRender(){
     InitializeRenderGroup(&TransientStorageArena, &RenderGroup, Kilobytes(16), Color(0.4f, 0.5f, 0.45f, 1.0f), OSInput.WindowSize);
     Camera.Update();
     
-    if(Popup != EditorPopup_SpecSelector) ProcessInput();
+    if(Popup != EditorPopup_InfoSelector) ProcessInput();
     
     if(DoPopup(&RenderGroup)) return;
     
@@ -849,9 +849,9 @@ world_editor::UpdateAndRender(){
         
         switch(Entity->Type){
             case EntityType_Enemy: {
-                Assert(Entity->SpecID != 0);
-                entity_spec *Spec = &EntitySpecs[Entity->SpecID];
-                asset *Asset = GetSpriteSheet(Spec->Asset);
+                Assert(Entity->InfoID != 0);
+                entity_info *Info = &EntityInfos[Entity->InfoID];
+                asset *Asset = GetSpriteSheet(Info->Asset);
                 
                 v2 Size = Asset->SizeInMeters*Asset->Scale;
                 v2 P = Entity->P;
@@ -860,9 +860,9 @@ world_editor::UpdateAndRender(){
                 
                 // TODO(Tyler): FIX, this doesn't work for all assets, so maybe use the state table?
                 if(Entity->Direction == Direction_Right){ 
-                    RenderFrameOfSpriteSheet(&RenderGroup, &Camera, Spec->Asset, 4, P, -0.5f);
+                    RenderFrameOfSpriteSheet(&RenderGroup, &Camera, Info->Asset, 4, P, -0.5f);
                 }else if(Entity->Direction == Direction_Left){
-                    RenderFrameOfSpriteSheet(&RenderGroup, &Camera, Spec->Asset, 0, P, -0.5f);
+                    RenderFrameOfSpriteSheet(&RenderGroup, &Camera, Info->Asset, 0, P, -0.5f);
                 }else{ INVALID_CODE_PATH; }
                 
                 if(SelectedThing == Entity){
@@ -870,7 +870,7 @@ world_editor::UpdateAndRender(){
                     local_constant color BASE_COLOR     = Color(0.0f, 0.0f, 0.5f, 1.0f);
                     {
                         color Color = BASE_COLOR;
-                        if(SpecialThing == EditorSpecialThing_PathStart){
+                        if(InfoialThing == EditorInfoialThing_PathStart){
                             Color = EDITOR_SELECTED_COLOR;
                         }else if(IsPointInRectangle(MouseP, Entity->PathStart, ENEMY_PATH_HANDLE_SIZE)){
                             Color = EDITOR_HOVERED_COLOR; 
@@ -878,7 +878,7 @@ world_editor::UpdateAndRender(){
                         RenderCenteredRectangle(&RenderGroup, Entity->PathStart, ENEMY_PATH_HANDLE_SIZE, -1.0f, Color, &Camera);
                     }{
                         color Color = BASE_COLOR;
-                        if(SpecialThing == EditorSpecialThing_PathEnd){
+                        if(InfoialThing == EditorInfoialThing_PathEnd){
                             Color = EDITOR_SELECTED_COLOR;
                         }else if(IsPointInRectangle(MouseP, Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE)){
                             Color = EDITOR_HOVERED_COLOR; 

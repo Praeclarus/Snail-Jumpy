@@ -123,6 +123,12 @@ RenderRectangle(render_group *RenderGroup,v2 MinCorner, v2 MaxCorner, f32 Z, col
 }
 
 internal void
+RenderRectangleBySize(render_group *RenderGroup, v2 Min, v2 Size, f32 Z, color Color,
+                      camera *Camera=0, v2 ClipMin={}, v2 ClipMax={}){
+    RenderRectangle(RenderGroup, Min, Min+Size, Z, Color, Camera, ClipMin, ClipMax);
+}
+
+internal void
 RenderTexture(render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, f32 Z, 
               render_texture_handle Texture, v2 MinTexCoord=V2(0,0), v2 MaxTexCoord=V2(1,1), 
               b8 IsTranslucent=false, camera *Camera=0, v2 ClipMin={}, v2 ClipMax={}){

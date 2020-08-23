@@ -4,7 +4,7 @@
 struct entity_data {
     v2 P;
     u32 Type;
-    u32 SpecID;
+    u32 InfoID;
     
     union {
         // Enemy

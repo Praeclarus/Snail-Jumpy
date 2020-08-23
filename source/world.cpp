@@ -43,7 +43,7 @@ AddPlayer(v2 P){
     EntityManager.Player->JumpTime = 1.0f;
     
     EntityManager.Player->Health = 9;
-    EntityManager.Player->Mass = 0.1f;
+    EntityManager.Player->Mass = 0.3f;
 }
 
 internal void
@@ -121,37 +121,37 @@ world_manager::LoadWorld(const char *LevelName){
                 entity_data *Entity = &CurrentWorld->Entities[I];
                 switch(Entity->Type){
                     case EntityType_Enemy: {
-                        entity_spec *Spec = &EntitySpecs[Entity->SpecID];
+                        entity_info *Info = &EntityInfos[Entity->InfoID];
                         enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
                         *Enemy = {};
-                        Enemy->Type  = Spec->Type;
-                        Enemy->Flags = Spec->Flags;
-                        Enemy->Spec = Entity->SpecID;
+                        Enemy->Type  = Info->Type;
+                        Enemy->Flags = Info->Flags;
+                        Enemy->Info = Entity->InfoID;
                         
                         v2 P = Entity->P; P.Y += 0.001f;
                         Enemy->P = P;
                         
-                        Enemy->Speed = Spec->Speed;
-                        Enemy->Damage = Spec->Damage;
+                        Enemy->Speed = Info->Speed;
+                        Enemy->Damage = Info->Damage;
                         
                         Enemy->State = State_Moving;
                         Enemy->ZLayer = -0.7f;
-                        Enemy->Asset = Spec->Asset;
+                        Enemy->Asset = Info->Asset;
                         
                         Enemy->Direction = Entity->Direction;
                         Enemy->PathStart = Entity->PathStart;
                         Enemy->PathEnd = Entity->PathEnd;
-                        Enemy->Mass = Spec->Mass;
+                        Enemy->Mass = Info->Mass;
                         
-                        u8 SetIndex = Spec->BoundaryTable[Enemy->State];
+                        u8 SetIndex = Info->BoundaryTable[Enemy->State];
                         if(SetIndex > 0){
                             SetIndex--;
                             Assert(SetIndex < ENTITY_SPEC_BOUNDARY_SET_COUNT);
                             
-                            Enemy->BoundaryCount = Spec->Counts[SetIndex];
+                            Enemy->BoundaryCount = Info->Counts[SetIndex];
                             for(u32 J = 0; J < Enemy->BoundaryCount; J++){
-                                Enemy->Boundaries[J] = Spec->Boundaries[SetIndex][J];
-                                Enemy->Boundaries[J].P = P + Spec->Boundaries[SetIndex][J].P;
+                                Enemy->Boundaries[J] = Info->Boundaries[SetIndex][J];
+                                Enemy->Boundaries[J].P = P + Info->Boundaries[SetIndex][J].P;
                             }
                         }
                     }break;
@@ -252,7 +252,7 @@ world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
             entity_data *Entity = &NewWorld->Entities[I];
             Entity->P      = *ConsumeType(&Stream, v2);
             Entity->Type   = *ConsumeType(&Stream, u32);
-            Entity->SpecID = *ConsumeType(&Stream, u32);
+            Entity->InfoID = *ConsumeType(&Stream, u32);
             switch(Entity->Type){
                 case EntityType_Enemy: {
                     Entity->Direction = *ConsumeType(&Stream, direction);
@@ -337,7 +337,7 @@ world_manager::WriteWorldsToFiles(){
             entity_data *Entity = &World->Entities[I];
             WriteVariableToFile(File, Offset, Entity->P);
             WriteVariableToFile(File, Offset, Entity->Type);
-            WriteVariableToFile(File, Offset, Entity->SpecID);
+            WriteVariableToFile(File, Offset, Entity->InfoID);
             switch(Entity->Type){
                 case EntityType_Enemy: {
                     WriteVariableToFile(File, Offset, Entity->Direction);

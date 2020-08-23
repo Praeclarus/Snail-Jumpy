@@ -481,8 +481,8 @@ HandleCollision(entity *Entity, v2 StartingdP, collision_event *Event){
     
     if(Event->Normal.Y > 0.5f){
         if(!Entity->IsGrounded){
-            f32 ShakeTime = 0.05f*-StartingdP.Y*Entity->Mass;
-            if(ShakeTime > 0.1f) GameCamera.Shake(ShakeTime);
+            f32 ShakeTime = 0.03f*-StartingdP.Y;
+            if(ShakeTime*Entity->Mass > 0.1f) GameCamera.Shake(ShakeTime, 0.03f*Entity->Mass);
         }
         Entity->IsGrounded = true;
     }
