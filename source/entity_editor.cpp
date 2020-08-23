@@ -261,8 +261,8 @@ entity_editor::DoStateTableUI(window *Window, render_group *RenderGroup){
     
     Window->DrawP.Y = Y;
     f32 RelHeight = Window->TopLeft.Y-Window->DrawP.Y;
-    if(Window->Size.Y < RelHeight+RowHeight+2*Theme->Padding){
-        Window->Size.Y = RelHeight+RowHeight;
+    if(Window->Size.Y < RelHeight+2*Theme->Padding){
+        Window->Size.Y = RelHeight+Theme->Padding;
     }
 }
 
