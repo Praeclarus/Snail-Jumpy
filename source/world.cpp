@@ -128,7 +128,7 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Flags = Info->Flags;
                         Enemy->Info = Entity->InfoID;
                         
-                        v2 P = Entity->P; P.Y += 0.001f;
+                        v2 P = Entity->P; P.Y += 0.01f;
                         Enemy->P = P;
                         
                         Enemy->Speed = Info->Speed;

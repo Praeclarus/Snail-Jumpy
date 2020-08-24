@@ -457,12 +457,12 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
                       Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
                       Camera);
         
-        // TODO(Tyler): Add a debug toggle to this
-#if 1
-        for(u32 I = 0; I < Entity->BoundaryCount; I++){
+#ifdef SNAIL_JUMPY_DEBUG_BUILD
+        if(DebugConfig.Overlay & DebugOverlay_Boundaries)
+            for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 
             RenderBoundary(Camera, Boundary, Entity->ZLayer-0.1f);
         }
-#endif
     }
+#endif
 }

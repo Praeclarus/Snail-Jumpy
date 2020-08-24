@@ -71,6 +71,7 @@ enum _debug_overlay_flags {
     DebugOverlay_None     = (0 << 0),
     DebugOverlay_Profiler = (1 << 0),
     DebugOverlay_Miscellaneous = (1 << 1),
+    DebugOverlay_Boundaries = (1 << 2),
 };
 
 struct debug_config {

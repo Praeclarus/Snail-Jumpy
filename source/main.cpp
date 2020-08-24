@@ -225,6 +225,7 @@ ProcessDefaultEvent(os_event *Event){
                 case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
                 case KeyCode_F1:    ToggleOverlay(DebugOverlay_Profiler); break;
                 case KeyCode_F2:    ToggleOverlay(DebugOverlay_Miscellaneous); break;
+                case KeyCode_F3:    ToggleOverlay(DebugOverlay_Boundaries); break;
             }
         }break;
         case OSEventKind_KeyUp: {
