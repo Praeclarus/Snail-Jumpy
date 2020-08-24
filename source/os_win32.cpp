@@ -602,7 +602,6 @@ WinMain(HINSTANCE Instance,
                 HDC DeviceContext = GetDC(MainWindow);
                 RECT WindowRect;
                 GetClientRect(MainWindow, &WindowRect);
-                
                 SwapBuffers(DeviceContext);
                 ReleaseDC(MainWindow, DeviceContext);
             }

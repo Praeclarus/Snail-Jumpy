@@ -12,16 +12,16 @@ IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Offset=V2(0,0)){
 }
 
 internal inline void
-RenderBoundary(render_group *RenderGroup, camera *Camera, collision_boundary *Boundary, 
+RenderBoundary(camera *Camera, collision_boundary *Boundary, 
                f32 Z, v2 Offset){
     switch(Boundary->Type){
         case BoundaryType_Rectangle: {
-            RenderCenteredRectangle(RenderGroup, Offset+Boundary->P, 
+            RenderCenteredRectangle(Offset+Boundary->P, 
                                     Boundary->Size, Z, 
                                     Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
         }break;
         case BoundaryType_Circle: {
-            RenderCircle(RenderGroup, Offset+Boundary->P, Z, Boundary->Radius,
+            RenderCircle(Offset+Boundary->P, Boundary->Radius, Z,
                          Color(1.0f, 0.0f, 0.0f, 0.5f), Camera);
         }break;
     }

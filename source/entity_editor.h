@@ -42,13 +42,13 @@ struct entity_editor {
     u32 SelectedInfoID;
     entity_info *SelectedInfo;
     
-    void ProcessAction(render_group *RenderGroup);
+    void ProcessAction();
     void UpdateAndRender();
     void ProcessInput();
     void ProcessKeyDown(os_key_code KeyCode);
-    void ProcessBoundaryAction(render_group *RenderGroup);
-    void DoStateTableUI(window *Window, render_group *RenderGroup);
-    void DoUI(render_group *RenderGroup);
+    void ProcessBoundaryAction();
+    void DoStateTableUI(window *Window);
+    void DoUI();
     inline void GetBoundaries(collision_boundary **Boundaries, u8 **Count, u8 *MaxCount);
     inline void CanonicalizeBoundary(collision_boundary *Boundary);
     b8 IsMouseInBoundary(u8 *Index, collision_boundary **Boundary);
@@ -84,7 +84,7 @@ struct entity_editor {
 
 //~ MiscellaneousS
 internal u32
-UpdateAndRenderInfoSelector(render_group *RenderGroup, v2 P, v2 MouseP, b8 AttemptSelect, 
+UpdateAndRenderInfoSelector(v2 P, v2 MouseP, b8 AttemptSelect, 
                             f32 MetersToPixels, u32 SelectedInfo=0, b8 TestY=false, 
                             f32 YMin=0.0f, f32 YMax=0.0f);
 

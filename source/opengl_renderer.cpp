@@ -214,8 +214,8 @@ GLCompileDefaultShaderProgram(const char *VertexShaderSource,
 
 //~ Render API
 
-internal
-INITIALIZE_RENDERER(InitializeRenderer){
+internal b8
+InitializeRenderer(){
     //~ 
     DefaultShaderProgram =
         GLCompileDefaultShaderProgram(DefaultVertexShader, DefaultFragmentShader);
@@ -315,12 +315,12 @@ INITIALIZE_RENDERER(InitializeRenderer){
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
     DefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
     
-    b32 Result = true;
+    b8 Result = true;
     return(Result);
 }
 
-internal
-RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
+internal void
+ExecuteCommands(render_commands *Commands){
     TIMED_FUNCTION();
     
     glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
@@ -330,20 +330,20 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    GLsizei WindowWidth = (GLsizei)RenderGroup->OutputSize.X;
-    GLsizei WindowHeight = (GLsizei)RenderGroup->OutputSize.Y;
+    GLsizei WindowWidth = (GLsizei)Commands->OutputSize.X;
+    GLsizei WindowHeight = (GLsizei)Commands->OutputSize.Y;
     glScissor(0, 0, WindowWidth, WindowHeight);
     glViewport(0, 0, WindowWidth, WindowHeight);
     
-    glClearColor(RenderGroup->BackgroundColor.R,
-                 RenderGroup->BackgroundColor.G,
-                 RenderGroup->BackgroundColor.B,
-                 RenderGroup->BackgroundColor.A);
+    glClearColor(Commands->BackgroundColor.R,
+                 Commands->BackgroundColor.G,
+                 Commands->BackgroundColor.B,
+                 Commands->BackgroundColor.A);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     //~ Render scene normally to framebuffer
-    f32 A = 2.0f/((f32)RenderGroup->OutputSize.Width);
-    f32 B = 2.0f/((f32)RenderGroup->OutputSize.Height);
+    f32 A = 2.0f/((f32)Commands->OutputSize.Width);
+    f32 B = 2.0f/((f32)Commands->OutputSize.Height);
     f32 C = 2.0f/((f32)100);
     f32 Projection[] = {
         A,   0, 0, 0,
@@ -358,13 +358,13 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DefaultElementBuffer);
     glUniformMatrix4fv(DefaultShaderProgram.ProjectionLocation, 1, GL_FALSE, Projection);
     
-    glBufferData(GL_ARRAY_BUFFER, RenderGroup->Vertices.Count*sizeof(vertex), 
-                 RenderGroup->Vertices.Items, GL_STREAM_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderGroup->Indices.Count*sizeof(u16), 
-                 RenderGroup->Indices.Items, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, Commands->Vertices.Count*sizeof(vertex), 
+                 Commands->Vertices.Items, GL_STREAM_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, Commands->Indices.Count*sizeof(u16), 
+                 Commands->Indices.Items, GL_STREAM_DRAW);
     
-    u8 *CommandPtr = RenderGroup->Memory.Memory;
-    for(u32 I = 0; I < RenderGroup->CommandCount; I++){
+    u8 *CommandPtr = Commands->CommandBuffer.Items;
+    for(u32 I = 0; I < Commands->CommandCount; I++){
         auto Header = (render_command_header *)CommandPtr;
         switch(Header->Type){
             case RenderCommand_None: {
@@ -394,8 +394,8 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     
 #if 0    
     f32 LastZ = 0.0f;
-    for(u32 Index = 0; Index < RenderGroup->TranslucentItems.Count; Index++){
-        auto Item = &RenderGroup->TranslucentItems[Index];
+    for(u32 Index = 0; Index < Commands->TranslucentItems.Count; Index++){
+        auto Item = &Commands->TranslucentItems[Index];
         if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
         LastZ = Item->ZLayer;
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
@@ -421,9 +421,8 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     
 }
 
-internal
-render_texture_handle CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, 
-                                          b8 Blend){
+internal render_texture_handle 
+CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend){
     u32 Result;
     glGenTextures(1, &Result);
     glBindTexture(GL_TEXTURE_2D, Result);

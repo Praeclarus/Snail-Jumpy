@@ -119,7 +119,7 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
     }
     
     Assert(Size != 0);
-    f32 MetersToPixels = 60.0f / 0.5f; // TODO(Tyler): GET THIS FROM THE RenderGroup
+    f32 MetersToPixels = 60.0f / 0.5f; // TODO(Tyler): GET THIS FROM THE Commands
     f32 WidthF32 = (f32)NewAsset->SizeInPixels.Width;
     f32 HeightF32 = (f32)NewAsset->SizeInPixels.Height;
     f32 SizeF32 = (f32)Size;
@@ -359,19 +359,19 @@ GetAssetNameListByType(const char *_CurrentAsset, asset_type Type, u32 *OutSelec
 }
 
 internal const char *
-AssetNameDropDown(window *Window, render_group *RenderGroup, const char *SelectedAsset, 
+AssetNameDropDown(window *Window, const char *SelectedAsset, 
                   asset_type AssetType, u64 WidgetID){
     TIMED_FUNCTION();
     
     u32 Selected = 0;
     array<const char *> AssetNames = GetAssetNameListByType(SelectedAsset, AssetType, &Selected);
-    Window->DropDownMenu(RenderGroup, AssetNames, &Selected, WidgetID);
+    Window->DropDownMenu(AssetNames, &Selected, WidgetID);
     const char *Result = AssetNames[Selected];
     return(Result);
 }
 
 internal void
-RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *AssetName, 
+RenderFrameOfSpriteSheet(camera *Camera, const char *AssetName, 
                          u32 Frame, v2 Center, f32 Z){
     asset *Asset = GetSpriteSheet(AssetName);
     Assert(Asset->Type == AssetType_SpriteSheet);
@@ -388,13 +388,13 @@ RenderFrameOfSpriteSheet(render_group *RenderGroup, camera *Camera, const char *
     MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
     v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
     
-    RenderTexture(RenderGroup, Center-0.5f*Asset->Scale*Asset->SizeInMeters, 
+    RenderTexture(Center-0.5f*Asset->Scale*Asset->SizeInMeters, 
                   Center+0.5f*Asset->Scale*Asset->SizeInMeters, Z, Asset->SpriteSheet, 
                   MinTexCoord, MaxTexCoord, Asset->IsTranslucent, Camera);
 }
 
 internal void
-UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Entity, 
+UpdateAndRenderAnimation(camera *Camera, entity *Entity, 
                          f32 dTimeForFrame){
     asset *Asset = GetSpriteSheet(Entity->Asset);
     
@@ -453,7 +453,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Enti
         MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
         v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
         
-        RenderTexture(RenderGroup, P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
+        RenderTexture(P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
                       Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
                       Camera);
         
@@ -461,7 +461,7 @@ UpdateAndRenderAnimation(render_group *RenderGroup, camera *Camera, entity *Enti
 #if 1
         for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 
-            RenderBoundary(RenderGroup, Camera, Boundary, Entity->ZLayer-0.1f);
+            RenderBoundary(Camera, Boundary, Entity->ZLayer-0.1f);
         }
 #endif
     }

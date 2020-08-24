@@ -196,7 +196,7 @@ entity_manager::ProcessEvent(os_event *Event){
 // TODO(Tyler): The functions for the platformer player and the overworld player could
 // probably be tranformed into one function, do this!!!
 internal void
-UpdateAndRenderPlatformerPlayer(render_group *RenderGroup, camera *Camera){
+UpdateAndRenderPlatformerPlayer(camera *Camera){
     player_entity *Player = EntityManager.Player;
     if(ShouldEntityUpdate(Player)){
         v2 ddP = {0};
@@ -286,11 +286,11 @@ UpdateAndRenderPlatformerPlayer(render_group *RenderGroup, camera *Camera){
         Camera->SetCenter(Player->P, CurrentWorld);
     }
     
-    UpdateAndRenderAnimation(RenderGroup, Camera, Player, OSInput.dTimeForFrame);
+    UpdateAndRenderAnimation(Camera, Player, OSInput.dTimeForFrame);
 }
 
 internal void
-UpdateAndRenderTopDownPlayer(render_group *RenderGroup, camera *Camera){
+UpdateAndRenderTopDownPlayer(camera *Camera){
     v2 ddP = {0};
     
 #if 0    
@@ -351,14 +351,14 @@ UpdateAndRenderTopDownPlayer(render_group *RenderGroup, camera *Camera){
     MoveEntity(EntityManager.Player, 0, ddP, 0.7f, 0.7f);
     
     Camera->SetCenter(EntityManager.Player->P, CurrentWorld);
-    UpdateAndRenderAnimation(RenderGroup, Camera, EntityManager.Player, 
+    UpdateAndRenderAnimation(Camera, EntityManager.Player, 
                              OSInput.dTimeForFrame);
 #endif
     
 }
 
 void 
-entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera){
+entity_manager::UpdateAndRenderEntities(camera *Camera){
     TIMED_FUNCTION();
     
     //~ Walls
@@ -367,7 +367,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         wall_entity *Entity = BucketArrayGetItemPtr(&Walls, Location);
         v2 P = Entity->Boundary.P;
         v2 Size = Entity->Boundary.Size;
-        RenderCenteredRectangle(RenderGroup, P, Size, 0.0f, WHITE, Camera);
+        RenderCenteredRectangle(P, Size, 0.0f, WHITE, Camera);
     }
     END_TIMED_BLOCK();
     
@@ -377,7 +377,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         art_entity *Art = BucketArrayGetItemPtr(&Arts, Location);
         asset *Asset = GetArt(Art->Asset);
         v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
-        RenderCenteredTexture(RenderGroup, Art->P, Size, Art->Z, Asset->Texture, 
+        RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
                               V2(0,0), V2(1,1), false, Camera);
     }
     END_TIMED_BLOCK();
@@ -391,7 +391,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTimeForFrame;
         }else{
-            RenderRectangle(RenderGroup, P-(Size/2), P+(Size/2), 0.0f, YELLOW, Camera);
+            RenderRectangle(P-(Size/2), P+(Size/2), 0.0f, YELLOW, Camera);
         }
     }
     END_TIMED_BLOCK();
@@ -404,7 +404,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         Door->Cooldown -= OSInput.dTimeForFrame;
         
         if(!Door->IsOpen){
-            RenderRectangle(RenderGroup, P-(Door->Boundary.Size/2), 
+            RenderRectangle(P-(Door->Boundary.Size/2), 
                             P+(Door->Boundary.Size/2), 0.0f, BROWN, Camera);
         }else{
             color Color = BROWN;
@@ -412,7 +412,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
             if(Color.A < 0.3f){
                 Color.A = 0.3f;
             }
-            RenderRectangle(RenderGroup, P-(Door->Boundary.Size/2), 
+            RenderRectangle(P-(Door->Boundary.Size/2), 
                             P+(Door->Boundary.Size/2), 0.0f, Color, Camera);
         }
     }
@@ -425,7 +425,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         v2 P = Teleporter->Boundary.P;
         
         if(!Teleporter->IsLocked){
-            RenderRectangle(RenderGroup, P-(Teleporter->Boundary.Size/2), 
+            RenderRectangle(P-(Teleporter->Boundary.Size/2), 
                             P+(Teleporter->Boundary.Size/2), 0.0f, GREEN, Camera);
             
             v2 Radius = Teleporter->Boundary.Size/2;
@@ -445,7 +445,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
                         P.Y+Teleporter->Boundary.Size.Y/2
                     };
                     
-                    RenderRectangle(RenderGroup, MapP, MapP+MapSize, -0.1f,
+                    RenderRectangle(MapP, MapP+MapSize, -0.1f,
                                     Color(0.5f, 0.5f, 0.5f, 1.0f), Camera);
                     v2 StringP = v2{
                         P.X,
@@ -453,16 +453,16 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
                     };
                     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
                     StringP.X -= Advance/2/Camera->MetersToPixels;
-                    RenderString(RenderGroup, &MainFont, GREEN,
+                    RenderString(&MainFont, GREEN,
                                  StringP.X, StringP.Y, -1.0f, Teleporter->Level, Camera);
                     f32 Thickness = 0.03f;
                     v2 Min = MapP-v2{Thickness, Thickness};
                     v2 Max = MapP+MapSize+v2{Thickness, Thickness};
                     color Color = color{0.2f, 0.5f, 0.2f, 1.0f};
-                    RenderRectangle(RenderGroup, Min, V2(Max.X, Min.Y+Thickness), -0.11f, Color);
-                    RenderRectangle(RenderGroup, V2(Max.X-Thickness, Min.Y), V2(Max.X, Max.Y), -0.11f, Color, Camera);
-                    RenderRectangle(RenderGroup, V2(Min.X, Max.Y), V2(Max.X, Max.Y-Thickness), -0.11f, Color, Camera);
-                    RenderRectangle(RenderGroup, V2(Min.X, Min.Y), V2(Min.X+Thickness, Max.Y), -0.11f, Color, Camera);
+                    RenderRectangle(Min, V2(Max.X, Min.Y+Thickness), -0.11f, Color);
+                    RenderRectangle(V2(Max.X-Thickness, Min.Y), V2(Max.X, Max.Y), -0.11f, Color, Camera);
+                    RenderRectangle(V2(Min.X, Max.Y), V2(Max.X, Max.Y-Thickness), -0.11f, Color, Camera);
+                    RenderRectangle(V2(Min.X, Min.Y), V2(Min.X+Thickness, Max.Y), -0.11f, Color, Camera);
                 }
 #if 0
                 if(IsKeyJustPressed(KeyCode_Space)){
@@ -471,7 +471,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
 #endif
             }
         }else{
-            RenderRectangle(RenderGroup, P-(Teleporter->Boundary.Size/2), 
+            RenderRectangle(P-(Teleporter->Boundary.Size/2), 
                             P+(Teleporter->Boundary.Size/2), 0.0f, 
                             Color(0.0f, 0.0f, 1.0f, 0.5f), Camera);
         }
@@ -525,7 +525,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
             }
         }
         
-        UpdateAndRenderAnimation(RenderGroup, Camera, Enemy, OSInput.dTimeForFrame);
+        UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTimeForFrame);
         UpdateEnemyBoundary(Enemy);
     }
     END_TIMED_BLOCK();
@@ -542,7 +542,7 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
         MoveEntity(Projectile, ddP, 1.0f, 1.0f, 1.0f, v2{0, 0}, 0.3f);
         
         v2 P = Projectile->P;
-        RenderRectangle(RenderGroup, P-0.5f*Projectile->Boundaries[0].Size, 
+        RenderRectangle(P-0.5f*Projectile->Boundaries[0].Size, 
                         P+0.5f*Projectile->Boundaries[0].Size, 
                         0.7f, WHITE, Camera);
     }
@@ -551,9 +551,9 @@ entity_manager::UpdateAndRenderEntities(render_group *RenderGroup, camera *Camer
     //~ Player
     BEGIN_TIMED_BLOCK(UpdateAndRenderPlayer);
     if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-        UpdateAndRenderTopDownPlayer(RenderGroup, Camera);
+        UpdateAndRenderTopDownPlayer(Camera);
     }else{
-        UpdateAndRenderPlatformerPlayer(RenderGroup, Camera);
+        UpdateAndRenderPlatformerPlayer(Camera);
     }
     END_TIMED_BLOCK();
     

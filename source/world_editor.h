@@ -78,11 +78,11 @@ struct world_editor {
     
     inline entity_type GetSelectedThingType();
     void UpdateAndRender();
-    void DoUI(render_group *RenderGroup);
+    void DoUI();
     void UpdateSelectionRectangle();
-    b8   DoPopup(render_group *RenderGroup);
-    void DoSelectedThingUI(render_group *RenderGroup);
-    void RenderCursor(render_group *RenderGroup);
+    b8   DoPopup();
+    void DoSelectedThingUI();
+    void RenderCursor();
     
     void ProcessKeyDown(os_key_code KeyCode, b8 JustDown);
     void ProcessInput();

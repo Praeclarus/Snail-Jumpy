@@ -5,7 +5,6 @@
 //~ Camera  This probably isn't the most appropriate place to have this, but it is best
 //          here for now
 
-struct render_group;
 struct world_data;
 struct camera {
     v2 ActualP;
@@ -35,7 +34,7 @@ enum render_command_type {
     RenderCommand_None,
     RenderCommand_SetClip,
     RenderCommand_RenderItem,
-    RenderCommand_DeferredRenderItem,
+    RenderCommand_ClearScreen,
 };
 
 struct render_command_header {
@@ -55,27 +54,25 @@ struct render_command_set_clip : public render_command_header {
     v2s Max;
 };
 
-struct render_group {
-    array<vertex> Vertices;
-    array<u16> Indices;
-    
+struct render_commands {
+    dynamic_array<vertex> Vertices;
+    dynamic_array<u16>    Indices;
+    dynamic_array<u8>     CommandBuffer; // This is used as a growable memory arena
     u32 CommandCount;
-    memory_arena Memory;
     
     color BackgroundColor;
     v2 OutputSize;
+    
+    void NewFrame(memory_arena *Arena, color BackgroundColor_, v2 OutputSize_);
+    render_command_item *PushRenderItem(f32 ZLayer);
+    void SetClip(v2 Min, v2 Max, camera *Camera=0);
+    void ResetClip();
 };
 
-#define INITIALIZE_RENDERER(Name) b32 Name()
-internal INITIALIZE_RENDERER(InitializeRenderer);
-
-#define RENDER_GROUP_TO_SCREEN(Name) void Name(render_group *RenderGroup)
-internal RENDER_GROUP_TO_SCREEN(RenderGroupToScreen);
-
-internal render_texture_handle 
-CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
-internal void
-DeleteRenderTexture(render_texture_handle Texture);
+internal b8 InitializeRenderer();
+internal void ExecuteCommands(render_commands *Commands);
+internal render_texture_handle CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
+internal void DeleteRenderTexture(render_texture_handle Texture);
 
 global_constant color BLACK  = color{0.0f,  0.0f,  0.0f, 1.0f};
 global_constant color WHITE  = color{1.0f,  1.0f,  1.0f, 1.0f};

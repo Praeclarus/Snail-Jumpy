@@ -9,8 +9,6 @@ struct font {
 };
 
 struct layout {
-    render_group *RenderGroup;
-    
     v2 BaseP;
     v2 CurrentP;
     v2 Advance;
@@ -81,16 +79,16 @@ struct window {
     void NotButtonSanityCheck();
     // TODO(Tyler): Pehaps instead of using a const char *ID for the ID, use macros like
     // __FILE__ and __LINE__ possibly even __FUNCTION__.
-    void TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 ID);
-    void Text(render_group *RenderGroup, const char *Text, ...);
-    b8 Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow=0);
+    void TextInput(char *Buffer, u32 BufferSize, u64 ID);
+    void Text(const char *Text, ...);
+    b8 Button(const char *Text, u32 ButtonsOnRow=0);
     button_behavior ButtonBehavior(f32 X, f32 Y, f32 Width, f32 Height);
-    inline void ToggleButton(render_group *RenderGroup, const char *TrueText, const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
-    b8 ToggleBox(render_group *RenderGroup, const char *Text, b8 Value);
-    void DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCounts, u32 *Selected, u64 ID);
-    void DropDownMenu(render_group *RenderGroup, array<const char *>, u32 *Selected, u64 ID);
+    inline void ToggleButton(const char *TrueText, const char *FalseText, b8 *Value, u32 ButtonsOnRow=0);
+    b8 ToggleBox(const char *Text, b8 Value);
+    void DropDownMenu(const char **Texts, u32 TextCounts, u32 *Selected, u64 ID);
+    void DropDownMenu(array<const char *>, u32 *Selected, u64 ID);
     
-    void End(render_group *RenderGroup);
+    void End();
 };
 
 struct ui_manager {

@@ -2,10 +2,9 @@
 //~ Layout
 
 internal inline layout
-CreateLayout(render_group *RenderGroup, f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance, 
+CreateLayout(f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance, 
              f32 Width = 100, f32 Z = -0.5f){
     layout Result = {0};
-    Result.RenderGroup = RenderGroup;
     Result.BaseP = { BaseX, BaseY };
     Result.CurrentP = Result.BaseP;
     Result.Advance = { XAdvance, YAdvance };
@@ -29,7 +28,7 @@ internal void
 LayoutString(layout *Layout, font *Font, color Color, char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
-    VRenderFormatString(Layout->RenderGroup, Font, Color, Layout->CurrentP.X, Layout->CurrentP.Y, 
+    VRenderFormatString(Font, Color, Layout->CurrentP.X, Layout->CurrentP.Y, 
                         -0.7f, Format, VarArgs);
     va_end(VarArgs);
     Layout->CurrentP.Y -= Font->Size;
@@ -66,7 +65,7 @@ window::ButtonBehavior(f32 X, f32 Y, f32 Width, f32 Height){
 }
 
 b8
-window::Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow){
+window::Button(const char *Text, u32 ButtonsOnRow){
     theme *Theme = &Manager->Theme;
     
     f32 Width = LastSize.X;
@@ -132,11 +131,11 @@ window::Button(render_group *RenderGroup, const char *Text, u32 ButtonsOnRow){
         if(Manager->MouseButtonIsDown(MouseButton_Left)){ Manager->HandledInput = true; }
     }
     
-    RenderRectangle(RenderGroup, {X, Y-Height}, {X+Width, Y}, Z-0.1f, 
+    RenderRectangle({X, Y-Height}, {X+Width, Y}, Z-0.1f, 
                     Alphiphy(ButtonColor, Fade));
     f32 TextWidth = GetStringAdvance(Theme->NormalFont, Text);
     f32 HeightOffset = (Theme->NormalFont->Ascent/2);
-    RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+    RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
                  v2{X+(Width/2)-(TextWidth/2), Y-(Height/2)-HeightOffset}, 
                  Z-0.11f, Text);
     
@@ -155,7 +154,7 @@ window::NotButtonSanityCheck(){
 }
 
 void
-window::Text(render_group *RenderGroup, const char *Text, ...){
+window::Text(const char *Text, ...){
     theme *Theme = &Manager->Theme;
     
     va_list VarArgs;
@@ -176,14 +175,14 @@ window::Text(render_group *RenderGroup, const char *Text, ...){
         }
     }
     
-    VRenderFormatString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade),
+    VRenderFormatString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade),
                         DrawP.X+Theme->Padding, DrawP.Y, Z-0.1f, Text, VarArgs);
     
     va_end(VarArgs);
 }
 
 void 
-window::TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 ID){
+window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     theme *Theme = &Manager->Theme;
     NotButtonSanityCheck();
     
@@ -264,31 +263,31 @@ window::TextInput(render_group *RenderGroup, char *Buffer, u32 BufferSize, u64 I
     f32 Margin = 10;
     v2 BorderSize = v2{3, 3};
     
-    RenderRectangle(RenderGroup, Min, Max, Z-0.11f, 
+    RenderRectangle(Min, Max, Z-0.11f, 
                     Alphiphy(Color, Fade));
     v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - Theme->NormalFont->Size/2};
-    RenderString(RenderGroup, Theme->NormalFont, Alphiphy(TextColor, Fade), 
+    RenderString(Theme->NormalFont, Alphiphy(TextColor, Fade), 
                  v2{P.X, P.Y}, Z-0.12f, Buffer);
     if(Manager->SelectedWidgetID == ID){
         f32 Advance = GetStringAdvance(Theme->NormalFont, Buffer);
         f32 CursorWidth = 10;
-        RenderRectangle(RenderGroup, V2(P.X+Advance, P.Y-2), 
+        RenderRectangle(V2(P.X+Advance, P.Y-2), 
                         V2(P.X+Advance+CursorWidth, P.Y), Z-0.12f, TextColor);
     }
 }
 
 inline void
-window::ToggleButton(render_group *RenderGroup, const char *TrueText, 
+window::ToggleButton(const char *TrueText, 
                      const char *FalseText, b8 *Value, u32 ButtonsOnRow){
     if(*Value){
-        if(Button(RenderGroup, TrueText, ButtonsOnRow)) *Value = !*Value;
+        if(Button(TrueText, ButtonsOnRow)) *Value = !*Value;
     }else{
-        if(Button(RenderGroup, FalseText, ButtonsOnRow)) *Value = !*Value;
+        if(Button(FalseText, ButtonsOnRow)) *Value = !*Value;
     }
 }
 
 b8
-window::ToggleBox(render_group *RenderGroup, const char *Text, b8 Value){
+window::ToggleBox(const char *Text, b8 Value){
     theme *Theme = &Manager->Theme;
     NotButtonSanityCheck();
     b8 Result = Value;
@@ -342,40 +341,40 @@ window::ToggleBox(render_group *RenderGroup, const char *Text, b8 Value){
         }
     }
     
-    RenderRectangle(RenderGroup, {X, Y-Height}, {X+ButtonWidth, Y}, Z-0.1f, 
+    RenderRectangle({X, Y-Height}, {X+ButtonWidth, Y}, Z-0.1f, 
                     Alphiphy(ButtonColor, Fade));
     f32 HeightOffset = (Theme->NormalFont->Ascent/2);
     if(Value){
-        RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+        RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
                      v2{X+(ButtonWidth/2)-(TextWidth/2), Y-(Height/2)-HeightOffset}, 
                      Z-0.11f, "X");
     }
     
-    RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+    RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
                  V2(X+ButtonWidth+Theme->Padding, Y-(Height/2)-HeightOffset), 
                  Z-0.11f, Text);
     
     return(Result);
 }
 
-#define TOGGLE_FLAG(Window, RenderGroup, Text, FlagVar, Flag)   \
-if(Window->ToggleBox(RenderGroup, Text, (FlagVar & Flag))){ \
+#define TOGGLE_FLAG(Window, Text, FlagVar, Flag)   \
+if(Window->ToggleBox(Text, (FlagVar & Flag))){ \
 FlagVar |= Flag;                                        \
 }else{                                                      \
 FlagVar &= ~Flag;                                       \
 }
 
-#define ANTI_TOGGLE_FLAG(Window, RenderGroup, Text, FlagVar, Flag) \
-if(!Window->ToggleBox(RenderGroup, Text, !(FlagVar & Flag))){  \
+#define ANTI_TOGGLE_FLAG(Window, Text, FlagVar, Flag) \
+if(!Window->ToggleBox(Text, !(FlagVar & Flag))){  \
 FlagVar |= Flag;                                           \
 }else{                                                         \
 FlagVar &= ~Flag;                                          \
 }
 
-#define TOGGLE_FLAG_BUTTON(Window, RenderGroup, TrueText, FalseText, FlagVar, Flag) 
+#define TOGGLE_FLAG_BUTTON(Window, TrueText, FalseText, FlagVar, Flag) 
 
 void
-window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
+window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
     theme *Theme = &Manager->Theme;
     NotButtonSanityCheck();
     
@@ -418,7 +417,7 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
     if(Manager->SelectedWidgetID == ID){
         for(u32 I = 0; I < TextCount; I++){
             const char *ItemText = Texts[I];
-            RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+            RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
                          V2(X+Theme->Padding, TextY), Z-0.51f, ItemText);
             TextY -= YAdvance;
             f32 NewRectY = RectY-YAdvance;
@@ -433,28 +432,28 @@ window::DropDownMenu(render_group *RenderGroup, const char **Texts, u32 TextCoun
             }else if(I == *Selected){
                 Color = Theme->ButtonClickedColor;
             }
-            RenderRectangle(RenderGroup, V2(X, NewRectY), V2(X+Width, RectY), Z-0.5f, 
+            RenderRectangle(V2(X, NewRectY), V2(X+Width, RectY), Z-0.5f, 
                             Alphiphy(Color, Fade));
             RectY = NewRectY;
         }
     }else{
-        RenderRectangle(RenderGroup, {X, Y-Height}, {X+Width, Y}, Z-0.1f, 
+        RenderRectangle({X, Y-Height}, {X+Width, Y}, Z-0.1f, 
                         Alphiphy(Theme->ButtonBaseColor, Fade));
-        RenderString(RenderGroup, Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
+        RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
                      V2(X+Theme->Padding, TextY), Z-0.11f, Texts[*Selected]);
     }
     
-    RenderRectangle(RenderGroup, {X, Y-Height}, {X+0.5f*Theme->Padding, Y}, Z-0.51f, 
+    RenderRectangle({X, Y-Height}, {X+0.5f*Theme->Padding, Y}, Z-0.51f, 
                     Alphiphy(Theme->NormalColor, Fade));
 }
 
 void
-window::DropDownMenu(render_group *RenderGroup, array<const char *> Texts, u32 *Selected, u64 ID){
-    DropDownMenu(RenderGroup, Texts.Items, Texts.Count, Selected, ID);
+window::DropDownMenu(array<const char *> Texts, u32 *Selected, u64 ID){
+    DropDownMenu(Texts.Items, Texts.Count, Selected, ID);
 }
 
 void
-window::End(render_group *RenderGroup){
+window::End(){
     theme *Theme = &Manager->Theme;
     if(Size.Width < MinSize.Width) Size.Width = MinSize.Width;
     if(Size.Height < MinSize.Height) Size.Height = MinSize.Height;
@@ -473,7 +472,7 @@ window::End(render_group *RenderGroup){
     //~ Rendering
     
     // Title bar rendering
-    RenderString(RenderGroup, Theme->TitleFont, Alphiphy(Theme->TitleColor, Fade),
+    RenderString(Theme->TitleFont, Alphiphy(Theme->TitleColor, Fade),
                  TopLeft.X+Theme->Padding, 
                  TopLeft.Y+(TitleBarHeight/2)-(Theme->TitleFont->Ascent/2), 
                  Z-0.1f, Name);
@@ -482,7 +481,7 @@ window::End(render_group *RenderGroup){
         v2 Max = TopLeft;
         Max.X += Size.X;
         Max.Y += TitleBarHeight;
-        RenderRectangle(RenderGroup, Min, Max, Z, Alphiphy(Theme->TitleBarColor, Fade));
+        RenderRectangle(Min, Max, Z, Alphiphy(Theme->TitleBarColor, Fade));
         if(Max.Y > OSInput.WindowSize.Y){
             TopLeft.Y = OSInput.WindowSize.Y - TitleBarHeight;
         }
@@ -494,7 +493,7 @@ window::End(render_group *RenderGroup){
         Min.Y -= Size.Y;
         v2 Max = TopLeft;
         Max.X += Size.X;
-        RenderRectangle(RenderGroup, Min, Max, Z, Alphiphy(Theme->BackgroundColor, Fade));
+        RenderRectangle(Min, Max, Z, Alphiphy(Theme->BackgroundColor, Fade));
         if(Max.X > OSInput.WindowSize.X){
             TopLeft.X = OSInput.WindowSize.X - Size.X;
         }else if(Min.X < 0){

@@ -26,6 +26,7 @@ PushMemory(memory_arena *Arena, umw Size){
     void *Result = Arena->Memory+Arena->Used;
     Arena->PreviousUsed = Arena->Used;
     Arena->Used += Size;
+    ZeroMemory(Result, Size);
     return(Result);
 }
 

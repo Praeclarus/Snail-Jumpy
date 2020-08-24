@@ -116,6 +116,7 @@ DynamicArrayInitialize(dynamic_array<T> *Array, int InitialCapacity, memory_aren
     *Array = {};
     if(Arena) Array->Items = PushArray(Arena, T, InitialCapacity);
     else Array->Items = (T *)DefaultAlloc(InitialCapacity*sizeof(T));
+    Array->Arena = Arena;
     Array->Capacity = InitialCapacity;
 }
 
@@ -123,7 +124,7 @@ template <typename T> internal void
 DynamicArrayPushBack(dynamic_array<T> *Array, T *item){
     if(Array->Count >= Array->Capacity){
         umw OldSize = Array->Capacity*sizeof(T);
-        umw NewSize = Array->Capacity*sizeof(T);
+        umw NewSize = 2*Array->Capacity*sizeof(T);
         Array->Capacity *= 2;
         if(Array->Arena) Array->Items = (T *)ResizeMemory(Array->Arena, Array->Items, OldSize, NewSize);
         else Array->Items = (T *)DefaultRealloc(Array->Items, NewSize);
@@ -134,6 +135,21 @@ DynamicArrayPushBack(dynamic_array<T> *Array, T *item){
 template <typename T>
 void DynamicArrayPushBack(dynamic_array<T> *Array, T item){
     DynamicArrayPushBack(Array, &item);
+}
+
+template<typename T> internal inline T *
+PushNArrayItems(dynamic_array<T> *Array, u32 N){
+    T *Result = 0;
+    if(Array->Count+N >= Array->Capacity){
+        umw OldSize = Array->Capacity*sizeof(T);
+        umw NewSize = 2*Array->Capacity*sizeof(T);
+        Array->Capacity *= 2;
+        if(Array->Arena) Array->Items = (T *)ResizeMemory(Array->Arena, Array->Items, OldSize, NewSize);
+        else Array->Items = (T *)DefaultRealloc(Array->Items, NewSize);
+    }
+    Result = &Array->Items[Array->Count];
+    Array->Count += N;
+    return(Result);
 }
 
 template <typename T>
@@ -153,6 +169,12 @@ template<typename T> internal inline void
 DynamicArrayUnorderedRemove(dynamic_array<T> *Array, u32 Index){
     Array->Items[Index] = Array->Items[Array->Count-1];
     Array->Count--;
+}
+
+internal void * 
+PushMemory(dynamic_array<u8> *Array, u32 Size){
+    void *Result = PushNArrayItems(Array, Size);
+    return(Result);
 }
 
 //~ Bit array

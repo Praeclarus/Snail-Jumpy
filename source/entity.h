@@ -119,7 +119,7 @@ struct entity_manager {
     void Initialize(memory_arena *Arena);
     void Reset();
     void ProcessEvent(os_event *Event);
-    void UpdateAndRenderEntities(render_group *RenderGroup, camera *Camera);
+    void UpdateAndRenderEntities(camera *Camera);
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H
