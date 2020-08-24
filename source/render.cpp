@@ -2,20 +2,22 @@ global render_texture_handle DefaultTexture;
 
 void
 render_commands::NewFrame(memory_arena *Arena, color BackgroundColor_, v2 OutputSize_){
-    DynamicArrayInitialize(&CommandBuffer, 256, Arena);
-    DynamicArrayInitialize(&Vertices, 512, Arena);
-    DynamicArrayInitialize(&Indices, 512, Arena);
+    local_constant u32 INITIAL_SIZE = Kilobytes(3);
+    DynamicArrayInitialize(&CommandBuffer, INITIAL_SIZE, Arena);
+    DynamicArrayInitialize(&Vertices, INITIAL_SIZE, Arena);
+    DynamicArrayInitialize(&Indices, INITIAL_SIZE, Arena);
     BackgroundColor = BackgroundColor_;
     OutputSize = OutputSize_;
     CommandCount = 0;
 }
 
 render_command_item *
-render_commands::PushRenderItem(f32 ZLayer){
+render_commands::PushRenderItem(f32 ZLayer, b8 Translucent){
     render_command_item *Result = 0;
     CommandCount++;
     Result = PushStruct(&CommandBuffer, render_command_item);
-    Result->Type = RenderCommand_RenderItem;
+    Result->Type = (Translucent ? RenderCommand_TranslucentRenderItem : 
+                    RenderCommand_RenderItem);
     Result->VertexOffset = Vertices.Count;
     Result->IndexOffset = Indices.Count;
     Result->ZLayer = ZLayer;
@@ -60,7 +62,7 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=3
     f32 T = 0.0f;
     f32 Step = 1.0f/(f32)Sides;
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z);
+    auto RenderItem = RenderCommands.PushRenderItem(Z, (Color.A < 1.0f));
     RenderItem->IndexCount = Sides*3;
     RenderItem->Texture = DefaultTexture;
     
@@ -85,8 +87,7 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=3
 }
 
 internal void
-RenderRectangle(v2 MinCorner, v2 MaxCorner, f32 Z, color Color, 
-                camera *Camera=0){
+RenderRectangle(v2 MinCorner, v2 MaxCorner, f32 Z, color Color, camera *Camera=0){
     if(Camera){
         MinCorner -= Camera->P;
         MaxCorner -= Camera->P;
@@ -99,7 +100,7 @@ RenderRectangle(v2 MinCorner, v2 MaxCorner, f32 Z, color Color,
         if(MaxCorner.Y < 0.0f) return;
     }
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z);
+    auto RenderItem = RenderCommands.PushRenderItem(Z, (Color.A < 1.0f));
     RenderItem->IndexCount = 6;
     RenderItem->Texture = DefaultTexture;
     
@@ -141,7 +142,7 @@ RenderTexture(v2 MinCorner, v2 MaxCorner, f32 Z,
         if(MaxCorner.Y < 0.0f) return;
     }
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z);
+    auto RenderItem = RenderCommands.PushRenderItem(Z, IsTranslucent);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
@@ -172,7 +173,7 @@ RenderTextureWithColor(v2 MinCorner, v2 MaxCorner, f32 Z,
         MaxCorner *= Camera->MetersToPixels;
     }
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z);
+    auto RenderItem = RenderCommands.PushRenderItem(Z, (IsTranslucent || (Color.A < 1.0f)));
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
@@ -200,8 +201,7 @@ RenderCenteredTexture(v2 Center, v2 Size, f32 Z,
 }
 
 internal void
-RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z, 
-             const char *String, camera *Camera=0){
+RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String, camera *Camera=0){
     if(Camera){
         X -= Camera->P.X;
         Y -= Camera->P.Y;
@@ -213,7 +213,7 @@ RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z,
     
     u32 Length = CStringLength(String);
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z);
+    auto RenderItem = RenderCommands.PushRenderItem(Z, true);
     RenderItem->IndexCount = 6*Length;
     RenderItem->Texture = Font->Texture;
     
@@ -254,7 +254,6 @@ RenderString(font *Font, color Color, v2 P, f32 Z,
     RenderString(Font, Color, P.X, P.Y, Z, String, Camera);
 }
 
-// TODO(Tyler): Figure out a better way to do the buffer
 internal inline void
 VRenderFormatString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *Format, 
                     va_list VarArgs){

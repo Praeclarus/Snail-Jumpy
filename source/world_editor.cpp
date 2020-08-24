@@ -849,7 +849,7 @@ world_editor::UpdateAndRender(){
                 v2 Min = v2{P.X, P.Y}-Size/2;
                 v2 Max = v2{P.X, P.Y}+Size/2;
                 
-                // TODO(Tyler): FIX, this doesn't work for all assets, so maybe use the state table?
+                // TODO(Tyler): FIX, this doesn't work for all assets, so use the state table?
                 if(Entity->Direction == Direction_Right){ 
                     RenderFrameOfSpriteSheet(&Camera, Info->Asset, 4, P, -0.5f);
                 }else if(Entity->Direction == Direction_Left){

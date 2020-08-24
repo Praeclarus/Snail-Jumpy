@@ -34,7 +34,8 @@ enum render_command_type {
     RenderCommand_None,
     RenderCommand_SetClip,
     RenderCommand_RenderItem,
-    RenderCommand_ClearScreen,
+    RenderCommand_TranslucentRenderItem,
+    RenderCommand_ClearScreen, // TODO(Tyler): Implement
 };
 
 struct render_command_header {
@@ -64,7 +65,7 @@ struct render_commands {
     v2 OutputSize;
     
     void NewFrame(memory_arena *Arena, color BackgroundColor_, v2 OutputSize_);
-    render_command_item *PushRenderItem(f32 ZLayer);
+    render_command_item *PushRenderItem(f32 ZLayer, b8 Translucent);
     void SetClip(v2 Min, v2 Max, camera *Camera=0);
     void ResetClip();
 };

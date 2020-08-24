@@ -165,6 +165,15 @@ DynamicArrayOrderedRemove(dynamic_array<T> *Array, u32 Index){
     Array->Count--;
 }
 
+template<typename T> internal void
+DynamicArrayInsertNewArrayItem(dynamic_array<T> *Array, u32 Index, T Item){
+    MoveMemory(&Array->Items[Index+1], 
+               &Array->Items[Index], 
+               (Array->Count-Index)*sizeof(T));
+    Array->Items[Index] = Item;
+    Array->Count++;
+}
+
 template<typename T> internal inline void
 DynamicArrayUnorderedRemove(dynamic_array<T> *Array, u32 Index){
     Array->Items[Index] = Array->Items[Array->Count-1];

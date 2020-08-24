@@ -156,7 +156,6 @@ GLCompileBaseShaderProgram(const char *VertexShaderSource,
         char Buffer[512];
         glGetShaderiv(VertexShader, GL_COMPILE_STATUS, &Status);
         if(!Status){
-            // TODO(Tyler): Logging
             glGetShaderInfoLog(VertexShader, 512, 0, Buffer);
             LogMessage(Buffer);
             Assert(0);
@@ -171,7 +170,6 @@ GLCompileBaseShaderProgram(const char *VertexShaderSource,
         char Buffer[1024];
         glGetShaderiv(FragmentShader, GL_COMPILE_STATUS, &Status);
         if(!Status){
-            // TODO(Tyler): Logging
             glGetShaderInfoLog(FragmentShader, 1024, 0, Buffer);
             LogMessage(Buffer);
             Assert(0);
@@ -187,7 +185,6 @@ GLCompileBaseShaderProgram(const char *VertexShaderSource,
         char Buffer[1024];
         glGetProgramiv(Result, GL_LINK_STATUS, &Status);
         if(!Status){
-            // TODO(Tyler): Logging
             glGetProgramInfoLog(Result, 1024, 0, Buffer);
             LogMessage(Buffer);
             Assert(0);
@@ -363,6 +360,9 @@ ExecuteCommands(render_commands *Commands){
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, Commands->Indices.Count*sizeof(u16), 
                  Commands->Indices.Items, GL_STREAM_DRAW);
     
+    dynamic_array<render_command_item *> TranslucentItems;
+    DynamicArrayInitialize(&TranslucentItems, 256, &TransientStorageArena);
+    
     u8 *CommandPtr = Commands->CommandBuffer.Items;
     for(u32 I = 0; I < Commands->CommandCount; I++){
         auto Header = (render_command_header *)CommandPtr;
@@ -386,16 +386,32 @@ ExecuteCommands(render_commands *Commands){
                                          Command->VertexOffset);
                 
             }break;
+            case RenderCommand_TranslucentRenderItem: {
+                auto Command = (render_command_item *)CommandPtr;
+                CommandPtr += sizeof(*Command);
+                s32 Index = -1;
+                for(u32 I = 0; I < TranslucentItems.Count; I++){
+                    auto Item = TranslucentItems[I];
+                    if(Command->ZLayer > Item->ZLayer){
+                        Index = I;
+                        break;
+                    }
+                }
+                if(Index < 0){
+                    DynamicArrayPushBack(&TranslucentItems, Command);
+                }else{
+                    DynamicArrayInsertNewArrayItem(&TranslucentItems, Index, Command);
+                }
+            }break;
             default: {
                 INVALID_CODE_PATH;
             }break;
         }
     }
     
-#if 0    
     f32 LastZ = 0.0f;
-    for(u32 Index = 0; Index < Commands->TranslucentItems.Count; Index++){
-        auto Item = &Commands->TranslucentItems[Index];
+    for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
+        auto Item = TranslucentItems[Index];
         if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
         LastZ = Item->ZLayer;
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
@@ -403,7 +419,6 @@ ExecuteCommands(render_commands *Commands){
                                  GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
                                  Item->VertexOffset);
     }
-#endif
     
     //~ Render to screen
 #if 1

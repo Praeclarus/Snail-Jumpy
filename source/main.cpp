@@ -16,7 +16,7 @@ global debug_config DebugConfig;
 global render_commands RenderCommands;
 
 // TODO(Tyler): Luckily we aren't doing anything too crazy with fonts like animating a 
-// change in size
+// change in size, because the current font system I don't would be too capable of that
 global font MainFont;
 global font TitleFont;
 global font DebugFont;
