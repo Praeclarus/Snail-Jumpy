@@ -23,7 +23,8 @@ enum editor_popup {
 
 enum world_editor_action {
     WorldEditorAction_None,
-    WorldEditorAction_BeginAddDrag,
+    
+    WorldEditorAction_BeginAddDrag = EditorAction_TOTAL,
     WorldEditorAction_AddDragging,
     WorldEditorAction_EndAddDrag,
     

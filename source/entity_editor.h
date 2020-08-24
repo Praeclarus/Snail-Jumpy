@@ -5,7 +5,7 @@
 enum entity_editor_action {
     EntityEditorAction_None,
     
-    EntityEditorAction_LeftClick,
+    EntityEditorAction_LeftClick = EditorAction_TOTAL,
     EntityEditorAction_LeftClickDragging,
     EntityEditorAction_EndLeftClick,
     

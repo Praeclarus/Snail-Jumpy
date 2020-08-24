@@ -24,29 +24,43 @@ struct camera {
 };
 
 //~
+typedef u32 render_texture_handle;
 struct vertex {
     f32 P[3];
     f32 Color[4];
     f32 TexCoord[2];
 };
 
-typedef u32 render_texture_handle;
-struct render_item {
+enum render_command_type {
+    RenderCommand_None,
+    RenderCommand_SetClip,
+    RenderCommand_RenderItem,
+    RenderCommand_DeferredRenderItem,
+};
+
+struct render_command_header {
+    render_command_type Type;
+};
+
+struct render_command_item : public render_command_header {
     u32 VertexOffset;
     u32 IndexOffset;
     u32 IndexCount;
     f32 ZLayer;
     render_texture_handle Texture;
-    v2 ClipMin;
-    v2 ClipMax;
+};
+
+struct render_command_set_clip : public render_command_header {
+    v2s Min;
+    v2s Max;
 };
 
 struct render_group {
     array<vertex> Vertices;
     array<u16> Indices;
     
-    array<render_item> OpaqueItems;
-    array<render_item> TranslucentItems;
+    u32 CommandCount;
+    memory_arena Memory;
     
     color BackgroundColor;
     v2 OutputSize;

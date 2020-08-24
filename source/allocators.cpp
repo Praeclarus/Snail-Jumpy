@@ -100,6 +100,7 @@ PushNewArena(memory_arena *Arena, umw Size){
     Arena->Used += Size;
     Result.Size = Size;
     Result.Used = 0;
+    ZeroMemory(Result.Memory, Result.Size);
     return(Result);
 }
 

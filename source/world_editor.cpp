@@ -795,16 +795,10 @@ world_editor::UpdateAndRender(){
     
     {
         v2 CameradP = V2(0, 0);
-        if(CameraUp && !CameraDown){
-            CameradP.Y = 1.0f;
-        }else if(CameraDown && !CameraUp){
-            CameradP.Y = -1.0f;
-        }
-        if(CameraRight && !CameraLeft){
-            CameradP.X = 1.0f;
-        }else if(CameraLeft && !CameraRight){
-            CameradP.X = -1.0f;
-        }
+        if(CameraRight && !CameraLeft) CameradP.X = 1.0f; 
+        else if(CameraLeft && !CameraRight) CameradP.X = -1.0f; 
+        if(CameraUp && !CameraDown) CameradP.Y = 1.0f;
+        else if(CameraDown && !CameraUp) CameradP.Y = -1.0f;
         
         CameradP *= WORLD_EDITOR_CAMERA_MOVE_SPEED;
         Camera.Move(CameradP, World);

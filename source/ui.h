@@ -125,6 +125,14 @@ struct ui_manager {
     window *BeginPopup(const char *Name, v2 StartTopLeft=v2{0, 0}, v2 MinSize=v2{0, 0});
 };
 
+//~ Actions
+
+enum editor_action {
+    EditorAction_None,
+    EditorAction_UI,
+    
+    EditorAction_TOTAL
+};
 
 
 #endif //SNAIL_JUMPY_UI_H

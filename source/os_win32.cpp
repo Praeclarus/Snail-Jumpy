@@ -221,7 +221,7 @@ internal inline v2
 Win32GetMouseP(){
     POINT MouseP;
     GetCursorPos(&MouseP);
-    ScreenToClient(MainWindow, &MouseP);
+    Assert(ScreenToClient(MainWindow, &MouseP));
     v2 Result = V2((f32)MouseP.x, (f32)(OSInput.WindowSize.Height-MouseP.y));
     return(Result);
 }

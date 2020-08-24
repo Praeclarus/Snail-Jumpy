@@ -363,28 +363,47 @@ RENDER_GROUP_TO_SCREEN(RenderGroupToScreen){
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderGroup->Indices.Count*sizeof(u16), 
                  RenderGroup->Indices.Items, GL_STREAM_DRAW);
     
-    for(u32 Index = 0; Index < RenderGroup->OpaqueItems.Count; Index++){
-        render_item *Item = &RenderGroup->OpaqueItems[Index];
-        glScissor((GLint)Item->ClipMin.X, (GLint)Item->ClipMin.Y, 
-                  (GLsizei)(Item->ClipMax.X-Item->ClipMin.X), (GLsizei)(Item->ClipMax.Y-Item->ClipMin.Y));
-        glBindTexture(GL_TEXTURE_2D, Item->Texture);
-        glDrawElementsBaseVertex(GL_TRIANGLES, Item->IndexCount, 
-                                 GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
-                                 Item->VertexOffset);
+    u8 *CommandPtr = RenderGroup->Memory.Memory;
+    for(u32 I = 0; I < RenderGroup->CommandCount; I++){
+        auto Header = (render_command_header *)CommandPtr;
+        switch(Header->Type){
+            case RenderCommand_None: {
+                CommandPtr += sizeof(render_command_header);
+            }break;
+            case RenderCommand_SetClip: {
+                auto Command = (render_command_set_clip *)CommandPtr;
+                CommandPtr += sizeof(*Command);
+                glScissor(Command->Min.X, Command->Min.Y, 
+                          Command->Min.X+(Command->Max.X-Command->Min.X),
+                          Command->Min.Y+(Command->Max.Y-Command->Min.Y));
+            }break;
+            case RenderCommand_RenderItem: {
+                auto Command = (render_command_item *)CommandPtr;
+                CommandPtr += sizeof(*Command);
+                glBindTexture(GL_TEXTURE_2D, Command->Texture);
+                glDrawElementsBaseVertex(GL_TRIANGLES, Command->IndexCount, 
+                                         GL_UNSIGNED_SHORT, (void*)(Command->IndexOffset*sizeof(u16)), 
+                                         Command->VertexOffset);
+                
+            }break;
+            default: {
+                INVALID_CODE_PATH;
+            }break;
+        }
     }
     
+#if 0    
     f32 LastZ = 0.0f;
     for(u32 Index = 0; Index < RenderGroup->TranslucentItems.Count; Index++){
-        render_item *Item = &RenderGroup->TranslucentItems[Index];
+        auto Item = &RenderGroup->TranslucentItems[Index];
         if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
         LastZ = Item->ZLayer;
-        glScissor((GLint)Item->ClipMin.X, (GLint)Item->ClipMin.Y, 
-                  (GLsizei)(Item->ClipMax.X-Item->ClipMin.X), (GLsizei)(Item->ClipMax.Y-Item->ClipMin.Y));
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
         glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
                                  GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
                                  Item->VertexOffset);
     }
+#endif
     
     //~ Render to screen
 #if 1

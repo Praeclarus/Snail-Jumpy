@@ -4,9 +4,8 @@ global render_texture_handle DefaultTexture;
 internal inline void
 InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCount,
                       color BackgroundColor, v2 OutputSize){
-    RenderGroup->OpaqueItems = CreateNewArray<render_item>(Arena, MaxCount);
-    RenderGroup->TranslucentItems = CreateNewArray<render_item>(Arena, MaxCount);
-    
+    *RenderGroup = {};
+    RenderGroup->Memory = PushNewArena(Arena, MaxCount*256);
     RenderGroup->Vertices = CreateNewArray<vertex>(Arena, MaxCount*4);
     
     RenderGroup->Indices = CreateNewArray<u16>(Arena, MaxCount*6);
@@ -14,9 +13,10 @@ InitializeRenderGroup(memory_arena *Arena, render_group *RenderGroup, u32 MaxCou
     RenderGroup->OutputSize = OutputSize;
 }
 
-internal render_item *
-AddRenderItem(render_group *RenderGroup, b8 IsTranslucent, f32 ZLayer){
-    render_item *Result = 0;
+internal render_command_item *
+PushRenderItem(render_group *RenderGroup, b8 Defer, f32 ZLayer){
+    render_command_item *Result = 0;
+#if 0
     if(IsTranslucent){
         s32 Index = -1;
         for(u32 I = 0; I < RenderGroup->TranslucentItems.Count; I++){
@@ -32,14 +32,38 @@ AddRenderItem(render_group *RenderGroup, b8 IsTranslucent, f32 ZLayer){
             Result = InsertNewArrayItem(&RenderGroup->TranslucentItems, Index);
         }
     }else{
-        Result = PushNewArrayItem(&RenderGroup->OpaqueItems);
     }
+#endif
+    
+    RenderGroup->CommandCount++;
+    Result = PushStruct(&RenderGroup->Memory, render_command_item);
+    Result->Type = RenderCommand_RenderItem;
     Result->VertexOffset = RenderGroup->Vertices.Count;
     Result->IndexOffset = RenderGroup->Indices.Count;
     Result->ZLayer = ZLayer;
-    Result->ClipMin = {};
-    Result->ClipMax = RenderGroup->OutputSize;
     return(Result);
+}
+
+internal void
+SetClip(render_group *RenderGroup, v2 Min, v2 Max, camera *Camera=0){
+    RenderGroup->CommandCount++;
+    auto Command = PushStruct(&RenderGroup->Memory, render_command_set_clip);
+    Command->Type = RenderCommand_SetClip;
+    if(Camera){
+        Min *= Camera->MetersToPixels;
+        Max *= Camera->MetersToPixels;
+    }
+    Command->Min = V2S((s32)Min.X, (s32)Min.Y);
+    Command->Max = V2S((s32)Max.X, (s32)Max.Y);
+}
+
+internal void
+ResetClip(render_group *RenderGroup){
+    RenderGroup->CommandCount++;
+    auto Command = PushStruct(&RenderGroup->Memory, render_command_set_clip);
+    Command->Type = RenderCommand_SetClip;
+    Command->Min = V2S(0, 0);
+    Command->Max = V2S((s32)RenderGroup->OutputSize.X, (s32)RenderGroup->OutputSize.Y);
 }
 
 internal void
@@ -59,7 +83,7 @@ RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color,
     f32 T = 0.0f;
     f32 Step = 1.0f/(f32)Sides;
     
-    render_item *RenderItem = AddRenderItem(RenderGroup, ((0 < Color.A) && (Color.A < 1)), Z);
+    auto RenderItem = PushRenderItem(RenderGroup, ((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = Sides*3;
     RenderItem->Texture = DefaultTexture;
     
@@ -85,7 +109,7 @@ RenderCircle(render_group *RenderGroup, v2 P, f32 Z, f32 Radius, color Color,
 
 internal void
 RenderRectangle(render_group *RenderGroup,v2 MinCorner, v2 MaxCorner, f32 Z, color Color, 
-                camera *Camera=0, v2 ClipMin={}, v2 ClipMax={}){
+                camera *Camera=0){
     if(Camera){
         MinCorner -= Camera->P;
         MaxCorner -= Camera->P;
@@ -98,14 +122,9 @@ RenderRectangle(render_group *RenderGroup,v2 MinCorner, v2 MaxCorner, f32 Z, col
         if(MaxCorner.Y < 0.0f) return;
     }
     
-    render_item *RenderItem = AddRenderItem(RenderGroup, ((0 < Color.A) && (Color.A < 1)), Z);
+    auto RenderItem = PushRenderItem(RenderGroup, ((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = DefaultTexture;
-    
-    if((ClipMax.X < 0) || (ClipMax.Y < 0)){ 
-        RenderItem->ClipMin = ClipMin;
-        RenderItem->ClipMax = ClipMax; 
-    }
     
     vertex *Vertices = PushNArrayItems(&RenderGroup->Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
@@ -124,14 +143,14 @@ RenderRectangle(render_group *RenderGroup,v2 MinCorner, v2 MaxCorner, f32 Z, col
 
 internal void
 RenderRectangleBySize(render_group *RenderGroup, v2 Min, v2 Size, f32 Z, color Color,
-                      camera *Camera=0, v2 ClipMin={}, v2 ClipMax={}){
-    RenderRectangle(RenderGroup, Min, Min+Size, Z, Color, Camera, ClipMin, ClipMax);
+                      camera *Camera=0){
+    RenderRectangle(RenderGroup, Min, Min+Size, Z, Color, Camera);
 }
 
 internal void
 RenderTexture(render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, f32 Z, 
               render_texture_handle Texture, v2 MinTexCoord=V2(0,0), v2 MaxTexCoord=V2(1,1), 
-              b8 IsTranslucent=false, camera *Camera=0, v2 ClipMin={}, v2 ClipMax={}){
+              b8 IsTranslucent=false, camera *Camera=0){
     Assert(Texture);
     if(Camera){
         MinCorner -= Camera->P;
@@ -145,14 +164,9 @@ RenderTexture(render_group *RenderGroup, v2 MinCorner, v2 MaxCorner, f32 Z,
         if(MaxCorner.Y < 0.0f) return;
     }
     
-    render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent, Z);
+    auto RenderItem = PushRenderItem(RenderGroup, IsTranslucent, Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
-    
-    if((ClipMax.X < 0) || (ClipMax.Y < 0)){ 
-        RenderItem->ClipMin = ClipMin;
-        RenderItem->ClipMax = ClipMax; 
-    }
     
     vertex *Vertices = PushNArrayItems(&RenderGroup->Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
@@ -182,7 +196,7 @@ RenderTextureWithColor(render_group *RenderGroup,
         MaxCorner *= Camera->MetersToPixels;
     }
     
-    render_item *RenderItem = AddRenderItem(RenderGroup, IsTranslucent || ((0 < Color.A) && (Color.A < 1)), Z);
+    auto RenderItem = PushRenderItem(RenderGroup, IsTranslucent || ((0 < Color.A) && (Color.A < 1)), Z);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
@@ -204,10 +218,9 @@ RenderTextureWithColor(render_group *RenderGroup,
 internal inline void
 RenderCenteredTexture(render_group *RenderGroup, v2 Center, v2 Size, f32 Z, 
                       render_texture_handle Texture, v2 MinTexCoord=V2(0,0), 
-                      v2 MaxTexCoord=V2(1,1), b8 IsTranslucent=false, camera *Camera=0, 
-                      v2 ClipMin={}, v2 ClipMax={}){
+                      v2 MaxTexCoord=V2(1,1), b8 IsTranslucent=false, camera *Camera=0){
     RenderTexture(RenderGroup, Center-Size/2, Center+Size/2, Z, Texture, MinTexCoord,
-                  MaxTexCoord, IsTranslucent, Camera, ClipMin, ClipMax);
+                  MaxTexCoord, IsTranslucent, Camera);
 }
 
 internal void
@@ -224,7 +237,7 @@ RenderString(render_group *RenderGroup, font *Font, color Color, f32 X, f32 Y, f
     
     u32 Length = CStringLength(String);
     
-    render_item *RenderItem = AddRenderItem(RenderGroup, true, Z);
+    auto RenderItem = PushRenderItem(RenderGroup, true, Z);
     RenderItem->IndexCount = 6*Length;
     RenderItem->Texture = Font->Texture;
     
