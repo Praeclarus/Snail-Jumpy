@@ -1,12 +1,11 @@
 global render_texture_handle DefaultTexture;
 
 void
-render_commands::NewFrame(memory_arena *Arena, color BackgroundColor_, v2 OutputSize_){
+render_commands::NewFrame(memory_arena *Arena, v2 OutputSize_){
     local_constant u32 INITIAL_SIZE = Kilobytes(3);
     DynamicArrayInitialize(&CommandBuffer, INITIAL_SIZE, Arena);
     DynamicArrayInitialize(&Vertices, INITIAL_SIZE, Arena);
     DynamicArrayInitialize(&Indices, INITIAL_SIZE, Arena);
-    BackgroundColor = BackgroundColor_;
     OutputSize = OutputSize_;
     CommandCount = 0;
 }
@@ -44,6 +43,14 @@ render_commands::ResetClip(){
     Command->Type = RenderCommand_SetClip;
     Command->Min = V2S(0, 0);
     Command->Max = V2S((s32)OutputSize.X, (s32)OutputSize.Y);
+}
+
+void 
+render_commands::ClearScreen(color Color){
+    CommandCount++;
+    auto Command = PushStruct(&CommandBuffer, render_command_clear_screen);
+    Command->Type = RenderCommand_ClearScreen;
+    Command->Color = Color;
 }
 
 internal void

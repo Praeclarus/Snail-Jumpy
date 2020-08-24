@@ -785,7 +785,8 @@ world_editor::DoUI(){
 
 void
 world_editor::UpdateAndRender(){
-    RenderCommands.NewFrame(&TransientStorageArena, Color(0.4f, 0.5f, 0.45f, 1.0f), OSInput.WindowSize);
+    RenderCommands.NewFrame(&TransientStorageArena, OSInput.WindowSize);
+    RenderCommands.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     Camera.Update();
     
     if(Popup != EditorPopup_InfoSelector) ProcessInput();

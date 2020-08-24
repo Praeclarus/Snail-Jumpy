@@ -446,7 +446,8 @@ entity_editor::UpdateAndRender(){
     EntityP = {5, 5};
     FloorY  = 5;
     
-    RenderCommands.NewFrame(&TransientStorageArena, Color(0.4f, 0.5f, 0.45f, 1.0f), OSInput.WindowSize);
+    RenderCommands.NewFrame(&TransientStorageArena, OSInput.WindowSize);
+    RenderCommands.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     Camera.Update();
     
     ProcessInput();

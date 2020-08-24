@@ -332,12 +332,6 @@ ExecuteCommands(render_commands *Commands){
     glScissor(0, 0, WindowWidth, WindowHeight);
     glViewport(0, 0, WindowWidth, WindowHeight);
     
-    glClearColor(Commands->BackgroundColor.R,
-                 Commands->BackgroundColor.G,
-                 Commands->BackgroundColor.B,
-                 Commands->BackgroundColor.A);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
     //~ Render scene normally to framebuffer
     f32 A = 2.0f/((f32)Commands->OutputSize.Width);
     f32 B = 2.0f/((f32)Commands->OutputSize.Height);
@@ -402,6 +396,16 @@ ExecuteCommands(render_commands *Commands){
                 }else{
                     DynamicArrayInsertNewArrayItem(&TranslucentItems, Index, Command);
                 }
+            }break;
+            case RenderCommand_ClearScreen: {
+                auto Command = (render_command_clear_screen *)CommandPtr;
+                CommandPtr += sizeof(*Command);
+                glClearColor(Command->Color.R,
+                             Command->Color.G,
+                             Command->Color.B,
+                             Command->Color.A);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                
             }break;
             default: {
                 INVALID_CODE_PATH;

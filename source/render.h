@@ -55,19 +55,23 @@ struct render_command_set_clip : public render_command_header {
     v2s Max;
 };
 
+struct render_command_clear_screen : public render_command_header {
+    color Color;
+};
+
 struct render_commands {
     dynamic_array<vertex> Vertices;
     dynamic_array<u16>    Indices;
     dynamic_array<u8>     CommandBuffer; // This is used as a growable memory arena
     u32 CommandCount;
     
-    color BackgroundColor;
     v2 OutputSize;
     
-    void NewFrame(memory_arena *Arena, color BackgroundColor_, v2 OutputSize_);
+    void NewFrame(memory_arena *Arena, v2 OutputSize_);
     render_command_item *PushRenderItem(f32 ZLayer, b8 Translucent);
     void SetClip(v2 Min, v2 Max, camera *Camera=0);
     void ResetClip();
+    void ClearScreen(color Color);
 };
 
 internal b8 InitializeRenderer();
