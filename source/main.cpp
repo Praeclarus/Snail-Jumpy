@@ -30,7 +30,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_WorldEditor;
+global game_mode GameMode = GameMode_MainGame;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -223,9 +223,11 @@ ProcessDefaultEvent(os_event *Event){
                 case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift; break;
                 case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Ctrl;  break;
                 case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
+#ifdef SNAIL_JUMPY_DEBUG_BUILD
                 case KeyCode_F1:    ToggleOverlay(DebugOverlay_Profiler); break;
                 case KeyCode_F2:    ToggleOverlay(DebugOverlay_Miscellaneous); break;
                 case KeyCode_F3:    ToggleOverlay(DebugOverlay_Boundaries); break;
+#endif
             }
         }break;
         case OSEventKind_KeyUp: {

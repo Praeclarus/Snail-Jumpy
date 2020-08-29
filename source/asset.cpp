@@ -1,5 +1,3 @@
-// TODO(Tyler): ERROR HANDLING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//              ERROR HANDLING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 // TODO(Tyler): I have no clue if this is actually a good idea to do it this way
 global hash_table<const char *, asset_command> CommandTable;
@@ -14,8 +12,17 @@ global asset DummyArtAsset;
 
 //~ Asset loading
 
-internal void
+internal b8
 ProcessStates(stream *Stream, asset *NewAsset){
+    if(!NewAsset){
+        LogMessage("ProcessStates: can't process states because there isn't an asset");
+        return(false);
+    }
+    if(NewAsset->Type != AssetType_SpriteSheet){
+        LogMessage("ProcessStates: can only process states for spritesheet assets");
+        return(false);
+    }
+    
     while(true){
         ConsumeWhiteSpace(Stream);
         u8 *NextBytePtr = PeekBytes(Stream, 1);
@@ -26,7 +33,10 @@ ProcessStates(stream *Stream, asset *NewAsset){
         char *StateName = ProcessString(Stream);
         
         entity_state State = FindInHashTable(&StateTable, (const char *)StateName);
-        Assert(State != State_None);
+        if(State == State_None){
+            LogMessage("ProcessSpriteSheet: can't process state %s", StateName);
+            return(false);
+        }
         
         while(true){
             ConsumeWhiteSpace(Stream);
@@ -45,14 +55,15 @@ ProcessStates(stream *Stream, asset *NewAsset){
             }
         }
     }
+    
+    return(true);
 }
 
-internal void
+internal b8
 ProcessSpriteSheet(stream *Stream, asset *NewAsset){
     s32 Components = 0;
     u32 Size = 0;
     
-    b8 DoProcessStates = false;
     while(true){
         ConsumeWhiteSpace(Stream);
         u8 *NextBytePtr = PeekBytes(Stream, 1);
@@ -62,7 +73,11 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
         const char *SpecName = ProcessString(Stream);
         
         asset_spec Spec = FindInHashTable(&AssetSpecTable, SpecName);
-        Assert(Spec != AssetSpec_None);
+        if(Spec == AssetSpec_None){
+            LogMessage("ProcessSpriteSheet: can't process asset attribute %s", SpecName);
+            return(false);
+        }
+        
         switch(Spec){
             case AssetSpec_Path: {
                 ConsumeWhiteSpace(Stream);
@@ -71,7 +86,7 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
                 NewAsset->IsTranslucent = Image->IsTranslucent;
                 NewAsset->SizeInPixels.Width = Image->Width;
                 NewAsset->SizeInPixels.Height = Image->Height;
-                NewAsset->SpriteSheet = Image->Texture;
+                NewAsset->Texture = Image->Texture;
             }break;
             case AssetSpec_Size: {
                 ConsumeWhiteSpace(Stream);
@@ -109,16 +124,27 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
             case AssetSpec_OverrideFPS: {
                 ConsumeWhiteSpace(Stream);
                 u32 OverrideIndex = ProcessNumber(Stream) - 1;
-                Assert(OverrideIndex < ArrayCount(asset::FPSArray));
+                if(OverrideIndex >= ArrayCount(asset::FPSArray)){
+                    LogMessage("ProcessSpriteSheet: override_fps index is >= %llu", ArrayCount(asset::FPSArray));
+                    return(false);
+                }
                 ConsumeWhiteSpace(Stream);
                 u32 OverrideFPS = ProcessNumber(Stream);
                 NewAsset->FPSArray[OverrideIndex] = OverrideFPS;
             }break;
-            default: Assert(0); break;
+            default: {
+                Assert(Spec >= AssetSpec_TOTAL); // This is a bug if this is the case
+                LogMessage("ProcessSpriteSheet: invalid asset spec %s",ASSET_SPEC_NAME_TABLE[Spec]);
+                
+                return(false);
+            }
         }
     }
     
-    Assert(Size != 0);
+    if(Size == 0){
+        LogMessage("ProcessSpriteSheet: the size cannot be 0!");
+        return(false);
+    }
     f32 MetersToPixels = 60.0f / 0.5f; // TODO(Tyler): GET THIS FROM THE Commands
     f32 WidthF32 = (f32)NewAsset->SizeInPixels.Width;
     f32 HeightF32 = (f32)NewAsset->SizeInPixels.Height;
@@ -129,12 +155,10 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
     NewAsset->SizeInMeters.Y = SizeF32 / MetersToPixels;
     NewAsset->Scale = 4;
     
-    if(DoProcessStates){
-        ProcessStates(Stream, NewAsset);
-    }
+    return(true);
 }
 
-internal void
+internal b8
 ProcessArt(stream *Stream, asset *Asset){
     while(true){
         ConsumeWhiteSpace(Stream);
@@ -146,6 +170,7 @@ ProcessArt(stream *Stream, asset *Asset){
         
         asset_spec Spec = FindInHashTable(&AssetSpecTable, SpecName);
         Assert(Spec != AssetSpec_None);
+        
         switch(Spec){
             case AssetSpec_Path: {
                 ConsumeWhiteSpace(Stream);
@@ -158,17 +183,21 @@ ProcessArt(stream *Stream, asset *Asset){
                 Asset->Scale = 4;
             }break;
             default: {
-                Assert(0);
+                return(false);
             }break;
         }
     }
+    return(true);
 }
 
-internal void
+internal b8
 ProcessCommand(stream *Stream){
     const char *CommandName = ProcessString(Stream);
     asset_command Command = FindInHashTable(&CommandTable, CommandName);
-    Assert(Command != AssetCommand_None);
+    if(Command == AssetCommand_None){
+        LogMessage("ProcessCommand: %s isn't a valid command!", CommandName);
+        return(false);
+    }
     
     switch(Command){
         case AssetCommand_BeginSpriteSheet: {
@@ -180,7 +209,7 @@ ProcessCommand(stream *Stream){
             }
             
             CurrentAsset->Type = AssetType_SpriteSheet;
-            ProcessSpriteSheet(Stream, CurrentAsset);
+            if(!ProcessSpriteSheet(Stream, CurrentAsset)) return(false);
         }break;
         case AssetCommand_BeginArt: {
             const char *AssetName = ProcessString(Stream);
@@ -191,101 +220,101 @@ ProcessCommand(stream *Stream){
             }
             
             CurrentAsset->Type = AssetType_Art;
-            ProcessArt(Stream, CurrentAsset);
+            if(!ProcessArt(Stream, CurrentAsset)) return(false); 
         }break;
         case AssetCommand_BeginStates: {
-            Assert(CurrentAsset);
-            ProcessStates(Stream, CurrentAsset);
+            if(!ProcessStates(Stream, CurrentAsset)) return(false); 
         }break;
-        default: Assert(0); break;
+        default: return(false);
     }
+    
+    return(true);
 }
 
 internal void
 InitializeAssetLoader(memory_arena *Arena){
-    {
-        CommandTable = PushHashTable<const char *, asset_command>(Arena, AssetCommand_TOTAL);
-        InsertIntoHashTable(&CommandTable, "spritesheet", AssetCommand_BeginSpriteSheet);
-        InsertIntoHashTable(&CommandTable, "art", AssetCommand_BeginArt);
-        InsertIntoHashTable(&CommandTable, "states", AssetCommand_BeginStates);
+    // TODO(Tyler): Maybe hash tables aren't a good way to do this, but they work for now
+    CommandTable = PushHashTable<const char *, asset_command>(Arena, AssetCommand_TOTAL);
+    for(u32 I = 0; I < AssetCommand_TOTAL; I++){
+        InsertIntoHashTable(&CommandTable, ASSET_COMMAND_NAME_TABLE[I], (asset_command)I);
     }
     
-    {
-        AssetSpecTable = PushHashTable<const char *, asset_spec>(Arena, AssetSpec_TOTAL);
-        InsertIntoHashTable(&AssetSpecTable, "path", AssetSpec_Path);
-        InsertIntoHashTable(&AssetSpecTable, "size", AssetSpec_Size);
-        InsertIntoHashTable(&AssetSpecTable, "frames_per_row", AssetSpec_FramesPerRow);
-        InsertIntoHashTable(&AssetSpecTable, "frame_counts", AssetSpec_FrameCounts);
-        InsertIntoHashTable(&AssetSpecTable, "base_fps", AssetSpec_BaseFPS);
-        InsertIntoHashTable(&AssetSpecTable, "override_fps", AssetSpec_OverrideFPS);
+    AssetSpecTable = PushHashTable<const char *, asset_spec>(Arena, AssetSpec_TOTAL);
+    for(u32 I = 0; I < AssetSpec_TOTAL; I++){
+        InsertIntoHashTable(&AssetSpecTable, ASSET_SPEC_NAME_TABLE[I], (asset_spec)I);
     }
     
-    {
-        StateTable = PushHashTable<const char *, entity_state>(Arena, State_TOTAL);
-        InsertIntoHashTable(&StateTable, "state_idle", State_Idle);
-        InsertIntoHashTable(&StateTable, "state_moving", State_Moving);
-        InsertIntoHashTable(&StateTable, "state_jumping", State_Jumping);
-        InsertIntoHashTable(&StateTable, "state_falling", State_Falling);
-        InsertIntoHashTable(&StateTable, "state_turning", State_Turning);
-        InsertIntoHashTable(&StateTable, "state_retreating", State_Retreating);
-        InsertIntoHashTable(&StateTable, "state_stunned", State_Stunned);
-        InsertIntoHashTable(&StateTable, "state_returning", State_Returning);
+    StateTable = PushHashTable<const char *, entity_state>(Arena, State_TOTAL);
+    for(u32 I = 0; I < State_TOTAL; I++){
+        InsertIntoHashTable(&StateTable, ASSET_STATE_NAME_TABLE[I], (entity_state)I);
     }
     
-    {
-        DirectionTable = PushHashTable<const char *, direction>(Arena, Direction_TOTAL+8);
-        InsertIntoHashTable(&DirectionTable, "north", Direction_North);
-        InsertIntoHashTable(&DirectionTable, "northeast", Direction_Northeast);
-        InsertIntoHashTable(&DirectionTable, "east", Direction_East);
-        InsertIntoHashTable(&DirectionTable, "southeast", Direction_Southeast);
-        InsertIntoHashTable(&DirectionTable, "south", Direction_South);
-        InsertIntoHashTable(&DirectionTable, "southwest", Direction_Southwest);
-        InsertIntoHashTable(&DirectionTable, "west", Direction_West);
-        InsertIntoHashTable(&DirectionTable, "northwest", Direction_Northwest);
-        InsertIntoHashTable(&DirectionTable, "up", Direction_Up);
-        InsertIntoHashTable(&DirectionTable, "down", Direction_Down);
-        InsertIntoHashTable(&DirectionTable, "left", Direction_Left);
-        InsertIntoHashTable(&DirectionTable, "right", Direction_Right);
-    }
+    DirectionTable = PushHashTable<const char *, direction>(Arena, Direction_TOTAL+8);
+    InsertIntoHashTable(&DirectionTable, "north", Direction_North);
+    InsertIntoHashTable(&DirectionTable, "northeast", Direction_Northeast);
+    InsertIntoHashTable(&DirectionTable, "east", Direction_East);
+    InsertIntoHashTable(&DirectionTable, "southeast", Direction_Southeast);
+    InsertIntoHashTable(&DirectionTable, "south", Direction_South);
+    InsertIntoHashTable(&DirectionTable, "southwest", Direction_Southwest);
+    InsertIntoHashTable(&DirectionTable, "west", Direction_West);
+    InsertIntoHashTable(&DirectionTable, "northwest", Direction_Northwest);
+    InsertIntoHashTable(&DirectionTable, "up", Direction_Up);
+    InsertIntoHashTable(&DirectionTable, "down", Direction_Down);
+    InsertIntoHashTable(&DirectionTable, "left", Direction_Left);
+    InsertIntoHashTable(&DirectionTable, "right", Direction_Right);
 }
 
 internal void
 LoadAssetFile(const char *Path){
     TIMED_FUNCTION();
+    b8 HitError = false;
     
-    os_file *File = OpenFile(Path, OpenFile_Read);
-    u64 NewFileWriteTime = GetLastFileWriteTime(File);
-    
-    if(LastAssetFileWriteTime < NewFileWriteTime){
-        CloseFile(File);
-        entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-        stream Stream = CreateReadStream(File.Data, File.Size);
+    do{
+        os_file *File = OpenFile(Path, OpenFile_Read);
+        u64 NewFileWriteTime = GetLastFileWriteTime(File);
         
-        while(true){
-            u8 *NextBytePtr = PeekBytes(&Stream, 1);
-            if(!NextBytePtr) break;
-            u8 NextByte = *NextBytePtr;
-            if((('a' <= NextByte) && (NextByte <= 'z')) ||
-               (('A' <= NextByte) && (NextByte <= 'Z'))){
-                Assert(0);
-            }else if(('0' <= NextByte) && (NextByte <= '9')){
-                Assert(0);
-            }else if(NextByte == ':'){
-                ConsumeBytes(&Stream, 1);
-                ConsumeWhiteSpace(&Stream);
-                ProcessCommand(&Stream);
-            }else if((NextByte == ' ') ||
-                     (NextByte == '\t') ||
-                     (NextByte == '\n') ||
-                     (NextByte == '\r')){
-                ConsumeWhiteSpace(&Stream);
+        if(LastAssetFileWriteTime < NewFileWriteTime){
+            HitError = false;
+            
+            CloseFile(File);
+            entire_file File = ReadEntireFile(&TransientStorageArena, Path);
+            stream Stream = CreateReadStream(File.Data, File.Size);
+            
+            while(true){
+                u8 *NextBytePtr = PeekBytes(&Stream, 1);
+                if(!NextBytePtr) break;
+                u8 NextByte = *NextBytePtr;
+                if((('a' <= NextByte) && (NextByte <= 'z')) ||
+                   (('A' <= NextByte) && (NextByte <= 'Z'))){
+                    const char *Identfier = ProcessString(&Stream);
+                    LogMessage("LoadAssetFile: Unexpected identifier: '%s'!", Identfier);
+                    HitError = true;
+                }else if(('0' <= NextByte) && (NextByte <= '9')){
+                    u32 Number = ProcessNumber(&Stream);
+                    LogMessage("LoadAssetFile: Unexpected number: '%u'!", Number);
+                    HitError = true;
+                }else if(NextByte == ':'){
+                    ConsumeBytes(&Stream, 1);
+                    ConsumeWhiteSpace(&Stream);
+                    if(!ProcessCommand(&Stream)){ 
+                        HitError = true; 
+                        break;
+                    }
+                }else if((NextByte == ' ') ||
+                         (NextByte == '\t') ||
+                         (NextByte == '\n') ||
+                         (NextByte == '\r')){
+                    ConsumeWhiteSpace(&Stream);
+                }
             }
+        }else{
+            CloseFile(File);
         }
-    }else{
-        CloseFile(File);
-    }
-    
-    LastAssetFileWriteTime = NewFileWriteTime;
+        
+        if(HitError) OSSleep(10); // To prevent consuming the CPU
+        LastAssetFileWriteTime = NewFileWriteTime;
+    }while(HitError); 
+    // This loop does result in a missed FPS but for right now it works just fine.
 }
 
 //~ 
@@ -304,18 +333,18 @@ InitializeAssetSystem(memory_arena *Arena){
         }
     }
     
-    DummySpriteSheetAsset.Scale = 4.0f;
+    DummySpriteSheetAsset.Scale = 1.0f;
     DummySpriteSheetAsset.SizeInPixels = V2S(128, 128);
-    DummySpriteSheetAsset.SizeInMeters = 2.0f*TILE_SIZE;
+    DummySpriteSheetAsset.SizeInMeters = TILE_SIZE;
     DummySpriteSheetAsset.SizeInTexCoords = V2(1.0f, 1.0f);
-    DummySpriteSheetAsset.SpriteSheet = DefaultTexture;
+    DummySpriteSheetAsset.Texture = DefaultTexture;
     DummySpriteSheetAsset.FramesPerRow = 1;
     DummySpriteSheetAsset.FrameCounts[0] = 1;
     DummySpriteSheetAsset.FPSArray[0]    = 1;
     
     DummyArtAsset.Type = AssetType_Art;
     DummyArtAsset.SizeInPixels = V2S(128, 128);
-    DummyArtAsset.Scale = 4.0f;
+    DummyArtAsset.Scale = 1.0f;
     DummyArtAsset.Texture = DefaultTexture;
 }
 
@@ -389,7 +418,7 @@ RenderFrameOfSpriteSheet(camera *Camera, const char *AssetName,
     v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
     
     RenderTexture(Center-0.5f*Asset->Scale*Asset->SizeInMeters, 
-                  Center+0.5f*Asset->Scale*Asset->SizeInMeters, Z, Asset->SpriteSheet, 
+                  Center+0.5f*Asset->Scale*Asset->SizeInMeters, Z, Asset->Texture, 
                   MinTexCoord, MaxTexCoord, Asset->IsTranslucent, Camera);
 }
 
@@ -454,7 +483,7 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
         v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
         
         RenderTexture(P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
-                      Asset->SpriteSheet, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
+                      Asset->Texture, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
                       Camera);
         
 #ifdef SNAIL_JUMPY_DEBUG_BUILD
@@ -463,6 +492,6 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
             collision_boundary *Boundary = &Entity->Boundaries[I]; 
             RenderBoundary(Camera, Boundary, Entity->ZLayer-0.1f);
         }
-    }
 #endif
+    }
 }

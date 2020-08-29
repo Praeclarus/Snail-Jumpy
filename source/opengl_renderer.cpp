@@ -6,7 +6,7 @@ global basic_program DefaultShaderProgram;
 global GLuint DefaultVertexArray;
 global GLuint DefaultVertexBuffer;
 
-global basic_program ScreenShaderProgram;
+global GLuint ScreenShaderProgram;
 global GLuint ScreenVertexArray;
 global GLuint ScreenFramebuffer;
 global GLuint ScreenTexture;
@@ -50,9 +50,9 @@ global_constant char *DefaultFragmentShader = BEGIN_STRING
      vec4 Color = texture(Texture, FragmentUV)*FragmentColor;
      if(Color.a == 0.0){
          discard;
+     }else{
+         FragColor = Color;
      }
-     
-     FragColor = Color;
  }
  );
 
@@ -108,7 +108,7 @@ global_constant char *ScreenFragmentShader = BEGIN_STRING
           
           vec2 TextureSize = textureSize(Texture, 0).xy;
           vec2 UV = vec2(X, Y) / TextureSize;
-          */
+         */
      
      vec4 Color = texture(Texture, FragmentUV);
      if(Color.a == 0.0){
@@ -134,7 +134,7 @@ global_constant char *ScreenFragmentShader = BEGIN_STRING
           vec3 HDRColor = Vec4HDRColor.rgb;
           vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
           //FragColor = vec4(MappedColor, Vec4HDRColor.a);
-          */
+         */
      
      FragColor = Color;
  }
@@ -216,10 +216,10 @@ InitializeRenderer(){
     //~ 
     DefaultShaderProgram =
         GLCompileDefaultShaderProgram(DefaultVertexShader, DefaultFragmentShader);
-    {
-        ScreenShaderProgram =
-            GLCompileDefaultShaderProgram(ScreenVertexShader, ScreenFragmentShader);
-    }
+    
+    ScreenShaderProgram =
+        GLCompileBaseShaderProgram(ScreenVertexShader, ScreenFragmentShader);
+    
     
     //~ Setup default objects
     {
@@ -241,8 +241,6 @@ InitializeRenderer(){
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, TexCoord));
         glEnableVertexAttribArray(2);
-        
-        //glBindBuffer(GL_ARRAY_BUFFER, 0);
         
         glBindVertexArray(0);
     }
@@ -287,11 +285,9 @@ InitializeRenderer(){
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
         glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WindowWidth, WindowHeight, 0, GL_RGB, 
-                     GL_UNSIGNED_BYTE, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WindowWidth, WindowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
-                               ScreenTexture, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ScreenTexture, 0);
         
         GLuint Renderbuffer;
         glGenRenderbuffers(1, &Renderbuffer);
@@ -400,10 +396,14 @@ ExecuteCommands(render_commands *Commands){
             case RenderCommand_ClearScreen: {
                 auto Command = (render_command_clear_screen *)CommandPtr;
                 CommandPtr += sizeof(*Command);
+                
+#if 1
                 glClearColor(Command->Color.R,
                              Command->Color.G,
                              Command->Color.B,
                              Command->Color.A);
+#endif
+                //glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 
             }break;
@@ -431,10 +431,10 @@ ExecuteCommands(render_commands *Commands){
     glClearColor(0.2f, 0.0f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     
-    glUseProgram(ScreenShaderProgram.Id);
-    glUniformMatrix4fv(ScreenShaderProgram.ProjectionLocation, 1, GL_FALSE, Projection);
+    glUseProgram(ScreenShaderProgram);
     glBindVertexArray(ScreenVertexArray);
     glBindTexture(GL_TEXTURE_2D, ScreenTexture);
+    
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 #endif
     

@@ -138,6 +138,9 @@ PollEvents(os_event *Event);
 internal void
 WriteToDebugConsole(os_file *Output, const char *Format, ...);
 
+internal void
+OSSleep(u32 Milliseconds);
+
 //~ TODO(Tyler): Find a better home for these  procedures and variables
 global os_input OSInput;
 global os_file *ConsoleOutFile;

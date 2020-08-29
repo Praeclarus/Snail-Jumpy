@@ -5,6 +5,7 @@ enum asset_type {
     AssetType_None,
     AssetType_SpriteSheet,
     AssetType_Art,
+    AssetType_TileSet,
 };
 
 struct image {
@@ -26,6 +27,7 @@ struct asset {
     
     v2s SizeInPixels;
     f32 Scale;
+    render_texture_handle Texture;
     
     union{
         // Spritesheet
@@ -34,16 +36,15 @@ struct asset {
             // TODO(Tyler): This is kinda a bogus attribute(SizeInMeters), change this!
             v2 SizeInMeters; 
             v2 SizeInTexCoords;
-            render_texture_handle SpriteSheet;
             u32 FramesPerRow;
             // TODO(Tyler): Find a better way to make this array instead of having them fixed length
             u32 FrameCounts[32];
             u32 FPSArray[32];
         };
         
-        // Art 
+        // TileSheet
         struct {
-            render_texture_handle Texture;
+            u32 Left;
         };
     };
 };
@@ -70,6 +71,34 @@ enum asset_spec {
     AssetSpec_TOTAL,
 };
 
+global const char * const ASSET_COMMAND_NAME_TABLE[AssetCommand_TOTAL] = {
+    "none",
+    "spritesheet",
+    "art",
+    "states"
+};
+
+global const char * const ASSET_SPEC_NAME_TABLE[AssetSpec_TOTAL] = {
+    "none",
+    "path",
+    "size",
+    "frames_per_row",
+    "frame_counts",
+    "base_fps",
+    "override_fps",
+};
+
+global const char * const ASSET_STATE_NAME_TABLE[State_TOTAL] = {
+    "state_none",
+    "state_idle",
+    "state_moving",
+    "state_jumping",
+    "state_falling",
+    "state_turning",
+    "state_retreating",
+    "state_stunned",
+    "state_returning",
+};
 
 #pragma pack(push, 1)
 struct asset_file_header {

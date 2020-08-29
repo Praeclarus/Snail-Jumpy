@@ -246,6 +246,118 @@ Win32DefaultHandlerRoutine(DWORD ControlSignal){
     }
 }
 
+int CALLBACK
+WinMain(HINSTANCE Instance,
+        HINSTANCE PrevInstance,
+        LPSTR CommandLine,
+        int ShowCode){
+    //~ Setup console
+    Assert(AllocConsole());
+    SetConsoleCtrlHandler(Win32DefaultHandlerRoutine, true);
+    ConsoleOutFile = (os_file *)GetStdHandle(STD_OUTPUT_HANDLE);
+    ConsoleErrorFile = (os_file *)GetStdHandle(STD_ERROR_HANDLE);
+    
+    
+    WNDCLASS WindowClass = {0};
+    
+    WindowClass.style = CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
+    WindowClass.lpfnWndProc = Win32MainWindowProc;
+    WindowClass.hInstance = Instance;
+    //WindowClass.hIcon = ...;
+    WindowClass.lpszClassName = "SnailJumpyWindowClass";
+    
+    if (RegisterClass(&WindowClass))
+    {
+        MainWindow = CreateWindowExA(0,
+                                     WindowClass.lpszClassName,
+                                     "FAKE WINDOW",
+                                     WS_OVERLAPPEDWINDOW,
+                                     CW_USEDEFAULT, CW_USEDEFAULT,
+                                     CW_USEDEFAULT, CW_USEDEFAULT,
+                                     0,
+                                     0,
+                                     Instance,
+                                     0);
+        if(MainWindow){
+            Win32InitOpenGl(Instance, &MainWindow);
+            ToggleFullscreen(MainWindow);
+            //wglSwapIntervalEXT(1);
+            
+            InitializeGame();
+            
+            //~
+            LARGE_INTEGER PerformanceCounterFrequencyResult;
+            QueryPerformanceFrequency(&PerformanceCounterFrequencyResult);
+            GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
+            
+            LARGE_INTEGER LastCounter = Win32GetWallClock();
+            OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+            
+            Running = true;
+            while(Running){
+                RECT ClientRect;
+                GetClientRect(MainWindow, &ClientRect);
+                OSInput.WindowSize = {
+                    (f32)(ClientRect.right - ClientRect.left),
+                    (f32)(ClientRect.bottom - ClientRect.top),
+                };
+                OSInput.MouseP = Win32GetMouseP();
+                GameUpdateAndRender();
+                
+                f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
+                if(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
+                {
+                    while(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
+                    {
+                        DWORD SleepMS = (DWORD)(1000.0f * (TARGET_SECONDS_PER_FRAME-SecondsElapsed));
+                        Sleep(SleepMS);
+                        SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
+                    }
+                    OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+                }
+                else
+                {
+                    LogMessage("Missed FPS");
+                    OSInput.dTimeForFrame = SecondsElapsed;
+                    if(OSInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
+                        OSInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
+                    }
+                }
+                
+                LastCounter = Win32GetWallClock();
+                
+                HDC DeviceContext = GetDC(MainWindow);
+                RECT WindowRect;
+                GetClientRect(MainWindow, &WindowRect);
+                SwapBuffers(DeviceContext);
+                ReleaseDC(MainWindow, DeviceContext);
+            }
+        }
+        else
+        {
+            // TODO(Tyler): Error logging!
+            OutputDebugString("Failed to create window!");
+            LogMessage("Win32: Failed to create window!");
+        }
+        
+    }
+    else
+    {
+        // TODO(Tyler): Error logging!
+        OutputDebugString("Failed to register window class!");
+        LogMessage("Win32: Failed to register window class!!");
+    }
+    
+#if 1
+    WorldManager.WriteWorldsToFiles();
+    WriteEntityInfos("entities.sje");
+#endif
+    FreeConsole();
+    
+    return(0);
+}
+
+//~ OS API
 internal os_file *
 OpenFile(const char *Path, open_file_flags Flags){
     DWORD Access = 0;
@@ -519,113 +631,7 @@ PollEvents(os_event *Event){
     return(Result);
 }
 
-int CALLBACK
-WinMain(HINSTANCE Instance,
-        HINSTANCE PrevInstance,
-        LPSTR CommandLine,
-        int ShowCode){
-    //~ Setup console
-    Assert(AllocConsole());
-    SetConsoleCtrlHandler(Win32DefaultHandlerRoutine, true);
-    ConsoleOutFile = (os_file *)GetStdHandle(STD_OUTPUT_HANDLE);
-    ConsoleErrorFile = (os_file *)GetStdHandle(STD_ERROR_HANDLE);
-    
-    
-    WNDCLASS WindowClass = {0};
-    
-    WindowClass.style = CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
-    WindowClass.lpfnWndProc = Win32MainWindowProc;
-    WindowClass.hInstance = Instance;
-    //WindowClass.hIcon = ...;
-    WindowClass.lpszClassName = "SnailJumpyWindowClass";
-    
-    if (RegisterClass(&WindowClass))
-    {
-        MainWindow = CreateWindowExA(0,
-                                     WindowClass.lpszClassName,
-                                     "FAKE WINDOW",
-                                     WS_OVERLAPPEDWINDOW,
-                                     CW_USEDEFAULT, CW_USEDEFAULT,
-                                     CW_USEDEFAULT, CW_USEDEFAULT,
-                                     0,
-                                     0,
-                                     Instance,
-                                     0);
-        if(MainWindow){
-            Win32InitOpenGl(Instance, &MainWindow);
-            ToggleFullscreen(MainWindow);
-            //wglSwapIntervalEXT(1);
-            
-            InitializeGame();
-            
-            //~
-            LARGE_INTEGER PerformanceCounterFrequencyResult;
-            QueryPerformanceFrequency(&PerformanceCounterFrequencyResult);
-            GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
-            
-            LARGE_INTEGER LastCounter = Win32GetWallClock();
-            OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
-            
-            Running = true;
-            while(Running){
-                RECT ClientRect;
-                GetClientRect(MainWindow, &ClientRect);
-                OSInput.WindowSize = {
-                    (f32)(ClientRect.right - ClientRect.left),
-                    (f32)(ClientRect.bottom - ClientRect.top),
-                };
-                OSInput.MouseP = Win32GetMouseP();
-                GameUpdateAndRender();
-                
-                f32 SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
-                if(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
-                {
-                    while(SecondsElapsed < TARGET_SECONDS_PER_FRAME)
-                    {
-                        DWORD SleepMS = (DWORD)(1000.0f * (TARGET_SECONDS_PER_FRAME-SecondsElapsed));
-                        Sleep(SleepMS);
-                        SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
-                    }
-                    OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
-                }
-                else
-                {
-                    LogMessage("Missed FPS");
-                    OSInput.dTimeForFrame = SecondsElapsed;
-                    if(OSInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
-                        OSInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
-                    }
-                }
-                
-                LastCounter = Win32GetWallClock();
-                
-                HDC DeviceContext = GetDC(MainWindow);
-                RECT WindowRect;
-                GetClientRect(MainWindow, &WindowRect);
-                SwapBuffers(DeviceContext);
-                ReleaseDC(MainWindow, DeviceContext);
-            }
-        }
-        else
-        {
-            // TODO(Tyler): Error logging!
-            OutputDebugString("Failed to create window!");
-            LogMessage("Win32: Failed to create window!");
-        }
-        
-    }
-    else
-    {
-        // TODO(Tyler): Error logging!
-        OutputDebugString("Failed to register window class!");
-        LogMessage("Win32: Failed to register window class!!");
-    }
-    
-#if 1
-    WorldManager.WriteWorldsToFiles();
-    WriteEntityInfos("entities.sje");
-#endif
-    FreeConsole();
-    
-    return(0);
+internal void
+OSSleep(u32 Milliseconds){
+    Sleep(Milliseconds);
 }

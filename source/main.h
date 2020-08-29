@@ -183,4 +183,5 @@ internal b8 ShouldEntityUpdate(entity *Entity);
 internal b8 _ShouldEntityUpdate(entity *Entity);
 internal inline void RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset=V2(0,0));
 internal inline void ProcessDefaultEvent(os_event *Event);
+
 #endif

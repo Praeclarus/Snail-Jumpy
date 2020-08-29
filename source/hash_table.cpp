@@ -106,28 +106,47 @@ CreateInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
 }
 
 template <typename KeyType, typename ValueType>
-internal constexpr ValueType
-FindInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
+internal constexpr ValueType *
+FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
     //TIMED_FUNCTION();
     
     u64 Hash = HashKey(Key);
     if(Hash == 0) Hash++; 
     
+    b8 IsValid = true;
+    b8 FirstIteration = true;
     u32 Index = Hash % Table->MaxBuckets;
+    u32 StartIndex = Index;
     while(true){
         u64 TestHash = Table->Hashes[Index];
         if((TestHash == Hash) &&
            CompareKeys(Key, Table->Keys[Index])){
             break;
         }else if(TestHash == 0){
+            IsValid = false;
+            break;
+        }else if(!FirstIteration &&
+                 (StartIndex == Index)){
+            IsValid = false;
             break;
         }else{
             Index++;
             Index %= Table->MaxBuckets;
         }
+        FirstIteration = false;
     }
     
-    ValueType Result = Table->Values[Index];
+    ValueType *Result = 0;
+    if(IsValid) Result = &Table->Values[Index];
+    return(Result);
+}
+
+template <typename KeyType, typename ValueType>
+internal constexpr ValueType
+FindInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
+    ValueType *ResultPtr = FindInHashTablePtr(Table, Key);
+    ValueType Result = {};
+    if(ResultPtr) Result = *ResultPtr;
     return(Result);
 }
 
@@ -163,35 +182,6 @@ FindOrCreateInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
 }
 
 template <typename KeyType, typename ValueType>
-internal constexpr ValueType *
-FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
-    //TIMED_FUNCTION();
-    
-    u64 Hash = HashKey(Key);
-    if(Hash == 0) Hash++; 
-    
-    b8 IsValid = true;
-    u32 Index = Hash % Table->MaxBuckets;
-    while(true){
-        u64 TestHash = Table->Hashes[Index];
-        if((TestHash == Hash) &&
-           CompareKeys(Key, Table->Keys[Index])){
-            break;
-        }else if(TestHash == 0){
-            IsValid = false;
-            break;
-        }else{
-            Index++;
-            Index %= Table->MaxBuckets;
-        }
-    }
-    
-    ValueType *Result = 0;
-    if(IsValid) Result = &Table->Values[Index];
-    return(Result);
-}
-
-template <typename KeyType, typename ValueType>
 internal constexpr KeyType
 GetHashTableKey(hash_table<KeyType, ValueType> *Table, KeyType Key){
     //TIMED_FUNCTION();
@@ -200,7 +190,9 @@ GetHashTableKey(hash_table<KeyType, ValueType> *Table, KeyType Key){
     if(Hash == 0) Hash++; 
     
     b8 IsValid = true;
+    b8 FirstIteration = true;
     u32 Index = Hash % Table->MaxBuckets;
+    u32 StartIndex = Index;
     while(true){
         u64 TestHash = Table->Hashes[Index];
         if((TestHash == Hash) &&
@@ -209,10 +201,14 @@ GetHashTableKey(hash_table<KeyType, ValueType> *Table, KeyType Key){
         }else if(TestHash == 0){
             IsValid = false;
             break;
+        }else if(!FirstIteration &&
+                 (StartIndex == Index)){
+            INVALID_CODE_PATH;
         }else{
             Index++;
             Index %= Table->MaxBuckets;
         }
+        FirstIteration = false;
     }
     
     KeyType Result = 0;
@@ -230,7 +226,9 @@ FindOrCreateInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
     u64 Hash = HashKey(Key);
     if(Hash == 0) Hash++; 
     
+    b8 FirstIteration = true;
     u32 Index = Hash % Table->MaxBuckets;
+    u32 StartIndex = Index;
     while(true){
         u64 TestHash = Table->Hashes[Index];
         if((TestHash == Hash) &&
@@ -241,10 +239,14 @@ FindOrCreateInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
             Table->Hashes[Index] = Hash;
             Table->Keys[Index] = Key;
             break;
+        }else if(!FirstIteration &&
+                 (StartIndex == Index)){
+            INVALID_CODE_PATH;
         }else{
             Index++;
             Index %= Table->MaxBuckets;
         }
+        FirstIteration = false;
     }
     
     ValueType *Result = 0;
