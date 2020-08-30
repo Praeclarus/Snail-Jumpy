@@ -67,7 +67,7 @@ AddEnemyCallback(world_editor *Editor, u32 InfoID){
 
 internal void 
 RenameWorldCallback(world_editor *Editor, const char *Name){
-    world_data *NewWorld = WorldManager.GetWorld(Name, false);
+    world_data *NewWorld = WorldManager.GetWorld(Name);
     if(!NewWorld){
         const char *WorldName = PushCString(&StringMemory, Name);
         NewWorld = WorldManager.CreateNewWorld(WorldName);
@@ -80,7 +80,7 @@ RenameWorldCallback(world_editor *Editor, const char *Name){
 
 internal void
 LoadWorldCallback(world_editor *Editor, const char *Name){
-    world_data *NewWorld = WorldManager.GetWorld(Name);
+    world_data *NewWorld = WorldManager.GetOrCreateWorld(Name);
     if(NewWorld){
         Editor->World = NewWorld;
     }

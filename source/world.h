@@ -67,9 +67,10 @@ struct world_manager {
     hash_table<const char *, world_data> WorldTable;
     
     void        Initialize(memory_arena *Arena);
-    world_data *GetWorld(const char *Name, b8 AlwaysWork=true);
+    world_data *GetOrCreateWorld(const char *Name);
+    world_data *GetWorld(const char *Name);
     world_data *CreateNewWorld(const char *Name);
-    world_data *LoadWorldFromFile(const char *Name, b8 AlwaysWork=true);
+    world_data *LoadWorldFromFile(const char *Name);
     void LoadWorld(const char *LevelName);
     b8 IsLevelCompleted(const char *LevelName);
     void        RemoveWorld(const char *Name);

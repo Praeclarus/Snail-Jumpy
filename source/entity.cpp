@@ -435,7 +435,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                (PlayerMin.X <= Teleporter->Boundary.P.X+Radius.X) &&
                (Teleporter->Boundary.P.Y-Radius.Y <= PlayerMax.Y) &&
                (PlayerMin.Y  <= Teleporter->Boundary.P.Y+Radius.Y)){
-                world_data *World = WorldManager.GetWorld(Teleporter->Level);
+                world_data *World = WorldManager.GetOrCreateWorld(Teleporter->Level);
                 if(World){
                     v2 TileSize = v2{0.1f, 0.1f};
                     v2 MapSize = TileSize.X * v2{(f32)World->Width, (f32)World->Height};

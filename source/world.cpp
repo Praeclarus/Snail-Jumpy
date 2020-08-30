@@ -9,7 +9,7 @@ world_manager::IsLevelCompleted(const char *LevelName){
     if(LevelName[0] == '\0'){
         Result = true;
     }else if(LevelName){
-        world_data *World = WorldManager.GetWorld(LevelName);
+        world_data *World = WorldManager.GetOrCreateWorld(LevelName);
         if(World){
             Result = World->Flags & WorldFlag_IsCompleted;
         }
@@ -77,7 +77,7 @@ world_manager::LoadWorld(const char *LevelName){
     EntityManager.Reset();
     
     if(LevelName){
-        world_data *World = GetWorld(LevelName);
+        world_data *World = GetOrCreateWorld(LevelName);
         
         if(World){
             CurrentWorld = World;
@@ -209,24 +209,33 @@ world_manager::LoadWorld(const char *LevelName){
 global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
 
 world_data *
-world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
+world_manager::LoadWorldFromFile(const char *Name){
     TIMED_FUNCTION();
     
     world_data *NewWorld = 0;
     char Path[512];
     stbsp_snprintf(Path, 512, "worlds/%s.sjw", Name);
     entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-    if(File.Size){
+    if(File.Size > 0){
         const char *WorldName = PushCString(&StringMemory, Name);
         NewWorld = CreateNewWorld(Name);
         NewWorld->Name = WorldName;
         stream Stream = CreateReadStream(File.Data, File.Size);
         
         world_file_header *Header = ConsumeType(&Stream, world_file_header);
-        Assert((Header->Header[0] == 'S') && 
-               (Header->Header[1] == 'J') && 
-               (Header->Header[2] == 'W'));
-        Assert(Header->Version == CURRENT_WORLD_FILE_VERSION);
+        if(!((Header->Header[0] == 'S') && 
+             (Header->Header[1] == 'J') && 
+             (Header->Header[2] == 'W'))){
+            LogMessage("LoadWorldFromFile: Invalid header: %.3s!", Header->Header);
+            RemoveWorld(Name);
+            return(0);
+        }
+        if(Header->Version != CURRENT_WORLD_FILE_VERSION){
+            LogMessage("LoadWorldFromFile: Invalid version %u, current version: %u", Header->Version, CURRENT_WORLD_FILE_VERSION);
+            RemoveWorld(Name);
+            return(0);
+        }
+        
         NewWorld->Width = Header->WidthInTiles;
         NewWorld->Height = Header->HeightInTiles;
         NewWorld->Entities = CreateNewArray<entity_data>(&Memory, 64);
@@ -279,21 +288,14 @@ world_manager::LoadWorldFromFile(const char *Name, b8 AlwaysWork){
                     if(!Entity->Asset) Entity->Asset = PushCString(&StringMemory, AssetInFile);
                     Entity->Z = *ConsumeType(&Stream, f32);
                 }break;
-                default: INVALID_CODE_PATH; break;
+                default: {
+                    RemoveWorld(Name);
+                    return(0);
+                }break;
             }
         }
-        
-    }else if(AlwaysWork){
-        const char *WorldName = PushCString(&StringMemory, Name);
-        NewWorld = CreateNewWorld(Name);
-        NewWorld->Name = WorldName;
-        NewWorld->Width = 32;
-        NewWorld->Height = 18;
-        u32 MapSize = NewWorld->Width*NewWorld->Height;
-        //NewData->MapData = PushArray(&MapDataMemory, u8, MapSize);
-        NewWorld->Map = (u8 *)DefaultAlloc(MapSize);
-        NewWorld->Entities = CreateNewArray<entity_data>(&Memory, 64);
     }
+    
     return(NewWorld);
 }
 
@@ -385,12 +387,29 @@ world_manager::Initialize(memory_arena *Arena){
 }
 
 world_data *
-world_manager::GetWorld(const char *Name, b8 AlwaysWork){
+world_manager::GetWorld(const char *Name){
     world_data *Result = FindInHashTablePtr<const char *, world_data>(&WorldTable, Name);
     if(!Result){
-        Result = LoadWorldFromFile(Name, AlwaysWork);
+        Result = LoadWorldFromFile(Name);
     }
     
+    return(Result);
+}
+
+world_data *
+world_manager::GetOrCreateWorld(const char *Name){
+    world_data *Result = GetWorld(Name);
+    if(!Result){
+        const char *WorldName = PushCString(&StringMemory, Name);
+        Result = CreateNewWorld(Name);
+        Result->Name = WorldName;
+        Result->Width = 32;
+        Result->Height = 18;
+        u32 MapSize = Result->Width*Result->Height;
+        //NewData->MapData = PushArray(&MapDataMemory, u8, MapSize);
+        Result->Map = (u8 *)DefaultAlloc(MapSize);
+        Result->Entities = CreateNewArray<entity_data>(&Memory, 64);
+    }
     return(Result);
 }
 
