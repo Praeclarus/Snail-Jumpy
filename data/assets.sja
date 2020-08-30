@@ -52,7 +52,7 @@
     path speedy_spritesheet.png
     size 17
     frames_per_row 8
-    frame_counts 4 4 3 3 2 2 3 3 7 7
+    frame_counts 4 4 3 3 2 2 3 3 4 4
     base_fps 8
     override_fps 7 3
     override_fps 8 3
