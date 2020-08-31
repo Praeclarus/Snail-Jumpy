@@ -66,15 +66,13 @@ enum _entity_flags {
 enum entity_type {
     EntityType_None = 0,
     
-    EntityType_Wall      = 1,
-    EntityType_Coin      = 2,
-    
-    EntityType_Enemy     = 3,
-    EntityType_Art       = 4,
-    // 5
+    EntityType_Wall       = 1,
+    EntityType_Coin       = 2,
+    EntityType_Enemy      = 3,
+    EntityType_Art        = 4,
+    EntityType_Partices   = 5,
     // 6
-    EntityType_Player    = 7,
-    
+    EntityType_Player     = 7,
     EntityType_Teleporter = 8,
     EntityType_Door       = 9,
     EntityType_Projectile = 10,
@@ -138,6 +136,7 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 };
 
 //~ Includes
+#include "random.h"
 #include "helpers.cpp"
 #include "intrinsics.h"
 #include "allocators.cpp"
@@ -150,7 +149,6 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 #include "collision.h"
 #include "entity_info.h"
 #include "entity.h"
-#include "random.h"
 #include "ui.h"
 #include "world.h"
 #include "entity_editor.h"

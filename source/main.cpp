@@ -22,7 +22,6 @@ global font TitleFont;
 global font DebugFont;
 
 global s32 Score;
-global f32 Counter;
 
 global entity_manager EntityManager;
 global ui_manager UIManager;
@@ -30,7 +29,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_MainGame;
+global game_mode GameMode = GameMode_WorldEditor;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -112,7 +111,7 @@ InitializeGame(){
     stbi_set_flip_vertically_on_load(true);
     
     {
-        umw Size = Megabytes(4);
+        umw Size = Megabytes(200);
         void *Memory = AllocateVirtualMemory(Size);
         Assert(Memory);
         InitializeArena(&PermanentStorageArena, Memory, Size);
@@ -301,7 +300,7 @@ inline void
 camera::Update(){
     MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
     
-    ActualP += DEBUG_MoveFactor*(TargetP-ActualP);
+    ActualP += MoveFactor*(TargetP-ActualP);
     
     if(ShakeTimeRemaining > 0.0f){
         P.X = ActualP.X + ShakeStrength*0.5f*Cos(ShakeTimeRemaining*ShakeFrequency*1.5f);

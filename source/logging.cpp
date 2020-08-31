@@ -9,12 +9,14 @@ LogMessage(char *Format, ...){
     char Buffer[DEFAULT_BUFFER_SIZE];
     stbsp_vsnprintf(Buffer, DEFAULT_BUFFER_SIZE, Format, VarArgs);
     
-    u32 Length = CStringLength(Buffer);
     char End[] = "\n";
+#if 0    
+    u32 Length = CStringLength(Buffer);
     WriteToFile(LogFile, LogFileOffset, Buffer, Length);
     LogFileOffset += Length;
     WriteToFile(LogFile, LogFileOffset, End, ArrayCount(End));
     LogFileOffset += ArrayCount(End);
+#endif
     
     WriteToDebugConsole(ConsoleErrorFile, Buffer);
     WriteToDebugConsole(ConsoleErrorFile, End);

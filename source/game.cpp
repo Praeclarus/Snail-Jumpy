@@ -12,8 +12,8 @@ GameProcessKeyDown(os_event *Event){
             ChangeState(GameMode_MainGame, "Overworld");
         }break;
 #ifdef SNAIL_JUMPY_DEBUG_BUILD
-        case '=': GameCamera.DEBUG_MoveFactor += 0.05f; break;
-        case '-': GameCamera.DEBUG_MoveFactor -= 0.05f; break;
+        case '=': GameCamera.MoveFactor += 0.05f; break;
+        case '-': GameCamera.MoveFactor -= 0.05f; break;
 #endif
     }
 }

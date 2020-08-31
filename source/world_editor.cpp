@@ -760,10 +760,6 @@ world_editor::DoUI(){
         World->CoinsToSpawn += 1;
     }
     
-    if(Window->Button("Test camera shake")){
-        Camera.Shake(0.1f);
-    }
-    
     switch(Mode){
         case EditMode_AddEnemy: {
             if(Window->Button("Select info")){
@@ -787,6 +783,7 @@ void
 world_editor::UpdateAndRender(){
     RenderCommands.NewFrame(&TransientStorageArena, OSInput.WindowSize);
     RenderCommands.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
+    Camera.MoveFactor = 0.2f;
     Camera.Update();
     
     if(Popup != EditorPopup_InfoSelector) ProcessInput();
@@ -801,7 +798,7 @@ world_editor::UpdateAndRender(){
         else if(CameraDown && !CameraUp) CameradP.Y = -1.0f;
         
         CameradP *= WORLD_EDITOR_CAMERA_MOVE_SPEED;
-        Camera.DirectMove(CameradP, World);
+        Camera.Move(CameradP, World);
     }
     
     if(!HideUI) DoUI(); 

@@ -16,9 +16,7 @@ struct camera {
     f32 ShakeFrequency;
     f32 ShakeStrength;
     
-#ifdef SNAIL_JUMPY_DEBUG_BUILD
-    f32 DEBUG_MoveFactor = 0.2f;
-#endif
+    f32 MoveFactor = 0.05f;
     
     inline void SetCenter(v2 P, world_data *World);
     inline void Move(v2 dP, world_data *World);

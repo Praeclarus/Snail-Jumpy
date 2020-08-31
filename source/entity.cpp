@@ -2,19 +2,20 @@
 void
 entity_manager::Reset(){
     Memory.Used = 0;
-    BucketArrayInitialize(&Walls,       &Memory);
-    BucketArrayInitialize(&Arts,        &Memory);
-    BucketArrayInitialize(&Coins,       &Memory);
-    BucketArrayInitialize(&Doors,       &Memory);
-    BucketArrayInitialize(&Teleporters, &Memory);
-    BucketArrayInitialize(&Enemies,     &Memory);
-    BucketArrayInitialize(&Projectiles, &Memory);
+    BucketArrayInitialize(&Walls,     &Memory);
+    BucketArrayInitialize(&Coins,     &Memory);
+    BucketArrayInitialize(&Enemies,   &Memory);
+    BucketArrayInitialize(&Arts,      &Memory);
+    BucketArrayInitialize(&Particles, &Memory);
     Player = PushStruct(&Memory, player_entity);
+    BucketArrayInitialize(&Teleporters, &Memory);
+    BucketArrayInitialize(&Doors,       &Memory);
+    BucketArrayInitialize(&Projectiles, &Memory);
 }
 
 void
 entity_manager::Initialize(memory_arena *Arena){
-    Memory = PushNewArena(Arena, Kilobytes(64));
+    Memory = PushNewArena(Arena, Megabytes(10));
     Reset();
 }
 
@@ -52,7 +53,7 @@ UpdateCoin(coin_entity *Coin){
     
     if(EntityManager.CoinData.NumberOfCoinPs){
         // TODO(Tyler): Proper random number generation
-        u32 RandomNumber = RANDOM_NUMBER_TABLE[(u32)(Counter*4132.0f + Score) % ArrayCount(RANDOM_NUMBER_TABLE)];
+        u32 RandomNumber = GetRandomNumber(Score);
         RandomNumber %= EntityManager.CoinData.NumberOfCoinPs;
         u32 CurrentCoinP = 0;
         v2 NewP = {};
@@ -214,7 +215,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         }
         
         f32 MovementSpeed = 120; // TODO(Tyler): Load this from a variables file
-        
         
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
             Player->Direction = Direction_Right;
@@ -379,17 +379,6 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     }
     END_TIMED_BLOCK();
     
-    //~ Arts
-    BEGIN_TIMED_BLOCK(UpdateAndRenderArts);
-    FOR_BUCKET_ARRAY(&Arts){
-        art_entity *Art = BucketArrayGetItemPtr(&Arts, Location);
-        asset *Asset = GetArt(Art->Asset);
-        v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
-        RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
-                              V2(0,0), V2(1,1), false, Camera);
-    }
-    END_TIMED_BLOCK();
-    
     //~ Coins
     BEGIN_TIMED_BLOCK(UpdateAndRenderCoins);
     FOR_BUCKET_ARRAY(&Coins){
@@ -404,25 +393,118 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     }
     END_TIMED_BLOCK();
     
-    //~ Doors
-    BEGIN_TIMED_BLOCK(UpdateAndRenderDoors);
-    FOR_BUCKET_ARRAY(&Doors){
-        door_entity *Door = BucketArrayGetItemPtr(&Doors, Location);
-        v2 P = Door->Boundary.P;
-        Door->Cooldown -= OSInput.dTimeForFrame;
+    //~ Enemies
+    BEGIN_TIMED_BLOCK(UpdateAndRenderEnemies);
+    FOR_BUCKET_ARRAY(&Enemies){
+        enemy_entity *Enemy = BucketArrayGetItemPtr(&Enemies, Location);
+        v2 P = Enemy->P;
         
-        if(!Door->IsOpen){
-            RenderRectangle(P-(Door->Boundary.Size/2), 
-                            P+(Door->Boundary.Size/2), 0.0f, BROWN, Camera);
-        }else{
-            color Color = BROWN;
-            Color.A = Door->Cooldown;
-            if(Color.A < 0.3f){
-                Color.A = 0.3f;
+        if(ShouldEntityUpdate(Enemy)){
+            // TODO(Tyler): Stop using percentages here
+            f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
+            f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
+            f32 PathSpeed = 1.0f;
+            if((StateAlongPath > 0.8f) &&
+               (Enemy->Direction > 0)){
+                f32 State = (1.0f-StateAlongPath);
+                PathSpeed = (State/0.2f);
+            }else if((StateAlongPath < 0.2f) &&
+                     (Enemy->Direction < 0)){
+                PathSpeed = (StateAlongPath/0.2f);
             }
-            RenderRectangle(P-(Door->Boundary.Size/2), 
-                            P+(Door->Boundary.Size/2), 0.0f, Color, Camera);
+            
+            if((Enemy->P.X <= Enemy->PathStart.X) &&
+               (Enemy->Direction == Direction_Left)){
+                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+                Enemy->Direction = Direction_Right;
+                Enemy->dP = {0};
+            }else if((Enemy->P.X >= Enemy->PathEnd.X) &&
+                     (Enemy->Direction == Direction_Right)){
+                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+                Enemy->Direction = Direction_Left;
+                Enemy->dP = {0};
+            }else{
+                v2 ddP = {
+                    Enemy->Speed * ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
+                    0.0f
+                };
+                
+                if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
+                }else{
+                    ddP.Y = -11.0f;
+                }
+                
+                ChangeEntityState(Enemy, State_Moving);
+                
+                MoveEntity(Enemy, ddP);
+            }
         }
+        
+        UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTimeForFrame);
+        UpdateEnemyBoundary(Enemy);
+    }
+    END_TIMED_BLOCK();
+    
+    //~ Arts
+    BEGIN_TIMED_BLOCK(UpdateAndRenderArts);
+    FOR_BUCKET_ARRAY(&Arts){
+        art_entity *Art = BucketArrayGetItemPtr(&Arts, Location);
+        asset *Asset = GetArt(Art->Asset);
+        v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
+        RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
+                              V2(0,0), V2(1,1), false, Camera);
+    }
+    END_TIMED_BLOCK();
+    
+    //~ Particles 
+    // TODO(Tyler): This is a really naive implementation of particles and shouldn't stay
+    BEGIN_TIMED_BLOCK(UpdateAndRenderParticles);
+    FOR_BUCKET_ARRAY(&Particles){
+        particle_entity *ParticleEntity = BucketArrayGetItemPtr(&Particles, Location);
+        
+        const s32 RADIUS = 2;
+        // TODO(Tyler): SIMDize this!!!
+        for(u32 Particle = 0; Particle < ParticleEntity->ParticleCount; Particle++){
+            u32 BaseSeed = Particle+Location.BucketIndex+Location.ItemIndex;
+            if(ParticleEntity->LifeTimes[Particle] < 0.0f){
+                {
+                    s32 Random0 = (((s32)GetRandomNumber(BaseSeed) % (2*RADIUS)) - RADIUS);
+                    s32 Random1 = (((s32)GetRandomNumber(BaseSeed+1) % (2*RADIUS)) - RADIUS);
+                    f32 XOffset = 0.1f * ((f32)Random0);
+                    f32 YOffset = 0.1f * ((f32)Random1);
+                    ParticleEntity->Ps[Particle] = ParticleEntity->P + V2(XOffset, YOffset);
+                }
+                
+                {
+                    ParticleEntity->dPs[Particle] = V2(0.0f, 0.0f);
+                    s32 Random0 = (((s32)GetRandomNumber(BaseSeed+2) % 32) - 16);
+                    s32 Random1 = (((s32)GetRandomNumber(BaseSeed+3) % 32) - 16);
+                    f32 XOffset = 0.01f * ((f32)Random0);
+                    f32 YOffset = 0.1f * ((f32)Random1);
+                    ParticleEntity->dPs[Particle] += V2(XOffset, YOffset);
+                }
+                
+                ParticleEntity->LifeTimes[Particle] = 0.1f*(f32)(GetRandomNumber(BaseSeed+4) % 32);
+            }
+            v2 ddP = V2(0.0f, -5.0f);
+            ddP -= 0.5f*ParticleEntity->dPs[Particle];
+            
+            ParticleEntity->Ps[Particle]  += (ParticleEntity->dPs[Particle]*OSInput.dTimeForFrame +
+                                              ddP*Square(OSInput.dTimeForFrame));
+            ParticleEntity->dPs[Particle] += ddP*OSInput.dTimeForFrame;
+            
+            ParticleEntity->LifeTimes[Particle] -= OSInput.dTimeForFrame;
+            RenderCenteredRectangle(ParticleEntity->Ps[Particle], V2(0.05f, 0.05f), -1.0f, RED, Camera);
+        }
+    }
+    END_TIMED_BLOCK();
+    
+    //~ Player
+    BEGIN_TIMED_BLOCK(UpdateAndRenderPlayer);
+    if(CurrentWorld->Flags & WorldFlag_IsTopDown){
+        UpdateAndRenderTopDownPlayer(Camera);
+    }else{
+        UpdateAndRenderPlatformerPlayer(Camera);
     }
     END_TIMED_BLOCK();
     
@@ -486,55 +568,25 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     }
     END_TIMED_BLOCK();
     
-    //~ Enemies
-    BEGIN_TIMED_BLOCK(UpdateAndRenderEnemies);
-    FOR_BUCKET_ARRAY(&Enemies){
-        enemy_entity *Enemy = BucketArrayGetItemPtr(&Enemies, Location);
-        v2 P = Enemy->P;
+    //~ Doors
+    BEGIN_TIMED_BLOCK(UpdateAndRenderDoors);
+    FOR_BUCKET_ARRAY(&Doors){
+        door_entity *Door = BucketArrayGetItemPtr(&Doors, Location);
+        v2 P = Door->Boundary.P;
+        Door->Cooldown -= OSInput.dTimeForFrame;
         
-        if(ShouldEntityUpdate(Enemy)){
-            // TODO(Tyler): Stop using percentages here
-            f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
-            f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
-            f32 PathSpeed = 1.0f;
-            if((StateAlongPath > 0.8f) &&
-               (Enemy->Direction > 0)){
-                f32 State = (1.0f-StateAlongPath);
-                PathSpeed = (State/0.2f);
-            }else if((StateAlongPath < 0.2f) &&
-                     (Enemy->Direction < 0)){
-                PathSpeed = (StateAlongPath/0.2f);
+        if(!Door->IsOpen){
+            RenderRectangle(P-(Door->Boundary.Size/2), 
+                            P+(Door->Boundary.Size/2), 0.0f, BROWN, Camera);
+        }else{
+            color Color = BROWN;
+            Color.A = Door->Cooldown;
+            if(Color.A < 0.3f){
+                Color.A = 0.3f;
             }
-            
-            if((Enemy->P.X <= Enemy->PathStart.X) &&
-               (Enemy->Direction == Direction_Left)){
-                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-                Enemy->Direction = Direction_Right;
-                Enemy->dP = {0};
-            }else if((Enemy->P.X >= Enemy->PathEnd.X) &&
-                     (Enemy->Direction == Direction_Right)){
-                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-                Enemy->Direction = Direction_Left;
-                Enemy->dP = {0};
-            }else{
-                v2 ddP = {
-                    Enemy->Speed * ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
-                    0.0f
-                };
-                
-                if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-                }else{
-                    ddP.Y = -11.0f;
-                }
-                
-                ChangeEntityState(Enemy, State_Moving);
-                
-                MoveEntity(Enemy, ddP);
-            }
+            RenderRectangle(P-(Door->Boundary.Size/2), 
+                            P+(Door->Boundary.Size/2), 0.0f, Color, Camera);
         }
-        
-        UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTimeForFrame);
-        UpdateEnemyBoundary(Enemy);
     }
     END_TIMED_BLOCK();
     
@@ -553,15 +605,6 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         RenderRectangle(P-0.5f*Projectile->Boundaries[0].Size, 
                         P+0.5f*Projectile->Boundaries[0].Size, 
                         0.7f, WHITE, Camera);
-    }
-    END_TIMED_BLOCK();
-    
-    //~ Player
-    BEGIN_TIMED_BLOCK(UpdateAndRenderPlayer);
-    if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-        UpdateAndRenderTopDownPlayer(Camera);
-    }else{
-        UpdateAndRenderPlatformerPlayer(Camera);
     }
     END_TIMED_BLOCK();
     

@@ -1,3 +1,5 @@
+global f32 Counter;
+
 internal u32
 CStringLength(const char *String){
     u32 Result = 0;
@@ -32,4 +34,10 @@ InverseDirection(direction Direction){
     };
     direction Result = Table[Direction];
     return(Result);
+}
+
+internal inline u32
+GetRandomNumber(u32 Seed){
+    u32 RandomNumber = RANDOM_NUMBER_TABLE[(u32)(Counter*4132.0f + Seed) % ArrayCount(RANDOM_NUMBER_TABLE)];
+    return(RandomNumber);
 }

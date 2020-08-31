@@ -47,6 +47,14 @@ AddPlayer(v2 P){
 }
 
 internal void
+AddParticles(v2 P){
+    particle_entity *Particles = BucketArrayAlloc(&EntityManager.Particles);
+    Particles->P = P;
+    //Particles->ParticleCount = MAX_PARTICLE_COUNT;
+    Particles->ParticleCount = 16;
+}
+
+internal void
 LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
                  u32 WidthInTiles, u32 HeightInTiles){
     for(u32 Y = 0; Y < HeightInTiles; Y++){
@@ -190,7 +198,13 @@ world_manager::LoadWorld(const char *LevelName){
             }
             
             // TODO(Tyler): Formalize player starting position
-            AddPlayer({1.5f, 1.5f});
+            AddPlayer(V2(1.5f, 1.5f));
+            
+            AddParticles(V2(3.0f, 3.0f));
+            AddParticles(V2(5.0f, 3.0f));
+            AddParticles(V2(7.0f, 3.0f));
+            AddParticles(V2(9.0f, 3.0f));
+            
             
             {
                 projectile_entity *Projectile = BucketArrayAlloc(&EntityManager.Projectiles);
