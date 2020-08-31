@@ -43,7 +43,7 @@ AddPlayer(v2 P){
     EntityManager.Player->JumpTime = 1.0f;
     
     EntityManager.Player->Health = 9;
-    EntityManager.Player->Mass = 0.3f;
+    EntityManager.Player->Mass = 0.6f;
 }
 
 internal void

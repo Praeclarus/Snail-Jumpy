@@ -760,6 +760,10 @@ world_editor::DoUI(){
         World->CoinsToSpawn += 1;
     }
     
+    if(Window->Button("Camera shake!")){
+        Camera.Shake(0.1f);
+    }
+    
     switch(Mode){
         case EditMode_AddEnemy: {
             if(Window->Button("Select info")){
