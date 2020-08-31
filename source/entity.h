@@ -84,8 +84,13 @@ struct projectile_entity : public entity {
     f32 RemainingLife;
 };
 
+// TODO(Tyler): I don't fully like having this be full of b8 variables, but having a 
+// v2 Direction has a few failings
 struct player_input {
-    v2 Direction;
+    b8 Up;
+    b8 Down;
+    b8 Left;
+    b8 Right;
     b8 Jump;
     b8 Shoot;
 };

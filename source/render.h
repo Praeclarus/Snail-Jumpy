@@ -9,15 +9,21 @@ struct world_data;
 struct camera {
     v2 ActualP;
     v2 P;
+    v2 TargetP;
     f32 MetersToPixels;
     
     f32 ShakeTimeRemaining;
     f32 ShakeFrequency;
     f32 ShakeStrength;
     
+#ifdef SNAIL_JUMPY_DEBUG_BUILD
+    f32 DEBUG_MoveFactor = 0.2f;
+#endif
+    
     inline void SetCenter(v2 P, world_data *World);
     inline void Move(v2 dP, world_data *World);
-    inline v2 ScreenPToWorldP(v2 ScreenP);
+    inline void DirectMove(v2 dP, world_data *World);
+    inline v2   ScreenPToWorldP(v2 ScreenP);
     inline void Update();
     inline void Shake(f32 Time, f32 Strength=0.02f, f32 Frequency=100);
 };

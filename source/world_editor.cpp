@@ -801,7 +801,7 @@ world_editor::UpdateAndRender(){
         else if(CameraDown && !CameraUp) CameradP.Y = -1.0f;
         
         CameradP *= WORLD_EDITOR_CAMERA_MOVE_SPEED;
-        Camera.Move(CameradP, World);
+        Camera.DirectMove(CameradP, World);
     }
     
     if(!HideUI) DoUI(); 

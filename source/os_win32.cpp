@@ -560,6 +560,7 @@ PollEvents(os_event *Event){
                         case VK_ESCAPE:    Event->Key = KeyCode_Escape;    break;
                         case VK_BACK:      Event->Key = KeyCode_BackSpace; break;
                         case VK_OEM_MINUS: Event->Key = KeyCode_Minus;     break;
+                        case VK_OEM_PLUS:  Event->Key = (os_key_code)'=';  break;
                         case VK_RETURN:    Event->Key = KeyCode_Return;    break;
                         case VK_MENU:      Event->Key = KeyCode_Alt;       break;
                         case VK_F1:        Event->Key = KeyCode_F1;        break;

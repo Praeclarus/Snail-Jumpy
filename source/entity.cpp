@@ -174,20 +174,20 @@ entity_manager::ProcessEvent(os_event *Event){
             switch((u32)Event->Key){
                 case KeyCode_Space: PlayerInput.Jump  = true;     break;
                 case 'X':           PlayerInput.Shoot = true;     break;
-                case KeyCode_Up:    if(Event->JustDown) PlayerInput.Direction.Y += 1; break;
-                case KeyCode_Down:  if(Event->JustDown) PlayerInput.Direction.Y -= 1; break;
-                case KeyCode_Left:  if(Event->JustDown) PlayerInput.Direction.X -= 1; break;
-                case KeyCode_Right: if(Event->JustDown) PlayerInput.Direction.X += 1; break;
+                case KeyCode_Up:    if(Event->JustDown) PlayerInput.Up    = true; break;
+                case KeyCode_Down:  if(Event->JustDown) PlayerInput.Down  = true; break;
+                case KeyCode_Left:  if(Event->JustDown) PlayerInput.Left  = true; break;
+                case KeyCode_Right: if(Event->JustDown) PlayerInput.Right = true; break;
             }
         }break;
         case OSEventKind_KeyUp: {
             switch((u32)Event->Key){
-                case KeyCode_Space: PlayerInput.Jump = false;     break;
-                case 'X':           PlayerInput.Shoot = false;    break;
-                case KeyCode_Up:    PlayerInput.Direction.Y -= 1; break;
-                case KeyCode_Down:  PlayerInput.Direction.Y += 1; break;
-                case KeyCode_Left:  PlayerInput.Direction.X += 1; break;
-                case KeyCode_Right: PlayerInput.Direction.X -= 1; break;
+                case KeyCode_Space: PlayerInput.Jump  = false; break;
+                case 'X':           PlayerInput.Shoot = false; break;
+                case KeyCode_Up:    PlayerInput.Up    = false; break;
+                case KeyCode_Down:  PlayerInput.Down  = false; break;
+                case KeyCode_Left:  PlayerInput.Left  = false; break;
+                case KeyCode_Right: PlayerInput.Right = false; break;
             }
         }break;
     }
@@ -214,11 +214,19 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         }
         
         f32 MovementSpeed = 120; // TODO(Tyler): Load this from a variables file
-        ddP.X += MovementSpeed*EntityManager.PlayerInput.Direction.X;
-        if(EntityManager.PlayerInput.Direction.X != 0){
-            Player->Direction = ((EntityManager.PlayerInput.Direction.X > 0) ? 
-                                 Direction_Right : Direction_Left);
+        
+        
+        if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
+            Player->Direction = Direction_Right;
+            ddP.X = 1.0f; 
+        }else if(EntityManager.PlayerInput.Left && !EntityManager.PlayerInput.Right){
+            Player->Direction = Direction_Left;
+            ddP.X = -1.0f; 
         }
+        if(EntityManager.PlayerInput.Up && !EntityManager.PlayerInput.Down) ddP.Y = 1.0f; 
+        else if(EntityManager.PlayerInput.Down && !EntityManager.PlayerInput.Up) ddP.Y = -1.0f;
+        
+        ddP.X *= MovementSpeed;
         
         if(EntityManager.PlayerInput.Shoot){
             Player->WeaponChargeTime += OSInput.dTimeForFrame;

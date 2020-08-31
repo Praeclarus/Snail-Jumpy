@@ -1,3 +1,4 @@
+#ifdef SNAIL_JUMPY_DEBUG_BUILD
 // TODO(Tyler): This also logs all the data
 internal void
 DEBUGRenderAllProfileData(layout *Layout){
@@ -27,10 +28,14 @@ DEBUGRenderOverlay(){
                      BLACK, "TransientMemory:  %'jd", TransientStorageArena.Used);
         LayoutString(&Layout, &DebugFont,
                      BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
-        
+        LayoutString(&Layout, &DebugFont,
+                     BLACK, "GameCamera.MoveFactor: %.2f", GameCamera.DEBUG_MoveFactor);
     }
     if(DebugConfig.Overlay & DebugOverlay_Profiler){
         LayoutFps(&Layout);
         DEBUGRenderAllProfileData(&Layout);
     }
 }
+#else
+internal void DEBUGRenderOverlay();
+#endif
