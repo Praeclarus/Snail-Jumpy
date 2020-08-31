@@ -61,6 +61,8 @@ ProcessStates(stream *Stream, asset *NewAsset){
 
 internal b8
 ProcessSpriteSheet(stream *Stream, asset *NewAsset){
+    ZeroMemory(NewAsset->FPSArray, sizeof(NewAsset->FPSArray));
+    
     s32 Components = 0;
     u32 Size = 0;
     
