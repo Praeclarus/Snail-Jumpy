@@ -121,6 +121,11 @@ DynamicArrayInitialize(dynamic_array<T> *Array, int InitialCapacity, memory_aren
 }
 
 template <typename T> internal void 
+DynamicArrayReset(dynamic_array<T> *Array){
+    Array->Count = 0;
+}
+
+template <typename T> internal void 
 DynamicArrayPushBack(dynamic_array<T> *Array, T *item){
     if(Array->Count >= Array->Capacity){
         umw OldSize = Array->Capacity*sizeof(T);

@@ -36,7 +36,8 @@ struct vertex {
 
 enum render_command_type {
     RenderCommand_None,
-    RenderCommand_SetClip,
+    RenderCommand_BeginClipRegion,
+    RenderCommand_EndClipRegion,
     RenderCommand_RenderItem,
     RenderCommand_TranslucentRenderItem,
     RenderCommand_ClearScreen, // TODO(Tyler): Implement
@@ -54,7 +55,7 @@ struct render_command_item : public render_command_header {
     render_texture_handle Texture;
 };
 
-struct render_command_set_clip : public render_command_header {
+struct render_command_begin_clip_region : public render_command_header {
     v2s Min;
     v2s Max;
 };
@@ -73,8 +74,8 @@ struct render_commands {
     
     void NewFrame(memory_arena *Arena, v2 OutputSize_);
     render_command_item *PushRenderItem(f32 ZLayer, b8 Translucent);
-    void SetClip(v2 Min, v2 Max, camera *Camera=0);
-    void ResetClip();
+    void BeginClipRegion(v2 Min, v2 Max, camera *Camera=0);
+    void EndClipRegion();
     void ClearScreen(color Color);
 };
 

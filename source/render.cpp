@@ -24,10 +24,10 @@ render_commands::PushRenderItem(f32 ZLayer, b8 Translucent){
 }
 
 void
-render_commands::SetClip(v2 Min, v2 Max, camera *Camera){
+render_commands::BeginClipRegion(v2 Min, v2 Max, camera *Camera){
     CommandCount++;
-    auto Command = PushStruct(&CommandBuffer, render_command_set_clip);
-    Command->Type = RenderCommand_SetClip;
+    auto Command = PushStruct(&CommandBuffer, render_command_begin_clip_region);
+    Command->Type = RenderCommand_BeginClipRegion;
     if(Camera){
         Min *= Camera->MetersToPixels;
         Max *= Camera->MetersToPixels;
@@ -37,12 +37,10 @@ render_commands::SetClip(v2 Min, v2 Max, camera *Camera){
 }
 
 void
-render_commands::ResetClip(){
+render_commands::EndClipRegion(){
     CommandCount++;
-    auto Command = PushStruct(&CommandBuffer, render_command_set_clip);
-    Command->Type = RenderCommand_SetClip;
-    Command->Min = V2S(0, 0);
-    Command->Max = V2S((s32)OutputSize.X, (s32)OutputSize.Y);
+    auto Command = PushStruct(&CommandBuffer, render_command_header);
+    Command->Type = RenderCommand_EndClipRegion;
 }
 
 void 

@@ -41,6 +41,7 @@ UpdateAndRenderMainGame(){
     player_entity *Player = EntityManager.Player;
     
     EntityManager.UpdateAndRenderEntities(&GameCamera);
+    
     // Gate
     {
         v2 P = v2{15.25f, 3.25f};

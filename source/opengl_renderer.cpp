@@ -360,12 +360,43 @@ ExecuteCommands(render_commands *Commands){
             case RenderCommand_None: {
                 CommandPtr += sizeof(render_command_header);
             }break;
-            case RenderCommand_SetClip: {
-                auto Command = (render_command_set_clip *)CommandPtr;
+            case RenderCommand_BeginClipRegion: {
+                f32 LastZ = 0.0f;
+                for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
+                    auto Item = TranslucentItems[Index];
+                    if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
+                    LastZ = Item->ZLayer;
+                    glBindTexture(GL_TEXTURE_2D, Item->Texture);
+                    glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
+                                             GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
+                                             Item->VertexOffset);
+                }
+                
+                glScissor(0, 0, WindowWidth, WindowHeight);
+                DynamicArrayReset(&TranslucentItems);
+                
+                auto Command = (render_command_begin_clip_region *)CommandPtr;
                 CommandPtr += sizeof(*Command);
                 glScissor(Command->Min.X, Command->Min.Y, 
                           Command->Min.X+(Command->Max.X-Command->Min.X),
                           Command->Min.Y+(Command->Max.Y-Command->Min.Y));
+            }break;
+            case RenderCommand_EndClipRegion: {
+                CommandPtr += sizeof(render_command_header);
+                
+                f32 LastZ = 0.0f;
+                for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
+                    auto Item = TranslucentItems[Index];
+                    if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
+                    LastZ = Item->ZLayer;
+                    glBindTexture(GL_TEXTURE_2D, Item->Texture);
+                    glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
+                                             GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
+                                             Item->VertexOffset);
+                }
+                
+                glScissor(0, 0, WindowWidth, WindowHeight);
+                DynamicArrayReset(&TranslucentItems);
             }break;
             case RenderCommand_RenderItem: {
                 auto Command = (render_command_item *)CommandPtr;
@@ -413,6 +444,7 @@ ExecuteCommands(render_commands *Commands){
         }
     }
     
+    // So that the scene can render without a clip region command
     f32 LastZ = 0.0f;
     for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
         auto Item = TranslucentItems[Index];
