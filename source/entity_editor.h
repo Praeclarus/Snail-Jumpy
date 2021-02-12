@@ -19,8 +19,9 @@ enum entity_editor_action {
 
 struct entity_editor {
     b8 DoEditBoundaries;
-    u8 CurrentBoundary;
-    collision_boundary_type BoundaryType;
+    collision_boundary *BoundarySet;
+    collision_boundary *CurrentBoundary;
+    collision_boundary_type BoundaryType = BoundaryType_Rect;
     collision_boundary *DraggingBoundary;
     
     entity_editor_action Action;
@@ -37,49 +38,46 @@ struct entity_editor {
     u32          CurrentFrame;
     entity_state CurrentState     = State_None;
     direction    CurrentDirection = Direction_Left;
-    u8           CurrentBoundarySet;
     
     u32 SelectedInfoID;
     entity_info *SelectedInfo;
     
+    //~ Functions
     void ProcessAction();
     void UpdateAndRender();
     void ProcessInput();
     void ProcessKeyDown(os_key_code KeyCode);
     void ProcessBoundaryAction();
-    void DoStateTableUI(window *Window);
     void DoUI();
-    inline void GetBoundaries(collision_boundary **Boundaries, u8 **Count, u8 *MaxCount);
     inline void CanonicalizeBoundary(collision_boundary *Boundary);
-    b8 IsMouseInBoundary(u8 *Index, collision_boundary **Boundary);
-    
-    //~ Tables
-    // I have no clue why C++ needs inline here, but it complains otherwise
-    inline local_constant entity_type FORWARD_ENTITY_TYPE_TABLE[EntityType_TOTAL] {
-        EntityType_Enemy,  // 0
-        EntityType_TOTAL,  // 1
-        EntityType_TOTAL,  // 2
-        EntityType_Player, // 3
-        EntityType_TOTAL,  // 4
-        EntityType_TOTAL,  // 5
-        EntityType_TOTAL,  // 6
-        EntityType_None,   // 7
-        EntityType_TOTAL,  // 8
-        EntityType_TOTAL,  // 9
-    };
-    inline local_constant entity_type REVERSE_ENTITY_TYPE_TABLE[EntityType_TOTAL] {
-        EntityType_Player, // 0
-        EntityType_TOTAL,  // 1
-        EntityType_TOTAL,  // 2
-        EntityType_None,   // 3
-        EntityType_TOTAL,  // 4
-        EntityType_TOTAL,  // 5
-        EntityType_TOTAL,  // 6
-        EntityType_Enemy,  // 7
-        EntityType_TOTAL,  // 8
-        EntityType_TOTAL,  // 9
-    };
-    
+    collision_boundary *GetBoundaryThatMouseIsOver();
+};
+
+//~ Tables
+// I have no clue why C++ needs inline here, but it complains otherwise
+global_constant entity_type FORWARD_ENTITY_TYPE_TABLE[EntityType_TOTAL] {
+    EntityType_Enemy,  // 0
+    EntityType_TOTAL,  // 1
+    EntityType_TOTAL,  // 2
+    EntityType_Player, // 3
+    EntityType_TOTAL,  // 4
+    EntityType_TOTAL,  // 5
+    EntityType_TOTAL,  // 6
+    EntityType_None,   // 7
+    EntityType_TOTAL,  // 8
+    EntityType_TOTAL,  // 9
+};
+global_constant entity_type REVERSE_ENTITY_TYPE_TABLE[EntityType_TOTAL] {
+    EntityType_Player, // 0
+    EntityType_TOTAL,  // 1
+    EntityType_TOTAL,  // 2
+    EntityType_None,   // 3
+    EntityType_TOTAL,  // 4
+    EntityType_TOTAL,  // 5
+    EntityType_TOTAL,  // 6
+    EntityType_Enemy,  // 7
+    EntityType_TOTAL,  // 8
+    EntityType_TOTAL,  // 9
 };
 
 //~ MiscellaneousS

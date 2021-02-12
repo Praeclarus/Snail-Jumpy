@@ -37,9 +37,9 @@ LayoutString(layout *Layout, font *Font, color Color, char *Format, ...){
 internal void
 LayoutFps(layout *Layout){
     LayoutString(Layout, &DebugFont,
-                 BLACK, "Milliseconds per frame: %f", 1000.0f*OSInput.dTimeForFrame);
+                 BLACK, "Milliseconds per frame: %f", 1000.0f*OSInput.dTime);
     LayoutString(Layout, &DebugFont,
-                 BLACK, "FPS: %f", 1.0f/OSInput.dTimeForFrame);
+                 BLACK, "FPS: %f", 1.0f/OSInput.dTime);
 }
 
 
@@ -574,6 +574,7 @@ ui_manager::EndPopup(){
 void 
 ui_manager::Initialize(memory_arena *Arena){
     WindowTable = PushHashTable<const char *, window>(Arena, 256);
+    SetupDefaultTheme(&Theme);
 }
 
 void

@@ -1,5 +1,5 @@
 
-global_constant u32 CURRENT_SPEC_FILE_VERSION = 4;
+global_constant u32 CURRENT_SPEC_FILE_VERSION = 1;
 
 internal u8
 GetBoundarySetIndex(u32 InfoID, entity_state State){
@@ -7,21 +7,118 @@ GetBoundarySetIndex(u32 InfoID, entity_state State){
     u8 Result = Info->BoundaryTable[State];
     if(!Result){
         Result = Info->BoundaryTable[0];
-        if(!Result) LogMessage("Default boundary set for info, doesn't exist!", 
-                               InfoID);
     }
     
     return(Result);
 }
 
-internal u32
-AddEntityInfo(){
-    u32 Result = EntityInfos.Count;
+internal entity_info *
+RegisterInfo(u8 BoundaryCount, u8 BoundarySets, 
+             f32 Mass,
+             entity_flags EntityFlags=EntityFlag_None,
+             collision_flags CollisionFlags=CollisionFlag_None){
     entity_info *Info = PushNewArrayItem(&EntityInfos);
-    Info->Asset = "";
-    //Info->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+    Info->Flags = EntityFlags;
+    Info->CollisionFlags = CollisionFlags;
+    Info->Boundaries = PhysicsSystem.AllocBoundaries(BoundarySets*BoundaryCount);
+    Info->BoundarySets = BoundarySets;
+    Info->BoundaryCount = BoundaryCount;
+    return(Info);
+}
+
+internal entity_info *
+RegisterEnemyInfo(u8 BoundaryCount, u8 BoundarySets,
+                  f32 Mass, f32 Speed, u32 Damage,
+                  entity_flags EntityFlags=EntityFlag_None,
+                  collision_flags CollisionFlags=CollisionFlag_None){
+    entity_info *Info = RegisterInfo(BoundaryCount, BoundarySets, Mass, EntityFlags, CollisionFlags);
+    Info->Type = EntityType_Enemy;
+    Info->Speed = Speed;
+    Info->Damage = Damage;
+    return(Info);
+}
+
+// TODO(Tyler): Maybe metaprogram this???
+internal void
+RegisterEntityInfos(){
+    PushNewArrayItem(&EntityInfos); // Reserve 0th index
     
-    return(Result);
+    entity_info *Player    = RegisterInfo(1, 1, 1.0f);
+    Player->BoundaryTable[State_None] = 1;
+    
+    entity_info *Snail     = RegisterEnemyInfo(1, 1, 1.0f, 1.0f, 2, EntityFlag_CanBeStunned);
+    Snail->BoundaryTable[State_None] = 1;
+    
+    entity_info *Sally     = RegisterEnemyInfo(1, 2, 2.0f, 0.8f, 3, EntityFlag_CanBeStunned);
+    Sally->BoundaryTable[State_None] = 1;
+    Sally->BoundaryTable[State_Retreating] = 2;
+    Sally->BoundaryTable[State_Stunned]    = 2;
+    Sally->BoundaryTable[State_Returning]  = 2;
+    
+    entity_info *Speedy    = RegisterEnemyInfo(1, 1, 0.7f, 2.0f, 1, EntityFlag_CanBeStunned);
+    Speedy->BoundaryTable[State_None] = 1;
+    
+    entity_info *Dragonfly = RegisterEnemyInfo(2, 1, 1.5f, 1.0f, 1, EntityFlag_MirrorBoundariesWhenGoingRight|EntityFlag_NotAffectedByGravity);
+    Dragonfly->BoundaryTable[State_None] = 1;
+}
+
+//~ 
+
+// Only the parts of the entity infos that are edited by the entity editor are saved
+internal void
+InitializeAndLoadEntityInfos(memory_arena *Arena, const char *Path){
+    EntityInfoMemory = PushNewArena(Arena, Kilobytes(2048));
+    EntityInfos = CreateNewArray<entity_info>(&PermanentStorageArena, 128);
+    RegisterEntityInfos();
+    
+    entire_file File = ReadEntireFile(&TransientStorageArena, Path);
+    
+    if(File.Size){
+        stream Stream = CreateReadStream(File.Data, File.Size);
+        
+        entity_info_file_header *Header = ConsumeType(&Stream, entity_info_file_header);
+        Assert((Header->Header[0] == 'S') && 
+               (Header->Header[1] == 'J') && 
+               (Header->Header[2] == 'E'));
+        Assert(Header->Version <= CURRENT_SPEC_FILE_VERSION);
+        
+        for(u32 I = 0; I < Header->InfoCount; I++){
+            entity_info *Info = &EntityInfos[I+1]; // 0th index is reserverd
+            
+            {
+                char *AssetInFile = ConsumeString(&Stream);
+                Info->Asset = GetHashTableKey(&AssetTable, (const char *)AssetInFile);
+                if(!Info->Asset) Info->Asset = PushCString(&StringMemory, AssetInFile); 
+            }
+            
+            u32 BoundarySets = *ConsumeType(&Stream, u8); 
+            u32 BoundaryCount = *ConsumeType(&Stream, u8); 
+            
+            for(u32 J = 0; J < Minimum(Info->BoundarySets, BoundarySets); J++){
+                for(u32 K = 0; K < Minimum(Info->BoundaryCount, BoundaryCount); K++){
+                    collision_boundary *Boundary = &Info->Boundaries[J*Info->BoundaryCount + K];
+                    Boundary->Type = *ConsumeType(&Stream, collision_boundary_type);
+                    Boundary->Flags = *ConsumeType(&Stream, collision_flags);
+                    Boundary->Offset = *ConsumeType(&Stream, v2);
+                    Boundary->Bounds = *ConsumeType(&Stream, rect);
+                    
+                    switch(Boundary->Type){
+                        case BoundaryType_None: break;
+                        case BoundaryType_Rect: break;
+                        case BoundaryType_Circle: {
+                            v2 Size = RectSize(Boundary->Bounds);
+                            Assert(Size.X == Size.Y);
+                            Info->Boundaries[J].Radius = 0.5f*Size.X;
+                        }break;
+                        case BoundaryType_Wedge: {
+                            NOT_IMPLEMENTED_YET
+                        };
+                        default: INVALID_CODE_PATH;
+                    }
+                }
+            }
+        }
+    }
 }
 
 internal void
@@ -47,109 +144,20 @@ WriteEntityInfos(const char *Path){
             Offset += Length+1;
         }
         
-        WriteVariableToFile(File, Offset, Info->Flags);
-        WriteVariableToFile(File, Offset, Info->Type);
-        WriteVariableToFile(File, Offset, Info->CollisionFlags);
+        WriteVariableToFile(File, Offset, Info->BoundarySets);
+        WriteVariableToFile(File, Offset, Info->BoundaryCount);
         
-        switch(Info->Type){
-            case EntityType_None: break;
-            case EntityType_Player: break;
-            case EntityType_Enemy: {
-                WriteVariableToFile(File, Offset, Info->Speed);
-                WriteVariableToFile(File, Offset, Info->Damage);
-                WriteVariableToFile(File, Offset, Info->Mass);
-            }break;
-        }
-        
-        if(Info->Type != EntityType_None){
-            for(u32 J = 0; J < ENTITY_SPEC_BOUNDARY_SET_COUNT; J++){
-                WriteVariableToFile(File, Offset, Info->MaxCounts[J]);
-                WriteVariableToFile(File, Offset, Info->Counts[J]);
-                for(u32 K = 0; K < Info->Counts[J]; K++){
-                    collision_boundary *Boundary = &Info->Boundaries[J][K];
-                    packed_collision_boundary Packed = {};
-                    Packed.Type = Boundary->Type;
-                    Packed.Flags = Boundary->Flags;
-                    Packed.P = Boundary->P;
-                    // It is a union so even if it is a circle this should produce the 
-                    // correct results
-                    Packed.Size.X = Boundary->Size.X;
-                    Packed.Size.Y = Boundary->Size.Y;
-                    WriteVariableToFile(File, Offset, Packed);
-                }
-            }
+        for(u32 J = 0; J < (u32)(Info->BoundaryCount*Info->BoundarySets); J++){
+            collision_boundary *Boundary = &Info->Boundaries[J];
+            // TODO(Tyler): How is the support function stored?
+            WriteVariableToFile(File, Offset, Boundary->Type);
+            WriteVariableToFile(File, Offset, Boundary->Flags);
+            WriteVariableToFile(File, Offset, Boundary->Offset);
+            WriteVariableToFile(File, Offset, Boundary->Bounds);
             
-            for(u32 J = 0; J < State_TOTAL; J++){
-                WriteVariableToFile(File, Offset, Info->BoundaryTable[J]);
-            }
+            // Boundary->Radius can be calculated from Boundary->Bounds
         }
     }
     
     CloseFile(File);
-}
-
-internal void
-InitializeEntityInfos(memory_arena *Arena, const char *Path){
-    entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-    
-    EntityInfoMemory = PushNewArena(Arena, Kilobytes(2048));
-    EntityInfos = CreateNewArray<entity_info>(&PermanentStorageArena, 128);
-    PushNewArrayItem(&EntityInfos); // Reserve the 0th index!
-    
-    if(File.Size){
-        stream Stream = CreateReadStream(File.Data, File.Size);
-        
-        entity_info_file_header *Header = ConsumeType(&Stream, entity_info_file_header);
-        Assert((Header->Header[0] == 'S') && 
-               (Header->Header[1] == 'J') && 
-               (Header->Header[2] == 'E'));
-        Assert(Header->Version <= CURRENT_SPEC_FILE_VERSION);
-        
-        for(u32 I = 0; I < Header->InfoCount; I++){
-            entity_info *Info = &EntityInfos[AddEntityInfo()];
-            char *AssetInFile = ConsumeString(&Stream);
-            Info->Asset = GetHashTableKey(&AssetTable, (const char *)AssetInFile);
-            if(!Info->Asset) Info->Asset = PushCString(&StringMemory, AssetInFile); 
-            
-            Info->Flags = *ConsumeType(&Stream, entity_flags);
-            Info->Type = *ConsumeType(&Stream, entity_type);
-            
-            if(Header->Version >= 3){
-                Info->CollisionFlags = *ConsumeType(&Stream, collision_flags); 
-            }
-            
-            switch(Info->Type){
-                case EntityType_None: break;
-                case EntityType_Player: break;
-                case EntityType_Enemy: {
-                    Info->Speed = *ConsumeType(&Stream, f32);
-                    if(Header->Version >= 2) { Info->Damage = *ConsumeType(&Stream, u32);
-                    }else{ Info->Damage = 1; }
-                    if(Header->Version >= 4) { Info->Mass = *ConsumeType(&Stream, f32);
-                    }else { Info->Mass = 1.0f; }
-                }break;
-            }
-            
-            if(Info->Type != EntityType_None){
-                for(u32 J = 0; J < ENTITY_SPEC_BOUNDARY_SET_COUNT; J++){
-                    Info->MaxCounts[J] = *ConsumeType(&Stream, u8);
-                    Info->Counts[J] = *ConsumeType(&Stream, u8);
-                    for(u32 K = 0; K < Info->Counts[J]; K++){
-                        packed_collision_boundary *Packed = ConsumeType(&Stream, packed_collision_boundary);
-                        Info->Boundaries[J][K].Type = Packed->Type;
-                        Info->Boundaries[J][K].Flags = Packed->Flags;
-                        Info->Boundaries[J][K].P = Packed->P;
-                        Info->Boundaries[J][K].Size.X = Packed->Size.X;
-                        Info->Boundaries[J][K].Size.Y = Packed->Size.Y;
-                    }
-                }
-                
-                for(u32 J = 0; J < State_TOTAL; J++){
-                    Info->BoundaryTable[J] = *ConsumeType(&Stream, u8);
-                }
-            }
-        }
-    }else{
-        AddEntityInfo();
-    }
 }

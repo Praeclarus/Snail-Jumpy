@@ -4,7 +4,7 @@
 // TODO(Tyler): Remove this dependency!
 #include <math.h>
 
-//~ Helper functions
+//~ Mathy stuff
 
 global_constant f32 PI = 3.141592653589f;
 global_constant f32 TAU = 2.0f*PI;
@@ -114,8 +114,49 @@ ToPowerOf(f32 Base, f32 Exponent){
     return(Result);
 }
 
-//~ Vectors
+internal inline f32
+SafeRatioN(f32 Numerator, f32 Denominator, f32 N){
+    f32 Result = N;
+    
+    if(Denominator != 0.0f){
+        Result = Numerator / Denominator;
+    }
+    
+    return(Result);
+}
 
+internal inline f32
+SafeRatio0(f32 Numerator, f32 Denominator){
+    f32 Result = SafeRatioN(Numerator, Denominator, 0.0f);
+    return(Result);
+}
+
+internal inline f32
+SafeRatio1(f32 Numerator, f32 Denominator){
+    f32 Result = SafeRatioN(Numerator, Denominator, 1.0f);
+    return(Result);
+}
+
+internal inline u64
+SafeRatioN(u64 Numerator, u64 Denominator, u64 N){
+    u64 Result = N;
+    
+    if(Denominator != 0.0f){
+        Result = Numerator / Denominator;
+    }
+    
+    return(Result);
+}
+
+internal inline u64
+SafeRatio0(u64 Numerator, u64 Denominator){
+    u64 Result = SafeRatioN(Numerator, Denominator, 0);
+    return(Result);
+}
+
+//~ V2s
+
+#define V20 V2(0, 0)
 union v2
 {
     struct
@@ -155,6 +196,12 @@ union v2s
 internal inline v2s
 V2S(s32 X, s32 Y){ 
     v2s Result = v2s{X, Y}; 
+    return(Result);
+}
+
+internal inline v2
+V2(v2s A){ 
+    v2 Result = v2{(f32)A.X, (f32)A.Y}; 
     return(Result);
 }
 
@@ -255,9 +302,39 @@ Dot(v2 A, v2 B) {
     return(Result);
 }
 
+internal inline v2
+Clockwise90(v2 A, v2 Origin=V2(0,0)){
+    A -= Origin;
+    v2 Result = V2(A.Y, -A.X);
+    Result += Origin;
+    return(Result);
+}
+
+internal inline v2
+CounterClockwise90(v2 A, v2 Origin=V2(0,0)){
+    A -= Origin;
+    v2 Result = V2(-A.Y, A.X);
+    Result += Origin;
+    return(Result);
+}
+
+internal inline v2
+Invert(v2 A, v2 Origin=V2(0,0)){
+    A -= Origin;
+    v2 Result = -A;
+    Result += Origin;
+    return(Result);
+}
+
 internal inline f32
 LengthSquared(v2 V){
     f32 Result = Dot(V, V);
+    return(Result);
+}
+
+internal inline f32
+Length(v2 V){
+    f32 Result = SquareRoot(LengthSquared(V));
     return(Result);
 }
 
@@ -271,52 +348,15 @@ Normalize(v2 V){
     return(Result);
 }
 
-internal inline f32
-SafeRatioN(f32 Numerator, f32 Denominator, f32 N){
-    f32 Result = N;
-    
-    if(Denominator != 0.0f){
-        Result = Numerator / Denominator;
-    }
-    
+internal inline v2 
+TripleProduct(v2 A, v2 B){
+    // A cross B cross A = (A cross B) cross A
+    f32 Z = (A.X*B.Y)-(A.Y*B.X);
+    v2 Result = V2(-Z*A.Y, Z*A.X);
     return(Result);
 }
 
-internal inline f32
-SafeRatio0(f32 Numerator, f32 Denominator){
-    f32 Result = SafeRatioN(Numerator, Denominator, 0.0f);
-    return(Result);
-}
-
-internal inline f32
-SafeRatio1(f32 Numerator, f32 Denominator){
-    f32 Result = SafeRatioN(Numerator, Denominator, 1.0f);
-    return(Result);
-}
-
-internal inline u64
-SafeRatioN(u64 Numerator, u64 Denominator, u64 N){
-    u64 Result = N;
-    
-    if(Denominator != 0.0f){
-        Result = Numerator / Denominator;
-    }
-    
-    return(Result);
-}
-
-internal inline u64
-SafeRatio0(u64 Numerator, u64 Denominator){
-    u64 Result = SafeRatioN(Numerator, Denominator, 0);
-    return(Result);
-}
-
-internal inline v2
-V2(v2s A){ 
-    v2 Result = v2{(f32)A.X, (f32)A.Y}; 
-    return(Result);
-}
-
+//~ Colors
 union v4 {
     struct {
         f32 X, Y, Z, W;
@@ -333,14 +373,62 @@ Color(f32 R, f32 G, f32 B, f32 A){
     return(Result);
 }
 
-internal inline b8
-IsPointInRectangle(v2 Point, v2 RectP, v2 RectSize){
-    v2 MinCorner = RectP-(0.5f*RectSize);
-    v2 MaxCorner = RectP+(0.5f*RectSize);
-    b8 Result = ((MinCorner.X < Point.X) && (Point.X < MaxCorner.X) &&
-                 (MinCorner.Y < Point.Y) && (Point.Y < MaxCorner.Y));
+//~ Rectangles
+struct rect {
+    v2 Min;
+    v2 Max;
+};
+
+struct rect_s32 {
+    v2s Min;
+    v2s Max;
+};
+
+internal inline rect_s32 
+RectS32(rect Rect){
+    rect_s32 Result;
+    Result.Min.X = Truncate(Rect.Min.X);
+    Result.Min.Y = Truncate(Rect.Min.Y);
+    Result.Max.X = (s32)Ceil(Rect.Max.X);
+    Result.Max.Y = (s32)Ceil(Rect.Max.Y);
     return(Result);
 }
 
+internal inline rect
+CenterRect(v2 P, v2 Size){
+    rect Result;
+    Result.Min = P - 0.5f*Size;
+    Result.Max = P + 0.5f*Size;
+    return(Result);
+}
+
+internal inline rect
+OffsetRect(rect Rect, v2 Offset){
+    rect Result = Rect;
+    Result.Min += Offset;
+    Result.Max += Offset;
+    return(Result);
+}
+
+internal inline v2
+RectSize(rect Rect){
+    v2 Result = Rect.Max - Rect.Min;
+    return(Result);
+}
+
+internal inline b8
+IsV2InRectangle(v2 Point, rect Rect){
+    b8 Result = ((Rect.Min.X < Point.X) && (Point.X < Rect.Max.X) &&
+                 (Rect.Min.Y < Point.Y) && (Point.Y < Rect.Max.Y));
+    return(Result);
+}
+
+internal inline rect
+GrowRect(rect Rect, f32 G){
+    rect Result = Rect;
+    Result.Min -= V2(G, G);
+    Result.Max += V2(G, G);
+    return(Result);
+}
 
 #endif // SNAIL_JUMPY_MATH_H

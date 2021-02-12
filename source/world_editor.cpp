@@ -104,7 +104,7 @@ world_editor::MaybeFadeWindow(window *Window){
     FullSize = Camera.ScreenPToWorldP(FullSize);
     P = Camera.ScreenPToWorldP(P);
     P += Camera.P; 
-    if(IsPointInRectangle(MouseP, P, FullSize)){ 
+    if(IsV2InRectangle(MouseP, CenterRect(P, FullSize))){ 
         Window->Fade = 0.3f; 
         Window->IsFaded = true;
     }
@@ -149,12 +149,12 @@ world_editor::HandleClick(b8 ShouldRemove){
     
     {
         if(GetSelectedThingType() == EntityType_Enemy){
-            if(IsPointInRectangle(MouseP, SelectedThing->PathStart, v2{0.2f, 0.2f}) &&
+            if(IsV2InRectangle(MouseP, CenterRect(SelectedThing->PathStart, V2(0.2f, 0.2f))) &&
                !ShouldRemove){
                 InfoialThing = EditorInfoialThing_PathStart;
                 Action = WorldEditorAction_DraggingThing;
                 return(true);
-            }else if(IsPointInRectangle(MouseP, SelectedThing->PathEnd, v2{0.2f, 0.2f}) &&
+            }else if(IsV2InRectangle(MouseP, CenterRect(SelectedThing->PathEnd, V2(0.2f, 0.2f))) &&
                      !ShouldRemove){
                 InfoialThing = EditorInfoialThing_PathEnd;
                 Action = WorldEditorAction_DraggingThing;
@@ -183,7 +183,7 @@ world_editor::HandleClick(b8 ShouldRemove){
             }break;
         }
         
-        if(IsPointInRectangle(MouseP, Entity->P, Size)){
+        if(IsV2InRectangle(MouseP, CenterRect(Entity->P, Size))){
             if((Entity->Type == EntityType_Art) &&
                ((Mode == EditMode_AddWall) || 
                 (Mode == EditMode_AddCoinP))) continue;
@@ -465,7 +465,7 @@ world_editor::DoPopup(){
     b8 Result = false;
     switch(Popup){
         case EditorPopup_TextInput: {
-            window *Window = UIManager.BeginPopup("Rename World", V2(500, 500));
+            window *Window = UIManager.BeginPopup("World", V2(500, 500));
             MaybeFadeWindow(Window);
             Window->TextInput(PopupBuffer, sizeof(PopupBuffer), WIDGET_ID);
             if(Window->Button("Submit", 2)){
@@ -865,7 +865,7 @@ world_editor::UpdateAndRender(){
                         color Color = BASE_COLOR;
                         if(InfoialThing == EditorInfoialThing_PathStart){
                             Color = EDITOR_SELECTED_COLOR;
-                        }else if(IsPointInRectangle(MouseP, Entity->PathStart, ENEMY_PATH_HANDLE_SIZE)){
+                        }else if(IsV2InRectangle(MouseP, CenterRect(Entity->PathStart, ENEMY_PATH_HANDLE_SIZE))){
                             Color = EDITOR_HOVERED_COLOR; 
                         }
                         RenderCenteredRectangle(Entity->PathStart, ENEMY_PATH_HANDLE_SIZE, -1.0f, Color, &Camera);
@@ -873,12 +873,12 @@ world_editor::UpdateAndRender(){
                         color Color = BASE_COLOR;
                         if(InfoialThing == EditorInfoialThing_PathEnd){
                             Color = EDITOR_SELECTED_COLOR;
-                        }else if(IsPointInRectangle(MouseP, Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE)){
+                        }else if(IsV2InRectangle(MouseP, CenterRect(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE))){
                             Color = EDITOR_HOVERED_COLOR; 
                         }
                         RenderCenteredRectangle(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE, -1.0f, Color, &Camera);
                     }
-                }else if(IsPointInRectangle(MouseP, Entity->P, Asset->SizeInMeters*Asset->Scale) &&
+                }else if(IsV2InRectangle(MouseP, CenterRect(Entity->P, Asset->SizeInMeters*Asset->Scale)) &&
                          (!UIManager.MouseOverWindow)){
                     local_constant color COLOR = color{0.0f, 0.0f, 0.7f, 1.0f};
                     RenderRectangleOutline(P, Size, -0.1f, COLOR, &Camera);
@@ -889,7 +889,7 @@ world_editor::UpdateAndRender(){
                 color OutlineColor = {};
                 if(SelectedThing == Entity){
                     OutlineColor = EDITOR_SELECTED_COLOR;
-                }else if(IsPointInRectangle(MouseP, Entity->P, TILE_SIZE) &&
+                }else if(IsV2InRectangle(MouseP, CenterRect(Entity->P, TILE_SIZE)) &&
                          (!UIManager.MouseOverWindow)){
                     OutlineColor = EDITOR_HOVERED_COLOR;
                 }
@@ -903,7 +903,7 @@ world_editor::UpdateAndRender(){
                 color OutlineColor = {};
                 if(SelectedThing == Entity){
                     OutlineColor = EDITOR_SELECTED_COLOR;
-                }else if(IsPointInRectangle(MouseP, Entity->P, Entity->Size) &&
+                }else if(IsV2InRectangle(MouseP, CenterRect(Entity->P, Entity->Size)) &&
                          (!UIManager.MouseOverWindow)){
                     OutlineColor = EDITOR_HOVERED_COLOR;
                 }
@@ -928,7 +928,7 @@ world_editor::UpdateAndRender(){
                 OutlineColor.A = 0.0f;
                 if(SelectedThing == Entity){
                     OutlineColor = EDITOR_SELECTED_COLOR; 
-                }else if(IsPointInRectangle(MouseP, Entity->P, Size) &&
+                }else if(IsV2InRectangle(MouseP, CenterRect(Entity->P, Size)) &&
                          (!UIManager.MouseOverWindow)){
                     OutlineColor = EDITOR_HOVERED_COLOR;
                 }

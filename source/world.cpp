@@ -24,15 +24,14 @@ internal void
 AddPlayer(v2 P){
     EntityManager.PlayerInput = {};
     *EntityManager.Player = {};
-    
+    entity_info *Info = &EntityInfos[1]; // TODO(Tyler): I don't like this
+    //EntityManager.Player->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
+    EntityManager.Player->Physics = PhysicsSystem.AddObject(DEBUGPlayerBoundary, 1);
     EntityManager.Player->Type = EntityType_Player;
     
-    EntityManager.Player->BoundaryCount = 1;
-    EntityManager.Player->Boundaries[0].Type = BoundaryType_Rectangle;
-    EntityManager.Player->Boundaries[0].Size = v2{ 0.3f, 0.5f };
-    EntityManager.Player->Boundaries[0].P = v2{P.X, P.Y};
+    physics_object *Physics = EntityManager.Player->Physics;
     
-    EntityManager.Player->P = P;
+    EntityManager.Player->Physics->P = P;
     EntityManager.Player->ZLayer = -5.0f;
     EntityManager.Player->YOffset = 0.5f / 2.0f;
     
@@ -43,14 +42,13 @@ AddPlayer(v2 P){
     EntityManager.Player->JumpTime = 1.0f;
     
     EntityManager.Player->Health = 9;
-    EntityManager.Player->Mass = 0.6f;
 }
 
 internal void
 AddParticles(v2 P){
     particle_entity *Particles = BucketArrayAlloc(&EntityManager.Particles);
     Particles->P = P;
-    //Particles->ParticleCount = MAX_PARTICLE_COUNT;
+    //Particles->Physics->ParticleCount = MAX_PARTICLE_COUNT;
     Particles->ParticleCount = 16;
 }
 
@@ -66,13 +64,10 @@ LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
             }else if(TileId == EntityType_Wall){
                 wall_entity *Wall = BucketArrayAlloc(&EntityManager.Walls);
                 *Wall = {};
-                Wall->Boundary.Type = BoundaryType_Rectangle;
-                Wall->Boundary.P = {
-                    ((f32)X+0.5f)*TILE_SIDE, ((f32)Y+0.5f)*TILE_SIDE
-                };
-                Wall->Boundary.Size = {
-                    TILE_SIDE, TILE_SIDE
-                };
+                Wall->Physics = PhysicsSystem.AddStaticObject(WallBoundary, 1);
+                Wall->Physics->P = V2(((f32)X+0.5f)*TILE_SIDE, ((f32)Y+0.5f)*TILE_SIDE);
+                Wall->Bounds = CenterRect(V20, TILE_SIZE);
+                // TODO(Tyler): This is terrible and probably wastes so much space
             }
         }
     }
@@ -90,8 +85,7 @@ world_manager::LoadWorld(const char *LevelName){
         if(World){
             CurrentWorld = World;
             
-            ReloadCollisionSystem(World->Width, World->Height, 
-                                  0.5f, 0.5f);
+            PhysicsSystem.Reload(World->Width, World->Height);
             
             // Coins
             EntityManager.CoinData.Tiles = CurrentWorld->Map;
@@ -117,8 +111,7 @@ world_manager::LoadWorld(const char *LevelName){
                 u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
                 for(u32 I = 0; I < N; I++){
                     coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
-                    Coin->Boundary.Type = BoundaryType_Rectangle;
-                    Coin->Boundary.Size = { 0.3f, 0.3f };
+                    Coin->Physics = PhysicsSystem.AddStaticObject(CoinBoundary, 1);
                     UpdateCoin(Coin);
                     Coin->Cooldown = 0.0f;
                 }
@@ -132,12 +125,15 @@ world_manager::LoadWorld(const char *LevelName){
                         entity_info *Info = &EntityInfos[Entity->InfoID];
                         enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
                         *Enemy = {};
+                        Enemy->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
+                        // TODO(Tyler): This is not correct!!!
+                        Enemy->Bounds = OffsetRect(Info->Boundaries->Bounds, Info->Boundaries->Offset);
                         Enemy->Type  = Info->Type;
                         Enemy->Flags = Info->Flags;
                         Enemy->Info = Entity->InfoID;
                         
                         v2 P = Entity->P; P.Y += 0.01f;
-                        Enemy->P = P;
+                        Enemy->Physics->P = P;
                         
                         Enemy->Speed = Info->Speed;
                         Enemy->Damage = Info->Damage;
@@ -149,36 +145,29 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Direction = Entity->Direction;
                         Enemy->PathStart = Entity->PathStart;
                         Enemy->PathEnd = Entity->PathEnd;
-                        Enemy->Mass = Info->Mass;
                         
                         u8 SetIndex = Info->BoundaryTable[Enemy->State];
                         if(SetIndex > 0){
                             SetIndex--;
-                            Assert(SetIndex < ENTITY_SPEC_BOUNDARY_SET_COUNT);
+                            Assert(SetIndex < Info->BoundarySets);
                             
-                            Enemy->BoundaryCount = Info->Counts[SetIndex];
-                            for(u32 J = 0; J < Enemy->BoundaryCount; J++){
-                                Enemy->Boundaries[J] = Info->Boundaries[SetIndex][J];
-                                Enemy->Boundaries[J].P = P + Info->Boundaries[SetIndex][J].P;
-                            }
+                            //Enemy->Physics->Boundary = Info->Boundaries[SetIndex];
                         }
                     }break;
                     case EntityType_Teleporter: {
                         teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
                         
                         *Teleporter = {};
-                        Teleporter->Boundary.P = Entity->P;
-                        Teleporter->Boundary.Size = TILE_SIZE;
+                        Teleporter->Physics = PhysicsSystem.AddStaticObject(WallBoundary, 1);
                         Teleporter->Level = Entity->Level;
-                        Teleporter->IsLocked = true;
-                        
                         Teleporter->IsLocked = !IsLevelCompleted(Entity->TRequiredLevel);
                     }break;
                     case EntityType_Door: {
+                        // TODO(Tyler): Memory leak
                         door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
-                        Door->Boundary.Type = BoundaryType_Rectangle;
-                        Door->Boundary.P = Entity->P;
-                        Door->Boundary.Size = Entity->Size;
+                        collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+                        *Boundary = MakeCollisionRect(V20, Entity->Size);
+                        Door->Physics = PhysicsSystem.AddStaticObject(Boundary, 1);
                         Door->IsOpen = false;
                         
                         if(IsLevelCompleted(Entity->DRequiredLevel)){
@@ -186,8 +175,7 @@ world_manager::LoadWorld(const char *LevelName){
                         }
                     }break;
                     case EntityType_Art: {
-                        bucket_location Location;
-                        art_entity *Art = BucketArrayAlloc(&EntityManager.Arts, &Location);
+                        art_entity *Art = BucketArrayAlloc(&EntityManager.Arts);
                         *Art = {};
                         Art->P = Entity->P;
                         Art->Z = Entity->Z;
@@ -198,22 +186,31 @@ world_manager::LoadWorld(const char *LevelName){
             }
             
             // TODO(Tyler): Formalize player starting position
-            AddPlayer(V2(1.5f, 1.5f));
+            AddPlayer(V2(1.55f, 1.55f));
             
+            physics_object *Wedge = PhysicsSystem.AddStaticObject(DEBUGWedgeBoundary, 1);
+            Wedge->P = V2(10.0f, 0.49f);
+            
+            physics_object *Circle = PhysicsSystem.AddStaticObject(DEBUGCircleBoundary, 1);
+            Circle->P = V2(4.0f, 0.2f);
+            
+#if 0
             AddParticles(V2(3.0f, 3.0f));
             AddParticles(V2(5.0f, 3.0f));
             AddParticles(V2(7.0f, 3.0f));
             AddParticles(V2(9.0f, 3.0f));
+#endif
             
             
+#if 0            
             {
                 projectile_entity *Projectile = BucketArrayAlloc(&EntityManager.Projectiles);
                 Projectile->Type = EntityType_Projectile;
                 Projectile->RemainingLife = 0.0f;
-                Projectile->BoundaryCount = 1;
-                Projectile->Boundaries[0].Type = BoundaryType_Rectangle;
-                Projectile->Boundaries[0].Size = { 0.1f, 0.1f };
+                Projectile->Physics = PhysicsSystem.AddObject(ProjectileBoundary, 1);
             }
+#endif
+            
         }
     }
 }

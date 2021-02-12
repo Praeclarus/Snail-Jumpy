@@ -38,7 +38,7 @@ UpdateAndRenderMainGame(){
     RenderCommands.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     GameCamera.Update();
     
-    CollisionSystemNewFrame();
+    player_entity *Player = EntityManager.Player;
     
     EntityManager.UpdateAndRenderEntities(&GameCamera);
     // Gate
@@ -47,9 +47,8 @@ UpdateAndRenderMainGame(){
         v2 DrawP = P;
         v2 Radius = 0.5f*TILE_SIZE;
         RenderCenteredRectangle(DrawP, TILE_SIZE, 0.0f, ORANGE, &GameCamera);
-        collision_boundary *Boundary = &EntityManager.Player->Boundaries[0];
-        v2 PlayerMin = EntityManager.Player->P-(Boundary->Size/2);
-        v2 PlayerMax = EntityManager.Player->P+(Boundary->Size/2);
+        v2 PlayerMin = Player->Physics->P-(RectSize(EntityManager.Player->Bounds)/2);
+        v2 PlayerMax = Player->Physics->P+(RectSize(EntityManager.Player->Bounds)/2);
         if((P.X-Radius.X <= PlayerMax.X)  &&
            (PlayerMin.X  <= P.X+Radius.X) &&
            (P.Y-Radius.Y <= PlayerMax.Y)  &&
@@ -87,7 +86,7 @@ UpdateAndRenderMainGame(){
                            TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
                            "Level completed!");
         
-        CompletionCooldown -= OSInput.dTimeForFrame;
+        CompletionCooldown -= OSInput.dTime;
         if(CompletionCooldown < 0.00001f){
             CurrentWorld->Flags |= WorldFlag_IsCompleted;
             CompletionCooldown = 0.0f;
@@ -113,7 +112,6 @@ UpdateAndRenderMainGame(){
         v2 P = v2{0.2f, 0.8f};
         f32 XAdvance = 0.3f;
         
-        player_entity *Player = EntityManager.Player;
         u32 FullHearts = Player->Health / 3;
         u32 Remainder = Player->Health % 3;
         

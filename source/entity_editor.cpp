@@ -1,46 +1,17 @@
 
-#define ENTITY_EDITOR_GET_BOUNDARIES() u8 *BoundaryCount; u8 MaxBoundaryCount; collision_boundary *Boundaries; GetBoundaries(&Boundaries, &BoundaryCount, &MaxBoundaryCount);
-
 inline void
 entity_editor::CanonicalizeBoundary(collision_boundary *Boundary){
-    switch(Boundary->Type){
-        case BoundaryType_Rectangle: {
-            if((EntityP.Y+Boundary->P.Y - 0.5f*Boundary->Size.Y) < FloorY){
-                Boundary->P.Y = FloorY+0.5f*Boundary->Size.Y - EntityP.Y;
-            }
-        }break;
-        case BoundaryType_Circle: {
-            if((EntityP.Y+Boundary->P.Y-Boundary->Radius) < FloorY){
-                Boundary->P.Y = FloorY+Boundary->Radius - EntityP.Y;
-            }
-        }break;
-        default: INVALID_CODE_PATH; break;
+    v2 Size = RectSize(Boundary->Bounds);
+    if((EntityP.Y+Boundary->Offset.Y - 0.5f*Size.Y) < FloorY){
+        Boundary->Offset.Y = FloorY+0.5f*Size.Y - EntityP.Y;
     }
 }
 
-inline void
-entity_editor::GetBoundaries(collision_boundary **Boundaries, u8 **Count, u8 *MaxCount){
-    u8 Index = CurrentBoundarySet;
-    Assert(Index < ENTITY_SPEC_BOUNDARY_SET_COUNT);
-    *Boundaries = SelectedInfo->Boundaries[Index];
-    *Count = &SelectedInfo->Counts[Index];
-    *MaxCount = SelectedInfo->MaxCounts[Index];
-}
-
-b8
-entity_editor::IsMouseInBoundary(u8 *OutIndex, collision_boundary **OutBoundary){
-    ENTITY_EDITOR_GET_BOUNDARIES();
-    b8 Result = false;
-    if(Boundaries){
-        for(u8 I = 0; I < *BoundaryCount; I++){
-            collision_boundary *Boundary = &Boundaries[I];
-            if(IsPointInBoundary(CursorP, Boundary, EntityP)){
-                if(Boundary) *OutBoundary = Boundary;
-                *OutIndex = I;
-                Result = true;
-                break;
-            }
-        }
+collision_boundary *
+entity_editor::GetBoundaryThatMouseIsOver(){
+    collision_boundary *Result = 0;
+    for(u32 I = 0; I < SelectedInfo->BoundaryCount; I++){
+        if(IsPointInBoundary(CursorP, &BoundarySet[I], EntityP)) Result = &BoundarySet[I];
     }
     
     return(Result);
@@ -101,28 +72,24 @@ entity_editor::ProcessAction(){
             }else if(!DoEditBoundaries){
                 Action = EntityEditorAction_None;
                 
-                collision_boundary *Boundary = 0; u8 Index = 0;
-                if(IsMouseInBoundary(&Index, &Boundary)){
-                    DraggingOffset = CursorP - Boundary->P;
+                collision_boundary *Boundary = GetBoundaryThatMouseIsOver();
+                if(Boundary){
+                    DraggingOffset = CursorP - Boundary->Offset;
                     Action = EntityEditorAction_DraggingBoundary;
-                    CurrentBoundary = (u8)Index;
                 }
             }
         }break;
         case EntityEditorAction_RightClick: {
-            collision_boundary *Boundary = 0; u8 Index = 0;
-            if(IsMouseInBoundary(&Index, &Boundary)){
-                ENTITY_EDITOR_GET_BOUNDARIES();
-                (*BoundaryCount)--;
-                *Boundary = Boundaries[*BoundaryCount];
-                CurrentBoundary = *BoundaryCount;
+            collision_boundary *Boundary = GetBoundaryThatMouseIsOver();
+            if(Boundary){
+                *Boundary = BoundarySet[SelectedInfo->BoundaryCount-1];
+                BoundarySet[SelectedInfo->BoundaryCount-1] = {};
+                CurrentBoundary = &BoundarySet[SelectedInfo->BoundaryCount-1];
             }
         }break;
         case EntityEditorAction_DraggingBoundary: {
-            ENTITY_EDITOR_GET_BOUNDARIES();
-            Assert(Boundaries);
-            Boundaries[CurrentBoundary].P = CursorP - DraggingOffset;
-            CanonicalizeBoundary(&Boundaries[CurrentBoundary]);
+            CurrentBoundary->Offset = CursorP - DraggingOffset;
+            CanonicalizeBoundary(CurrentBoundary);
         }break;
     }
     
@@ -133,7 +100,6 @@ void
 entity_editor::ProcessBoundaryAction(){
     if(CursorP.Y < (FloorY-1.0f)) return;
     
-    ENTITY_EDITOR_GET_BOUNDARIES();
     switch(Action){
         case EntityEditorAction_None: break;
         case EntityEditorAction_LeftClick: {
@@ -144,7 +110,7 @@ entity_editor::ProcessBoundaryAction(){
             case EntityEditorAction_LeftClickDragging:
             
             switch(BoundaryType){
-                case BoundaryType_Rectangle: {
+                case BoundaryType_Rect: {
                     if(CursorP.Y < FloorY) CursorP.Y = FloorY;
                     if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY;
                     
@@ -153,53 +119,49 @@ entity_editor::ProcessBoundaryAction(){
                 }break;
                 case BoundaryType_Circle: {
                     if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY; // Center 
-                    f32 Radius = SquareRoot(LengthSquared(Cursor2P-CursorP));
-                    f32 ActualRadius = Radius;
+                    f32 Radius = Length(Cursor2P-CursorP);
                     if(Cursor2P.Y-Radius < FloorY){
-                        v2 Normal = Normalize(Cursor2P-CursorP);
-                        f32 NewRadius = Cursor2P.Y - FloorY;
-                        CursorP = Cursor2P + (Normal*NewRadius);
-                        
-                        ActualRadius = NewRadius;
+                        Radius = Cursor2P.Y - FloorY;
+                        CursorP = Cursor2P - V2(0, Radius);
                     }
                     
-                    RenderCircle(Cursor2P, -2.0f, ActualRadius,
+                    RenderCircle(Cursor2P, Radius, -2.0f, 
                                  Color(0.0f, 1.0f, 0.0f, 0.5f), &Camera);
                 }break;
             }
         }break;
         case EntityEditorAction_EndLeftClick: {
-            Boundaries[CurrentBoundary].Type = BoundaryType;
-            if(BoundaryType == BoundaryType_Rectangle){
+            CurrentBoundary->Type = BoundaryType;
+            if(BoundaryType == BoundaryType_Rect){
                 if(CursorP.Y < FloorY) CursorP.Y = FloorY;
                 if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY;
                 
-                Boundaries[CurrentBoundary].P = v2{
-                    (Cursor2P.X+CursorP.X)/2,
-                    (Cursor2P.Y+CursorP.Y)/2,
-                } - EntityP;
-                Boundaries[CurrentBoundary].Size = v2{
-                    AbsoluteValue(Cursor2P.X-CursorP.X),
-                    AbsoluteValue(Cursor2P.Y-CursorP.Y),
-                };
+                v2 Size = V2(AbsoluteValue(Cursor2P.X-CursorP.X), AbsoluteValue(Cursor2P.Y-CursorP.Y));
+                *CurrentBoundary = MakeCollisionRect(((Cursor2P+CursorP)/2)-EntityP, Size);
             }else if(BoundaryType == BoundaryType_Circle){
-                if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY; // Center 
-                
-                Boundaries[CurrentBoundary].P = Cursor2P - EntityP;
-                Boundaries[CurrentBoundary].Radius = 
-                    SquareRoot(LengthSquared(Cursor2P-CursorP));
+                *CurrentBoundary = MakeCollisionCircle(Cursor2P-EntityP, Length(Cursor2P-CursorP));
             }
             
-            if(*BoundaryCount < MaxBoundaryCount) (*BoundaryCount)++;
-            CurrentBoundary++;
-            if(CurrentBoundary >= MaxBoundaryCount){
-                CurrentBoundary = 0;
+            v2 Size = RectSize(CurrentBoundary->Bounds);
+            f32 Epsilon = 0.001f;
+            if((Size.X <= Epsilon) && (Size.Y <= Epsilon)){
+                *CurrentBoundary = {};
+            }else{
+                collision_boundary *BoundariesEnd = BoundarySet + SelectedInfo->BoundaryCount;
+                CurrentBoundary++;
+                if(CurrentBoundary >= BoundariesEnd){
+                    CurrentBoundary = BoundarySet;
+                }
             }
             
             Action = EntityEditorAction_None;
         }break;
         case EntityEditorAction_RightClick: {
-            
+            collision_boundary *Boundary = GetBoundaryThatMouseIsOver();
+            if(Boundary){
+                *Boundary = BoundarySet[SelectedInfo->BoundaryCount-1];
+                CurrentBoundary = &BoundarySet[SelectedInfo->BoundaryCount-1];
+            }
         }break;
         case EntityEditorAction_RightClickDragging: break;
         case EntityEditorAction_EndRightClick: break;
@@ -208,64 +170,6 @@ entity_editor::ProcessBoundaryAction(){
 }
 
 //~ UI
-void
-entity_editor::DoStateTableUI(window *Window){
-    Window->NotButtonSanityCheck();
-    const f32 LINE_THICKNESS = 2;
-    
-    u8 *BoundaryTable = SelectedInfo->BoundaryTable;
-    theme *Theme = &Window->Manager->Theme;
-    f32 Width = Window->Size.X;
-    f32 RowHeight = Theme->NormalFont->Size + 2*Theme->Padding;
-    f32 X  = Window->DrawP.X;
-    f32 X1 = X + Theme->Padding;
-    f32 X2 = X1 + 200;
-    f32 Y = Window->DrawP.Y - Theme->Padding;
-    
-    f32 Button1X = X + 0.7f*Width;
-    f32 Button2X = Button1X + RowHeight + Theme->Padding;
-    v2 ButtonOffset = V2(0.5f*RowHeight, Theme->Padding+0.25f*Theme->NormalFont->Size);
-    
-    RenderRectangle(V2(Window->DrawP.X, Y), V2(Window->DrawP.X+Window->Size.X, Y+LINE_THICKNESS), Window->Z-0.11f, Theme->NormalColor);
-    for(u32 I = 0; I < State_TOTAL; I++){
-        Y -= Theme->NormalFont->Size + Theme->Padding;
-        RenderString(Theme->NormalFont, Theme->NormalColor, X1, Y, Window->Z-0.11f, ENTITY_STATE_TABLE[I]);
-        RenderFormatString(Theme->NormalFont, Theme->NormalColor, X2, Y, Window->Z-0.11f,
-                           "%u/%u", BoundaryTable[I], ENTITY_SPEC_BOUNDARY_SET_COUNT);
-        Y -= Theme->Padding;
-        RenderRectangle(V2(Window->DrawP.X, Y), V2(Window->DrawP.X+Window->Size.X, Y+LINE_THICKNESS), Window->Z-0.11f, Theme->NormalColor);
-        {
-            color Color = Theme->ButtonBaseColor;
-            button_behavior Behavior = Window->ButtonBehavior(Button1X, Y, RowHeight, RowHeight);
-            if(Behavior == ButtonBehavior_Hovered){
-                Color = Theme->ButtonHoveredColor;
-            }else if(Behavior == ButtonBehavior_Clicked){
-                Color = Theme->ButtonClickedColor;
-                if(BoundaryTable[I] > 0) BoundaryTable[I]--;
-            }
-            RenderRectangleBySize(V2(Button1X, Y), V2(RowHeight, RowHeight), Window->Z-0.1f, Color);
-            RenderCenteredString(Theme->NormalFont, Theme->NormalColor, V2(Button1X, Y)+ButtonOffset, Window->Z-0.11f, "<");
-        }{
-            color Color = Theme->ButtonBaseColor;
-            button_behavior Behavior = Window->ButtonBehavior(Button2X, Y, RowHeight, RowHeight);
-            if(Behavior == ButtonBehavior_Hovered){
-                Color = Theme->ButtonHoveredColor;
-            }else if(Behavior == ButtonBehavior_Clicked){
-                Color = Theme->ButtonClickedColor;
-                if(BoundaryTable[I] < ENTITY_SPEC_BOUNDARY_SET_COUNT) BoundaryTable[I]++;
-            }
-            RenderRectangleBySize(V2(Button2X, Y), V2(RowHeight, RowHeight), Window->Z-0.1f, Color);
-            RenderCenteredString(Theme->NormalFont, Theme->NormalColor, V2(Button2X, Y)+ButtonOffset, Window->Z-0.11f, ">");
-        }
-    }
-    
-    Window->DrawP.Y = Y;
-    f32 RelHeight = Window->TopLeft.Y-Window->DrawP.Y;
-    if(Window->Size.Y < RelHeight+2*Theme->Padding){
-        Window->Size.Y = RelHeight+Theme->Padding;
-    }
-}
-
 void
 entity_editor::DoUI(){
     
@@ -278,11 +182,8 @@ entity_editor::DoUI(){
             WorldEditor.World = CurrentWorld;
         }
         
-        if(Window->Button("Save all", 2)){
+        if(Window->Button("Save all", 1)){
             WriteEntityInfos("entities.sje");
-        }
-        if(Window->Button("Add new", 2)){
-            AddEntityInfo();
         }
         
         {
@@ -292,12 +193,8 @@ entity_editor::DoUI(){
             SelectedInfo->Asset = AssetNames[Selected];
         }
         
-        TOGGLE_FLAG(Window, "Can be stunned", SelectedInfo->Flags,  EntityFlag_CanBeStunned);
-        ANTI_TOGGLE_FLAG(Window, "Toggle gravity", SelectedInfo->Flags, EntityFlag_NotAffectedByGravity);
-        TOGGLE_FLAG(Window, "Mirror boundaries when moving right", SelectedInfo->Flags, EntityFlag_MirrorBoundariesWhenGoingRight);
-        
         //~ Animation stuff
-        Window->Text("");
+        Window->Text("Sprite view:");
         Window->DropDownMenu(ENTITY_STATE_TABLE, State_TOTAL, (u32 *)&CurrentState, WIDGET_ID);
         Window->DropDownMenu(SIMPLE_DIRECTION_TABLE, Direction_TOTAL, (u32 *)&CurrentDirection, WIDGET_ID);
         Window->Text("Current frame: %u", CurrentFrame);
@@ -308,75 +205,7 @@ entity_editor::DoUI(){
             CurrentFrame++;
             // Upper bounds checking is done elsewhere
         }
-#if 0        
-        Window->Text("Current boundary set for state: %u/%u", 
-                     SelectedInfo->BoundaryTable[CurrentState], ENTITY_SPEC_BOUNDARY_SET_COUNT);
-        if(Window->Button("<<< Boundary set", 2)){
-            
-        }
-        if(Window->Button("Boundary set >>>", 2)){
-            
-        }
-#endif
         
-        //~ Type infoific editing
-        Window->Text("");
-        Window->Text("Entity type: %s", ENTITY_TYPE_NAME_TABLE[SelectedInfo->Type]);
-        if(Window->Button("<<< Entity type", 2)){
-            SelectedInfo->Type = REVERSE_ENTITY_TYPE_TABLE[SelectedInfo->Type];
-            SelectedInfo->Speed = 0;
-            SelectedInfo->Damage = 0;
-            Assert(SelectedInfo->Type != EntityType_TOTAL);
-        }
-        if(Window->Button("Entity type >>>", 2)){
-            SelectedInfo->Type = FORWARD_ENTITY_TYPE_TABLE[SelectedInfo->Type];
-            SelectedInfo->Speed = 0;
-            SelectedInfo->Damage = 0;
-            Assert(SelectedInfo->Type != EntityType_TOTAL);
-        }
-        
-        switch(SelectedInfo->Type){
-            case EntityType_None: break;
-            
-            //~ Player
-            case EntityType_Player: {
-            }break;
-            
-            //~ Enemy
-            case EntityType_Enemy: {
-                
-                Window->Text("Speed: %.1f", SelectedInfo->Speed);
-                if(Window->Button("-", 2)){
-                    SelectedInfo->Speed -= 0.1f;
-                }
-                if(Window->Button("+", 2)){
-                    SelectedInfo->Speed += 0.1f;
-                }
-                
-                Window->Text("Damage: %u", SelectedInfo->Damage);
-                if(Window->Button("-", 2)){
-                    if(SelectedInfo->Damage > 0){
-                        SelectedInfo->Damage -= 1;
-                    }
-                }
-                if(Window->Button("+", 2)){
-                    SelectedInfo->Damage += 1;
-                }
-                
-                Window->Text("Mass: %.1f", SelectedInfo->Mass);
-                if(Window->Button("-", 2)){
-                    if(SelectedInfo->Mass > 0){
-                        SelectedInfo->Mass -= 0.1f;
-                    }
-                }
-                if(Window->Button("+", 2)){
-                    SelectedInfo->Mass += 0.1f;
-                }
-                
-            }break;
-            
-            default: INVALID_CODE_PATH; break;
-        }
         Window->End();
     }
     
@@ -389,22 +218,20 @@ entity_editor::DoUI(){
                              &DoEditBoundaries);
         
         const char *BoundaryTable[] = {
-            "Rectangle", "Circle"
+            "None", "Rectangle", "Circle", "Wedge", "Group"
         };
-        Window->Text("Current boundary type: %s", 
-                     BoundaryTable[BoundaryType]);
-        
+        Window->Text("Current boundary type: %s", BoundaryTable[BoundaryType]);
         if(Window->Button("<<< Mode", 2)){
             if(BoundaryType == BoundaryType_Circle){
-                BoundaryType = BoundaryType_Rectangle;
-            }else if(BoundaryType == BoundaryType_Rectangle){
+                BoundaryType = BoundaryType_Rect;
+            }else if(BoundaryType == BoundaryType_Rect){
                 BoundaryType = BoundaryType_Circle;
             }
         }
         if(Window->Button("Mode >>>", 2)){
             if(BoundaryType == BoundaryType_Circle){
-                BoundaryType = BoundaryType_Rectangle;
-            }else if(BoundaryType == BoundaryType_Rectangle){
+                BoundaryType = BoundaryType_Rect;
+            }else if(BoundaryType == BoundaryType_Rect){
                 BoundaryType = BoundaryType_Circle;
             }
         }
@@ -413,24 +240,24 @@ entity_editor::DoUI(){
                     CollisionFlag_CanStandOn);
         
         //~ Boundary set management
-        Window->Text("Current boundary set: %u/%u", CurrentBoundarySet+1, ENTITY_SPEC_BOUNDARY_SET_COUNT);
+        u32 BoundarySetIndex = ((u32)(BoundarySet - SelectedInfo->Boundaries) / SelectedInfo->BoundaryCount) + 1;
+        Window->Text("Boundary set: %u/%u", BoundarySetIndex, SelectedInfo->BoundarySets);
         if(Window->Button("<<< Boundary set", 2)){
-            if(CurrentBoundarySet > 0) CurrentBoundarySet--;
+            BoundarySet -= SelectedInfo->BoundaryCount;
+            if(BoundarySet < SelectedInfo->Boundaries){
+                BoundarySet = (SelectedInfo->Boundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)));
+            }
+            CurrentBoundary = BoundarySet;
         }
         if(Window->Button("Boundary set >>>", 2)){
-            if(CurrentBoundarySet < ENTITY_SPEC_BOUNDARY_SET_COUNT-1) CurrentBoundarySet++;
+            BoundarySet += SelectedInfo->BoundaryCount;
+            if(BoundarySet > (SelectedInfo->Boundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)))){
+                BoundarySet = SelectedInfo->Boundaries;
+            }
+            CurrentBoundary = BoundarySet;
         }
         
-        Window->Text("Boundary counts: %u/2", SelectedInfo->MaxCounts[CurrentBoundarySet]);
-        
-        if(Window->Button("-", 2)){
-            if(SelectedInfo->MaxCounts[CurrentBoundarySet] > 0) SelectedInfo->MaxCounts[CurrentBoundarySet]--;
-        }
-        if(Window->Button("+", 2)){
-            if(SelectedInfo->MaxCounts[CurrentBoundarySet] < 2) SelectedInfo->MaxCounts[CurrentBoundarySet]++;
-        }
-        
-        DoStateTableUI(Window);
+        Window->Text("Boundary count: %u", SelectedInfo->BoundaryCount);
         
         Window->End();
     }
@@ -455,6 +282,8 @@ entity_editor::UpdateAndRender(){
     if(!SelectedInfo){
         SelectedInfoID = 1;
         SelectedInfo = &EntityInfos[1];
+        BoundarySet = SelectedInfo->Boundaries;
+        CurrentBoundary = BoundarySet;
     }
     
     DoUI();
@@ -468,7 +297,6 @@ entity_editor::UpdateAndRender(){
         Max.X = (OSInput.WindowSize.X/Camera.MetersToPixels) - 1.0f;
         RenderRectangle(Min, Max, 0.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
     }
-    
     
     asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
     EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
@@ -495,14 +323,10 @@ entity_editor::UpdateAndRender(){
                                  0, EntityP, 0.0f);
     }
     
-    ENTITY_EDITOR_GET_BOUNDARIES();
-    if(Boundaries){
-        f32 Z = -1.0f;
-        for(u32 I = 0; I < *BoundaryCount; I++){
-            collision_boundary *Boundary = &Boundaries[I];
-            RenderBoundary(&Camera, Boundary, Z, EntityP);
-            Z -= 0.1f;
-        }
+    f32 Z = -1.0f;
+    
+    for(u32 I = 0; I < SelectedInfo->BoundaryCount; I++){
+        RenderBoundary(&Camera, &BoundarySet[I], Z, EntityP);
     }
     
     {
@@ -519,6 +343,8 @@ entity_editor::UpdateAndRender(){
         if(InfoToSelect > 0){
             SelectedInfoID = InfoToSelect;
             SelectedInfo = &EntityInfos[InfoToSelect];
+            BoundarySet = SelectedInfo->Boundaries;
+            CurrentBoundary = BoundarySet;
         }
     }
     

@@ -61,7 +61,7 @@ struct os_button {
 };
 
 struct os_input {
-    f32 dTimeForFrame;
+    f32 dTime;
     
     v2 WindowSize;
     
@@ -135,6 +135,8 @@ GetProfileTime();
 internal b8
 PollEvents(os_event *Event);
 
+internal void
+VWriteToDebugConsole(os_file *Output, const char *Format, va_list VarArgs);
 internal void
 WriteToDebugConsole(os_file *Output, const char *Format, ...);
 

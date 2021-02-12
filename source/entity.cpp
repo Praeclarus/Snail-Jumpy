@@ -26,11 +26,10 @@ OpenDoor(door_entity *Door){
     Door->IsOpen = true;
 }
 
-internal inline void
-DamagePlayer(u32 Damage){
-    EntityManager.Player->P = {1.5, 1.5};
-    EntityManager.Player->Boundaries[0].P = EntityManager.Player->P;
-    EntityManager.Player->dP = {0, 0};
+inline void
+entity_manager::DamagePlayer(u32 Damage){
+    Player->Physics->P = V2(1.55f, 1.55f);
+    Player->Physics->dP = {0, 0};
     EntityManager.Player->Health -= Damage;
     if(EntityManager.Player->Health <= 0){
         EntityManager.Player->Health = 9;
@@ -70,7 +69,6 @@ UpdateCoin(coin_entity *Coin){
             }
         }
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
-        Coin->Boundary.P = NewP;
         Coin->Cooldown = 1.0f;
     }
 }
@@ -127,34 +125,13 @@ UpdateEnemyBoundary(enemy_entity *Enemy){
     u8 NewBoundarySet = GetBoundarySetIndex(Enemy->Info, Enemy->State);
     if((NewBoundarySet > 0) &&
        (NewBoundarySet != Enemy->BoundarySet)){
+        entity_info *Info = &EntityInfos[Enemy->Info];
         Enemy->BoundarySet = NewBoundarySet;
         NewBoundarySet--;
-        Assert(NewBoundarySet < ENTITY_SPEC_BOUNDARY_SET_COUNT);
+        Assert(NewBoundarySet < Info->BoundarySets);
         
-        entity_info *Info = &EntityInfos[Enemy->Info];
-        Enemy->BoundaryCount = Info->Counts[NewBoundarySet];
-        for(u32 J = 0; J < Enemy->BoundaryCount; J++){
-            Enemy->Boundaries[J] = Info->Boundaries[NewBoundarySet][J];
-            Enemy->Boundaries[J].P = Enemy->P+Info->Boundaries[NewBoundarySet][J].P;
-        }
-    }
-    
-    if((Enemy->Flags & EntityFlag_MirrorBoundariesWhenGoingRight) &&
-       (Enemy->State == State_Turning)){
-        entity_info *Info = &EntityInfos[Enemy->Info];
-        u8 BoundarySet = Enemy->BoundarySet;
-        if(BoundarySet > 0){
-            BoundarySet--;
-            if(Enemy->Direction == Direction_Left){
-                for(u32 J = 0; J < Info->Counts[BoundarySet]; J++){
-                    Enemy->Boundaries[J].P.X = Enemy->P.X + Info->Boundaries[BoundarySet][J].P.X;
-                }
-            }else if(Enemy->Direction == Direction_Right){
-                for(u32 J = 0; J < Info->Counts[BoundarySet]; J++){
-                    Enemy->Boundaries[J].P.X = Enemy->P.X - Info->Boundaries[BoundarySet][J].P.X;
-                }
-            }else{ INVALID_CODE_PATH; }
-        }
+        //Enemy->Physics->Boundary = Info->Boundaries[NewBoundarySet];
+        
     }
 }
 
@@ -164,6 +141,11 @@ StunEnemy(enemy_entity *Enemy){
         SetEntityStateUntilAnimationIsOver(Enemy, State_Retreating);
         UpdateEnemyBoundary(Enemy);
     }
+}
+
+internal void
+MoveEntity(entity *Entity, v2 ddP){
+    Entity->Physics->ddP = ddP;
 }
 
 //~ Entity updating and rendering
@@ -202,10 +184,11 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
     if(ShouldEntityUpdate(Player)){
         v2 ddP = {0};
         
+#if 0        
         if(Player->IsGrounded) Player->JumpTime = 0.0f;
         if((Player->JumpTime < 0.1f) && EntityManager.PlayerInput.Jump){
             ddP.Y += 88.0f;
-            Player->JumpTime += OSInput.dTimeForFrame;
+            Player->JumpTime += OSInput.dTime;
             Player->IsGrounded = false;
         }else if(!EntityManager.PlayerInput.Jump){
             Player->JumpTime = 2.0f;
@@ -213,6 +196,9 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         }else{
             ddP.Y -= 17.0f;
         }
+#endif
+        
+        ddP.Y -= 17.0f;
         
         f32 MovementSpeed = 120; // TODO(Tyler): Load this from a variables file
         
@@ -223,13 +209,11 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             Player->Direction = Direction_Left;
             ddP.X = -1.0f; 
         }
-        if(EntityManager.PlayerInput.Up && !EntityManager.PlayerInput.Down) ddP.Y = 1.0f; 
-        else if(EntityManager.PlayerInput.Down && !EntityManager.PlayerInput.Up) ddP.Y = -1.0f;
         
         ddP.X *= MovementSpeed;
         
         if(EntityManager.PlayerInput.Shoot){
-            Player->WeaponChargeTime += OSInput.dTimeForFrame;
+            Player->WeaponChargeTime += OSInput.dTime;
             if(Player->WeaponChargeTime > 1.0f){
                 Player->WeaponChargeTime = 1.0f;
             }
@@ -243,24 +227,26 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
                 Player->WeaponChargeTime = 0.6f;
             }
             
+#if 0            
             // TODO(Tyler): Hot loaded variables file for tweaking these values in 
             // realtime
             switch(Player->Direction){
-                case Direction_Left:      Projectile->dP = v2{-13,   3}; break;
-                case Direction_Right:     Projectile->dP = v2{ 13,   3}; break;
+                case Direction_Left:  Projectile->Physics->dP = v2{-13,   3}; break;
+                case Direction_Right: Projectile->Physics->dP = v2{ 13,   3}; break;
             }
             
-            Projectile->P = Player->P;
-            Projectile->P.Y += 0.15f;
-            Projectile->dP *= Player->WeaponChargeTime;
+            Projectile->Physics->P = Player->Physics->P;
+            Projectile->Physics->P.Y += 0.15f;
+            Projectile->Physics->dP *= Player->WeaponChargeTime;
             Projectile->RemainingLife = 3.0f;
             Player->WeaponChargeTime = 0.0f;
-            Projectile->Boundaries[0].P = Projectile->P;
+#endif
+            
         }
         
-        if(0.0f < Player->dP.Y){
+        if(0.0f < Player->Physics->dP.Y){
             ChangeEntityState(Player, State_Jumping);
-        }else if(Player->dP.Y < 0.0f){
+        }else if(Player->Physics->dP.Y < 0.0f){
             ChangeEntityState(Player, State_Falling);
         }else{
             if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
@@ -270,31 +256,19 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         v2 dPOffset = {0};
         if(Player->RidingDragonfly){
             enemy_entity *Dragonfly = Player->RidingDragonfly;
-            dPOffset = Dragonfly->dP;
-            if(Dragonfly->State == State_Turning){
-                f32 Height = 0.0f;
-                for(u32 I = 0; I < Dragonfly->BoundaryCount; I++){
-                    min_max_boundary Boundary = GetBoundaryMinMax(&Dragonfly->Boundaries[I]);
-                    if(Boundary.Max.Y > Height){
-                        Height = Boundary.Max.Y;
-                    }
-                }
-                
-                Player->P.Y = Height;
-            }
-            
-            Player->RidingDragonfly = 0;
-        }
-        MoveEntity(Player, ddP, 0.7f, 1.0f, 2.0f, dPOffset);
-        
-        if(Player->P.Y < -3.0f){
-            DamagePlayer(2);
+            dPOffset = Dragonfly->Physics->dP;
         }
         
-        Camera->SetCenter(Player->P, CurrentWorld);
+        MoveEntity(Player, ddP);
+        
+        if(Player->Physics->P.Y < -3.0f){
+            EntityManager.DamagePlayer(2);
+        }
+        
+        Camera->SetCenter(Player->Physics->P, CurrentWorld);
     }
     
-    UpdateAndRenderAnimation(Camera, Player, OSInput.dTimeForFrame);
+    UpdateAndRenderAnimation(Camera, Player, OSInput.dTime);
 }
 
 internal void
@@ -360,49 +334,51 @@ UpdateAndRenderTopDownPlayer(camera *Camera){
     
     Camera->SetCenter(EntityManager.Player->P, CurrentWorld);
     UpdateAndRenderAnimation(Camera, EntityManager.Player, 
-                             OSInput.dTimeForFrame);
+                             OSInput.dTime);
 #endif
     
 }
 
 void 
 entity_manager::UpdateAndRenderEntities(camera *Camera){
+    
     TIMED_FUNCTION();
     
     //~ Walls
     BEGIN_TIMED_BLOCK(UpdateAndRenderWalls);
-    FOR_BUCKET_ARRAY(&Walls){
-        wall_entity *Entity = BucketArrayGetItemPtr(&Walls, Location);
-        v2 P = Entity->Boundary.P;
-        v2 Size = Entity->Boundary.Size;
-        RenderCenteredRectangle(P, Size, 0.0f, WHITE, Camera);
+    //FOR_BUCKET_ARRAY(Entity, &Walls){
+    auto Entity = BucketArrayGetItemPtr(&Walls, BucketArrayBeginIteration(&Walls));  
+    for(bucket_location Location = BucketArrayBeginIteration(&Walls);                 
+        BucketArrayContinueIteration(&Walls, &Entity, Location);                               
+        BucketArrayIterationNext(&Walls, &Location)){
+        
+        v2 Size = RectSize(Entity->Bounds);
+        RenderCenteredRectangle(Entity->Physics->P, Size, 0.0f, WHITE, Camera);
     }
     END_TIMED_BLOCK();
     
     //~ Coins
     BEGIN_TIMED_BLOCK(UpdateAndRenderCoins);
-    FOR_BUCKET_ARRAY(&Coins){
-        coin_entity *Coin = BucketArrayGetItemPtr(&Coins, Location);
-        v2 P = Coin->Boundary.P;
-        v2 Size = Coin->Boundary.Size;
+    FOR_BUCKET_ARRAY(Coin, &Coins){
+        v2 Size = RectSize(Coin->Bounds);
         if(Coin->Cooldown > 0.0f){
-            Coin->Cooldown -= OSInput.dTimeForFrame;
+            Coin->Cooldown -= OSInput.dTime;
         }else{
-            RenderRectangle(P-(Size/2), P+(Size/2), 0.0f, YELLOW, Camera);
+            RenderRectangle(Coin->Physics->P-(Size/2), Coin->Physics->P+(Size/2), 0.0f, 
+                            YELLOW, Camera);
         }
     }
     END_TIMED_BLOCK();
     
     //~ Enemies
     BEGIN_TIMED_BLOCK(UpdateAndRenderEnemies);
-    FOR_BUCKET_ARRAY(&Enemies){
-        enemy_entity *Enemy = BucketArrayGetItemPtr(&Enemies, Location);
-        v2 P = Enemy->P;
+    FOR_BUCKET_ARRAY(Enemy, &Enemies){
+        v2 P = Enemy->Physics->P;
         
         if(ShouldEntityUpdate(Enemy)){
             // TODO(Tyler): Stop using percentages here
             f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
-            f32 StateAlongPath = (Enemy->P.X-Enemy->PathStart.X)/PathLength;
+            f32 StateAlongPath = (Enemy->Physics->P.X-Enemy->PathStart.X)/PathLength;
             f32 PathSpeed = 1.0f;
             if((StateAlongPath > 0.8f) &&
                (Enemy->Direction > 0)){
@@ -413,16 +389,16 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                 PathSpeed = (StateAlongPath/0.2f);
             }
             
-            if((Enemy->P.X <= Enemy->PathStart.X) &&
+            if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
                (Enemy->Direction == Direction_Left)){
                 SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
                 Enemy->Direction = Direction_Right;
-                Enemy->dP = {0};
-            }else if((Enemy->P.X >= Enemy->PathEnd.X) &&
+                Enemy->Physics->dP = {0};
+            }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
                      (Enemy->Direction == Direction_Right)){
                 SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
                 Enemy->Direction = Direction_Left;
-                Enemy->dP = {0};
+                Enemy->Physics->dP = {0};
             }else{
                 v2 ddP = {
                     Enemy->Speed * ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
@@ -440,15 +416,14 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             }
         }
         
-        UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTimeForFrame);
+        UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTime);
         UpdateEnemyBoundary(Enemy);
     }
     END_TIMED_BLOCK();
     
     //~ Arts
     BEGIN_TIMED_BLOCK(UpdateAndRenderArts);
-    FOR_BUCKET_ARRAY(&Arts){
-        art_entity *Art = BucketArrayGetItemPtr(&Arts, Location);
+    FOR_BUCKET_ARRAY(Art, &Arts){
         asset *Asset = GetArt(Art->Asset);
         v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
         RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
@@ -459,8 +434,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     //~ Particles 
     // TODO(Tyler): This is a really naive implementation of particles and shouldn't stay
     BEGIN_TIMED_BLOCK(UpdateAndRenderParticles);
-    FOR_BUCKET_ARRAY(&Particles){
-        particle_entity *ParticleEntity = BucketArrayGetItemPtr(&Particles, Location);
+    FOR_BUCKET_ARRAY(ParticleEntity, &Particles){
         
         const s32 RADIUS = 2;
         // TODO(Tyler): SIMDize this!!!
@@ -489,11 +463,11 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             v2 ddP = V2(0.0f, -5.0f);
             ddP -= 0.5f*ParticleEntity->dPs[Particle];
             
-            ParticleEntity->Ps[Particle]  += (ParticleEntity->dPs[Particle]*OSInput.dTimeForFrame +
-                                              ddP*Square(OSInput.dTimeForFrame));
-            ParticleEntity->dPs[Particle] += ddP*OSInput.dTimeForFrame;
+            ParticleEntity->Ps[Particle]  += (ParticleEntity->dPs[Particle]*OSInput.dTime +
+                                              ddP*Square(OSInput.dTime));
+            ParticleEntity->dPs[Particle] += ddP*OSInput.dTime;
             
-            ParticleEntity->LifeTimes[Particle] -= OSInput.dTimeForFrame;
+            ParticleEntity->LifeTimes[Particle] -= OSInput.dTime;
             RenderCenteredRectangle(ParticleEntity->Ps[Particle], V2(0.05f, 0.05f), -1.0f, RED, Camera);
         }
     }
@@ -510,36 +484,35 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Teleporters
     BEGIN_TIMED_BLOCK(UpdateAndRenderTeleporters);
-    FOR_BUCKET_ARRAY(&Teleporters){
-        teleporter_entity *Teleporter = BucketArrayGetItemPtr(&Teleporters, Location);
-        v2 P = Teleporter->Boundary.P;
+    FOR_BUCKET_ARRAY(Teleporter, &Teleporters){
+        v2 Size = RectSize(Teleporter->Bounds);
         
         if(!Teleporter->IsLocked){
-            RenderRectangle(P-(Teleporter->Boundary.Size/2), 
-                            P+(Teleporter->Boundary.Size/2), 0.0f, GREEN, Camera);
+            RenderRectangle(Teleporter->Physics->P-(Size/2), Teleporter->Physics->P+(Size/2), 0.0f, 
+                            GREEN, Camera);
             
-            v2 Radius = Teleporter->Boundary.Size/2;
-            v2 PlayerMin = Player->P-(Player->Boundaries[0].Size/2);
-            v2 PlayerMax = Player->P+(Player->Boundaries[0].Size/2);
-            if((Teleporter->Boundary.P.X-Radius.X <= PlayerMax.X) &&
-               (PlayerMin.X <= Teleporter->Boundary.P.X+Radius.X) &&
-               (Teleporter->Boundary.P.Y-Radius.Y <= PlayerMax.Y) &&
-               (PlayerMin.Y  <= Teleporter->Boundary.P.Y+Radius.Y)){
+            v2 Radius = Size/2;
+            v2 PlayerMin = Player->Physics->P-(RectSize(Player->Bounds)/2);
+            v2 PlayerMax = Player->Physics->P+(RectSize(Player->Bounds)/2);
+            if((Teleporter->Physics->P.X-Radius.X <= PlayerMax.X) &&
+               (PlayerMin.X <= Teleporter->Physics->P.X+Radius.X) &&
+               (Teleporter->Physics->P.Y-Radius.Y <= PlayerMax.Y) &&
+               (PlayerMin.Y  <= Teleporter->Physics->P.Y+Radius.Y)){
                 world_data *World = WorldManager.GetOrCreateWorld(Teleporter->Level);
                 if(World){
                     v2 TileSize = v2{0.1f, 0.1f};
                     v2 MapSize = TileSize.X * v2{(f32)World->Width, (f32)World->Height};
                     
                     v2 MapP = v2{
-                        P.X-MapSize.X/2,
-                        P.Y+Teleporter->Boundary.Size.Y/2
+                        Teleporter->Physics->P.X-MapSize.X/2,
+                        Teleporter->Physics->P.Y+Size.Y/2
                     };
                     
                     RenderRectangle(MapP, MapP+MapSize, -0.1f,
                                     Color(0.5f, 0.5f, 0.5f, 1.0f), Camera);
                     v2 StringP = v2{
-                        P.X,
-                        P.Y + Teleporter->Boundary.Size.Y/2 + MapSize.Y + 0.07f
+                        Teleporter->Physics->P.X,
+                        Teleporter->Physics->P.Y + Size.Y/2 + MapSize.Y + 0.07f
                     };
                     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
                     StringP.X -= Advance/2/Camera->MetersToPixels;
@@ -561,8 +534,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
 #endif
             }
         }else{
-            RenderRectangle(P-(Teleporter->Boundary.Size/2), 
-                            P+(Teleporter->Boundary.Size/2), 0.0f, 
+            RenderRectangle(Teleporter->Physics->P-(Size/2), Teleporter->Physics->P+(Size/2), 0.0f, 
                             Color(0.0f, 0.0f, 1.0f, 0.5f), Camera);
         }
     }
@@ -570,42 +542,40 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Doors
     BEGIN_TIMED_BLOCK(UpdateAndRenderDoors);
-    FOR_BUCKET_ARRAY(&Doors){
-        door_entity *Door = BucketArrayGetItemPtr(&Doors, Location);
-        v2 P = Door->Boundary.P;
-        Door->Cooldown -= OSInput.dTimeForFrame;
+    FOR_BUCKET_ARRAY(Door, &Doors){
+        v2 Size = RectSize(Door->Bounds);
+        Door->Cooldown -= OSInput.dTime;
         
         if(!Door->IsOpen){
-            RenderRectangle(P-(Door->Boundary.Size/2), 
-                            P+(Door->Boundary.Size/2), 0.0f, BROWN, Camera);
+            RenderRectangle(Door->Physics->P-(Size/2), Door->Physics->P+(Size/2), 0.0f, BROWN, Camera);
         }else{
             color Color = BROWN;
             Color.A = Door->Cooldown;
             if(Color.A < 0.3f){
                 Color.A = 0.3f;
             }
-            RenderRectangle(P-(Door->Boundary.Size/2), 
-                            P+(Door->Boundary.Size/2), 0.0f, Color, Camera);
+            RenderRectangle(Door->Physics->P-(Size/2), Door->Physics->P+(Size/2), 0.0f, Color, Camera);
         }
     }
     END_TIMED_BLOCK();
     
     //~ Projectiles
     BEGIN_TIMED_BLOCK(UpdateAndRenderProjectiles);
-    projectile_entity *Projectile = BucketArrayGetItemPtr(&Projectiles, 
-                                                          BucketLocation(0, 0));
-    if(Projectile->RemainingLife > 0.0f){
-        Projectile->RemainingLife -= OSInput.dTimeForFrame;
-        
-        v2 ddP = v2{0.0f, -11.0f};
-        //MoveProjectile(0, ddP);
-        MoveEntity(Projectile, ddP, 1.0f, 1.0f, 1.0f, v2{0, 0}, 0.3f);
-        
-        v2 P = Projectile->P;
-        RenderRectangle(P-0.5f*Projectile->Boundaries[0].Size, 
-                        P+0.5f*Projectile->Boundaries[0].Size, 
-                        0.7f, WHITE, Camera);
+    FOR_BUCKET_ARRAY(Projectile, &Projectiles){
+        projectile_entity *Projectile = BucketArrayGetItemPtr(&Projectiles, Location);
+        if(Projectile->RemainingLife > 0.0f){
+            Projectile->RemainingLife -= OSInput.dTime;
+            
+            v2 ddP = v2{0.0f, -11.0f};
+            MoveEntity(Projectile, ddP);
+            
+            v2 Size = RectSize(Projectile->Bounds);
+            RenderRectangle(Projectile->Physics->P-0.5f*Size, 
+                            Projectile->Physics->P+0.5f*Size, 
+                            0.7f, WHITE, Camera);
+        }
     }
     END_TIMED_BLOCK();
     
+    DoPhysics();
 }

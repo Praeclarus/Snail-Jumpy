@@ -463,7 +463,7 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
             AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction]-1;
         }
         
-        v2 P = Entity->P;
+        v2 P = Entity->Physics->P;
         P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
         P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
         
@@ -488,7 +488,8 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
                       Asset->Texture, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
                       Camera);
         
-#ifdef SNAIL_JUMPY_DEBUG_BUILD
+#if 0
+        //#ifdef SNAIL_JUMPY_DEBUG_BUILD
         if(DebugConfig.Overlay & DebugOverlay_Boundaries)
             for(u32 I = 0; I < Entity->BoundaryCount; I++){
             collision_boundary *Boundary = &Entity->Boundaries[I]; 

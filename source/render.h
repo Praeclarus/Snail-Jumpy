@@ -16,7 +16,7 @@ struct camera {
     f32 ShakeFrequency;
     f32 ShakeStrength;
     
-    f32 MoveFactor = 0.05f;
+    f32 MoveFactor = 1.0f;
     
     inline void SetCenter(v2 P, world_data *World);
     inline void Move(v2 dP, world_data *World);

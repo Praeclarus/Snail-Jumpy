@@ -29,52 +29,8 @@ struct coin_data {
 
 //~ Entities
 
-struct entity {
-    // NOTE(Tyler): Needs to be u32 otherwise compiler complains
-    // TODO(Tyler): Reorder to fix the above NOTE
-    entity_type Type;
-    v2 P, dP;
-    entity_flags Flags;
-    entity_state State;
-    direction Direction;
-    u32 Info;
-    
-    state_change_condition ChangeCondition;
-    f32 Cooldown;
-    const char *Asset;
-    f32 AnimationState;
-    f32 ZLayer;
-    f32 YOffset;
-    u32 NumberOfTimesAnimationHasPlayed;
-    
-    b8 IsGrounded;
-    
-    // TODO(Tyler): Reordering this struct might be helpful for packing reasons
-    u8 BoundarySet;
-    u8 BoundaryCount;
-    collision_boundary Boundaries[2];
-    f32 Mass;
-};
-
-
-struct wall_entity {
-    collision_boundary Boundary;
-};
-
-struct coin_entity {
-    collision_boundary Boundary;
-    
-    f32 Cooldown;
-    const char *Asset;
-    f32 AnimationState;
-};
-
-struct enemy_entity : public entity {
-    f32 Speed;
-    v2 PathStart, PathEnd;
-    s32 Damage;
-};
-
+// TODO(Tyler): These ('art_entity' and 'particle_entity') might not work best as an entity
+// they might be better handled in a different way.
 struct art_entity {
     v2 P;
     f32 Z;
@@ -90,25 +46,60 @@ struct particle_entity {
     f32 LifeTimes[MAX_PARTICLE_COUNT];
 };
 
-struct player_entity : public entity {
-    s32 Health;
-    f32 JumpTime;
-    f32 WeaponChargeTime;
-    enemy_entity *RidingDragonfly;
+
+struct entity {
+    // NOTE(Tyler): Needs to be u32 otherwise compiler complains
+    // TODO(Tyler): Reorder to fix the above NOTE
+    entity_type Type;
+    entity_flags Flags;
+    entity_state State;
+    direction Direction;
+    u32 Info;
+    
+    state_change_condition ChangeCondition;
+    f32 Cooldown;
+    const char *Asset;
+    f32 AnimationState;
+    f32 ZLayer;
+    f32 YOffset;
+    u32 NumberOfTimesAnimationHasPlayed;
+    
+    u8 BoundarySet;
+    
+    rect Bounds;
+    
+    physics_object *Physics;
 };
 
-struct teleporter_entity {
-    collision_boundary Boundary;
+// TODO(Tyler): These struct might have too much information from 'entity' for now
+struct wall_entity : public entity {
+};
+
+struct coin_entity : public entity {
+};
+
+struct door_entity : public entity {
+    b8 IsOpen;
+    f32 Cooldown;
+};
+
+struct teleporter_entity : public entity {
     const char *Level;
     b8 IsLocked;
     b8 IsSelected;
 };
 
-struct door_entity {
-    collision_boundary Boundary;
-    b8 IsOpen;
-    
-    f32 Cooldown;
+struct enemy_entity : public entity {
+    f32 Speed;
+    v2 PathStart, PathEnd;
+    s32 Damage;
+};
+
+struct player_entity : public entity {
+    s32 Health;
+    f32 JumpTime;
+    f32 WeaponChargeTime;
+    enemy_entity *RidingDragonfly;
 };
 
 struct projectile_entity : public entity {
@@ -138,6 +129,8 @@ struct entity_manager {
     void Reset();
     void ProcessEvent(os_event *Event);
     void UpdateAndRenderEntities(camera *Camera);
+    inline void DoPhysics();
+    inline void DamagePlayer(u32 Damage);
 };
 
 #endif //SNAIL_JUMPY_ENTITY_H

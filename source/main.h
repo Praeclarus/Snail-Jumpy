@@ -3,22 +3,21 @@
 
 // TODO(Tyler): Do this in build.bat
 #define SNAIL_JUMPY_DEBUG_BUILD
-
+#define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
 
 #include "primitive_types.h"
 #include "math.h"
 
 //~ Constants
 global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
-global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
+global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
 global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant u32 DEFAULT_BUFFER_SIZE = 512;
 global_constant char *STARTUP_LEVEL = "Debug";
 //global_constant char *STARTUP_LEVEL = "Test_World";
-global_constant u32 ENTITY_SPEC_BOUNDARY_SET_COUNT = 3;
 
 //~ TODO(Tyler): Things that need a better place to go
 enum entity_state {
@@ -139,14 +138,15 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 #include "random.h"
 #include "helpers.cpp"
 #include "intrinsics.h"
-#include "allocators.cpp"
+#include "memory_arena.cpp"
+#include "freelist_allocator.cpp"
 #include "debug.h"
 #include "hash_table.cpp"
 #include "array.cpp"
 #include "render.h"
 #include "os.h"
 #include "asset.h"
-#include "collision.h"
+#include "physics.h"
 #include "entity_info.h"
 #include "entity.h"
 #include "ui.h"
@@ -171,7 +171,6 @@ struct state_change_data {
 //~ Forward declarations
 internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
 internal void UpdateCoin(coin_entity *Coin);
-internal inline void DamagePlayer(u32 Damage);
 internal void StunEnemy(enemy_entity *Enemy);
 internal void UpdateEnemyBoundary(enemy_entity *Enemy);
 internal void ChangeEntityState(entity *Entity, entity_state NewState);

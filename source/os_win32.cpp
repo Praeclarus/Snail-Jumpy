@@ -291,7 +291,7 @@ WinMain(HINSTANCE Instance,
             GlobalPerfCounterFrequency = (f32)PerformanceCounterFrequencyResult.QuadPart;
             
             LARGE_INTEGER LastCounter = Win32GetWallClock();
-            OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+            OSInput.dTime = TARGET_SECONDS_PER_FRAME;
             
             Running = true;
             while(Running){
@@ -313,14 +313,14 @@ WinMain(HINSTANCE Instance,
                         Sleep(SleepMS);
                         SecondsElapsed = Win32SecondsElapsed(LastCounter, Win32GetWallClock());
                     }
-                    OSInput.dTimeForFrame = TARGET_SECONDS_PER_FRAME;
+                    OSInput.dTime = TARGET_SECONDS_PER_FRAME;
                 }
                 else
                 {
                     LogMessage("Missed FPS");
-                    OSInput.dTimeForFrame = SecondsElapsed;
-                    if(OSInput.dTimeForFrame > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
-                        OSInput.dTimeForFrame = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
+                    OSInput.dTime = SecondsElapsed;
+                    if(OSInput.dTime > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
+                        OSInput.dTime = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
                     }
                 }
                 
@@ -348,7 +348,7 @@ WinMain(HINSTANCE Instance,
         LogMessage("Win32: Failed to register window class!!");
     }
     
-#if 1
+#if defined(SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT)
     WorldManager.WriteWorldsToFiles();
     WriteEntityInfos("entities.sje");
 #endif
@@ -484,14 +484,19 @@ DefaultFree(void *Pointer){
 }
 
 internal void
+VWriteToDebugConsole(os_file *Output, const char *Format, va_list VarArgs){
+    TIMED_FUNCTION();
+    
+    char Buffer[DEFAULT_BUFFER_SIZE];
+    stbsp_vsnprintf(Buffer, sizeof(Buffer), Format, VarArgs);
+    WriteConsole(Output, Buffer, (DWORD)CStringLength(Buffer), 0, 0);
+}
+
+internal void
 WriteToDebugConsole(os_file *Output, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
-    
-    char Buffer[512];
-    stbsp_vsnprintf(Buffer, sizeof(Buffer), Format, VarArgs);
-    WriteConsole(Output, Buffer, (DWORD)CStringLength(Buffer), 0, 0);
-    
+    VWriteToDebugConsole(Output, Format, VarArgs);
     va_end(VarArgs);
 }
 

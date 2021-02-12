@@ -11,17 +11,16 @@
 
 #include "main.h"
 
+//~ Engine variables
 global debug_config DebugConfig;
 
 global render_commands RenderCommands;
 
-// TODO(Tyler): Luckily we aren't doing anything too crazy with fonts like animating a 
+// TODO(Tyler): Luckily nothing too crazy is happening with fonts like animating a 
 // change in size, because the current font system I don't would be too capable of that
 global font MainFont;
 global font TitleFont;
 global font DebugFont;
-
-global s32 Score;
 
 global entity_manager EntityManager;
 global ui_manager UIManager;
@@ -29,7 +28,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_WorldEditor;
+global game_mode GameMode = GameMode_MainGame;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -47,30 +46,38 @@ global memory_arena StringMemory;
 global world_manager WorldManager;
 global world_data *CurrentWorld;
 
-global collision_table CollisionTable;
-
 global memory_arena EntityInfoMemory;
 global array<entity_info> EntityInfos;
 
 global hash_table<const char *, asset> AssetTable;
 
+global physics_system PhysicsSystem;
+
+//~ Gameplay variables
+
+global s32 Score;
+
+//~ Includes
 #include "logging.cpp"
 #include "stream.cpp"
 #include "file_processing.cpp"
 #include "render.cpp"
 #include "asset.cpp"
-#include "collision.cpp"
+#include "physics.cpp"
 #include "entity_info.cpp"
 #include "entity.cpp"
 #include "ui.cpp"
 #include "debug.cpp"
 #include "debug_ui.cpp"
 #include "world.cpp"
+#include "camera.cpp"
 
 #include "menu.cpp"
 #include "world_editor.cpp"
 #include "entity_editor.cpp"
 #include "game.cpp"
+
+//~ 
 
 // TODO(Tyler): This should be done at compile time
 internal void
@@ -125,30 +132,24 @@ InitializeGame(){
     LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
     
     InitializeRenderer();
-    
-    // Initialize entity manager
-    EntityManager.Initialize(&PermanentStorageArena);
-    
-    // Initialize memory and arrays
     StringMemory = PushNewArena(&PermanentStorageArena, Kilobytes(32));
-    WorldManager.Initialize(&PermanentStorageArena);
-    UIManager.Initialize(&PermanentStorageArena);
-    
-    InitializeAssetSystem(&PermanentStorageArena);
-    
     LoadFont(&TransientStorageArena, &DebugFont, "Roboto-Regular.ttf", 22);
     LoadFont(&TransientStorageArena, &TitleFont, "Roboto-Regular.ttf", 30);
     LoadFont(&TransientStorageArena, &MainFont,  "Press-Start-2P.ttf", 26);
     
-    // Setup UI
-    SetupDefaultTheme(&UIManager.Theme);
+    EntityManager.Initialize(&PermanentStorageArena);
+    WorldManager.Initialize(&PermanentStorageArena);
+    UIManager.Initialize(&PermanentStorageArena);
+    InitializeAssetSystem(&PermanentStorageArena);
+    PhysicsSystem.Initialize(&PermanentStorageArena);
     
     // Load things
-    InitializeEntityInfos(&PermanentStorageArena, "entities.sje");
+    InitializeAndLoadEntityInfos(&PermanentStorageArena, "entities.sje");
     WorldManager.LoadWorld(STARTUP_LEVEL);
     if(GameMode == GameMode_WorldEditor){
         WorldEditor.World = CurrentWorld;
     }
+    
 }
 
 internal void
@@ -178,11 +179,11 @@ GameUpdateAndRender(){
     }
     
     OSInput.LastMouseP = OSInput.MouseP;
-    Counter += OSInput.dTimeForFrame;
+    Counter += OSInput.dTime;
     
     if(StateChangeData.DidChange){
         if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-            LastOverworldPlayerP = EntityManager.Player->P;
+            LastOverworldPlayerP = EntityManager.Player->Physics->P;
         }
         
         if(StateChangeData.NewMode == GameMode_None){
@@ -237,83 +238,4 @@ ProcessDefaultEvent(os_event *Event){
             }
         }break;
     }
-}
-
-//~ Camera
-
-inline void
-camera::DirectMove(v2 dP, world_data *World){
-    ActualP += dP;
-    v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
-    if((ActualP.X+32.0f*TILE_SIDE) > MapSize.X){
-        ActualP.X = MapSize.X - 32.0f*TILE_SIDE;
-    }else if(ActualP.X < 0.0f){
-        ActualP.X = 0.0f;
-    }
-    if((ActualP.Y+18.0f*TILE_SIDE) > MapSize.Y){
-        ActualP.Y = MapSize.Y - 18.0f*TILE_SIDE;
-    }else if(ActualP.Y < 0.0f){
-        ActualP.Y = 0.0f;
-    }
-    TargetP = ActualP;
-}
-
-inline void
-camera::Move(v2 dP, world_data *World){
-    TargetP += dP;
-    v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
-    if((TargetP.X+32.0f*TILE_SIDE) > MapSize.X){
-        TargetP.X = MapSize.X - 32.0f*TILE_SIDE;
-    }else if(TargetP.X < 0.0f){
-        TargetP.X = 0.0f;
-    }
-    if((TargetP.Y+18.0f*TILE_SIDE) > MapSize.Y){
-        TargetP.Y = MapSize.Y - 18.0f*TILE_SIDE;
-    }else if(TargetP.Y < 0.0f){
-        TargetP.Y = 0.0f;
-    }
-}
-
-inline void
-camera::SetCenter(v2 Center, world_data *World){
-    v2 MapSize = TILE_SIDE*v2{(f32)World->Width, (f32)World->Height};
-    TargetP = Center - 0.5f * TILE_SIDE*v2{32.0f, 18.0f};
-    if((TargetP.X+32.0f*TILE_SIDE) > MapSize.X){
-        TargetP.X = MapSize.X - 32.0f*TILE_SIDE;
-    }else if(TargetP.X < 0.0f){
-        TargetP.X = 0.0f;
-    }
-    if((TargetP.Y+18.0f*TILE_SIDE) > MapSize.Y){
-        TargetP.Y = MapSize.Y - 18.0f*TILE_SIDE;
-    }else if(TargetP.Y < 0.0f){
-        TargetP.Y = 0.0f;
-    }
-}
-
-inline v2
-camera::ScreenPToWorldP(v2 ScreenP){
-    v2 Result = ScreenP / MetersToPixels + P;
-    return(Result);
-}
-
-inline void
-camera::Update(){
-    MetersToPixels = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
-    
-    ActualP += MoveFactor*(TargetP-ActualP);
-    if(ShakeTimeRemaining > 0.0f){
-        P.X = ActualP.X + ShakeStrength*0.5f*Cos(ShakeTimeRemaining*ShakeFrequency*1.5f);
-        P.Y = ActualP.Y + ShakeStrength*Cos(ShakeTimeRemaining*ShakeFrequency);
-        
-        ShakeTimeRemaining -= OSInput.dTimeForFrame;
-    }else{
-        P = ActualP;
-    }
-}
-
-inline void
-camera::Shake(f32 Time, f32 Strength, f32 Frequency){
-    ShakeTimeRemaining += Time;
-    ShakeFrequency = Frequency;
-    ShakeStrength = Strength;
 }

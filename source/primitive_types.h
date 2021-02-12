@@ -2,6 +2,8 @@
 #define SNAIL_JUMPY_PRIMITIVE_TYPES_H
 
 #include <stdint.h>
+#include <float.h>
+#include <math.h>
 
 //~ Primitive types
 typedef uint8_t  u8;
@@ -62,5 +64,12 @@ typedef double f64;
 #define S16_MIN 0x8000
 #define S32_MIN 0x80000000
 #define S64_MIN 0x8000000000000000
+
+#define F32_POSITIVE_INFINITY FLT_MAX 
+#define F32_NEGATIVE_INFINITY FLT_MIN
+
+#define F64_NAN               0x7FF7FFFFFFFFFFFF 
+#define F64_POSITIVE_INFINITY 0x7FF0000000000000 
+#define F64_NEGATIVE_INFINITY 0xFFF0000000000000 
 
 #endif //SNAIL_JUMPY_PRIMITIVE_TYPES_H

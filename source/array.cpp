@@ -318,7 +318,7 @@ BucketArrayInitialize(bucket_array<T, U> *Array, memory_arena *Arena,
 
 template <typename T, u32 U>
 internal T *
-BucketArrayAlloc(bucket_array<T, U> *Array, bucket_location *Location=0){
+BucketArrayAlloc(bucket_array<T, U> *Array){
     T *Result = 0;
     if(Array->UnfullBuckets.Count == 0){
         AllocateBucket(Array);
@@ -330,14 +330,10 @@ BucketArrayAlloc(bucket_array<T, U> *Array, bucket_location *Location=0){
     Assert(BitScan.Found);
     u32 ItemIndex = BitScan.Index;
     Result = &Bucket->Items[ItemIndex];
+    *Result = {};
     Bucket->Occupancy |= (1ULL << Bucket->Count);
     Bucket->Count++;
     Array->Count++;
-    
-    if(Location){
-        Location->BucketIndex = Bucket->Index;
-        Location->ItemIndex   = ItemIndex;
-    }
     
     if(Bucket->Count >= U){ 
         DynamicArrayUnorderedRemove(&Array->UnfullBuckets, 0);
@@ -355,10 +351,24 @@ BucketArrayRemove(bucket_array<T, U> *Array, bucket_location Location){
     Array->Count--;
     b8 WasFull = (Bucket->Count == U);
     Bucket->Count--;
-    Bucket->Items[Location.ItemIndex] = {};
     UnsetBit(&Bucket->Occupancy, Location.ItemIndex);
     
     if(WasFull) DynamicArrayPushBack(&Array->UnfullBuckets, Bucket);
+}
+
+template <typename T, u32 U>
+internal void
+BucketArrayRemoveAll(bucket_array<T, U> *Array){
+    for(u32 I = 0; I < Array->Buckets.Count; I++){
+        bucket<T, U> *Bucket = Array->Buckets[I];
+        
+        b8 WasFull = (Bucket->Count == U);
+        Bucket->Count = 0;
+        Bucket->Occupancy = 0;
+        
+        if(WasFull) DynamicArrayPushBack(&Array->UnfullBuckets, Bucket);
+    }
+    Array->Count = 0;
 }
 
 template <typename T, u32 U>
@@ -411,20 +421,25 @@ BucketArrayIterationNext(bucket_array<T, U> *Array, bucket_location *Location){
 
 template <typename T, u32 U>
 internal inline b8
-BucketArrayContinueIteration(bucket_array<T, U> *Array, bucket_location Location){
+BucketArrayContinueIteration(bucket_array<T, U> *Array, T **Object, bucket_location Location){
     b8 Result = ((Location.BucketIndex < Array->Buckets.Count) &&
                  (Array->Buckets[Location.BucketIndex]->Count > 0));
+    if(Result){
+        *Object = BucketArrayGetItemPtr(Array, Location);
+    }
     return(Result);
 }
 
 template <typename T, u32 U>
-internal T *
+internal inline T *
 BucketArrayGetItemPtr(bucket_array<T, U> *Array, bucket_location Location){
     bucket<T, U> *Bucket = Array->Buckets[Location.BucketIndex];
-    Assert(Bucket->Occupancy & (1ULL << Location.ItemIndex));
-    T *Result = &Bucket->Items[Location.ItemIndex];
+    T *Result = 0;
+    if(Bucket->Occupancy & (1ULL << Location.ItemIndex))
+        Result = &Bucket->Items[Location.ItemIndex];
     return(Result);
 }
+
 
 internal inline bucket_location
 BucketLocation(u32 BucketIndex, u32 ItemIndex){
@@ -432,7 +447,14 @@ BucketLocation(u32 BucketIndex, u32 ItemIndex){
     return(Result);
 }
 
-#define FOR_BUCKET_ARRAY(Array) \
-for(bucket_location Location = BucketArrayBeginIteration(Array); \
-BucketArrayContinueIteration(Array, Location);               \
+template <typename T, u32 U>
+internal inline T *
+BucketArrayGetNullPtr(bucket_array<T, U> *Array){
+    return(0);
+}
+
+#define FOR_BUCKET_ARRAY(Variable, Array)                                            \
+auto Variable = BucketArrayGetItemPtr(Array, BucketArrayBeginIteration(Array));  \
+for(bucket_location Location = BucketArrayBeginIteration(Array);                 \
+BucketArrayContinueIteration(Array, &Variable, Location);                               \
 BucketArrayIterationNext(Array, &Location))
