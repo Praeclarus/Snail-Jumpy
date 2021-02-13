@@ -199,6 +199,14 @@ V2S(s32 X, s32 Y){
     return(Result);
 }
 
+internal inline v2s
+V2S(v2 A){ 
+    v2s Result; 
+    Result.X = (s32)A.X;
+    Result.Y = (s32)A.Y;
+    return(Result);
+}
+
 internal inline v2
 V2(v2s A){ 
     v2 Result = v2{(f32)A.X, (f32)A.Y}; 
@@ -383,6 +391,22 @@ struct rect_s32 {
     v2s Min;
     v2s Max;
 };
+
+internal inline rect
+Rect(v2 Min, v2 Max){
+    rect Result;
+    Result.Min = Min;
+    Result.Max = Max;
+    return(Result);
+}
+
+internal inline rect_s32
+RectS32(v2s Min, v2s Max){
+    rect_s32 Result;
+    Result.Min = Min;
+    Result.Max = Max;
+    return(Result);
+}
 
 internal inline rect_s32 
 RectS32(rect Rect){

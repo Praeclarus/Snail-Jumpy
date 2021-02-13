@@ -34,8 +34,8 @@ internal void
 UpdateAndRenderMainGame(){
     GameProcessInput();
     
-    RenderCommands.NewFrame(&TransientStorageArena, OSInput.WindowSize);
-    RenderCommands.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
+    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
+    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     GameCamera.Update();
     
     player_entity *Player = EntityManager.Player;
@@ -147,5 +147,5 @@ UpdateAndRenderMainGame(){
                        -0.9f, "Score: %u", Score);
     
     DEBUGRenderOverlay();
-    ExecuteCommands(&RenderCommands);
+    Renderer.RenderToScreen();
 }

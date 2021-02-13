@@ -188,13 +188,15 @@ world_manager::LoadWorld(const char *LevelName){
             // TODO(Tyler): Formalize player starting position
             AddPlayer(V2(1.55f, 1.55f));
             
+#if 0            
             physics_object *Wedge = PhysicsSystem.AddStaticObject(DEBUGWedgeBoundary, 1);
             Wedge->P = V2(10.0f, 0.49f);
             
             physics_object *Circle = PhysicsSystem.AddStaticObject(DEBUGCircleBoundary, 1);
-            Circle->P = V2(4.0f, 0.2f);
+            Circle->P = V2(4.0f, 0.47f);
+#endif
             
-#if 0
+#if 1
             AddParticles(V2(3.0f, 3.0f));
             AddParticles(V2(5.0f, 3.0f));
             AddParticles(V2(7.0f, 3.0f));

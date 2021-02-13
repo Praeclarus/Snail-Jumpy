@@ -273,8 +273,8 @@ entity_editor::UpdateAndRender(){
     EntityP = {5, 5};
     FloorY  = 5;
     
-    RenderCommands.NewFrame(&TransientStorageArena, OSInput.WindowSize);
-    RenderCommands.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
+    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
+    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     Camera.Update();
     
     ProcessInput();
@@ -349,7 +349,7 @@ entity_editor::UpdateAndRender(){
     }
     
     DEBUGRenderOverlay();
-    ExecuteCommands(&RenderCommands);
+    Renderer.RenderToScreen();
 }
 
 

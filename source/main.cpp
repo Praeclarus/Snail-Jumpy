@@ -14,7 +14,7 @@
 //~ Engine variables
 global debug_config DebugConfig;
 
-global render_commands RenderCommands;
+global renderer Renderer;
 
 // TODO(Tyler): Luckily nothing too crazy is happening with fonts like animating a 
 // change in size, because the current font system I don't would be too capable of that

@@ -506,7 +506,7 @@ world_editor::DoPopup(){
             RenderCenteredString(&TitleFont, WHITE, StringP, 0.0f, "Please select a info to add:");
             
             if(SelectedInfo == 0){
-                ExecuteCommands(&RenderCommands);
+                Renderer.RenderToScreen();
                 Result = true;
             }else{ 
                 InfoSelectorCallback(this, SelectedInfo);
@@ -785,8 +785,8 @@ world_editor::DoUI(){
 
 void
 world_editor::UpdateAndRender(){
-    RenderCommands.NewFrame(&TransientStorageArena, OSInput.WindowSize);
-    RenderCommands.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
+    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
+    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     Camera.MoveFactor = 0.2f;
     Camera.Update();
     
@@ -944,5 +944,5 @@ world_editor::UpdateAndRender(){
     
     RenderCursor();
     
-    ExecuteCommands(&RenderCommands);
+    Renderer.RenderToScreen();
 }

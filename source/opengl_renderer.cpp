@@ -312,8 +312,8 @@ InitializeRenderer(){
     return(Result);
 }
 
-internal void
-ExecuteCommands(render_commands *Commands){
+void
+renderer::RenderToScreen(){
     TIMED_FUNCTION();
     
     glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
@@ -323,14 +323,12 @@ ExecuteCommands(render_commands *Commands){
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    GLsizei WindowWidth = (GLsizei)Commands->OutputSize.X;
-    GLsizei WindowHeight = (GLsizei)Commands->OutputSize.Y;
-    glScissor(0, 0, WindowWidth, WindowHeight);
-    glViewport(0, 0, WindowWidth, WindowHeight);
+    glScissor(0, 0, OutputSize.X, OutputSize.Y);
+    glViewport(0, 0, OutputSize.X, OutputSize.Y);
     
     //~ Render scene normally to framebuffer
-    f32 A = 2.0f/((f32)Commands->OutputSize.Width);
-    f32 B = 2.0f/((f32)Commands->OutputSize.Height);
+    f32 A = 2.0f/((f32)OutputSize.Width);
+    f32 B = 2.0f/((f32)OutputSize.Height);
     f32 C = 2.0f/((f32)100);
     f32 Projection[] = {
         A,   0, 0, 0,
@@ -345,58 +343,36 @@ ExecuteCommands(render_commands *Commands){
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DefaultElementBuffer);
     glUniformMatrix4fv(DefaultShaderProgram.ProjectionLocation, 1, GL_FALSE, Projection);
     
-    glBufferData(GL_ARRAY_BUFFER, Commands->Vertices.Count*sizeof(vertex), 
-                 Commands->Vertices.Items, GL_STREAM_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, Commands->Indices.Count*sizeof(u16), 
-                 Commands->Indices.Items, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, Vertices.Count*sizeof(vertex), 
+                 Vertices.Items, GL_STREAM_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, Indices.Count*sizeof(u16), 
+                 Indices.Items, GL_STREAM_DRAW);
     
     dynamic_array<render_command_item *> TranslucentItems;
     DynamicArrayInitialize(&TranslucentItems, 256, &TransientStorageArena);
+    dynamic_array<rect_s32> TranslucentItemClipRects;
+    DynamicArrayInitialize(&TranslucentItemClipRects, 256, &TransientStorageArena);
     
-    u8 *CommandPtr = Commands->CommandBuffer.Items;
-    for(u32 I = 0; I < Commands->CommandCount; I++){
+    rect_s32 ClipRect = RectS32(V2S(0,0), OutputSize);
+    u8 *CommandPtr = CommandBuffer.Items;
+    for(u32 I = 0; I < CommandCount; I++){
         auto Header = (render_command_header *)CommandPtr;
         switch(Header->Type){
             case RenderCommand_None: {
                 CommandPtr += sizeof(render_command_header);
             }break;
             case RenderCommand_BeginClipRegion: {
-                f32 LastZ = 0.0f;
-                for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
-                    auto Item = TranslucentItems[Index];
-                    if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
-                    LastZ = Item->ZLayer;
-                    glBindTexture(GL_TEXTURE_2D, Item->Texture);
-                    glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
-                                             GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
-                                             Item->VertexOffset);
-                }
-                
-                glScissor(0, 0, WindowWidth, WindowHeight);
-                DynamicArrayReset(&TranslucentItems);
-                
                 auto Command = (render_command_begin_clip_region *)CommandPtr;
                 CommandPtr += sizeof(*Command);
                 glScissor(Command->Min.X, Command->Min.Y, 
                           Command->Min.X+(Command->Max.X-Command->Min.X),
                           Command->Min.Y+(Command->Max.Y-Command->Min.Y));
+                ClipRect = RectS32(Command->Min, Command->Max);
             }break;
             case RenderCommand_EndClipRegion: {
                 CommandPtr += sizeof(render_command_header);
-                
-                f32 LastZ = 0.0f;
-                for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
-                    auto Item = TranslucentItems[Index];
-                    if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
-                    LastZ = Item->ZLayer;
-                    glBindTexture(GL_TEXTURE_2D, Item->Texture);
-                    glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
-                                             GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
-                                             Item->VertexOffset);
-                }
-                
-                glScissor(0, 0, WindowWidth, WindowHeight);
-                DynamicArrayReset(&TranslucentItems);
+                glScissor(0, 0, OutputSize.X, OutputSize.Y);
+                ClipRect = RectS32(V2S(0,0), OutputSize);
             }break;
             case RenderCommand_RenderItem: {
                 auto Command = (render_command_item *)CommandPtr;
@@ -405,7 +381,6 @@ ExecuteCommands(render_commands *Commands){
                 glDrawElementsBaseVertex(GL_TRIANGLES, Command->IndexCount, 
                                          GL_UNSIGNED_SHORT, (void*)(Command->IndexOffset*sizeof(u16)), 
                                          Command->VertexOffset);
-                
             }break;
             case RenderCommand_TranslucentRenderItem: {
                 auto Command = (render_command_item *)CommandPtr;
@@ -420,8 +395,10 @@ ExecuteCommands(render_commands *Commands){
                 }
                 if(Index < 0){
                     DynamicArrayPushBack(&TranslucentItems, Command);
+                    DynamicArrayPushBack(&TranslucentItemClipRects, ClipRect);
                 }else{
                     DynamicArrayInsertNewArrayItem(&TranslucentItems, Index, Command);
+                    DynamicArrayInsertNewArrayItem(&TranslucentItemClipRects, Index, ClipRect);
                 }
             }break;
             case RenderCommand_ClearScreen: {
@@ -434,7 +411,6 @@ ExecuteCommands(render_commands *Commands){
                              Command->Color.B,
                              Command->Color.A);
 #endif
-                //glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 
             }break;
@@ -448,8 +424,10 @@ ExecuteCommands(render_commands *Commands){
     f32 LastZ = 0.0f;
     for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
         auto Item = TranslucentItems[Index];
+        rect_s32 ClipRect = TranslucentItemClipRects[Index];
         if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
         LastZ = Item->ZLayer;
+        glScissor(ClipRect.Min.X, ClipRect.Min.Y, ClipRect.Max.X, ClipRect.Max.Y);
         glBindTexture(GL_TEXTURE_2D, Item->Texture);
         glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
                                  GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
@@ -458,6 +436,7 @@ ExecuteCommands(render_commands *Commands){
     
     //~ Render to screen
 #if 1
+    glScissor(0, 0, OutputSize.X, OutputSize.Y);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
     glClearColor(0.2f, 0.0f, 0.3f, 1.0f);

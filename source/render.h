@@ -40,7 +40,7 @@ enum render_command_type {
     RenderCommand_EndClipRegion,
     RenderCommand_RenderItem,
     RenderCommand_TranslucentRenderItem,
-    RenderCommand_ClearScreen, // TODO(Tyler): Implement
+    RenderCommand_ClearScreen,
 };
 
 struct render_command_header {
@@ -64,23 +64,26 @@ struct render_command_clear_screen : public render_command_header {
     color Color;
 };
 
-struct render_commands {
+struct renderer {
     dynamic_array<vertex> Vertices;
     dynamic_array<u16>    Indices;
     dynamic_array<u8>     CommandBuffer; // This is used as a growable memory arena
     u32 CommandCount;
     
-    v2 OutputSize;
+    v2s OutputSize;
     
-    void NewFrame(memory_arena *Arena, v2 OutputSize_);
+    void NewFrame(memory_arena *Arena, v2s OutputSize_);
     render_command_item *PushRenderItem(f32 ZLayer, b8 Translucent);
     void BeginClipRegion(v2 Min, v2 Max, camera *Camera=0);
     void EndClipRegion();
     void ClearScreen(color Color);
+    
+    // Platform specific
+    b8 Initialize();
+    void RenderToScreen(); 
 };
 
 internal b8 InitializeRenderer();
-internal void ExecuteCommands(render_commands *Commands);
 internal render_texture_handle CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
 internal void DeleteRenderTexture(render_texture_handle Texture);
 

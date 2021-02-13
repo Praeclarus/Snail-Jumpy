@@ -1,7 +1,7 @@
 global render_texture_handle DefaultTexture;
 
 void
-render_commands::NewFrame(memory_arena *Arena, v2 OutputSize_){
+renderer::NewFrame(memory_arena *Arena, v2s OutputSize_){
     local_constant u32 INITIAL_SIZE = Kilobytes(3);
     DynamicArrayInitialize(&CommandBuffer, INITIAL_SIZE, Arena);
     DynamicArrayInitialize(&Vertices, INITIAL_SIZE, Arena);
@@ -11,7 +11,7 @@ render_commands::NewFrame(memory_arena *Arena, v2 OutputSize_){
 }
 
 render_command_item *
-render_commands::PushRenderItem(f32 ZLayer, b8 Translucent){
+renderer::PushRenderItem(f32 ZLayer, b8 Translucent){
     render_command_item *Result = 0;
     CommandCount++;
     Result = PushStruct(&CommandBuffer, render_command_item);
@@ -24,7 +24,7 @@ render_commands::PushRenderItem(f32 ZLayer, b8 Translucent){
 }
 
 void
-render_commands::BeginClipRegion(v2 Min, v2 Max, camera *Camera){
+renderer::BeginClipRegion(v2 Min, v2 Max, camera *Camera){
     CommandCount++;
     auto Command = PushStruct(&CommandBuffer, render_command_begin_clip_region);
     Command->Type = RenderCommand_BeginClipRegion;
@@ -37,19 +37,21 @@ render_commands::BeginClipRegion(v2 Min, v2 Max, camera *Camera){
 }
 
 void
-render_commands::EndClipRegion(){
+renderer::EndClipRegion(){
     CommandCount++;
     auto Command = PushStruct(&CommandBuffer, render_command_header);
     Command->Type = RenderCommand_EndClipRegion;
 }
 
 void 
-render_commands::ClearScreen(color Color){
+renderer::ClearScreen(color Color){
     CommandCount++;
     auto Command = PushStruct(&CommandBuffer, render_command_clear_screen);
     Command->Type = RenderCommand_ClearScreen;
     Command->Color = Color;
 }
+
+//~
 
 internal void
 RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=30){
@@ -58,8 +60,8 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=3
         P *= Camera->MetersToPixels;
         Radius *= Camera->MetersToPixels;
         
-        if(RenderCommands.OutputSize.X < P.X-Radius) return;
-        if(RenderCommands.OutputSize.Y < P.Y-Radius) return;
+        if(Renderer.OutputSize.X < P.X-Radius) return;
+        if(Renderer.OutputSize.Y < P.Y-Radius) return;
         if(P.X+Radius < 0.0f) return;
         if(P.Y+Radius < 0.0f) return;
     }
@@ -67,18 +69,18 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=3
     f32 T = 0.0f;
     f32 Step = 1.0f/(f32)Sides;
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z, (Color.A < 1.0f));
+    auto RenderItem = Renderer.PushRenderItem(Z, (Color.A < 1.0f));
     RenderItem->IndexCount = Sides*3;
     RenderItem->Texture = DefaultTexture;
     
-    vertex *Vertices = PushNArrayItems(&RenderCommands.Vertices, Sides+2);
+    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, Sides+2);
     Vertices[0] = {P.X, P.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     for(u32 I = 0; I <= Sides; I++){
         Vertices[I+1] = {P.X+Radius*Sin(T*TAU), P.Y+Radius*Cos(T*TAU), Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
         T += Step;
     }
     
-    u16 *Indices = PushNArrayItems(&RenderCommands.Indices, Sides*3);
+    u16 *Indices = PushNArrayItems(&Renderer.Indices, Sides*3);
     u16 CurrentIndex = 1;
     for(u32 I = 0; I < Sides*3; I += 3){
         Indices[I] = 0;
@@ -99,23 +101,23 @@ RenderRectangle(v2 MinCorner, v2 MaxCorner, f32 Z, color Color, camera *Camera=0
         MinCorner *= Camera->MetersToPixels;
         MaxCorner *= Camera->MetersToPixels;
         
-        if(RenderCommands.OutputSize.X < MinCorner.X) return;
-        if(RenderCommands.OutputSize.Y < MinCorner.Y) return;
+        if(Renderer.OutputSize.X < MinCorner.X) return;
+        if(Renderer.OutputSize.Y < MinCorner.Y) return;
         if(MaxCorner.X < 0.0f) return;
         if(MaxCorner.Y < 0.0f) return;
     }
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z, (Color.A < 1.0f));
+    auto RenderItem = Renderer.PushRenderItem(Z, (Color.A < 1.0f));
     RenderItem->IndexCount = 6;
     RenderItem->Texture = DefaultTexture;
     
-    vertex *Vertices = PushNArrayItems(&RenderCommands.Vertices, 4);
+    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 1.0f};
     Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 1.0f};
     Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 0.0f};
     
-    u16 *Indices = PushNArrayItems(&RenderCommands.Indices, 6);
+    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
     Indices[0] = 0;
     Indices[1] = 1;
     Indices[2] = 2;
@@ -141,23 +143,23 @@ RenderTexture(v2 MinCorner, v2 MaxCorner, f32 Z,
         MinCorner *= Camera->MetersToPixels;
         MaxCorner *= Camera->MetersToPixels;
         
-        if(RenderCommands.OutputSize.X < MinCorner.X) return;
-        if(RenderCommands.OutputSize.Y < MinCorner.Y) return;
+        if(Renderer.OutputSize.X < MinCorner.X) return;
+        if(Renderer.OutputSize.Y < MinCorner.Y) return;
         if(MaxCorner.X < 0.0f) return;
         if(MaxCorner.Y < 0.0f) return;
     }
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z, IsTranslucent);
+    auto RenderItem = Renderer.PushRenderItem(Z, IsTranslucent);
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
-    vertex *Vertices = PushNArrayItems(&RenderCommands.Vertices, 4);
+    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
     Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
     Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
     Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
     
-    u16 *Indices = PushNArrayItems(&RenderCommands.Indices, 6);
+    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
     Indices[0] = 0;
     Indices[1] = 1;
     Indices[2] = 2;
@@ -178,17 +180,17 @@ RenderTextureWithColor(v2 MinCorner, v2 MaxCorner, f32 Z,
         MaxCorner *= Camera->MetersToPixels;
     }
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z, (IsTranslucent || (Color.A < 1.0f)));
+    auto RenderItem = Renderer.PushRenderItem(Z, (IsTranslucent || (Color.A < 1.0f)));
     RenderItem->IndexCount = 6;
     RenderItem->Texture = Texture;
     
-    vertex *Vertices = PushNArrayItems(&RenderCommands.Vertices, 4);
+    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
     Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MinTexCoord.X, MinTexCoord.Y};
     Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MinTexCoord.X, MaxTexCoord.Y};
     Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MaxTexCoord.X, MaxTexCoord.Y};
     Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MaxTexCoord.X, MinTexCoord.Y};
     
-    u16 *Indices = PushNArrayItems(&RenderCommands.Indices, 6);
+    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
     Indices[0] = 0;
     Indices[1] = 1;
     Indices[2] = 2;
@@ -214,24 +216,24 @@ RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String, c
         Y *= Camera->MetersToPixels;
     }
     
-    Y = RenderCommands.OutputSize.Y - Y;
+    Y = Renderer.OutputSize.Y - Y;
     
     u32 Length = CStringLength(String);
     
-    auto RenderItem = RenderCommands.PushRenderItem(Z, true);
+    auto RenderItem = Renderer.PushRenderItem(Z, true);
     RenderItem->IndexCount = 6*Length;
     RenderItem->Texture = Font->Texture;
     
-    vertex *Vertices = PushNArrayItems(&RenderCommands.Vertices, 4*Length);
+    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4*Length);
     u32 VertexOffset = 0;
-    float ActualY = RenderCommands.OutputSize.Y - Y;
+    float ActualY = Renderer.OutputSize.Y - Y;
     for(char C = *String; C; C = *(++String)){
         stbtt_aligned_quad Q;
         stbtt_GetBakedQuad(Font->CharData,
                            Font->TextureWidth, Font->TextureHeight,
                            C-32, &X, &Y, &Q, 1);
-        Q.y0 = RenderCommands.OutputSize.Y - Q.y0;
-        Q.y1 = RenderCommands.OutputSize.Y - Q.y1;
+        Q.y0 = Renderer.OutputSize.Y - Q.y0;
+        Q.y1 = Renderer.OutputSize.Y - Q.y1;
         Vertices[VertexOffset]   = {Q.x0, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
         Vertices[VertexOffset+1] = {Q.x0, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
         Vertices[VertexOffset+2] = {Q.x1, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
@@ -240,7 +242,7 @@ RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String, c
         VertexOffset += 4;
     }
     
-    u16 *Indices = PushNArrayItems(&RenderCommands.Indices, 6*Length);
+    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6*Length);
     u16 FaceOffset = 0;
     for(u32 IndexOffset = 0; IndexOffset < 6*Length; IndexOffset += 6){
         Indices[IndexOffset]   = FaceOffset;
