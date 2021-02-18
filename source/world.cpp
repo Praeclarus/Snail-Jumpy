@@ -42,6 +42,10 @@ AddPlayer(v2 P){
     EntityManager.Player->JumpTime = 1.0f;
     
     EntityManager.Player->Health = 9;
+    
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
+    Physics->DebugInfo = PushStruct(&EntityManager.Memory, debug_physics_info);
+#endif
 }
 
 internal void
@@ -188,7 +192,7 @@ world_manager::LoadWorld(const char *LevelName){
             // TODO(Tyler): Formalize player starting position
             AddPlayer(V2(1.55f, 1.55f));
             
-#if 0            
+#if 0
             physics_object *Wedge = PhysicsSystem.AddStaticObject(DEBUGWedgeBoundary, 1);
             Wedge->P = V2(10.0f, 0.49f);
             
@@ -196,7 +200,7 @@ world_manager::LoadWorld(const char *LevelName){
             Circle->P = V2(4.0f, 0.47f);
 #endif
             
-#if 1
+#if 0
             AddParticles(V2(3.0f, 3.0f));
             AddParticles(V2(5.0f, 3.0f));
             AddParticles(V2(7.0f, 3.0f));

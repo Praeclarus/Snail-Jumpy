@@ -30,12 +30,12 @@ DEBUGRenderOverlay(){
                      BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
         LayoutString(&Layout, &DebugFont,
                      BLACK, "GameCamera.MoveFactor: %.2f", GameCamera.MoveFactor);
-        LayoutString(&Layout, &DebugFont,
-                     BLACK, "Player.P: %.8f %.8f", 
+        LayoutString(&Layout, &DebugFont, BLACK, "Player.P: (%f, %f)", 
                      EntityManager.Player->Physics->P.X, EntityManager.Player->Physics->P.Y);
-        LayoutString(&Layout, &DebugFont,
-                     BLACK, "Player.dP: %.8f %.8f", 
+        LayoutString(&Layout, &DebugFont, BLACK, "Player.P: (%f, %f)", 
                      EntityManager.Player->Physics->dP.X, EntityManager.Player->Physics->dP.Y);
+        LayoutString(&Layout, &DebugFont, BLACK, "PausedPosition: %u, PausedObject: %u", 
+                     PhysicsDebugger.Paused.Position, PhysicsDebugger.Paused.Object);
     }
     if(DebugConfig.Overlay & DebugOverlay_Profiler){
         LayoutFps(&Layout);

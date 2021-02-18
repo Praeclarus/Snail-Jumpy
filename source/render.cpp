@@ -54,6 +54,49 @@ renderer::ClearScreen(color Color){
 //~
 
 internal void
+RenderLine(v2 A, v2 B, f32 Z, f32 Thickness, color Color, camera *Camera=0){
+    if(Camera){
+        A -= Camera->P;
+        B -= Camera->P;
+        A *= Camera->MetersToPixels;
+        B *= Camera->MetersToPixels;
+        Thickness *= Camera->MetersToPixels;
+        
+        // TODO(Tyler): There is culling that can be done here
+    }
+    
+    v2 AB = B - A;
+    v2 AB90 = Normalize(Clockwise90(AB));
+    v2 Point1 = A - 0.5f*Thickness*AB90;
+    v2 Point2 = A + 0.5f*Thickness*AB90;
+    v2 Point4 = B - 0.5f*Thickness*AB90;
+    v2 Point3 = B + 0.5f*Thickness*AB90;
+    
+    auto RenderItem = Renderer.PushRenderItem(Z, (Color.A < 1.0f));
+    RenderItem->IndexCount = 6;
+    RenderItem->Texture = DefaultTexture;
+    
+    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
+    Vertices[0] = {Point1.X, Point1.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[1] = {Point2.X, Point2.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 1.0f};
+    Vertices[2] = {Point3.X, Point3.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 1.0f};
+    Vertices[3] = {Point4.X, Point4.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 0.0f};
+    
+    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
+    Indices[0] = 0;
+    Indices[1] = 1;
+    Indices[2] = 2;
+    Indices[3] = 0;
+    Indices[4] = 2;
+    Indices[5] = 3;
+}
+
+internal void
+RenderLineFrom(v2 A, v2 Delta, f32 Z, f32 Thickness, color Color, camera *Camera=0){
+    RenderLine(A, A+Delta, Z, Thickness, Color, Camera);
+}
+
+internal void
 RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=30){
     if(Camera){
         P -= Camera->P;

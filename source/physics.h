@@ -1,6 +1,49 @@
 #ifndef SNAIL_JUMPY_PHYSICS_H
 #define SNAIL_JUMPY_PHYSICS_H
 
+//~ Debug stuff
+global_constant color GJK_SIMPLEX1_COLOR = color{1.0f,  0.0f,  1.0f, 1.0f};
+global_constant color GJK_SIMPLEX2_COLOR = color{0.7f,  0.0f,  0.7f, 1.0f};
+global_constant color GJK_SIMPLEX3_COLOR = color{0.4f,  0.0f,  0.4f, 1.0f};
+
+struct debug_physics_info {
+    v2 Offset;
+    v2 dP, ddP;
+    b8 DidInitialdP;
+};
+
+typedef u32 physics_debugger_flags;
+enum physics_debugger_flags_ {
+    PhysicsDebuggerFlags_None = 0,
+    PhysicsDebuggerFlags_StepPhysics = (1 << 0),
+};
+
+struct physics_debugger_position {
+    // Arbitrary numbers to keep track of position, do not work between physics frames
+    u32 Position;
+    u32 Object;
+};
+
+// The debugger currently only supports single moving objects
+struct physics_debugger {
+    physics_debugger_flags Flags = PhysicsDebuggerFlags_StepPhysics;
+    physics_debugger_position Current;
+    physics_debugger_position Paused;
+    layout Layout;
+    f32 Scale = 0.5f;
+    
+    // These are so that functions don't need extra return values or arguments
+    union {
+        v2 Base; // Used by UpdateSimplex to know where to draw the direction from
+    };
+    
+    inline void NewFrame();
+    inline void AdvanceCurrentObject();
+    inline b8   AdvanceCurrentPosition();
+    inline b8   TestPosition();
+    inline void BreakWhen(b8 Value); // Assert is a macro, so it can't be the name here
+};
+
 //~ Collision boundary
 enum collision_boundary_type {
     BoundaryType_None,
@@ -16,9 +59,6 @@ enum _collision_flags {
 };
 
 typedef v2 gjk_simplex[3];
-
-struct physics_object;
-struct collision_boundary;
 
 struct collision_boundary {
     collision_boundary_type Type;
@@ -66,6 +106,8 @@ struct physics_object {
     f32 Mass;
     collision_boundary *Boundaries;
     u8 BoundaryCount;
+    
+    debug_physics_info *DebugInfo;
 };
 
 struct physics_system {

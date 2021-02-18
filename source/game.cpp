@@ -38,10 +38,9 @@ UpdateAndRenderMainGame(){
     Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     GameCamera.Update();
     
-    player_entity *Player = EntityManager.Player;
-    
     EntityManager.UpdateAndRenderEntities(&GameCamera);
     
+    player_entity *Player = EntityManager.Player;
     // Gate
     {
         v2 P = v2{15.25f, 3.25f};

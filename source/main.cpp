@@ -41,7 +41,7 @@ global v2 LastOverworldPlayerP;
 // strings might be good, and efficient?
 global memory_arena StringMemory; 
 // I am unsure about using strings in the game, but they are used for level names and 
-// assets.
+// assets(for now).
 
 global world_manager WorldManager;
 global world_data *CurrentWorld;
@@ -62,11 +62,11 @@ global s32 Score;
 #include "stream.cpp"
 #include "file_processing.cpp"
 #include "render.cpp"
+#include "ui.cpp"
 #include "asset.cpp"
 #include "physics.cpp"
 #include "entity_info.cpp"
 #include "entity.cpp"
-#include "ui.cpp"
 #include "debug.cpp"
 #include "debug_ui.cpp"
 #include "world.cpp"
@@ -224,9 +224,20 @@ ProcessDefaultEvent(os_event *Event){
                 case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Ctrl;  break;
                 case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
 #ifdef SNAIL_JUMPY_DEBUG_BUILD
-                case KeyCode_F1:    ToggleOverlay(DebugOverlay_Profiler); break;
-                case KeyCode_F2:    ToggleOverlay(DebugOverlay_Miscellaneous); break;
-                case KeyCode_F3:    ToggleOverlay(DebugOverlay_Boundaries); break;
+                case KeyCode_F1: ToggleOverlay(DebugOverlay_Profiler); break;
+                case KeyCode_F2: ToggleOverlay(DebugOverlay_Miscellaneous); break;
+                case KeyCode_F3: ToggleOverlay(DebugOverlay_Boundaries); break;
+                case KeyCode_F7: if(PhysicsDebugger.Paused.Position > 0) {
+                    PhysicsDebugger.Paused.Position--; 
+                    PhysicsDebugger.Paused.Object--; 
+                } break;
+                case KeyCode_F8: PhysicsDebugger.Paused.Position++; break;
+                case KeyCode_F9: 
+                if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
+                    PhysicsDebugger.Flags &= ~PhysicsDebuggerFlags_StepPhysics;
+                }else{
+                    PhysicsDebugger.Flags |= PhysicsDebuggerFlags_StepPhysics;
+                } break;
 #endif
             }
         }break;
