@@ -4,7 +4,7 @@
 //~ Debug stuff
 struct debug_physics_info {
     v2 Offset;
-    v2 P, dP, ddP;
+    v2 P, dP, ddP, Delta;
     b8 DidInitialdP;
 };
 
@@ -12,6 +12,7 @@ typedef u32 physics_debugger_flags;
 enum physics_debugger_flags_ {
     PhysicsDebuggerFlags_None = 0,
     PhysicsDebuggerFlags_StepPhysics = (1 << 0),
+    PhysicsDebuggerFlags_Visualize   = (1 << 1),
 };
 
 struct physics_debugger_position {
@@ -22,7 +23,7 @@ struct physics_debugger_position {
 
 // The debugger currently only supports single moving objects
 struct physics_debugger {
-    physics_debugger_flags Flags = PhysicsDebuggerFlags_StepPhysics;
+    physics_debugger_flags Flags;
     physics_debugger_position Current;
     physics_debugger_position Paused;
     layout Layout;
@@ -43,6 +44,7 @@ struct physics_debugger {
     inline void DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color);
     inline void DrawNormal(v2 Offset, v2 Point, v2 Delta, color Color);
     inline void DrawPoint(v2 Offset, v2 Point, color Color);
+    inline void DrawString(const  char *String, ...);
 };
 
 //~ Collision boundary

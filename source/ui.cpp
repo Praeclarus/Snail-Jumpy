@@ -25,7 +25,14 @@ EndLayoutSameY(layout *Layout){
 }
 
 internal void
-LayoutString(layout *Layout, font *Font, color Color, char *Format, ...){
+VLayoutString(layout *Layout, font *Font, color Color, const char *Format, va_list VarArgs){
+    VRenderFormatString(Font, Color, Layout->CurrentP.X, Layout->CurrentP.Y, 
+                        -0.7f, Format, VarArgs);
+    Layout->CurrentP.Y -= Font->Size;
+}
+
+internal void
+LayoutString(layout *Layout, font *Font, color Color, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
     VRenderFormatString(Font, Color, Layout->CurrentP.X, Layout->CurrentP.Y, 

@@ -67,7 +67,6 @@ global s32 Score;
 #include "physics.cpp"
 #include "entity_info.cpp"
 #include "entity.cpp"
-#include "debug.cpp"
 #include "debug_ui.cpp"
 #include "world.cpp"
 #include "camera.cpp"
@@ -226,18 +225,26 @@ ProcessDefaultEvent(os_event *Event){
 #ifdef SNAIL_JUMPY_DEBUG_BUILD
                 case KeyCode_F1: ToggleOverlay(DebugOverlay_Profiler); break;
                 case KeyCode_F2: ToggleOverlay(DebugOverlay_Miscellaneous); break;
-                case KeyCode_F3: ToggleOverlay(DebugOverlay_Boundaries); break;
-                case KeyCode_F7: if(PhysicsDebugger.Paused.Position > 0) {
+                case KeyCode_F3: {
+                    if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
+                        PhysicsDebugger.Flags &= ~PhysicsDebuggerFlags_StepPhysics;
+                    }else{
+                        PhysicsDebugger.Flags |= PhysicsDebuggerFlags_StepPhysics;
+                    } 
+                }break;
+                case KeyCode_F5: {
+                    if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_Visualize){
+                        PhysicsDebugger.Flags &= ~PhysicsDebuggerFlags_Visualize;
+                    }else{
+                        PhysicsDebugger.Flags |= PhysicsDebuggerFlags_Visualize;
+                    } 
+                }break;
+                case KeyCode_F9: if(PhysicsDebugger.Paused.Position > 0) {
                     PhysicsDebugger.Paused.Position--; 
                     PhysicsDebugger.Paused.Object--; 
                 } break;
-                case KeyCode_F8: PhysicsDebugger.Paused.Position++; break;
-                case KeyCode_F9: 
-                if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-                    PhysicsDebugger.Flags &= ~PhysicsDebuggerFlags_StepPhysics;
-                }else{
-                    PhysicsDebugger.Flags |= PhysicsDebuggerFlags_StepPhysics;
-                } break;
+                case KeyCode_F10: PhysicsDebugger.Paused.Position++; break;
+                
                 case 'J': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
                     PhysicsDebugger.Scale -= 0.1f;
                 } break;

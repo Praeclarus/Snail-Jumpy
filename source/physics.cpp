@@ -14,6 +14,9 @@ inline void
 physics_debugger::NewFrame(){
     PhysicsDebugger.Current = {};
     Layout = CreateLayout(200, 300, 30, DebugFont.Size, 100, -10.2f);
+    if(Flags & PhysicsDebuggerFlags_StepPhysics){
+        Flags |= PhysicsDebuggerFlags_Visualize;
+    }
 }
 
 inline void
@@ -50,27 +53,38 @@ physics_debugger::BreakWhen(b8 Value){
 
 inline void
 physics_debugger::DrawPoint(v2 Offset, v2 Point, color Color){
+    if(!(Flags & PhysicsDebuggerFlags_Visualize)) return;
     RenderCenteredRectangle(Offset + Scale*Point, V2(0.05f, 0.05f),
                             -10.3f, Color, &GameCamera);
 }
 
 inline void
 physics_debugger::DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color){
+    if(!(Flags & PhysicsDebuggerFlags_Visualize)) return;
     RenderLineFrom(Offset+Scale*A, Scale*Delta, -10, 0.02f, Color, &GameCamera);
 }
 
 inline void
 physics_debugger::DrawNormal(v2 Offset, v2 A, v2 Delta, color Color){
+    if(!(Flags & PhysicsDebuggerFlags_Visualize)) return;
     Delta = Normalize(Delta); // A bit of a waste for most cases
-    RenderLineFrom(Offset+Scale*A, 0.2f*Delta, -10, 0.02f, Color, &GameCamera);
+    RenderLineFrom(Offset+Scale*A, 0.2f*Delta, -10, 0.015f, Color, &GameCamera);
 }
 
 inline void
 physics_debugger::DrawLine(v2 Offset, v2 A, v2 B, color Color){
+    if(!(Flags & PhysicsDebuggerFlags_Visualize)) return;
     RenderLine(Offset+Scale*A, Offset+Scale*B, -10, 0.02f, Color, &GameCamera);
 }
 
-
+inline void
+physics_debugger::DrawString(const char *Format, ...){
+    if(!(Flags & PhysicsDebuggerFlags_Visualize)) return;
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    VLayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, Format, VarArgs);
+    va_end(VarArgs);
+}
 
 //~ Boundary management
 internal inline b8
@@ -302,7 +316,7 @@ physics_system::Reload(u32 Width, u32 Height){
     BucketArrayRemoveAll(&Objects);
     BucketArrayRemoveAll(&StaticObjects);
     
-    PhysicsDebugger.Paused.Position = 0;
+    PhysicsDebugger.Paused = {};;
 }
 
 physics_object *
@@ -493,7 +507,7 @@ DoGJK(v2 Simplex[3], physics_object *ObjectA, physics_object *ObjectB, v2 Delta)
         v2 Normal = Normalize(Direction);
         PhysicsDebugger.DrawNormal(ObjectA->DebugInfo->Offset, PhysicsDebugger.Base, Normal, PINK);
         
-        LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "SimplexCount: %u", SimplexCount);
+        PhysicsDebugger.DrawString("SimplexCount: %u", SimplexCount);
         v2 Offset = ObjectA->DebugInfo->Offset;
         for(u32 I=0; I < SimplexCount; I++){
             u32 J = (I+1)%SimplexCount;
@@ -625,8 +639,8 @@ DoVelocityEPA(physics_object *ObjectA, physics_object *ObjectB, v2 Delta, v2 Sim
                 PhysicsDebugger.DrawNormal(ObjectA->DebugInfo->Offset, Base,  InverseNormal, YELLOW);
                 PhysicsDebugger.DrawPoint(Offset, IntersectionPoint, ORANGE);
                 
-                LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "Polytope.Count: %u", Polytope.Count);
-                LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "TOI: %f", 1.0f-Percent);
+                PhysicsDebugger.DrawString("Polytope.Count: %u", Polytope.Count);
+                PhysicsDebugger.DrawString("TOI: %f", 1.0f-Percent);
             }
         }
         
@@ -664,35 +678,38 @@ physics_system::DoPhysics(){
     // DEBUG prepare for new physics frame
     PhysicsDebugger.NewFrame();
     
+    f32 dTime = OSInput.dTime;
+    
     FOR_BUCKET_ARRAY(ObjectA, &Objects){
         RenderBoundary(&GameCamera, ObjectA->Boundaries, -10.0f, ObjectA->P);
-        
         
         // NOTE(Tyler): This may not be the best way to integrate dP, Delta, but it works
         f32 DragCoefficient = 0.7f;
         ObjectA->ddP.X += -DragCoefficient*ObjectA->dP.X*AbsoluteValue(ObjectA->dP.X);
         ObjectA->ddP.Y += -DragCoefficient*ObjectA->dP.Y*AbsoluteValue(ObjectA->dP.Y);
-        v2 Delta = (OSInput.dTime*ObjectA->dP + 
-                    0.5f*Square(OSInput.dTime)*ObjectA->ddP);
-        ObjectA->dP += OSInput.dTime*ObjectA->ddP;
+        v2 Delta = (dTime*ObjectA->dP + 
+                    0.5f*Square(dTime)*ObjectA->ddP);
+        ObjectA->dP += dTime*ObjectA->ddP;
         ObjectA->ddP = {};
         
         // DEBUG
-        ObjectA->DebugInfo->Offset= ObjectA->P;
-        PhysicsDebugger.DrawPoint(ObjectA->DebugInfo->Offset, V20, WHITE);
+        ObjectA->DebugInfo->Offset = ObjectA->P;
         if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
             if(!ObjectA->DebugInfo->DidInitialdP){
                 ObjectA->DebugInfo->P = ObjectA->P;
                 ObjectA->DebugInfo->dP = ObjectA->dP;
                 ObjectA->DebugInfo->ddP = ObjectA->ddP;
+                ObjectA->DebugInfo->Delta = Delta;
                 ObjectA->DebugInfo->DidInitialdP = true;
             }
             Assert(ObjectA->DebugInfo);
             ObjectA->P = ObjectA->DebugInfo->P;
             ObjectA->dP = ObjectA->DebugInfo->dP;
             ObjectA->ddP = ObjectA->DebugInfo->ddP;
-            PhysicsDebugger.DrawLineFrom(ObjectA->DebugInfo->Offset, V20, Delta, GREEN);
+            Delta = ObjectA->DebugInfo->Delta;
         }
+        PhysicsDebugger.DrawPoint(ObjectA->DebugInfo->Offset, V20, WHITE);
+        PhysicsDebugger.DrawLineFrom(ObjectA->DebugInfo->Offset, V20, Delta, GREEN);
         
         f32 FrameTimeRemaining = 1.0f;
         u32 Iteration = 0;
@@ -760,8 +777,8 @@ physics_system::DoPhysics(){
                 
                 // DEBUG
                 if(PhysicsDebugger.Current.Object == PhysicsDebugger.Paused.Object){
-                    LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "Actual TOI: %f", Colliding.ActualTimeOfImpact);
-                    LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "Working TOI: %f", Colliding.WorkingTimeOfImpact);
+                    PhysicsDebugger.DrawString("Actual TOI: %f", Colliding.ActualTimeOfImpact);
+                    PhysicsDebugger.DrawString("Working TOI: %f", Colliding.WorkingTimeOfImpact);
                     
                     PhysicsDebugger.DrawNormal(DEBUGCollidingObject->P, V20, Colliding.Normal, PINK);
                     PhysicsDebugger.DrawPoint(DEBUGCollidingObject->P, V20, BLUE);
@@ -778,16 +795,21 @@ physics_system::DoPhysics(){
                 v2 OlddP = ObjectA->dP;
                 ObjectA->dP = ObjectA->dP - COR*Dot(Colliding.Normal, ObjectA->dP)*Colliding.Normal;
                 Delta = Delta - COR*Dot(Colliding.Normal, Delta)*Colliding.Normal;
+                
+                // DEBUG
+                ObjectA->DebugInfo->P = ObjectA->P;
+                ObjectA->DebugInfo->dP = ObjectA->dP;
+                ObjectA->DebugInfo->Delta = Delta;
+                
             }else{
                 FrameTimeRemaining -= FrameTimeRemaining;
                 ObjectA->P += Delta;
             }
         }
         
-        { // DEBUG
-            PhysicsDebugger.Paused = {};
-            ObjectA->DebugInfo->DidInitialdP = false;
-        }
+        // DEBUG
+        PhysicsDebugger.Paused = {};
+        ObjectA->DebugInfo->DidInitialdP = false;
     }end_for_objecta_:;
 }
 
