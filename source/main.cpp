@@ -238,6 +238,12 @@ ProcessDefaultEvent(os_event *Event){
                 }else{
                     PhysicsDebugger.Flags |= PhysicsDebuggerFlags_StepPhysics;
                 } break;
+                case 'J': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
+                    PhysicsDebugger.Scale -= 0.1f;
+                } break;
+                case 'K': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
+                    PhysicsDebugger.Scale += 0.1f;
+                } break;
 #endif
             }
         }break;

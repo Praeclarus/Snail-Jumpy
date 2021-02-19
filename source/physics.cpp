@@ -48,6 +48,30 @@ physics_debugger::BreakWhen(b8 Value){
     }
 }
 
+inline void
+physics_debugger::DrawPoint(v2 Offset, v2 Point, color Color){
+    RenderCenteredRectangle(Offset + Scale*Point, V2(0.05f, 0.05f),
+                            -10.3f, Color, &GameCamera);
+}
+
+inline void
+physics_debugger::DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color){
+    RenderLineFrom(Offset+Scale*A, Scale*Delta, -10, 0.02f, Color, &GameCamera);
+}
+
+inline void
+physics_debugger::DrawNormal(v2 Offset, v2 A, v2 Delta, color Color){
+    Delta = Normalize(Delta); // A bit of a waste for most cases
+    RenderLineFrom(Offset+Scale*A, 0.2f*Delta, -10, 0.02f, Color, &GameCamera);
+}
+
+inline void
+physics_debugger::DrawLine(v2 Offset, v2 A, v2 B, color Color){
+    RenderLine(Offset+Scale*A, Offset+Scale*B, -10, 0.02f, Color, &GameCamera);
+}
+
+
+
 //~ Boundary management
 internal inline b8
 IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
@@ -467,18 +491,17 @@ DoGJK(v2 Simplex[3], physics_object *ObjectA, physics_object *ObjectB, v2 Delta)
     // DEBUG
     if(PhysicsDebugger.Current.Object == PhysicsDebugger.Paused.Object){
         v2 Normal = Normalize(Direction);
-        f32 Length = 0.4f;
-        RenderLineFrom(PhysicsDebugger.Base+ObjectA->DebugInfo->Offset, Length*Normal, -10, 0.015f, GJK_SIMPLEX2_COLOR, &GameCamera);
+        PhysicsDebugger.DrawNormal(ObjectA->DebugInfo->Offset, PhysicsDebugger.Base, Normal, PINK);
         
         LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "SimplexCount: %u", SimplexCount);
         v2 Offset = ObjectA->DebugInfo->Offset;
         for(u32 I=0; I < SimplexCount; I++){
             u32 J = (I+1)%SimplexCount;
-            RenderLine(Offset+Simplex[I], Offset+Simplex[J], -10, 0.015f, BLUE, &GameCamera);
-            RenderCenteredRectangle(Offset+Simplex[I], V2(0.025f, 0.025f), -10.1f, GREEN, &GameCamera);
+            PhysicsDebugger.DrawLine(Offset, Simplex[I], Simplex[J], PURPLE);
+            PhysicsDebugger.DrawPoint(Offset, Simplex[I], GREEN);
         }
         
-        RenderCenteredRectangle(ObjectB->P, V2(0.05f, 0.05f), -10.1f, BLUE, &GameCamera);
+        PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
     }
     
     return(DoesCollide);
@@ -583,11 +606,10 @@ DoVelocityEPA(physics_object *ObjectA, physics_object *ObjectB, v2 Delta, v2 Sim
                 v2 Offset = ObjectA->DebugInfo->Offset;
                 for(u32 I=0; I < Polytope.Count; I++){
                     u32 J = (I+1)%Polytope.Count;
-                    RenderLine(Offset+Polytope[I], Offset+Polytope[J], -10, 0.015f, BLUE, &GameCamera);
-                    RenderCenteredRectangle(Offset+Polytope[I], V2(0.025f, 0.025f), -10.1f, GREEN, &GameCamera);
+                    PhysicsDebugger.DrawLine(Offset, Polytope[I], Polytope[J], PURPLE);
+                    PhysicsDebugger.DrawPoint(Offset, Polytope[I], GREEN);
                 }
                 
-                v2 Base = 0.5f*(Polytope[EdgeIndex] + Polytope[(EdgeIndex+1)%Polytope.Count]);
                 
                 f32 Percent = IntersectionPoint.X/Delta.X;
                 if((Delta.X == 0.0f) && (Delta.Y == 0.0f)){
@@ -596,12 +618,12 @@ DoVelocityEPA(physics_object *ObjectA, physics_object *ObjectB, v2 Delta, v2 Sim
                     Percent = IntersectionPoint.Y/Delta.Y;
                 }
                 
-                f32 Length = 0.2f;
-                RenderCenteredRectangle(ObjectB->P, V2(0.05f, 0.05f), -10.1f, BLUE, &GameCamera);
+                v2 Base = 0.5f*(Polytope[EdgeIndex] + Polytope[(EdgeIndex+1)%Polytope.Count]);
+                PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
                 
-                RenderLineFrom(Base+ObjectA->DebugInfo->Offset, Length*-InverseNormal, -10, 0.015f, GJK_SIMPLEX1_COLOR, &GameCamera);
-                RenderLineFrom(Base+ObjectA->DebugInfo->Offset, Length*InverseNormal, -10, 0.015f, GJK_SIMPLEX3_COLOR, &GameCamera);
-                RenderCenteredRectangle(Offset+IntersectionPoint, V2(0.03f, 0.03f), -10.3f, ORANGE, &GameCamera);
+                PhysicsDebugger.DrawNormal(ObjectA->DebugInfo->Offset, Base, -InverseNormal, PINK);
+                PhysicsDebugger.DrawNormal(ObjectA->DebugInfo->Offset, Base,  InverseNormal, YELLOW);
+                PhysicsDebugger.DrawPoint(Offset, IntersectionPoint, ORANGE);
                 
                 LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "Polytope.Count: %u", Polytope.Count);
                 LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "TOI: %f", 1.0f-Percent);
@@ -657,17 +679,19 @@ physics_system::DoPhysics(){
         
         // DEBUG
         ObjectA->DebugInfo->Offset= ObjectA->P;
-        RenderCenteredRectangle(ObjectA->DebugInfo->Offset, V2(0.025f, 0.025f), -10.2f, WHITE, &GameCamera);
+        PhysicsDebugger.DrawPoint(ObjectA->DebugInfo->Offset, V20, WHITE);
         if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
             if(!ObjectA->DebugInfo->DidInitialdP){
+                ObjectA->DebugInfo->P = ObjectA->P;
                 ObjectA->DebugInfo->dP = ObjectA->dP;
                 ObjectA->DebugInfo->ddP = ObjectA->ddP;
                 ObjectA->DebugInfo->DidInitialdP = true;
             }
             Assert(ObjectA->DebugInfo);
+            ObjectA->P = ObjectA->DebugInfo->P;
             ObjectA->dP = ObjectA->DebugInfo->dP;
             ObjectA->ddP = ObjectA->DebugInfo->ddP;
-            RenderLineFrom(ObjectA->DebugInfo->Offset, Delta, -10.0f, 0.02f, GREEN, &GameCamera);
+            PhysicsDebugger.DrawLineFrom(ObjectA->DebugInfo->Offset, V20, Delta, GREEN);
         }
         
         f32 FrameTimeRemaining = 1.0f;
@@ -739,14 +763,13 @@ physics_system::DoPhysics(){
                     LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "Actual TOI: %f", Colliding.ActualTimeOfImpact);
                     LayoutString(&PhysicsDebugger.Layout, &DebugFont, BLACK, "Working TOI: %f", Colliding.WorkingTimeOfImpact);
                     
-                    f32 Length = 0.2f;
-                    RenderLineFrom(DEBUGCollidingObject->P, Length*Colliding.Normal, -10, 0.015f, GJK_SIMPLEX1_COLOR, &GameCamera);
-                    RenderCenteredRectangle(DEBUGCollidingObject->P, V2(0.05f, 0.05f), -10.1f, BLUE, &GameCamera);
+                    PhysicsDebugger.DrawNormal(DEBUGCollidingObject->P, V20, Colliding.Normal, PINK);
+                    PhysicsDebugger.DrawPoint(DEBUGCollidingObject->P, V20, BLUE);
                 }
                 if(PhysicsDebugger.AdvanceCurrentPosition()){
                     goto end_for_objecta_;
                 }
-                
+                PhysicsDebugger.AdvanceCurrentObject();
                 
                 f32 COR = 1.0f;
                 

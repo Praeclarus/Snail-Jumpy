@@ -2,13 +2,9 @@
 #define SNAIL_JUMPY_PHYSICS_H
 
 //~ Debug stuff
-global_constant color GJK_SIMPLEX1_COLOR = color{1.0f,  0.0f,  1.0f, 1.0f};
-global_constant color GJK_SIMPLEX2_COLOR = color{0.7f,  0.0f,  0.7f, 1.0f};
-global_constant color GJK_SIMPLEX3_COLOR = color{0.4f,  0.0f,  0.4f, 1.0f};
-
 struct debug_physics_info {
     v2 Offset;
-    v2 dP, ddP;
+    v2 P, dP, ddP;
     b8 DidInitialdP;
 };
 
@@ -30,7 +26,7 @@ struct physics_debugger {
     physics_debugger_position Current;
     physics_debugger_position Paused;
     layout Layout;
-    f32 Scale = 0.5f;
+    f32 Scale = 3.0f;
     
     // These are so that functions don't need extra return values or arguments
     union {
@@ -42,6 +38,11 @@ struct physics_debugger {
     inline b8   AdvanceCurrentPosition();
     inline b8   TestPosition();
     inline void BreakWhen(b8 Value); // Assert is a macro, so it can't be the name here
+    
+    inline void DrawLine(v2 Offset, v2 A, v2 B, color Color);
+    inline void DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color);
+    inline void DrawNormal(v2 Offset, v2 Point, v2 Delta, color Color);
+    inline void DrawPoint(v2 Offset, v2 Point, color Color);
 };
 
 //~ Collision boundary
