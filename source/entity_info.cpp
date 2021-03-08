@@ -16,11 +16,11 @@ internal entity_info *
 RegisterInfo(u8 BoundaryCount, u8 BoundarySets, 
              f32 Mass,
              entity_flags EntityFlags=EntityFlag_None,
-             collision_flags CollisionFlags=CollisionFlag_None){
+             boundary_flags CollisionFlags=BoundaryFlag_None){
     entity_info *Info = PushNewArrayItem(&EntityInfos);
     Info->Flags = EntityFlags;
     Info->CollisionFlags = CollisionFlags;
-    Info->Boundaries = PhysicsSystem.AllocBoundaries(BoundarySets*BoundaryCount);
+    Info->Boundaries = PhysicsSystem.AllocPermanentBoundaries(BoundarySets*BoundaryCount);
     Info->BoundarySets = BoundarySets;
     Info->BoundaryCount = BoundaryCount;
     return(Info);
@@ -30,7 +30,7 @@ internal entity_info *
 RegisterEnemyInfo(u8 BoundaryCount, u8 BoundarySets,
                   f32 Mass, f32 Speed, u32 Damage,
                   entity_flags EntityFlags=EntityFlag_None,
-                  collision_flags CollisionFlags=CollisionFlag_None){
+                  boundary_flags CollisionFlags=BoundaryFlag_None){
     entity_info *Info = RegisterInfo(BoundaryCount, BoundarySets, Mass, EntityFlags, CollisionFlags);
     Info->Type = EntityType_Enemy;
     Info->Speed = Speed;
@@ -55,7 +55,7 @@ RegisterEntityInfos(){
     Sally->BoundaryTable[State_Stunned]    = 2;
     Sally->BoundaryTable[State_Returning]  = 2;
     
-    entity_info *Speedy    = RegisterEnemyInfo(1, 1, 0.7f, 2.0f, 1, EntityFlag_CanBeStunned);
+    entity_info *Speedy    = RegisterEnemyInfo(1, 1, 0.7f, 10.0f, 1, EntityFlag_CanBeStunned);
     Speedy->BoundaryTable[State_None] = 1;
     
     entity_info *Dragonfly = RegisterEnemyInfo(2, 1, 1.5f, 1.0f, 1, EntityFlag_MirrorBoundariesWhenGoingRight|EntityFlag_NotAffectedByGravity);
@@ -98,20 +98,21 @@ InitializeAndLoadEntityInfos(memory_arena *Arena, const char *Path){
                 for(u32 K = 0; K < Minimum(Info->BoundaryCount, BoundaryCount); K++){
                     collision_boundary *Boundary = &Info->Boundaries[J*Info->BoundaryCount + K];
                     Boundary->Type = *ConsumeType(&Stream, collision_boundary_type);
-                    Boundary->Flags = *ConsumeType(&Stream, collision_flags);
+                    Boundary->Flags = *ConsumeType(&Stream, boundary_flags);
                     Boundary->Offset = *ConsumeType(&Stream, v2);
                     Boundary->Bounds = *ConsumeType(&Stream, rect);
                     
                     switch(Boundary->Type){
                         case BoundaryType_None: break;
                         case BoundaryType_Rect: break;
-                        case BoundaryType_Circle: {
-                            v2 Size = RectSize(Boundary->Bounds);
-                            Assert(Size.X == Size.Y);
-                            Info->Boundaries[J].Radius = 0.5f*Size.X;
+                        case BoundaryType_FreeForm: {
+                            NOT_IMPLEMENTED_YET;
+                            
+                            f32 Radius = Boundary->Bounds.Max.X;
+                            *Boundary = MakeCollisionCircle(Boundary->Offset, Radius, 15);
                         }break;
                         case BoundaryType_Wedge: {
-                            NOT_IMPLEMENTED_YET
+                            NOT_IMPLEMENTED_YET;
                         };
                         default: INVALID_CODE_PATH;
                     }

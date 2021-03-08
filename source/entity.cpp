@@ -198,8 +198,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         }
 #endif
         
-        ddP.Y -= 17.0f;
-        
         f32 MovementSpeed = 120; // TODO(Tyler): Load this from a variables file
         
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
@@ -209,9 +207,33 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             Player->Direction = Direction_Left;
             ddP.X = -1.0f; 
         }
-        
         ddP.X *= MovementSpeed;
         
+#if 1
+        ddP.Y -= 17.0f;
+        
+        f32 Epsilon = 0.01f;
+        if(Epsilon < Player->Physics->dP.Y){
+            ChangeEntityState(Player, State_Jumping);
+        }else if(Player->Physics->dP.Y < -Epsilon){
+            ChangeEntityState(Player, State_Falling);
+        }else{
+            if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
+            else ChangeEntityState(Player, State_Idle);
+        }
+        
+#else
+        if(EntityManager.PlayerInput.Up && !EntityManager.PlayerInput.Down){
+            Player->Direction = Direction_Right;
+            ddP.Y = 1.0f; 
+        }else if(EntityManager.PlayerInput.Down && !EntityManager.PlayerInput.Up){
+            Player->Direction = Direction_Down;
+            ddP.Y = -1.0f; 
+        }
+        ddP.Y *= MovementSpeed;
+#endif
+        
+#if 0       
         if(EntityManager.PlayerInput.Shoot){
             Player->WeaponChargeTime += OSInput.dTime;
             if(Player->WeaponChargeTime > 1.0f){
@@ -227,7 +249,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
                 Player->WeaponChargeTime = 0.6f;
             }
             
-#if 0            
             // TODO(Tyler): Hot loaded variables file for tweaking these values in 
             // realtime
             switch(Player->Direction){
@@ -240,18 +261,9 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             Projectile->Physics->dP *= Player->WeaponChargeTime;
             Projectile->RemainingLife = 3.0f;
             Player->WeaponChargeTime = 0.0f;
-#endif
             
         }
-        
-        if(0.0f < Player->Physics->dP.Y){
-            ChangeEntityState(Player, State_Jumping);
-        }else if(Player->Physics->dP.Y < 0.0f){
-            ChangeEntityState(Player, State_Falling);
-        }else{
-            if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
-            else ChangeEntityState(Player, State_Idle);
-        }
+#endif
         
         v2 dPOffset = {0};
         if(Player->RidingDragonfly){
@@ -346,11 +358,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Walls
     BEGIN_TIMED_BLOCK(UpdateAndRenderWalls);
-    //FOR_BUCKET_ARRAY(Entity, &Walls){
-    auto Entity = BucketArrayGetItemPtr(&Walls, BucketArrayBeginIteration(&Walls));  
-    for(bucket_location Location = BucketArrayBeginIteration(&Walls);                 
-        BucketArrayContinueIteration(&Walls, &Entity, Location);                               
-        BucketArrayIterationNext(&Walls, &Location)){
+    FOR_BUCKET_ARRAY(It, &Walls){
+        wall_entity *Entity = It.Item;  
         
         v2 Size = RectSize(Entity->Bounds);
         RenderCenteredRectangle(Entity->Physics->P, Size, 0.0f, WHITE, Camera);
@@ -359,7 +368,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Coins
     BEGIN_TIMED_BLOCK(UpdateAndRenderCoins);
-    FOR_BUCKET_ARRAY(Coin, &Coins){
+    FOR_BUCKET_ARRAY(It, &Coins){
+        coin_entity *Coin = It.Item;
         v2 Size = RectSize(Coin->Bounds);
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTime;
@@ -372,7 +382,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Enemies
     BEGIN_TIMED_BLOCK(UpdateAndRenderEnemies);
-    FOR_BUCKET_ARRAY(Enemy, &Enemies){
+    FOR_BUCKET_ARRAY(It, &Enemies){
+        enemy_entity *Enemy = It.Item;
         v2 P = Enemy->Physics->P;
         
         if(ShouldEntityUpdate(Enemy)){
@@ -423,7 +434,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Arts
     BEGIN_TIMED_BLOCK(UpdateAndRenderArts);
-    FOR_BUCKET_ARRAY(Art, &Arts){
+    FOR_BUCKET_ARRAY(It, &Arts){
+        art_entity *Art = It.Item;
         asset *Asset = GetArt(Art->Asset);
         v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
         RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
@@ -434,12 +446,13 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     //~ Particles 
     // TODO(Tyler): This is a really naive implementation of particles and shouldn't stay
     BEGIN_TIMED_BLOCK(UpdateAndRenderParticles);
-    FOR_BUCKET_ARRAY(ParticleEntity, &Particles){
+    FOR_BUCKET_ARRAY(It, &Particles){
+        particle_entity *ParticleEntity = It.Item;
         
         const s32 RADIUS = 2;
         // TODO(Tyler): SIMDize this!!!
         for(u32 Particle = 0; Particle < ParticleEntity->ParticleCount; Particle++){
-            u32 BaseSeed = Particle+Location.BucketIndex+Location.ItemIndex;
+            u32 BaseSeed = Particle+It.Location.BucketIndex+It.Location.ItemIndex;
             if(ParticleEntity->LifeTimes[Particle] < 0.0f){
                 {
                     s32 Random0 = (((s32)GetRandomNumber(BaseSeed) % (2*RADIUS)) - RADIUS);
@@ -484,7 +497,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Teleporters
     BEGIN_TIMED_BLOCK(UpdateAndRenderTeleporters);
-    FOR_BUCKET_ARRAY(Teleporter, &Teleporters){
+    FOR_BUCKET_ARRAY(It, &Teleporters){
+        teleporter_entity *Teleporter = It.Item;
         v2 Size = RectSize(Teleporter->Bounds);
         
         if(!Teleporter->IsLocked){
@@ -542,7 +556,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Doors
     BEGIN_TIMED_BLOCK(UpdateAndRenderDoors);
-    FOR_BUCKET_ARRAY(Door, &Doors){
+    FOR_BUCKET_ARRAY(It, &Doors){
+        door_entity *Door = It.Item;
         v2 Size = RectSize(Door->Bounds);
         Door->Cooldown -= OSInput.dTime;
         
@@ -561,8 +576,9 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     
     //~ Projectiles
     BEGIN_TIMED_BLOCK(UpdateAndRenderProjectiles);
-    FOR_BUCKET_ARRAY(Projectile, &Projectiles){
-        projectile_entity *Projectile = BucketArrayGetItemPtr(&Projectiles, Location);
+    FOR_BUCKET_ARRAY(It, &Projectiles){
+        
+        projectile_entity *Projectile = It.Item;
         if(Projectile->RemainingLife > 0.0f){
             Projectile->RemainingLife -= OSInput.dTime;
             

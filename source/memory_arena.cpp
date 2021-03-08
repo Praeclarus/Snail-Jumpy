@@ -32,18 +32,10 @@ PushMemory(memory_arena *Arena, umw Size){
 
 internal void *
 ResizeMemory(memory_arena *Arena, void *OldMemory, umw OldSize, umw NewSize){
-    void *Result = OldMemory;
-    
-    if(NewSize > OldSize){
-        if((Arena->Memory+Arena->PreviousUsed) == OldMemory){
-            Arena->Used += NewSize-OldSize;
-        }else{
-            // We just forget about the old allocation, this shouldn't probably shouldn't be
-            // used in arenas that are never reset
-            Result = PushMemory(Arena, NewSize);
-            CopyMemory(Result, OldMemory, OldSize);
-        }
-    }
+    // We just forget about the old allocation, this shouldn't probably shouldn't be
+    // used in arenas that are never reset
+    void *Result = PushMemory(Arena, NewSize);
+    CopyMemory(Result, OldMemory, OldSize);
     
     return(Result);
 }
@@ -70,6 +62,11 @@ BeginTempMemory(memory_arena *Arena, temp_memory *TempMemory, umw Size){
     Arena->Used += Size;
     TempMemory->Size = Size;
     TempMemory->Used = 0;
+}
+
+internal void
+ClearArena(memory_arena *Arena){
+    Arena->Used = 0;
 }
 
 #define PushTempStruct(Arena, Type) (Type *)PushTempMemory(Arena, sizeof(Type))

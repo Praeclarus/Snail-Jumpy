@@ -119,7 +119,7 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=3
     vertex *Vertices = PushNArrayItems(&Renderer.Vertices, Sides+2);
     Vertices[0] = {P.X, P.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     for(u32 I = 0; I <= Sides; I++){
-        Vertices[I+1] = {P.X+Radius*Sin(T*TAU), P.Y+Radius*Cos(T*TAU), Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+        Vertices[I+1] = {P.X+Radius*Cos(T*TAU), P.Y+Radius*Sin(T*TAU), Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
         T += Step;
     }
     

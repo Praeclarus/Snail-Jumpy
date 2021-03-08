@@ -22,6 +22,7 @@ struct camera {
     inline void Move(v2 dP, world_data *World);
     inline void DirectMove(v2 dP, world_data *World);
     inline v2   ScreenPToWorldP(v2 ScreenP);
+    inline v2   WorldPToScreenP(v2 WorldP);
     inline void Update();
     inline void Shake(f32 Time, f32 Strength=0.02f, f32 Frequency=100);
 };
@@ -96,6 +97,6 @@ global_constant color GREEN  = color{0.0f,  1.0f,  0.0f, 1.0f};
 global_constant color BROWN  = color{0.41f, 0.20f, 0.0f, 1.0f};
 global_constant color PINK   = color{1.0f,  0.0f,  1.0f, 1.0f};
 global_constant color PURPLE = color{0.42f, 0.05f, 0.68f,1.0f};
-global_constant color ORANGE = color{1.0f,  0.6f,  0.0f, 1.0f};
+global_constant color ORANGE = color{1.0f,  0.5f,  0.0f, 1.0f};
 
 #endif //SNAIL_JUMPY_RENDER_H

@@ -25,11 +25,21 @@ AddPlayer(v2 P){
     EntityManager.PlayerInput = {};
     *EntityManager.Player = {};
     entity_info *Info = &EntityInfos[1]; // TODO(Tyler): I don't like this
-    //EntityManager.Player->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
-    EntityManager.Player->Physics = PhysicsSystem.AddObject(DEBUGPlayerBoundary, 1);
+    
+#if 0
+    EntityManager.Player->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
+#else
+    collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+    //*Boundary = MakeCollisionRect(V20, TILE_SIZE);
+    *Boundary = MakeCollisionPill(V2(0.0f, -0.16f), 0.1f, 0.3f, 5);
+    //*Boundary = MakeCollisionCircle(V20, 0.2f, 15);
+    EntityManager.Player->Physics = PhysicsSystem.AddObject(Boundary, 1);
+#endif
+    
     EntityManager.Player->Type = EntityType_Player;
     
     physics_object *Physics = EntityManager.Player->Physics;
+    Physics->Mass = 1.0f;
     
     EntityManager.Player->Physics->P = P;
     EntityManager.Player->ZLayer = -5.0f;
@@ -37,15 +47,14 @@ AddPlayer(v2 P){
     
     EntityManager.Player->Direction = Direction_Left;
     EntityManager.Player->State = State_Idle;
+    //EntityManager.Player->Asset = "player";
     EntityManager.Player->Asset = "player";
     EntityManager.Player->AnimationState = 0.0f;
     EntityManager.Player->JumpTime = 1.0f;
     
     EntityManager.Player->Health = 9;
     
-#if defined(SNAIL_JUMPY_DEBUG_BUILD)
-    Physics->DebugInfo = PushStruct(&EntityManager.Memory, debug_physics_info);
-#endif
+    Physics->DebugInfo.DebugThisOne = true;
 }
 
 internal void
@@ -59,6 +68,8 @@ AddParticles(v2 P){
 internal void
 LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
                  u32 WidthInTiles, u32 HeightInTiles){
+    collision_boundary *WallBoundary = PhysicsSystem.AllocBoundaries(1);
+    *WallBoundary = MakeCollisionRect(V20, TILE_SIZE);
     for(u32 Y = 0; Y < HeightInTiles; Y++){
         for(u32 X = 0; X < WidthInTiles; X++){
             u8 TileId = MapData[(Y*WidthInTiles)+X];
@@ -112,6 +123,9 @@ world_manager::LoadWorld(const char *LevelName){
                              CurrentWorld->Width, CurrentWorld->Height);
             
             {
+                collision_boundary *CoinBoundary = PhysicsSystem.AllocBoundaries(1);
+                *CoinBoundary = MakeCollisionRect(V20, V2(0.3f, 0.3f));
+                
                 u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
                 for(u32 I = 0; I < N; I++){
                     coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
@@ -121,6 +135,12 @@ world_manager::LoadWorld(const char *LevelName){
                 }
                 Score = 0; // UpdateCoin changes this value
             }
+            
+            // TODO(Tyler): Formalize player starting position
+            AddPlayer(V2(1.55f, 1.55f));
+            
+            collision_boundary *TeleporterBoundary = PhysicsSystem.AllocBoundaries(1);
+            *TeleporterBoundary = MakeCollisionRect(V20, TILE_SIZE);
             
             for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
                 entity_data *Entity = &CurrentWorld->Entities[I];
@@ -138,6 +158,7 @@ world_manager::LoadWorld(const char *LevelName){
                         
                         v2 P = Entity->P; P.Y += 0.01f;
                         Enemy->Physics->P = P;
+                        //Enemy->Physics->Mass = Info->Mass;
                         
                         Enemy->Speed = Info->Speed;
                         Enemy->Damage = Info->Damage;
@@ -162,12 +183,11 @@ world_manager::LoadWorld(const char *LevelName){
                         teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
                         
                         *Teleporter = {};
-                        Teleporter->Physics = PhysicsSystem.AddStaticObject(WallBoundary, 1);
+                        Teleporter->Physics = PhysicsSystem.AddStaticObject(TeleporterBoundary, 1);
                         Teleporter->Level = Entity->Level;
                         Teleporter->IsLocked = !IsLevelCompleted(Entity->TRequiredLevel);
                     }break;
                     case EntityType_Door: {
-                        // TODO(Tyler): Memory leak
                         door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
                         collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                         *Boundary = MakeCollisionRect(V20, Entity->Size);
@@ -189,12 +209,11 @@ world_manager::LoadWorld(const char *LevelName){
                 
             }
             
-            // TODO(Tyler): Formalize player starting position
-            AddPlayer(V2(1.55f, 1.55f));
             
 #if 0
             physics_object *Wedge = PhysicsSystem.AddStaticObject(DEBUGWedgeBoundary, 1);
-            Wedge->P = V2(10.0f, 0.49f);
+            //Wedge->P = V2(7.5f, 0.5f);
+            Wedge->P = V2(12.5f, 0.5f);
             
             physics_object *Circle = PhysicsSystem.AddStaticObject(DEBUGCircleBoundary, 1);
             Circle->P = V2(4.0f, 0.47f);

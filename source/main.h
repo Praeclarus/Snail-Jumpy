@@ -9,8 +9,9 @@
 #include "math.h"
 
 //~ Constants
+global_constant f32 MAXIMUM_SECONDS_PER_FRAME = (1.0f / 20.0f);
 global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
-global_constant u32 MAX_PHYSICS_ITERATIONS = 6;
+global_constant u32 PHYSICS_ITERATIONS_PER_OBJECT = 4;
 global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
 global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);

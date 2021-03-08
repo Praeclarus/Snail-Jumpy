@@ -16,7 +16,7 @@ struct entity_info {
     };
     
     // NOTE(Tyler): The P member of the collision_boundary struct here is an offset
-    collision_flags CollisionFlags;
+    boundary_flags CollisionFlags;
     
     collision_boundary *Boundaries; // The boundary set is based off an offset into this
     u8 BoundarySets;

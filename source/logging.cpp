@@ -17,7 +17,7 @@ LogMessage(char *Format, ...){
     
     VWriteToDebugConsole(ConsoleErrorFile, Buffer, VarArgs);
     
-#if 0    
+#if 0
     u32 Length = CStringLength(Buffer);
     WriteToFile(LogFile, LogFileOffset, Buffer, Length);
     LogFileOffset += Length;

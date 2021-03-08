@@ -117,7 +117,9 @@ entity_editor::ProcessBoundaryAction(){
                     RenderRectangle(Cursor2P, CursorP, -2.0f,  
                                     Color(0.0f, 1.0f, 0.0f, 0.5f), &Camera);
                 }break;
-                case BoundaryType_Circle: {
+                case BoundaryType_FreeForm: {
+                    NOT_IMPLEMENTED_YET;
+                    
                     if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY; // Center 
                     f32 Radius = Length(Cursor2P-CursorP);
                     if(Cursor2P.Y-Radius < FloorY){
@@ -138,8 +140,9 @@ entity_editor::ProcessBoundaryAction(){
                 
                 v2 Size = V2(AbsoluteValue(Cursor2P.X-CursorP.X), AbsoluteValue(Cursor2P.Y-CursorP.Y));
                 *CurrentBoundary = MakeCollisionRect(((Cursor2P+CursorP)/2)-EntityP, Size);
-            }else if(BoundaryType == BoundaryType_Circle){
-                *CurrentBoundary = MakeCollisionCircle(Cursor2P-EntityP, Length(Cursor2P-CursorP));
+            }else if(BoundaryType == BoundaryType_FreeForm){
+                NOT_IMPLEMENTED_YET;
+                *CurrentBoundary = MakeCollisionCircle(Cursor2P-EntityP, Length(Cursor2P-CursorP), 15);
             }
             
             v2 Size = RectSize(CurrentBoundary->Bounds);
@@ -222,22 +225,21 @@ entity_editor::DoUI(){
         };
         Window->Text("Current boundary type: %s", BoundaryTable[BoundaryType]);
         if(Window->Button("<<< Mode", 2)){
-            if(BoundaryType == BoundaryType_Circle){
+            if(BoundaryType == BoundaryType_FreeForm){
                 BoundaryType = BoundaryType_Rect;
             }else if(BoundaryType == BoundaryType_Rect){
-                BoundaryType = BoundaryType_Circle;
+                BoundaryType = BoundaryType_FreeForm;
             }
         }
         if(Window->Button("Mode >>>", 2)){
-            if(BoundaryType == BoundaryType_Circle){
+            if(BoundaryType == BoundaryType_FreeForm){
                 BoundaryType = BoundaryType_Rect;
             }else if(BoundaryType == BoundaryType_Rect){
-                BoundaryType = BoundaryType_Circle;
+                BoundaryType = BoundaryType_FreeForm;
             }
         }
         
-        TOGGLE_FLAG(Window, "Can stand on", SelectedInfo->CollisionFlags,
-                    CollisionFlag_CanStandOn);
+        TOGGLE_FLAG(Window, "Can stand on", SelectedInfo->CollisionFlags, BoundaryFlag_CanStandOn);
         
         //~ Boundary set management
         u32 BoundarySetIndex = ((u32)(BoundarySet - SelectedInfo->Boundaries) / SelectedInfo->BoundaryCount) + 1;

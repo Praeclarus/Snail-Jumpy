@@ -96,6 +96,7 @@ LoadFont(memory_arena *Arena,
     f32 Ascent, Descent, LineGap;
     stbtt_GetScaledFontVMetrics(FileData, 0, Size, &Ascent, &Descent, &LineGap);
     stbtt_BakeFontBitmap(FileData, 0, Size, Bitmap, Width, Height, 32, 93, Font->CharData);
+    stbtt_BakeFontBitmap(FileData, 0, Size, Bitmap, Width, Height, 32, 93, Font->CharData);
     
     // TODO(Tyler): Make this better!!! Maybe sse?
     for(u32 Y = 0; Y < Height; Y++){
@@ -155,7 +156,7 @@ internal void
 GameUpdateAndRender(){
     //~ Prepare for next frame
     ProfileData.CurrentBlockIndex = 0;
-    TransientStorageArena.Used = 0;
+    ClearArena(&TransientStorageArena);
     UIManager.NewFrame();
     
     //~ Do next frame
@@ -241,15 +242,17 @@ ProcessDefaultEvent(os_event *Event){
                 }break;
                 case KeyCode_F9: if(PhysicsDebugger.Paused.Position > 0) {
                     PhysicsDebugger.Paused.Position--; 
-                    PhysicsDebugger.Paused.Object--; 
+                    if(PhysicsDebugger.Paused.Object > 0)  PhysicsDebugger.Paused.Object--; 
                 } break;
                 case KeyCode_F10: PhysicsDebugger.Paused.Position++; break;
                 
                 case 'J': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-                    PhysicsDebugger.Scale -= 0.1f;
+                    if(PhysicsDebugger.Scale > 0.1f){
+                        PhysicsDebugger.Scale /= 1.01f;
+                    }
                 } break;
                 case 'K': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-                    PhysicsDebugger.Scale += 0.1f;
+                    PhysicsDebugger.Scale *= 1.01f;
                 } break;
 #endif
             }

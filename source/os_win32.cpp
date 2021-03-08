@@ -319,8 +319,8 @@ WinMain(HINSTANCE Instance,
                 {
                     LogMessage("Missed FPS");
                     OSInput.dTime = SecondsElapsed;
-                    if(OSInput.dTime > (FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS)){
-                        OSInput.dTime = FIXED_TIME_STEP*MAX_PHYSICS_ITERATIONS;
+                    if(OSInput.dTime > (MAXIMUM_SECONDS_PER_FRAME)){
+                        OSInput.dTime = MAXIMUM_SECONDS_PER_FRAME;
                     }
                 }
                 
@@ -350,7 +350,7 @@ WinMain(HINSTANCE Instance,
     
 #if defined(SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT)
     WorldManager.WriteWorldsToFiles();
-    WriteEntityInfos("entities.sje");
+    //WriteEntityInfos("entities.sje");
 #endif
     FreeConsole();
     
@@ -485,8 +485,6 @@ DefaultFree(void *Pointer){
 
 internal void
 VWriteToDebugConsole(os_file *Output, const char *Format, va_list VarArgs){
-    TIMED_FUNCTION();
-    
     char Buffer[DEFAULT_BUFFER_SIZE];
     stbsp_vsnprintf(Buffer, sizeof(Buffer), Format, VarArgs);
     WriteConsole(Output, Buffer, (DWORD)CStringLength(Buffer), 0, 0);

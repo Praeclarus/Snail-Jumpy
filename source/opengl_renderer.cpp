@@ -386,6 +386,7 @@ renderer::RenderToScreen(){
                 auto Command = (render_command_item *)CommandPtr;
                 CommandPtr += sizeof(*Command);
                 s32 Index = -1;
+                Assert(Command);
                 for(u32 I = 0; I < TranslucentItems.Count; I++){
                     auto Item = TranslucentItems[I];
                     if(Command->ZLayer > Item->ZLayer){
@@ -405,12 +406,10 @@ renderer::RenderToScreen(){
                 auto Command = (render_command_clear_screen *)CommandPtr;
                 CommandPtr += sizeof(*Command);
                 
-#if 1
                 glClearColor(Command->Color.R,
                              Command->Color.G,
                              Command->Color.B,
                              Command->Color.A);
-#endif
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 
             }break;

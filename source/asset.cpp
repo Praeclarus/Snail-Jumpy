@@ -335,11 +335,14 @@ InitializeAssetSystem(memory_arena *Arena){
         }
     }
     
+    u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};
+    render_texture_handle InvalidTexture = CreateRenderTexture(InvalidColor, 1, 1);
+    
     DummySpriteSheetAsset.Scale = 1.0f;
     DummySpriteSheetAsset.SizeInPixels = V2S(128, 128);
-    DummySpriteSheetAsset.SizeInMeters = TILE_SIZE;
+    DummySpriteSheetAsset.SizeInMeters = V2(0.2f, 0.2f);
     DummySpriteSheetAsset.SizeInTexCoords = V2(1.0f, 1.0f);
-    DummySpriteSheetAsset.Texture = DefaultTexture;
+    DummySpriteSheetAsset.Texture = InvalidTexture;
     DummySpriteSheetAsset.FramesPerRow = 1;
     DummySpriteSheetAsset.FrameCounts[0] = 1;
     DummySpriteSheetAsset.FPSArray[0]    = 1;

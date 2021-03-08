@@ -3,9 +3,8 @@
 
 //~ Debug stuff
 struct debug_physics_info {
-    v2 Offset;
     v2 P, dP, ddP, Delta;
-    b8 DidInitialdP;
+    b8 DebugThisOne;
 };
 
 typedef u32 physics_debugger_flags;
@@ -21,6 +20,7 @@ struct physics_debugger_position {
     u32 Object;
 };
 
+struct physics_object;
 // The debugger currently only supports single moving objects
 struct physics_debugger {
     physics_debugger_flags Flags;
@@ -28,6 +28,9 @@ struct physics_debugger {
     physics_debugger_position Paused;
     layout Layout;
     f32 Scale = 3.0f;
+    v2 Origin;
+    b8 DoDebug;
+    b8 StartOfPhysicsFrame = true;
     
     // These are so that functions don't need extra return values or arguments
     union {
@@ -37,8 +40,8 @@ struct physics_debugger {
     inline void NewFrame();
     inline void AdvanceCurrentObject();
     inline b8   AdvanceCurrentPosition();
-    inline b8   TestPosition();
     inline void BreakWhen(b8 Value); // Assert is a macro, so it can't be the name here
+    inline b8   IsCurrentObject();
     
     inline void DrawLine(v2 Offset, v2 A, v2 B, color Color);
     inline void DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color);
@@ -51,80 +54,78 @@ struct physics_debugger {
 enum collision_boundary_type {
     BoundaryType_None,
     BoundaryType_Rect,
-    BoundaryType_Circle,
     BoundaryType_Wedge,
+    BoundaryType_FreeForm,
 };
 
-typedef u32 collision_flags;
-enum _collision_flags {
-    CollisionFlag_None = 0,
-    CollisionFlag_CanStandOn = (1 << 0),
+typedef u32 boundary_flags;
+enum _boundary_flags {
+    BoundaryFlag_None = 0,
+    BoundaryFlag_CanStandOn = (1 << 0),
 };
 
 typedef v2 gjk_simplex[3];
 
 struct collision_boundary {
     collision_boundary_type Type;
-    collision_flags Flags;
+    boundary_flags Flags;
     v2 Offset;
     rect Bounds;
     
     union {
         // Rects just use 'rect Bounds'
         
-        // Circle
+        // FreeForm
         struct {
-            f32 Radius;
+            v2 *FreeFormPoints;
+            u32 FreeFormPointCount;
         };
         
         // Wedges
         struct {
-            // Currently the only wedges in the game are 1 tall by 1 wide
             // but a direction is needed
-            v2 Points[3];
+            v2 WedgePoints[3];
         };
     };
 };
 
 global_constant u32 MAX_BOUNDARY_CHILDREN = 3;
 
-//~ Collision table
-struct collision_table_item {
-    collision_table_item *Next;
-    
-    entity_type EntityType;
-    void *EntityPtr;
-};
-
-struct collision_table {
-    u32 Width;
-    u32 Height;
-    collision_table_item **Items;
-};
-
 //~ Physics
 
 struct physics_object {
     v2 P, dP, ddP;
+    v2 Delta;
     f32 Mass;
     collision_boundary *Boundaries;
     u8 BoundaryCount;
-    
-    debug_physics_info *DebugInfo;
+    debug_physics_info DebugInfo;
+};
+
+
+struct physics_collision {
+    physics_object *ObjectA;
+    physics_object *ObjectB;
+    u32 BIndex;
+    v2 Normal;
+    v2 Correction;
+    f32 TimeOfImpact;
+    f32 AlongDelta;
 };
 
 struct physics_system {
     bucket_array<physics_object, 64> Objects;
     bucket_array<physics_object, 64> StaticObjects;
     //freelist_allocator BoundaryAllocator;
+    memory_arena PermanentBoundaryMemory;
     memory_arena BoundaryMemory;
-    collision_table SpaceTable;
     
     void Initialize(memory_arena *Arena);
     void Reload(u32 Width, u32 Height);
     void DoPhysics();
     physics_object *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
     physics_object *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
+    collision_boundary *AllocPermanentBoundaries(u32 Count);
     collision_boundary *AllocBoundaries(u32 Count);
 };
 
