@@ -212,11 +212,14 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         }
 #endif
         
-        f32 Epsilon = 0.01f;
-        if(Epsilon < Player->Physics->dP.Y){
-            ChangeEntityState(Player, State_Jumping);
-        }else if(Player->Physics->dP.Y < -Epsilon){
-            ChangeEntityState(Player, State_Falling);
+        if(Player->Physics->IsFalling){
+            f32 Epsilon = 0.01f;
+            if(Epsilon < Player->Physics->dP.Y){
+                ChangeEntityState(Player, State_Jumping);
+            }else if((Player->Physics->dP.Y < -Epsilon)){
+                ChangeEntityState(Player, State_Falling);
+            }
+            
         }else{
             if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
             else ChangeEntityState(Player, State_Idle);

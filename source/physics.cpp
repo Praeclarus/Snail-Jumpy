@@ -399,9 +399,7 @@ DoGJK(v2 Simplex[3], collision_boundary *BoundaryA, v2 AP, collision_boundary *B
     b8 DoesCollide = false;
     PhysicsDebugger.Base = Simplex[0];
     while(true){
-        if(PhysicsDebugger.DefineStep()){
-            return(false);
-        }
+        if(PhysicsDebugger.DefineStep()){ return(false); }
         if(PhysicsDebugger.IsCurrent()){
             PhysicsDebugger.DrawPoint(AP, V20, WHITE);
             PhysicsDebugger.DrawPoint(BP, V20, BLUE);
@@ -524,9 +522,7 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
         }
         
         // DEBUG
-        if(PhysicsDebugger.DefineStep()){
-            return(Result);
-        }
+        if(PhysicsDebugger.DefineStep()){  return(Result); }
         if(PhysicsDebugger.IsCurrent()){
             PhysicsDebugger.DrawPoint(AP, V20, WHITE);
             PhysicsDebugger.DrawPoint(BP, V20, BLUE);
@@ -578,8 +574,7 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
         }
     }
     
-    if(PhysicsDebugger.DefineStep()){
-        return(Result);
+    if(PhysicsDebugger.DefineStep()){ return(Result); 
     }
     if(PhysicsDebugger.IsCurrent()){
         PhysicsDebugger.DrawPoint(BP, V20, BLUE);
@@ -645,12 +640,6 @@ physics_system::DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 De
             }
         }
         
-#if 0        
-        if(PhysicsDebugger.DefineStep()){
-            return(Result);
-        }
-#endif
-        
     }
     
     bucket_location ObjectBStartLocation = OffsetLocation;
@@ -674,12 +663,6 @@ physics_system::DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 De
                 Result = Collision;
             }
         }
-        
-#if 0        
-        if(PhysicsDebugger.DefineStep()){
-            return(Result);
-        }
-#endif
         
         //PhysicsDebugger.DoDebug = ObjectA->DebugInfo.DebugThisOne;
     }
@@ -807,6 +790,9 @@ physics_system::DoPhysics(){
                 physics_object *ObjectA = It.Item;
                 
                 if(DidCollides[Index]){
+                    ObjectA->IsFalling = false;
+                    
+                    
                     physics_collision *Collision = &Collisions[Index];
                     physics_object *ObjectB = Collision->ObjectB;
                     
@@ -830,10 +816,7 @@ physics_system::DoPhysics(){
                     ObjectA->dP    -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
                     ObjectA->Delta -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
                     
-                    
-                    if(PhysicsDebugger.DefineStep()){
-                        return;
-                    }
+                    if(PhysicsDebugger.DefineStep()){ return; }
                     if(PhysicsDebugger.IsCurrent()){
                         PhysicsDebugger.DrawString("Yes collision");
                         PhysicsDebugger.DrawPoint(ObjectA->P, V20, WHITE);
@@ -846,9 +829,7 @@ physics_system::DoPhysics(){
                     }
                     
                 }else{
-                    if(PhysicsDebugger.DefineStep()){
-                        return;
-                    }
+                    if(PhysicsDebugger.DefineStep()){ return; }
                     if(PhysicsDebugger.IsCurrent()){
                         PhysicsDebugger.DrawString("No collision");
                     }
@@ -856,15 +837,14 @@ physics_system::DoPhysics(){
                     v2 Raycast = V2(0, -0.2f);
                     physics_collision Collision = DoCollisionsAlongDelta(ObjectA->Boundaries, ObjectA->P, Raycast);
                     
-                    if(PhysicsDebugger.DefineStep()){
-                        return;
-                    }
+                    if(PhysicsDebugger.DefineStep()){ return; }
                     if(PhysicsDebugger.IsCurrent()){
                         PhysicsDebugger.DrawString("No collision");
                     }
                     
                     if(Collision.TimeOfImpact < 1.0f){
-                        if(Dot(Collision.Normal, ObjectA->dP) > 0.0f){
+                        if((Dot(Collision.Normal, ObjectA->dP) > 0.0f) &&
+                           (!ObjectA->IsFalling)){
                             ObjectA->P.Y += Raycast.Y*Collision.TimeOfImpact;
                             ObjectA->dP -= Collision.Normal*Dot(ObjectA->dP, Collision.Normal);
                             ObjectA->Delta -= Collision.Normal*Dot(ObjectA->Delta, Collision.Normal);
@@ -881,10 +861,11 @@ physics_system::DoPhysics(){
                                 PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
                             }
                         }
+                    }else{
+                        ObjectA->IsFalling = true;
                     }
                     
                     ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
-                    
                     
                     
                     if(PhysicsDebugger.IsCurrent()){

@@ -96,12 +96,14 @@ struct physics_object {
     f32 Mass;
     collision_boundary *Boundaries;
     u8 BoundaryCount;
-    debug_physics_info DebugInfo;
+    debug_physics_info DebugInfo;\
+    b8 IsFalling;
 };
 
 
 struct physics_collision {
     physics_object *ObjectB;
+    
     v2 Normal;
     v2 Correction;
     f32 TimeOfImpact;
