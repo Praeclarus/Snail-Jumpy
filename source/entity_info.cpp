@@ -108,12 +108,7 @@ InitializeAndLoadEntityInfos(memory_arena *Arena, const char *Path){
                         case BoundaryType_FreeForm: {
                             NOT_IMPLEMENTED_YET;
                             
-                            f32 Radius = Boundary->Bounds.Max.X;
-                            *Boundary = MakeCollisionCircle(Boundary->Offset, Radius, 15);
                         }break;
-                        case BoundaryType_Wedge: {
-                            NOT_IMPLEMENTED_YET;
-                        };
                         default: INVALID_CODE_PATH;
                     }
                 }

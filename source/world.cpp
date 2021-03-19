@@ -149,6 +149,7 @@ world_manager::LoadWorld(const char *LevelName){
                         entity_info *Info = &EntityInfos[Entity->InfoID];
                         enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
                         *Enemy = {};
+                        
                         Enemy->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
                         // TODO(Tyler): This is not correct!!!
                         Enemy->Bounds = OffsetRect(Info->Boundaries->Bounds, Info->Boundaries->Offset);
@@ -209,12 +210,15 @@ world_manager::LoadWorld(const char *LevelName){
                 
             }
             
+            {
+                collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+                *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
+                physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
+                //Wedge->P = V2(7.5f, 0.5f);
+                Wedge->P = V2(5.0f, 0.5f);
+            }
             
 #if 0
-            physics_object *Wedge = PhysicsSystem.AddStaticObject(DEBUGWedgeBoundary, 1);
-            //Wedge->P = V2(7.5f, 0.5f);
-            Wedge->P = V2(12.5f, 0.5f);
-            
             physics_object *Circle = PhysicsSystem.AddStaticObject(DEBUGCircleBoundary, 1);
             Circle->P = V2(4.0f, 0.47f);
 #endif

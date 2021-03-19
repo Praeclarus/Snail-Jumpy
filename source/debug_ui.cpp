@@ -34,8 +34,8 @@ DEBUGRenderOverlay(){
                      EntityManager.Player->Physics->P.X, EntityManager.Player->Physics->P.Y);
         LayoutString(&Layout, &DebugFont, BLACK, "Player.dP: (%f, %f)", 
                      EntityManager.Player->Physics->dP.X, EntityManager.Player->Physics->dP.Y);
-        LayoutString(&Layout, &DebugFont, BLACK, "PhysicsDebugger %u %u", 
-                     PhysicsDebugger.Paused.Position, PhysicsDebugger.Paused.Object);
+        LayoutString(&Layout, &DebugFont, BLACK, "PhysicsDebugger %u", 
+                     PhysicsDebugger.Paused.Position);
     }
     if(DebugConfig.Overlay & DebugOverlay_Profiler){
         LayoutFps(&Layout);

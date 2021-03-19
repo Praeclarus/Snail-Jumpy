@@ -145,7 +145,7 @@ StunEnemy(enemy_entity *Enemy){
 
 internal void
 MoveEntity(entity *Entity, v2 ddP){
-    Entity->Physics->ddP = ddP;
+    Entity->Physics->ddP += ddP;
 }
 
 //~ Entity updating and rendering
@@ -184,7 +184,21 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
     if(ShouldEntityUpdate(Player)){
         v2 ddP = {0};
         
-#if 0        
+        f32 MovementSpeed = 50; // TODO(Tyler): Load this from a variables file
+        
+        if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
+            Player->Direction = Direction_Right;
+            ddP.X = 1.0f; 
+        }else if(EntityManager.PlayerInput.Left && !EntityManager.PlayerInput.Right){
+            Player->Direction = Direction_Left;
+            ddP.X = -1.0f; 
+        }
+        ddP.X *= MovementSpeed;
+        
+#if 1
+        ddP.Y -= 10.0f;
+        
+#if 0  
         if(Player->IsGrounded) Player->JumpTime = 0.0f;
         if((Player->JumpTime < 0.1f) && EntityManager.PlayerInput.Jump){
             ddP.Y += 88.0f;
@@ -197,20 +211,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             ddP.Y -= 17.0f;
         }
 #endif
-        
-        f32 MovementSpeed = 120; // TODO(Tyler): Load this from a variables file
-        
-        if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
-            Player->Direction = Direction_Right;
-            ddP.X = 1.0f; 
-        }else if(EntityManager.PlayerInput.Left && !EntityManager.PlayerInput.Right){
-            Player->Direction = Direction_Left;
-            ddP.X = -1.0f; 
-        }
-        ddP.X *= MovementSpeed;
-        
-#if 1
-        ddP.Y -= 17.0f;
         
         f32 Epsilon = 0.01f;
         if(Epsilon < Player->Physics->dP.Y){

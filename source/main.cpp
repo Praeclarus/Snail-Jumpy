@@ -226,18 +226,11 @@ ProcessDefaultEvent(os_event *Event){
 #ifdef SNAIL_JUMPY_DEBUG_BUILD
                 case KeyCode_F1: ToggleOverlay(DebugOverlay_Profiler); break;
                 case KeyCode_F2: ToggleOverlay(DebugOverlay_Miscellaneous); break;
-                case KeyCode_F3: {
+                case KeyCode_F8: {
                     if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
                         PhysicsDebugger.Flags &= ~PhysicsDebuggerFlags_StepPhysics;
                     }else{
                         PhysicsDebugger.Flags |= PhysicsDebuggerFlags_StepPhysics;
-                    } 
-                }break;
-                case KeyCode_F5: {
-                    if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_Visualize){
-                        PhysicsDebugger.Flags &= ~PhysicsDebuggerFlags_Visualize;
-                    }else{
-                        PhysicsDebugger.Flags |= PhysicsDebuggerFlags_Visualize;
                     } 
                 }break;
                 case KeyCode_F9: if(PhysicsDebugger.Paused.Position > 0) {

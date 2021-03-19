@@ -237,7 +237,7 @@ Win32DefaultHandlerRoutine(DWORD ControlSignal){
             // get it to close without crashing.
             
             WorldManager.WriteWorldsToFiles();
-            WriteEntityInfos("entities.sje");
+            //WriteEntityInfos("entities.sje");
             ExitProcess(0);
         }break;
         default: {

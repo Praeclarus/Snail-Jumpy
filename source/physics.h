@@ -11,7 +11,6 @@ typedef u32 physics_debugger_flags;
 enum physics_debugger_flags_ {
     PhysicsDebuggerFlags_None = 0,
     PhysicsDebuggerFlags_StepPhysics = (1 << 0),
-    PhysicsDebuggerFlags_Visualize   = (1 << 1),
 };
 
 struct physics_debugger_position {
@@ -37,11 +36,10 @@ struct physics_debugger {
         v2 Base; // Used by UpdateSimplex to know where to draw the direction from
     };
     
-    inline void NewFrame();
-    inline void AdvanceCurrentObject();
-    inline b8   AdvanceCurrentPosition();
+    inline void Begin();
+    inline b8   DefineStep();
     inline void BreakWhen(b8 Value); // Assert is a macro, so it can't be the name here
-    inline b8   IsCurrentObject();
+    inline b8   IsCurrent();
     
     inline void DrawLine(v2 Offset, v2 A, v2 B, color Color);
     inline void DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color);
@@ -54,7 +52,6 @@ struct physics_debugger {
 enum collision_boundary_type {
     BoundaryType_None,
     BoundaryType_Rect,
-    BoundaryType_Wedge,
     BoundaryType_FreeForm,
 };
 
@@ -104,9 +101,7 @@ struct physics_object {
 
 
 struct physics_collision {
-    physics_object *ObjectA;
     physics_object *ObjectB;
-    u32 BIndex;
     v2 Normal;
     v2 Correction;
     f32 TimeOfImpact;
@@ -123,6 +118,7 @@ struct physics_system {
     void Initialize(memory_arena *Arena);
     void Reload(u32 Width, u32 Height);
     void DoPhysics();
+    physics_collision DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 Delta, bucket_location Offset);
     physics_object *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
     physics_object *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
     collision_boundary *AllocPermanentBoundaries(u32 Count);
