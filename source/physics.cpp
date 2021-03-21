@@ -104,6 +104,7 @@ IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
         default: INVALID_CODE_PATH;
     }
 #endif
+    
     b8 Result = IsV2InRectangle(Point, OffsetRect(Boundary->Bounds, Base+Boundary->Offset));
     return(Result);
 }
@@ -721,17 +722,27 @@ physics_system::DoPhysics(){
                 RenderFormatString(&DebugFont, BLACK, StringP.X, StringP.Y, -10.0f, "(%f, %f)", Object->Delta.X, Object->Delta.Y);
             }
         }
-        RenderBoundary(&GameCamera, Object->Boundaries, -10.0f, Object->P);
+        
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
+        if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+            RenderBoundary(&GameCamera, Object->Boundaries, -10.0f, Object->P);
+        }
+#endif
     }
     
-    FOR_BUCKET_ARRAY(It, &StaticObjects){
-        physics_object *Object = It.Item;
-        RenderBoundary(&GameCamera, Object->Boundaries, -10.0f, Object->P);
-    }
-    
+    // TODO(Tyler): Move this into physics_debugger
     if(PhysicsDebugger.StartOfPhysicsFrame){
         PhysicsDebugger.StartOfPhysicsFrame = false;
     }
+    
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
+    if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+        FOR_BUCKET_ARRAY(It, &StaticObjects){
+            physics_object *Object = It.Item;
+            RenderBoundary(&GameCamera, Object->Boundaries, -10.0f, Object->P);
+        }
+    }
+#endif
     
     u32 IterationsToDo = Objects.Count*PHYSICS_ITERATIONS_PER_OBJECT;
     f32 FrameTimeRemaining = 1.0f;
@@ -751,6 +762,7 @@ physics_system::DoPhysics(){
             Masses[AIndex] = ObjectA->Mass;
             
             // DEBUG
+            // TODO(Tyler): Move this into physics_debugger
             PhysicsDebugger.DoDebug = ObjectA->DebugInfo.DebugThisOne;
             PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, V20, WHITE);
             
@@ -779,6 +791,7 @@ physics_system::DoPhysics(){
             //AIndex++;
         }
         
+        // TODO(Tyler): Move into physics_debugger
         PhysicsDebugger.DoDebug = true;
         f32 COR = 1.0f;
         FrameTimeRemaining -= FrameTimeRemaining*CurrentTimeOfImpact;
@@ -790,8 +803,7 @@ physics_system::DoPhysics(){
                 physics_object *ObjectA = It.Item;
                 
                 if(DidCollides[Index]){
-                    ObjectA->IsFalling = false;
-                    
+                    ObjectA->State &= ~PhysicsObjectState_Falling;
                     
                     physics_collision *Collision = &Collisions[Index];
                     physics_object *ObjectB = Collision->ObjectB;
@@ -802,16 +814,6 @@ physics_system::DoPhysics(){
                     f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
                     if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
                     ObjectA->P += CorrectionPercent*Collision->Correction;
-                    
-                    v2 FrictionNormal = Normalize(TripleProduct(Collision->Normal, ObjectA->Delta));
-                    
-                    //ObjectA->ddP    -= FrictionNormal*FrictionFactor*NormalForce;
-                    //ObjectA->dP -= FrictionNormal*Minimum(FrictionFactor*NormalForce, Dot(FrictionNormal, ObjectA->dP));
-                    //ObjectA->Delta -= FrictionNormal*Minimum(FrictionFactor*NormalForce, Dot(FrictionNormal, ObjectA->Delta));
-                    
-                    f32 Friction = 0.07f;
-                    //ObjectA->dP -= FrictionNormal*Minimum(Friction*Collision->Normal.Y, Dot(FrictionNormal, ObjectA->dP));
-                    //ObjectA->Delta -= FrictionNormal*Minimum(Friction*Collision->Normal.Y, Dot(FrictionNormal, ObjectA->Delta));
                     
                     ObjectA->dP    -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
                     ObjectA->Delta -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
@@ -843,11 +845,17 @@ physics_system::DoPhysics(){
                     }
                     
                     if(Collision.TimeOfImpact < 1.0f){
-                        if((Dot(Collision.Normal, ObjectA->dP) > 0.0f) &&
-                           (!ObjectA->IsFalling)){
+                        if(!(ObjectA->State & PhysicsObjectState_Falling)){
                             ObjectA->P.Y += Raycast.Y*Collision.TimeOfImpact;
                             ObjectA->dP -= Collision.Normal*Dot(ObjectA->dP, Collision.Normal);
                             ObjectA->Delta -= Collision.Normal*Dot(ObjectA->Delta, Collision.Normal);
+                            ObjectA->FloorNormal = Collision.Normal;
+                            
+                            v2 FrictionNormal = Normalize(TripleProduct(Collision.Normal, ObjectA->Delta));
+                            
+                            //f32 Friction = 0.3f;
+                            //ObjectA->dP -= Friction*FrictionNormal*Dot(FrictionNormal, ObjectA->dP);
+                            //ObjectA->Delta -= Friction*FrictionNormal*Dot(FrictionNormal, ObjectA->Delta);
                             
                             if(PhysicsDebugger.IsCurrent()){
                                 physics_object *ObjectB = Collision.ObjectB;
@@ -862,7 +870,7 @@ physics_system::DoPhysics(){
                             }
                         }
                     }else{
-                        ObjectA->IsFalling = true;
+                        ObjectA->State |= PhysicsObjectState_Falling;
                     }
                     
                     ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
@@ -884,7 +892,6 @@ physics_system::DoPhysics(){
                 physics_collision *Collision = &Collisions[I];
                 //physics_object *ObjectA = Collision->ObjectA;
                 physics_object *ObjectB = Collision->ObjectB;
-                
                 
                 f32 CorrectionPercent = ObjectB->Mass / ( Masses[I] + ObjectB->Mass);
                 if(ObjectB->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }

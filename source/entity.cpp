@@ -181,62 +181,54 @@ entity_manager::ProcessEvent(os_event *Event){
 internal void
 UpdateAndRenderPlatformerPlayer(camera *Camera){
     player_entity *Player = EntityManager.Player;
+    physics_object *Physics = Player->Physics;
     if(ShouldEntityUpdate(Player)){
         v2 ddP = {0};
         
         f32 MovementSpeed = 50; // TODO(Tyler): Load this from a variables file
+        v2 FloorNormal = Physics->FloorNormal;
+        if(Physics->State & PhysicsObjectState_Falling){
+            FloorNormal = V2(0, 1);
+        }
+        v2 FloorTangent = Normalize(TripleProduct(FloorNormal, V2(1, 0)));
         
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
             Player->Direction = Direction_Right;
-            ddP.X = 1.0f; 
+            ddP += FloorTangent; 
         }else if(EntityManager.PlayerInput.Left && !EntityManager.PlayerInput.Right){
             Player->Direction = Direction_Left;
-            ddP.X = -1.0f; 
+            ddP -= FloorTangent; 
         }
         ddP.X *= MovementSpeed;
         
-#if 1
-        ddP.Y -= 10.0f;
+        // TODO(Tyler): Load from file
+        f32 Gravity = 17.0f;
+        if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.1f;
         
-#if 0  
-        if(Player->IsGrounded) Player->JumpTime = 0.0f;
-        if((Player->JumpTime < 0.1f) && EntityManager.PlayerInput.Jump){
+        if(EntityManager.PlayerInput.Jump &&
+           (Player->JumpTime > 0.0f)){
+            //ddP += 88.0f*Physics->FloorNormal;
             ddP.Y += 88.0f;
-            Player->JumpTime += OSInput.dTime;
-            Player->IsGrounded = false;
+            Player->JumpTime -= OSInput.dTime;
+            Physics->State |= PhysicsObjectState_Falling;
         }else if(!EntityManager.PlayerInput.Jump){
-            Player->JumpTime = 2.0f;
-            ddP.Y -= 17.0f;
-        }else{
-            ddP.Y -= 17.0f;
+            Player->JumpTime = 0.0f;
         }
-#endif
         
-        if(Player->Physics->IsFalling){
+        if(Physics->State & PhysicsObjectState_Falling){
             f32 Epsilon = 0.01f;
             if(Epsilon < Player->Physics->dP.Y){
                 ChangeEntityState(Player, State_Jumping);
             }else if((Player->Physics->dP.Y < -Epsilon)){
                 ChangeEntityState(Player, State_Falling);
             }
-            
+            ddP.Y -= Gravity;
         }else{
             if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
             else ChangeEntityState(Player, State_Idle);
         }
         
-#else
-        if(EntityManager.PlayerInput.Up && !EntityManager.PlayerInput.Down){
-            Player->Direction = Direction_Right;
-            ddP.Y = 1.0f; 
-        }else if(EntityManager.PlayerInput.Down && !EntityManager.PlayerInput.Up){
-            Player->Direction = Direction_Down;
-            ddP.Y = -1.0f; 
-        }
-        ddP.Y *= MovementSpeed;
-#endif
-        
-#if 0       
+#if 0    
         if(EntityManager.PlayerInput.Shoot){
             Player->WeaponChargeTime += OSInput.dTime;
             if(Player->WeaponChargeTime > 1.0f){

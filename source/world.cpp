@@ -230,7 +230,15 @@ world_manager::LoadWorld(const char *LevelName){
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), 1.0f, 1.0f);
                 physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
-                Wedge->P = V2(9.0f, 1.3f);
+                Wedge->P = V2(8.5f, 1.5f);
+                //Wedge->P = V2(5.0f, 0.5f);
+            }
+            
+            {
+                collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+                *Boundary = MakeCollisionWedge(V2(0,0), 0.5f, 0.5f);
+                physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
+                Wedge->P = V2(9.5f, 1.0f);
                 //Wedge->P = V2(5.0f, 0.5f);
             }
             

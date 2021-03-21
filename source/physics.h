@@ -90,16 +90,23 @@ global_constant u32 MAX_BOUNDARY_CHILDREN = 3;
 
 //~ Physics
 
+enum physics_object_state_flags_ {
+    PhysicsObjectState_None    = 0,
+    PhysicsObjectState_Falling = (1 << 0),
+    PhysicsObjectState_Moving  = (1 << 1),
+};
+typedef u32 physics_object_state_flags;
+
 struct physics_object {
     v2 P, dP, ddP;
     v2 Delta;
     f32 Mass;
     collision_boundary *Boundaries;
     u8 BoundaryCount;
-    debug_physics_info DebugInfo;\
-    b8 IsFalling;
+    debug_physics_info DebugInfo;
+    physics_object_state_flags State;
+    v2 FloorNormal;
 };
-
 
 struct physics_collision {
     physics_object *ObjectB;
