@@ -38,7 +38,7 @@ AddPlayer(v2 P){
     
     EntityManager.Player->Type = EntityType_Player;
     
-    physics_object *Physics = EntityManager.Player->Physics;
+    dynamic_physics_object *Physics = EntityManager.Player->DynamicPhysics;
     Physics->Mass = 1.0f;
     
     EntityManager.Player->Physics->P = P;
@@ -213,7 +213,7 @@ world_manager::LoadWorld(const char *LevelName){
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
-                physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
+                static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 //Wedge->P = V2(7.5f, 0.5f);
                 Wedge->P = V2(5.0f, 0.5f);
             }
@@ -221,7 +221,7 @@ world_manager::LoadWorld(const char *LevelName){
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
-                physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
+                static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 Wedge->P = V2(6.0f, 1.5f);
                 //Wedge->P = V2(5.0f, 0.5f);
             }
@@ -229,7 +229,7 @@ world_manager::LoadWorld(const char *LevelName){
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), 1.0f, 1.0f);
-                physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
+                static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 Wedge->P = V2(8.5f, 1.5f);
                 //Wedge->P = V2(5.0f, 0.5f);
             }
@@ -237,7 +237,7 @@ world_manager::LoadWorld(const char *LevelName){
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), 0.5f, 0.5f);
-                physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
+                static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 Wedge->P = V2(9.5f, 1.0f);
                 //Wedge->P = V2(5.0f, 0.5f);
             }

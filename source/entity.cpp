@@ -29,7 +29,7 @@ OpenDoor(door_entity *Door){
 inline void
 entity_manager::DamagePlayer(u32 Damage){
     Player->Physics->P = V2(1.55f, 1.55f);
-    Player->Physics->dP = {0, 0};
+    Player->DynamicPhysics->dP = {0, 0};
     EntityManager.Player->Health -= Damage;
     if(EntityManager.Player->Health <= 0){
         EntityManager.Player->Health = 9;
@@ -144,8 +144,22 @@ StunEnemy(enemy_entity *Enemy){
 }
 
 internal void
-MoveEntity(entity *Entity, v2 ddP){
-    Entity->Physics->ddP += ddP;
+MovePlatformer(dynamic_physics_object *Physics, f32 Movement){
+    // TODO(Tyler): Load from file
+    local_constant f32 Gravity = 20.0f;
+    
+    v2 ddP = {};
+    if(Physics->State & PhysicsObjectState_Falling){
+        ddP.Y -= Gravity;
+        Physics->FloorNormal = V2(0, 1);
+    }
+    v2 FloorNormal = Physics->FloorNormal;
+    v2 FloorTangent = TripleProduct(FloorNormal, V2(Movement, 0.0f));
+    ddP += FloorTangent; 
+    
+    
+    
+    Physics->ddP += ddP;
 }
 
 //~ Entity updating and rendering
@@ -181,51 +195,45 @@ entity_manager::ProcessEvent(os_event *Event){
 internal void
 UpdateAndRenderPlatformerPlayer(camera *Camera){
     player_entity *Player = EntityManager.Player;
-    physics_object *Physics = Player->Physics;
+    dynamic_physics_object *Physics = Player->DynamicPhysics;
     if(ShouldEntityUpdate(Player)){
-        v2 ddP = {0};
-        
         f32 MovementSpeed = 50; // TODO(Tyler): Load this from a variables file
-        v2 FloorNormal = Physics->FloorNormal;
-        if(Physics->State & PhysicsObjectState_Falling){
-            FloorNormal = V2(0, 1);
-        }
-        v2 FloorTangent = Normalize(TripleProduct(FloorNormal, V2(1, 0)));
-        
+        f32 Movement = 0.0f;
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
             Player->Direction = Direction_Right;
-            ddP += FloorTangent; 
+            Movement += MovementSpeed;
         }else if(EntityManager.PlayerInput.Left && !EntityManager.PlayerInput.Right){
             Player->Direction = Direction_Left;
-            ddP -= FloorTangent; 
+            Movement -= MovementSpeed;
         }
-        ddP.X *= MovementSpeed;
+        MovePlatformer(Physics, Movement);
         
-        // TODO(Tyler): Load from file
-        f32 Gravity = 17.0f;
+        
+        // TODO(Tyler): Load from file (Player->JumpTime)
         if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.1f;
-        
+        local_constant f32 JumpPower = 88.0f;
+        v2 ddP = {0};
         if(EntityManager.PlayerInput.Jump &&
            (Player->JumpTime > 0.0f)){
             //ddP += 88.0f*Physics->FloorNormal;
-            ddP.Y += 88.0f;
+            ddP.Y += JumpPower;
             Player->JumpTime -= OSInput.dTime;
             Physics->State |= PhysicsObjectState_Falling;
         }else if(!EntityManager.PlayerInput.Jump){
             Player->JumpTime = 0.0f;
         }
+        Physics->ddP += ddP;
         
         if(Physics->State & PhysicsObjectState_Falling){
             f32 Epsilon = 0.01f;
-            if(Epsilon < Player->Physics->dP.Y){
+            if(Epsilon < Physics->dP.Y){
                 ChangeEntityState(Player, State_Jumping);
-            }else if((Player->Physics->dP.Y < -Epsilon)){
+            }else if((Physics->dP.Y < -Epsilon)){
                 ChangeEntityState(Player, State_Falling);
             }
-            ddP.Y -= Gravity;
         }else{
-            if(ddP.X != 0.0f) ChangeEntityState(Player, State_Moving);
-            else ChangeEntityState(Player, State_Idle);
+            if(Movement != 0.0f) { ChangeEntityState(Player, State_Moving); }
+            else {ChangeEntityState(Player, State_Idle); }
         }
         
 #if 0    
@@ -259,14 +267,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             
         }
 #endif
-        
-        v2 dPOffset = {0};
-        if(Player->RidingDragonfly){
-            enemy_entity *Dragonfly = Player->RidingDragonfly;
-            dPOffset = Dragonfly->Physics->dP;
-        }
-        
-        MoveEntity(Player, ddP);
         
         if(Player->Physics->P.Y < -3.0f){
             EntityManager.DamagePlayer(2);
@@ -379,47 +379,51 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     BEGIN_TIMED_BLOCK(UpdateAndRenderEnemies);
     FOR_BUCKET_ARRAY(It, &Enemies){
         enemy_entity *Enemy = It.Item;
-        v2 P = Enemy->Physics->P;
+        dynamic_physics_object *Physics = Enemy->DynamicPhysics;
         
-        if(ShouldEntityUpdate(Enemy)){
-            // TODO(Tyler): Stop using percentages here
-            f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
-            f32 StateAlongPath = (Enemy->Physics->P.X-Enemy->PathStart.X)/PathLength;
-            f32 PathSpeed = 1.0f;
-            if((StateAlongPath > 0.8f) &&
-               (Enemy->Direction > 0)){
-                f32 State = (1.0f-StateAlongPath);
-                PathSpeed = (State/0.2f);
-            }else if((StateAlongPath < 0.2f) &&
-                     (Enemy->Direction < 0)){
-                PathSpeed = (StateAlongPath/0.2f);
-            }
+        if(!ShouldEntityUpdate(Enemy)){ continue; }
+        
+        
+        // TODO(Tyler): Stop using percentages here
+        f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
+        f32 StateAlongPath = (Enemy->Physics->P.X-Enemy->PathStart.X)/PathLength;
+        f32 PathSpeed = 1.0f;
+        if((StateAlongPath > 0.8f) &&
+           (Enemy->Direction > 0)){
+            f32 State = (1.0f-StateAlongPath);
+            PathSpeed = (State/0.2f);
+        }else if((StateAlongPath < 0.2f) &&
+                 (Enemy->Direction < 0)){
+            PathSpeed = (StateAlongPath/0.2f);
+        }
+        
+        if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
+           (Enemy->Direction == Direction_Left)){
+            SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+            Enemy->Direction = Direction_Right;
+            Physics->dP = {0};
+        }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
+                 (Enemy->Direction == Direction_Right)){
+            SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+            Enemy->Direction = Direction_Left;
+            Physics->dP = {0};
+        }else{
+            f32 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
             
-            if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
-               (Enemy->Direction == Direction_Left)){
-                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-                Enemy->Direction = Direction_Right;
-                Enemy->Physics->dP = {0};
-            }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
-                     (Enemy->Direction == Direction_Right)){
-                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-                Enemy->Direction = Direction_Left;
-                Enemy->Physics->dP = {0};
-            }else{
-                v2 ddP = {
-                    Enemy->Speed * ((Enemy->Direction == Direction_Left) ?  -1.0f : 1.0f),
-                    0.0f
-                };
-                
+#if 0            
+            v2 ddP = {};
+            if(Physics->State & PhysicsObjectState_Falling){
                 if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
                 }else{
                     ddP.Y = -11.0f;
                 }
-                
-                ChangeEntityState(Enemy, State_Moving);
-                
-                MoveEntity(Enemy, ddP);
             }
+            Physics->ddP += ddP;
+#endif
+            
+            ChangeEntityState(Enemy, State_Moving);
+            
+            MovePlatformer(Physics, Movement);
         }
         
         UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTime);
@@ -574,11 +578,15 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     FOR_BUCKET_ARRAY(It, &Projectiles){
         
         projectile_entity *Projectile = It.Item;
+        dynamic_physics_object *Physics = Projectile->DynamicPhysics;
+        
         if(Projectile->RemainingLife > 0.0f){
             Projectile->RemainingLife -= OSInput.dTime;
             
-            v2 ddP = v2{0.0f, -11.0f};
-            MoveEntity(Projectile, ddP);
+            if(Physics->State & PhysicsObjectState_Falling){
+                v2 ddP = V2(0.0f, -11.0f);
+                Physics->ddP += ddP;
+            }
             
             v2 Size = RectSize(Projectile->Bounds);
             RenderRectangle(Projectile->Physics->P-0.5f*Size, 

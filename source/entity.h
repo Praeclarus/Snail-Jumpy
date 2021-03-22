@@ -68,7 +68,12 @@ struct entity {
     
     rect Bounds;
     
-    physics_object *Physics;
+    // Determined by entity typeh
+    union {
+        physics_object *Physics;
+        static_physics_object *StaticPhysics;
+        dynamic_physics_object *DynamicPhysics;
+    };
 };
 
 // TODO(Tyler): These struct might have too much information from 'entity' for now

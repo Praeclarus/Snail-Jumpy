@@ -32,7 +32,7 @@ DEBUGRenderOverlay(){
                      BLACK, "GameCamera.MoveFactor: %.2f", GameCamera.MoveFactor);
         
         {
-            physics_object *PlayerPhysics = EntityManager.Player->Physics;
+            dynamic_physics_object *PlayerPhysics = EntityManager.Player->DynamicPhysics;
             LayoutString(&Layout, &DebugFont, BLACK, "Player.P: (%f, %f)", 
                          PlayerPhysics->P.X, PlayerPhysics->P.Y);
             LayoutString(&Layout, &DebugFont, BLACK, "Player.dP: (%f, %f)", 

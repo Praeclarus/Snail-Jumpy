@@ -19,7 +19,6 @@ struct physics_debugger_position {
     u32 Object;
 };
 
-struct physics_object;
 // The debugger currently only supports single moving objects
 struct physics_debugger {
     physics_debugger_flags Flags;
@@ -98,11 +97,19 @@ enum physics_object_state_flags_ {
 typedef u32 physics_object_state_flags;
 
 struct physics_object {
-    v2 P, dP, ddP;
-    v2 Delta;
+    v2 P;
     f32 Mass;
     collision_boundary *Boundaries;
     u8 BoundaryCount;
+};
+
+struct static_physics_object : public physics_object {
+    
+};
+
+struct dynamic_physics_object : public physics_object {
+    v2 dP, ddP;
+    v2 Delta;
     debug_physics_info DebugInfo;
     physics_object_state_flags State;
     v2 FloorNormal;
@@ -110,6 +117,7 @@ struct physics_object {
 
 struct physics_collision {
     physics_object *ObjectB;
+    b8 IsDynamic;
     
     v2 Normal;
     v2 Correction;
@@ -118,8 +126,8 @@ struct physics_collision {
 };
 
 struct physics_system {
-    bucket_array<physics_object, 64> Objects;
-    bucket_array<physics_object, 64> StaticObjects;
+    bucket_array<dynamic_physics_object, 64> Objects;
+    bucket_array<static_physics_object, 64> StaticObjects;
     //freelist_allocator BoundaryAllocator;
     memory_arena PermanentBoundaryMemory;
     memory_arena BoundaryMemory;
@@ -127,9 +135,10 @@ struct physics_system {
     void Initialize(memory_arena *Arena);
     void Reload(u32 Width, u32 Height);
     void DoPhysics();
+    void DoFloorRaycast(dynamic_physics_object *Object, f32 Depth);
     physics_collision DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 Delta, bucket_location Offset);
-    physics_object *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
-    physics_object *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
+    dynamic_physics_object *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
+    static_physics_object *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
     collision_boundary *AllocPermanentBoundaries(u32 Count);
     collision_boundary *AllocBoundaries(u32 Count);
 };

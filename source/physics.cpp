@@ -244,9 +244,9 @@ physics_system::Reload(u32 Width, u32 Height){
     PhysicsDebugger.StartOfPhysicsFrame = true;
 }
 
-physics_object *
+dynamic_physics_object *
 physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
-    physics_object *Result = BucketArrayAlloc(&Objects);
+    dynamic_physics_object *Result = BucketArrayAlloc(&Objects);
     Result->Boundaries = Boundaries;
     Result->BoundaryCount = Count;
     Result->Mass = 1.0f; // Default mass
@@ -254,12 +254,11 @@ physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
     return(Result);
 }
 
-physics_object *
+static_physics_object *
 physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
-    physics_object *Result = BucketArrayAlloc(&StaticObjects);
+    static_physics_object *Result = BucketArrayAlloc(&StaticObjects);
     Result->Boundaries = Boundaries;
     Result->BoundaryCount = Count;
-    Result->Mass = F32_POSITIVE_INFINITY; // Static objects have infinite mass
     
     return(Result);
 }
@@ -627,7 +626,7 @@ physics_system::DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 De
     Result.TimeOfImpact = F32_POSITIVE_INFINITY;
     
     FOR_BUCKET_ARRAY(ItB, &StaticObjects){
-        physics_object *ObjectB = ItB.Item;
+        static_physics_object *ObjectB = ItB.Item;
         
         v2 Simplex[3];
         physics_collision Collision = DoCollision(Boundary, P, ObjectB->Boundaries, ObjectB->P, Delta);
@@ -648,13 +647,14 @@ physics_system::DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 De
     FOR_BUCKET_ARRAY_FROM(ItB, &Objects, ObjectBStartLocation){
         //PhysicsDebugger.DoDebug = ObjectA->DebugInfo.DebugThisOne || ItB.Item->DebugInfo.DebugThisOne;
         
-        physics_object *ObjectB = ItB.Item;
+        dynamic_physics_object *ObjectB = ItB.Item;
         
         v2 RelativeDelta = Delta-ObjectB->Delta;
         
         v2 Simplex[3];
         physics_collision Collision = DoCollision(Boundary, P, ObjectB->Boundaries, ObjectB->P, RelativeDelta);
         Collision.ObjectB = ObjectB;
+        Collision.IsDynamic = true;
         
         if(Collision.TimeOfImpact < Result.TimeOfImpact){
             Result = Collision;
@@ -671,6 +671,51 @@ physics_system::DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 De
     return(Result);
 }
 
+void
+physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
+    
+    if(PhysicsDebugger.DefineStep()){ return; }
+    if(PhysicsDebugger.IsCurrent()){
+        PhysicsDebugger.DrawString("No collision");
+    }
+    
+    v2 Raycast = V2(0, -Depth);
+    physics_collision Collision = DoCollisionsAlongDelta(Object->Boundaries, Object->P, Raycast);
+    
+    if(PhysicsDebugger.DefineStep()){ return; }
+    if(PhysicsDebugger.IsCurrent()){
+        PhysicsDebugger.DrawString("No collision");
+    }
+    
+    if(Collision.TimeOfImpact < 1.0f){
+        if(!(Object->State & PhysicsObjectState_Falling)){
+            Object->P += Raycast*Collision.TimeOfImpact;
+            Object->dP -= Collision.Normal*Dot(Object->dP, Collision.Normal);
+            Object->Delta -= Collision.Normal*Dot(Object->Delta, Collision.Normal);
+            Object->FloorNormal = Collision.Normal;
+            
+            v2 FrictionNormal = Normalize(TripleProduct(Collision.Normal, Object->Delta));
+            
+            //f32 Friction = 0.3f;
+            //Object->dP -= Friction*FrictionNormal*Dot(FrictionNormal, Object->dP);
+            //Object->Delta -= Friction*FrictionNormal*Dot(FrictionNormal, Object->Delta);
+            
+            if(PhysicsDebugger.IsCurrent()){
+                physics_object *ObjectB = Collision.ObjectB;
+                PhysicsDebugger.DrawString("Yes floor");
+                PhysicsDebugger.DrawPoint(Object->P, V20, WHITE);
+                PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
+                PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision.Normal, PINK);
+                PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision.TimeOfImpact);
+                PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision.Correction.X, Collision.Correction.Y);
+                PhysicsDebugger.DrawString("MassA: %f, MassB: %f", Object->Mass, ObjectB->Mass);
+            }
+        }
+    }else{
+        Object->State |= PhysicsObjectState_Falling;
+    }
+    
+}
 
 void
 physics_system::DoPhysics(){
@@ -682,13 +727,14 @@ physics_system::DoPhysics(){
     
     f32 dTime = OSInput.dTime;
     
+    dynamic_physics_object **DynamicPhysicsObjectBs = PushArray(&TransientStorageArena, dynamic_physics_object *, Objects.Count);
     physics_collision *Collisions = PushArray(&TransientStorageArena, physics_collision, Objects.Count);
     b8 *DidCollides               = PushArray(&TransientStorageArena, b8, Objects.Count);
     f32 *Masses                   = PushArray(&TransientStorageArena, f32, Objects.Count);
     
     u32 ddPIndex = 0;
     FOR_BUCKET_ARRAY(It, &Objects){
-        physics_object *Object = It.Item;
+        dynamic_physics_object *Object = It.Item;
         
         // NOTE(Tyler): This may not be the best way to integrate dP, Delta, but it works
         f32 DragCoefficient = 1.0f;
@@ -738,7 +784,7 @@ physics_system::DoPhysics(){
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
     if(DebugConfig.Overlay & DebugOverlay_Boundaries){
         FOR_BUCKET_ARRAY(It, &StaticObjects){
-            physics_object *Object = It.Item;
+            static_physics_object *Object = It.Item;
             RenderBoundary(&GameCamera, Object->Boundaries, -10.0f, Object->P);
         }
     }
@@ -755,7 +801,7 @@ physics_system::DoPhysics(){
         u32 AIndex = 0;
         
         FOR_BUCKET_ARRAY(ItA, &Objects){
-            physics_object *ObjectA = ItA.Item;
+            dynamic_physics_object *ObjectA = ItA.Item;
             
             DidCollides[AIndex] = false;
             Collisions[AIndex] = {};
@@ -767,6 +813,9 @@ physics_system::DoPhysics(){
             PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, V20, WHITE);
             
             physics_collision Collision = DoCollisionsAlongDelta(ObjectA->Boundaries, ObjectA->P, ObjectA->Delta, ItA.Location);
+            if(Collision.IsDynamic){
+                DynamicPhysicsObjectBs[AIndex] = (dynamic_physics_object *)Collision.ObjectB;
+            }
             if(Collision.TimeOfImpact < CurrentTimeOfImpact){
                 CurrentTimeOfImpact = Collision.TimeOfImpact;
                 Collisions[AIndex]  = Collision;
@@ -800,7 +849,7 @@ physics_system::DoPhysics(){
             FOR_BUCKET_ARRAY(It, &Objects){
                 physics_collision *Collision = &Collisions[Index];
                 
-                physics_object *ObjectA = It.Item;
+                dynamic_physics_object *ObjectA = It.Item;
                 
                 if(DidCollides[Index]){
                     ObjectA->State &= ~PhysicsObjectState_Falling;
@@ -810,6 +859,7 @@ physics_system::DoPhysics(){
                     
                     ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
                     ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
+                    
                     
                     f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
                     if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
@@ -822,64 +872,19 @@ physics_system::DoPhysics(){
                     if(PhysicsDebugger.IsCurrent()){
                         PhysicsDebugger.DrawString("Yes collision");
                         PhysicsDebugger.DrawPoint(ObjectA->P, V20, WHITE);
-                        PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
-                        PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision->Normal, PINK);
+                        if(ObjectB) { 
+                            PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
+                            PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision->Normal, PINK);
+                            PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
+                        }
                         PhysicsDebugger.DrawString("CurrentTimeOfImpact: %f", CurrentTimeOfImpact);
                         PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision->TimeOfImpact);
                         PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision->Correction.X, Collision->Correction.Y);
-                        PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
                     }
                     
                 }else{
-                    if(PhysicsDebugger.DefineStep()){ return; }
-                    if(PhysicsDebugger.IsCurrent()){
-                        PhysicsDebugger.DrawString("No collision");
-                    }
-                    
-                    v2 Raycast = V2(0, -0.2f);
-                    physics_collision Collision = DoCollisionsAlongDelta(ObjectA->Boundaries, ObjectA->P, Raycast);
-                    
-                    if(PhysicsDebugger.DefineStep()){ return; }
-                    if(PhysicsDebugger.IsCurrent()){
-                        PhysicsDebugger.DrawString("No collision");
-                    }
-                    
-                    if(Collision.TimeOfImpact < 1.0f){
-                        if(!(ObjectA->State & PhysicsObjectState_Falling)){
-                            ObjectA->P.Y += Raycast.Y*Collision.TimeOfImpact;
-                            ObjectA->dP -= Collision.Normal*Dot(ObjectA->dP, Collision.Normal);
-                            ObjectA->Delta -= Collision.Normal*Dot(ObjectA->Delta, Collision.Normal);
-                            ObjectA->FloorNormal = Collision.Normal;
-                            
-                            v2 FrictionNormal = Normalize(TripleProduct(Collision.Normal, ObjectA->Delta));
-                            
-                            //f32 Friction = 0.3f;
-                            //ObjectA->dP -= Friction*FrictionNormal*Dot(FrictionNormal, ObjectA->dP);
-                            //ObjectA->Delta -= Friction*FrictionNormal*Dot(FrictionNormal, ObjectA->Delta);
-                            
-                            if(PhysicsDebugger.IsCurrent()){
-                                physics_object *ObjectB = Collision.ObjectB;
-                                PhysicsDebugger.DrawString("Yes floor");
-                                PhysicsDebugger.DrawPoint(ObjectA->P, V20, WHITE);
-                                PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
-                                PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision.Normal, PINK);
-                                PhysicsDebugger.DrawString("CurrentTimeOfImpact: %f", CurrentTimeOfImpact);
-                                PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision.TimeOfImpact);
-                                PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision.Correction.X, Collision.Correction.Y);
-                                PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
-                            }
-                        }
-                    }else{
-                        ObjectA->State |= PhysicsObjectState_Falling;
-                    }
-                    
                     ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
-                    
-                    
-                    if(PhysicsDebugger.IsCurrent()){
-                        PhysicsDebugger.DrawPoint(ObjectA->P, V20, RED);
-                        PhysicsDebugger.DrawString("CurrentTimeOfImpact: %f", CurrentTimeOfImpact);
-                    }
+                    DoFloorRaycast(ObjectA);
                 }
                 
                 Index++;
@@ -888,10 +893,11 @@ physics_system::DoPhysics(){
         
         // So that we don't update the position of ObjectB until after its actually collided
         for(u32 I=0; I < Objects.Count; I++){
-            if(DidCollides[I]){
-                physics_collision *Collision = &Collisions[I];
+            physics_collision *Collision = &Collisions[I];
+            dynamic_physics_object *ObjectB = DynamicPhysicsObjectBs[I];
+            
+            if(DidCollides[I] && ObjectB){
                 //physics_object *ObjectA = Collision->ObjectA;
-                physics_object *ObjectB = Collision->ObjectB;
                 
                 f32 CorrectionPercent = ObjectB->Mass / ( Masses[I] + ObjectB->Mass);
                 if(ObjectB->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
