@@ -75,7 +75,7 @@ enum _debug_overlay_flags {
 };
 
 struct debug_config {
-    debug_overlay_flags Overlay;
+    debug_overlay_flags Overlay = (DebugOverlay_Boundaries);
 };
 
 #endif //SNAIL_JUMPY_DEBUG_H

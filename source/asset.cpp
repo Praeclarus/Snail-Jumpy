@@ -481,7 +481,6 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
             FrameInSpriteSheet %= Asset->FramesPerRow;
         }
         
-        
         v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
         MinTexCoord.X *= Asset->SizeInTexCoords.X;
         MinTexCoord.Y *= Asset->SizeInTexCoords.Y;

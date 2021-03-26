@@ -26,7 +26,7 @@ AddPlayer(v2 P){
     *EntityManager.Player = {};
     entity_info *Info = &EntityInfos[1]; // TODO(Tyler): I don't like this
     
-#if 0
+#if 1
     EntityManager.Player->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
 #else
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
@@ -101,6 +101,7 @@ world_manager::LoadWorld(const char *LevelName){
             CurrentWorld = World;
             
             PhysicsSystem.Reload(World->Width, World->Height);
+            MakeInfoBoundaries();
             
             // Coins
             EntityManager.CoinData.Tiles = CurrentWorld->Map;
@@ -212,18 +213,17 @@ world_manager::LoadWorld(const char *LevelName){
             
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-                *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
+                *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, -1.0f);
                 static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
-                //Wedge->P = V2(7.5f, 0.5f);
-                Wedge->P = V2(5.0f, 0.5f);
+                Wedge->P = V2(5.0f, 1.5f);
             }
             
+#if 0            
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
                 static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 Wedge->P = V2(6.0f, 1.5f);
-                //Wedge->P = V2(5.0f, 0.5f);
             }
             
             {
@@ -231,7 +231,6 @@ world_manager::LoadWorld(const char *LevelName){
                 *Boundary = MakeCollisionWedge(V2(0,0), 1.0f, 1.0f);
                 static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 Wedge->P = V2(8.5f, 1.5f);
-                //Wedge->P = V2(5.0f, 0.5f);
             }
             
             {
@@ -239,12 +238,7 @@ world_manager::LoadWorld(const char *LevelName){
                 *Boundary = MakeCollisionWedge(V2(0,0), 0.5f, 0.5f);
                 static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 Wedge->P = V2(9.5f, 1.0f);
-                //Wedge->P = V2(5.0f, 0.5f);
             }
-            
-#if 0
-            physics_object *Circle = PhysicsSystem.AddStaticObject(DEBUGCircleBoundary, 1);
-            Circle->P = V2(4.0f, 0.47f);
 #endif
             
 #if 0

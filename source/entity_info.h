@@ -1,6 +1,20 @@
 #ifndef ENTITY_INFO_H
 #define ENTITY_INFO_H
 
+enum entity_info_boundary_type {
+    EntityInfoBoundaryType_None,
+    EntityInfoBoundaryType_Rect,
+    EntityInfoBoundaryType_Circle,
+    EntityInfoBoundaryType_Pill,
+};
+
+struct entity_info_boundary {
+    entity_info_boundary_type Type;
+    v2 Offset;
+    // NOTE(Tyler): Currently all boundaries can be calculated from this
+    rect Bounds;
+};
+
 struct entity_info {
     const char *Asset;
     entity_flags Flags;
@@ -18,7 +32,9 @@ struct entity_info {
     // NOTE(Tyler): The P member of the collision_boundary struct here is an offset
     boundary_flags CollisionFlags;
     
-    collision_boundary *Boundaries; // The boundary set is based off an offset into this
+    // The boundary set is based off an offset into this
+    entity_info_boundary *EditingBoundaries;
+    collision_boundary   *Boundaries;
     u8 BoundarySets;
     u8 BoundaryCount;
     u8 BoundaryTable[State_TOTAL];

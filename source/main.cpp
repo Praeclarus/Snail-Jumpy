@@ -28,7 +28,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_MainGame;
+global game_mode GameMode = GameMode_EntityEditor;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -72,8 +72,8 @@ global s32 Score;
 #include "camera.cpp"
 
 #include "menu.cpp"
-#include "world_editor.cpp"
 #include "entity_editor.cpp"
+#include "world_editor.cpp"
 #include "game.cpp"
 
 //~ 

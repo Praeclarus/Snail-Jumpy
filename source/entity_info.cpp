@@ -1,4 +1,5 @@
 
+
 global_constant u32 CURRENT_SPEC_FILE_VERSION = 1;
 
 internal u8
@@ -12,6 +13,42 @@ GetBoundarySetIndex(u32 InfoID, entity_state State){
     return(Result);
 }
 
+internal inline collision_boundary
+ConvertToCollisionBoundary(entity_info_boundary *InfoBoundary, memory_arena *Arena=0){
+    collision_boundary Result = {};
+    
+    rect Bounds = FixRect(InfoBoundary->Bounds);
+    v2 Size = RectSize(Bounds);
+    switch(InfoBoundary->Type){
+        case EntityInfoBoundaryType_Rect: {
+            Result = MakeCollisionRect(V20, Size);
+        }break;
+        case EntityInfoBoundaryType_Circle: {
+            f32 Radius = Minimum(0.5f*Size.X, 0.5f*Size.Y);
+            Result = MakeCollisionCircle(V20, Radius , 15, Arena);
+        }break;
+        case EntityInfoBoundaryType_Pill: {
+            f32 Radius = 0.5f*Size.X;
+            f32 Height = Size.Y - 2*Radius;
+            Result = MakeCollisionPill(V20, Radius, Height, 5, Arena);
+        }break;
+    }
+    Result.Offset = InfoBoundary->Offset;
+    
+    
+    return(Result);
+}
+
+internal void
+MakeInfoBoundaries(){
+    for(u32 I=0; I < EntityInfos.Count; I++){
+        entity_info *Info = &EntityInfos[I];
+        for(u32 J=0; J < (u32)(Info->BoundarySets*Info->BoundaryCount); J++){
+            Info->Boundaries[J] = ConvertToCollisionBoundary(&Info->EditingBoundaries[J]);
+        }
+    }
+}
+
 internal entity_info *
 RegisterInfo(u8 BoundaryCount, u8 BoundarySets, 
              f32 Mass,
@@ -20,7 +57,9 @@ RegisterInfo(u8 BoundaryCount, u8 BoundarySets,
     entity_info *Info = PushNewArrayItem(&EntityInfos);
     Info->Flags = EntityFlags;
     Info->CollisionFlags = CollisionFlags;
-    Info->Boundaries = PhysicsSystem.AllocPermanentBoundaries(BoundarySets*BoundaryCount);
+    u32 TotalCount = BoundarySets*BoundaryCount;
+    Info->Boundaries = PhysicsSystem.AllocPermanentBoundaries(TotalCount);
+    Info->EditingBoundaries = PushArray(&TransientStorageArena, entity_info_boundary, TotalCount);
     Info->BoundarySets = BoundarySets;
     Info->BoundaryCount = BoundaryCount;
     return(Info);
@@ -96,21 +135,10 @@ InitializeAndLoadEntityInfos(memory_arena *Arena, const char *Path){
             
             for(u32 J = 0; J < Minimum(Info->BoundarySets, BoundarySets); J++){
                 for(u32 K = 0; K < Minimum(Info->BoundaryCount, BoundaryCount); K++){
-                    collision_boundary *Boundary = &Info->Boundaries[J*Info->BoundaryCount + K];
-                    Boundary->Type = *ConsumeType(&Stream, collision_boundary_type);
-                    Boundary->Flags = *ConsumeType(&Stream, boundary_flags);
+                    entity_info_boundary *Boundary = &Info->EditingBoundaries[J*Info->BoundaryCount + K];
+                    Boundary->Type = *ConsumeType(&Stream, entity_info_boundary_type);
                     Boundary->Offset = *ConsumeType(&Stream, v2);
                     Boundary->Bounds = *ConsumeType(&Stream, rect);
-                    
-                    switch(Boundary->Type){
-                        case BoundaryType_None: break;
-                        case BoundaryType_Rect: break;
-                        case BoundaryType_FreeForm: {
-                            NOT_IMPLEMENTED_YET;
-                            
-                        }break;
-                        default: INVALID_CODE_PATH;
-                    }
                 }
             }
         }
@@ -144,14 +172,10 @@ WriteEntityInfos(const char *Path){
         WriteVariableToFile(File, Offset, Info->BoundaryCount);
         
         for(u32 J = 0; J < (u32)(Info->BoundaryCount*Info->BoundarySets); J++){
-            collision_boundary *Boundary = &Info->Boundaries[J];
-            // TODO(Tyler): How is the support function stored?
+            entity_info_boundary *Boundary = &Info->EditingBoundaries[J];
             WriteVariableToFile(File, Offset, Boundary->Type);
-            WriteVariableToFile(File, Offset, Boundary->Flags);
             WriteVariableToFile(File, Offset, Boundary->Offset);
             WriteVariableToFile(File, Offset, Boundary->Bounds);
-            
-            // Boundary->Radius can be calculated from Boundary->Bounds
         }
     }
     

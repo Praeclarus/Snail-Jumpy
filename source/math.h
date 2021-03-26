@@ -109,6 +109,12 @@ AbsoluteValue(f32 A)
 }
 
 internal inline f32
+SignOf(f32 A){
+    f32 Result = (A < 0) ? -1.0f : 1.0f;
+    return(Result);
+}
+
+internal inline f32
 ToPowerOf(f32 Base, f32 Exponent){
     f32 Result = powf(Base, Exponent);
     return(Result);
@@ -174,6 +180,12 @@ union v2
 internal inline v2
 V2(f32 X, f32 Y){ 
     v2 Result = v2{X, Y}; 
+    return(Result);
+}
+
+internal inline v2
+V2(f32 XY){ 
+    v2 Result = V2(XY, XY); 
     return(Result);
 }
 
@@ -382,9 +394,14 @@ Color(f32 R, f32 G, f32 B, f32 A){
 }
 
 //~ Rectangles
-struct rect {
-    v2 Min;
-    v2 Max;
+union rect {
+    struct {
+        v2 Min;
+        v2 Max;
+    };
+    struct {
+        v2 E[2];
+    };
 };
 
 struct rect_s32 {
@@ -441,7 +458,7 @@ RectSize(rect Rect){
 }
 
 internal inline b8
-IsV2InRectangle(v2 Point, rect Rect){
+IsPointInRect(v2 Point, rect Rect){
     b8 Result = ((Rect.Min.X < Point.X) && (Point.X < Rect.Max.X) &&
                  (Rect.Min.Y < Point.Y) && (Point.Y < Rect.Max.Y));
     return(Result);
@@ -452,6 +469,29 @@ GrowRect(rect Rect, f32 G){
     rect Result = Rect;
     Result.Min -= V2(G, G);
     Result.Max += V2(G, G);
+    return(Result);
+}
+
+internal inline v2
+GetRectCenter(rect Rect){
+    v2 Result = {};
+    v2 Size = RectSize(Rect);
+    Result = Rect.Min + 0.5f*Size;
+    
+    return(Result);
+}
+
+internal void
+LogMessage(char *Format, ...);
+
+internal inline rect
+FixRect(rect Rect){
+    rect Result = {};
+    Result.Min.X = Minimum(Rect.Min.X, Rect.Max.X);
+    Result.Min.Y = Minimum(Rect.Min.Y, Rect.Max.Y);
+    Result.Max.X = Maximum(Rect.Min.X, Rect.Max.X);
+    Result.Max.Y = Maximum(Rect.Min.Y, Rect.Max.Y);
+    
     return(Result);
 }
 

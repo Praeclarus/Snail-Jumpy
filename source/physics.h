@@ -113,6 +113,7 @@ struct dynamic_physics_object : public physics_object {
     debug_physics_info DebugInfo;
     physics_object_state_flags State;
     v2 FloorNormal;
+    dynamic_physics_object *ReferenceFrame;
 };
 
 struct physics_collision {
@@ -128,7 +129,6 @@ struct physics_collision {
 struct physics_system {
     bucket_array<dynamic_physics_object, 64> Objects;
     bucket_array<static_physics_object, 64> StaticObjects;
-    //freelist_allocator BoundaryAllocator;
     memory_arena PermanentBoundaryMemory;
     memory_arena BoundaryMemory;
     
@@ -136,7 +136,10 @@ struct physics_system {
     void Reload(u32 Width, u32 Height);
     void DoPhysics();
     void DoFloorRaycast(dynamic_physics_object *Object, f32 Depth);
-    physics_collision DoCollisionsAlongDelta(collision_boundary *Boundary, v2 P, v2 Delta, bucket_location Offset);
+    
+    void DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta);
+    void DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, bucket_location StartLocation);
+    void DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject);
     dynamic_physics_object *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
     static_physics_object *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
     collision_boundary *AllocPermanentBoundaries(u32 Count);

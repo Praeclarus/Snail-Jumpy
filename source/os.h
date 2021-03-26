@@ -89,7 +89,7 @@ struct os_event {
         
         struct {
             os_mouse_button Button;
-            v2 MouseP;
+            v2  MouseP;
         };
     };
 };

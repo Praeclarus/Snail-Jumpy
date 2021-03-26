@@ -1,19 +1,101 @@
 
-inline void
-entity_editor::CanonicalizeBoundary(collision_boundary *Boundary){
-    v2 Size = RectSize(Boundary->Bounds);
-    if((EntityP.Y+Boundary->Offset.Y - 0.5f*Size.Y) < FloorY){
-        Boundary->Offset.Y = FloorY+0.5f*Size.Y - EntityP.Y;
-    }
-}
+//~ Entity info selector
 
-collision_boundary *
-entity_editor::GetBoundaryThatMouseIsOver(){
-    collision_boundary *Result = 0;
-    for(u32 I = 0; I < SelectedInfo->BoundaryCount; I++){
-        if(IsPointInBoundary(CursorP, &BoundarySet[I], EntityP)) Result = &BoundarySet[I];
+// TODO(Tyler): This function should be modified to use the UI system once its improved
+internal u32
+UpdateAndRenderInfoSelector(v2 P, v2 MouseP, camera *ParentCamera, u32 SelectedInfo){
+    camera Camera = {}; Camera.MetersToPixels = ParentCamera->MetersToPixels;
+    
+    u32 Result = 0;
+    local_constant f32 Thickness = 0.03f;
+    local_constant f32 Margin    = 0.5f;
+    local_constant f32 Spacer    = 0.1f;
+    f32 YMin = F32_POSITIVE_INFINITY;
+    f32 YMax = F32_NEGATIVE_INFINITY;
+    
+    v2 FoundMin = {};
+    v2 FoundMax = {};
+    for(u32 I = 1; I < EntityInfos.Count; I++){
+        entity_info *Info = &EntityInfos[I];
+        asset *Asset = GetSpriteSheet(Info->Asset);
+        v2 Size = Asset->SizeInMeters*Asset->Scale;
+        v2 Center = P;
+        Center.X += 0.5f*Size.X;
+        RenderFrameOfSpriteSheet(&Camera, Info->Asset, 0, Center, 0.0f);
+        
+        v2 Min = V2(P.X, P.Y-0.5f*Size.Y);
+        v2 Max = Min + Size;
+        YMin = Minimum(Min.Y, YMin);
+        YMax = Maximum(Max.Y, YMax);
+        if(I == SelectedInfo){
+            f32 Thickness = 0.06f;
+            f32 Offset = 0.2f;
+            RenderRectangle(V2(Min.X, Min.Y-Offset), V2(Max.X, Min.Y-Offset+Thickness), -0.1f, BLUE, &Camera);
+        }
+        
+        if((P.X <= MouseP.X) && (MouseP.X <= P.X+Size.X)){
+            Result = I;
+            FoundMin = Min;
+            FoundMax = Max;
+        }
+        
+        f32 XAdvance = Spacer+Size.X;
+        P.X += XAdvance;
     }
     
+    if(Result){
+        if((YMin <= MouseP.Y) && (MouseP.Y <= YMax)){
+            RenderRectangleOutlineMinMax(FoundMin, FoundMax, -0.1f, WHITE, &Camera, Thickness);
+        }else{
+            Result = 0;
+        }
+    }
+    
+    return(Result);
+}
+
+//~ Entity editor Actions
+internal inline entity_editor_action
+BeginMakingAction(v2 StartP, entity_info_boundary_type Type){
+    entity_editor_action Result = {};
+    Result.Type = EntityEditorAction_Making;
+    Result.Boundary.Type = Type;
+    Result.Boundary.Bounds.Min = StartP;
+    Result.Boundary.Bounds.Max = StartP;
+    
+    return(Result);
+}
+
+//~ Entity editor
+entity_info_boundary *
+entity_editor::GetBoundaryThatCursorIsOver(){
+    entity_info_boundary *Result = 0;
+    for(u32 I = 0; I < SelectedInfo->BoundaryCount; I++){
+        entity_info_boundary *Boundary = &BoundarySet[I];
+        rect RectA = FixRect(Boundary->Bounds);
+        rect RectB = OffsetRect(RectA, Boundary->Offset+EntityP);
+        if(IsPointInRect(CursorP, RectB)){
+            Result = Boundary;
+        }
+    }
+    
+    return(Result);
+}
+
+inline void 
+entity_editor::RemoveInfoBoundary(entity_info_boundary *Boundary){
+    if(!Boundary) return;
+    *Boundary = BoundarySet[SelectedInfo->BoundaryCount-1];
+    BoundarySet[SelectedInfo->BoundaryCount-1] = {};
+    AddingBoundary = &BoundarySet[SelectedInfo->BoundaryCount-1];
+}
+
+inline  v2
+entity_editor::SnapPoint(v2 Point, f32 Fraction){
+    v2 Result = Point/Fraction;
+    Result.X = Round(Result.X);
+    Result.Y = Round(Result.Y);
+    Result *= Fraction;
     return(Result);
 }
 
@@ -33,23 +115,52 @@ entity_editor::ProcessInput(){
             }break;
             case OSEventKind_MouseDown: {
                 if(Event.Button == MouseButton_Left){
-                    Action = EntityEditorAction_LeftClick;
+                    if(CursorP.Y < (FloorY-SelectorOffset)){
+                        Action.Type = EntityEditorAction_SelectInfo;
+                    }else if(AddBoundary){
+                        Action = BeginMakingAction(CursorP, BoundaryType);
+                        AddBoundary = false;
+                    }else{
+                        entity_info_boundary *Boundary = GetBoundaryThatCursorIsOver();
+                        if(Boundary){
+                            Action.Type = EntityEditorAction_Dragging;
+                            Action.DraggingBoundary = Boundary;
+                            Action.DraggingOffset = Boundary->Offset - (CursorP-EntityP);
+                            EditingBoundary = Boundary;
+                        }
+                    }
                 }else if(Event.Button == MouseButton_Right){
-                    Action = EntityEditorAction_RightClick;
+                    entity_info_boundary *Boundary = GetBoundaryThatCursorIsOver();
+                    if(Boundary){
+                        Action.Type = EntityEditorAction_Remove;
+                        Action.RemoveBoundary = Boundary;
+                    }
                 }
             }break;
             case OSEventKind_MouseUp: {
                 if(Event.Button == MouseButton_Left){
-                    if((Action == EntityEditorAction_LeftClick) ||
-                       (Action == EntityEditorAction_LeftClickDragging)){
-                        Action = EntityEditorAction_EndLeftClick;
-                    }else if(Action == EntityEditorAction_DraggingBoundary){
-                        Action = EntityEditorAction_None;
+                    // Finalize Making action
+                    if(Action.Type == EntityEditorAction_Making){
+                        *AddingBoundary = Action.Boundary;
+                        
+                        rect Bounds = FixRect(AddingBoundary->Bounds);
+                        AddingBoundary->Bounds.Min = Bounds.Min - AddingBoundary->Offset - EntityP;
+                        AddingBoundary->Bounds.Max = Bounds.Max - AddingBoundary->Offset - EntityP;
+                        EditingBoundary = AddingBoundary;
+                        
+                        entity_info_boundary *End = BoundarySet + (SelectedInfo->BoundaryCount-1);
+                        AddingBoundary++;
+                        if(AddingBoundary > End){
+                            AddingBoundary = BoundarySet;
+                        }
+                        
+                        Action = {};
+                    }else if(Action.Type == EntityEditorAction_Dragging){
+                        Action = {};
                     }
                 }else if(Event.Button == MouseButton_Right){
-                    if((Action == EntityEditorAction_RightClick) ||
-                       (Action == EntityEditorAction_RightClickDragging)){
-                        Action = EntityEditorAction_EndRightClick;
+                    if(Action.Type == EntityEditorAction_Remove){
+                        Action = {};
                     }
                 }
             }break;
@@ -64,118 +175,80 @@ entity_editor::ProcessInput(){
 
 void
 entity_editor::ProcessAction(){
-    switch(Action){
-        case EntityEditorAction_LeftClick: {
-            if(CursorP.Y < (FloorY-1.0f)){
-                Action = EntityEditorAction_AttemptToSelectInfo;
-                return;
-            }else if(!DoEditBoundaries){
-                Action = EntityEditorAction_None;
+    switch(Action.Type){
+        case EntityEditorAction_Making: {
+            Action.Boundary.Bounds.Max = CursorP;
+            Action.Boundary.Bounds.Min.Y = Maximum(FloorY, Action.Boundary.Bounds.Min.Y);
+            Action.Boundary.Bounds.Max.Y = Maximum(FloorY, Action.Boundary.Bounds.Max.Y);
+            
+            
+            asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
+            f32 GridSize = Asset->Scale/(Camera.MetersToPixels);
+            Action.Boundary.Bounds.Min = SnapPoint(Action.Boundary.Bounds.Min, GridSize);
+            Action.Boundary.Bounds.Max = SnapPoint(Action.Boundary.Bounds.Max, GridSize);
+            
+            if(Action.Boundary.Type == EntityInfoBoundaryType_Circle){
+                rect Bounds = Action.Boundary.Bounds;
+                v2 Size = RectSize(Bounds);
+                f32 MinSide = Minimum(AbsoluteValue(Size.X), AbsoluteValue(Size.Y));
+                v2 CircleSize = V2(SignOf(Size.X)*MinSide, SignOf(Size.Y)*MinSide);
+                Action.Boundary.Bounds.Max = Action.Boundary.Bounds.Min + CircleSize;
                 
-                collision_boundary *Boundary = GetBoundaryThatMouseIsOver();
-                if(Boundary){
-                    DraggingOffset = CursorP - Boundary->Offset;
-                    Action = EntityEditorAction_DraggingBoundary;
+                v2 ToCenter = 0.5f*V2(SignOf(Size.X)*MinSide, SignOf(Size.Y)*MinSide);
+                Action.Boundary.Offset = Bounds.Min + ToCenter - EntityP;
+            }else if(Action.Boundary.Type == EntityInfoBoundaryType_Pill){
+                rect Bounds = Action.Boundary.Bounds;
+                v2 AbsSize = RectSize(FixRect(Bounds));
+                v2 Size = RectSize(Bounds);
+                
+                if(AbsSize.X > AbsSize.Y){
+                    AbsSize.X = AbsSize.Y;
+                    Size.X = SignOf(Size.X)*AbsSize.Y;
+                    Action.Boundary.Bounds.Max.X = Bounds.Min.X+Size.X;
                 }
-            }
-        }break;
-        case EntityEditorAction_RightClick: {
-            collision_boundary *Boundary = GetBoundaryThatMouseIsOver();
-            if(Boundary){
-                *Boundary = BoundarySet[SelectedInfo->BoundaryCount-1];
-                BoundarySet[SelectedInfo->BoundaryCount-1] = {};
-                CurrentBoundary = &BoundarySet[SelectedInfo->BoundaryCount-1];
-            }
-        }break;
-        case EntityEditorAction_DraggingBoundary: {
-            CurrentBoundary->Offset = CursorP - DraggingOffset;
-            CanonicalizeBoundary(CurrentBoundary);
-        }break;
-    }
-    
-    if(DoEditBoundaries) ProcessBoundaryAction(); 
-}
-
-void
-entity_editor::ProcessBoundaryAction(){
-    if(CursorP.Y < (FloorY-1.0f)) return;
-    
-    switch(Action){
-        case EntityEditorAction_None: break;
-        case EntityEditorAction_LeftClick: {
-            Cursor2P = CursorP;
-            Action = EntityEditorAction_LeftClickDragging;
-            
-            //~ 
-            case EntityEditorAction_LeftClickDragging:
-            
-            switch(BoundaryType){
-                case BoundaryType_Rect: {
-                    if(CursorP.Y < FloorY) CursorP.Y = FloorY;
-                    if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY;
-                    
-                    RenderRectangle(Cursor2P, CursorP, -2.0f,  
-                                    Color(0.0f, 1.0f, 0.0f, 0.5f), &Camera);
-                }break;
-                case BoundaryType_FreeForm: {
-                    NOT_IMPLEMENTED_YET;
-                    
-                    if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY; // Center 
-                    f32 Radius = Length(Cursor2P-CursorP);
-                    if(Cursor2P.Y-Radius < FloorY){
-                        Radius = Cursor2P.Y - FloorY;
-                        CursorP = Cursor2P - V2(0, Radius);
-                    }
-                    
-                    RenderCircle(Cursor2P, Radius, -2.0f, 
-                                 Color(0.0f, 1.0f, 0.0f, 0.5f), &Camera);
-                }break;
-            }
-        }break;
-        case EntityEditorAction_EndLeftClick: {
-            CurrentBoundary->Type = BoundaryType;
-            if(BoundaryType == BoundaryType_Rect){
-                if(CursorP.Y < FloorY) CursorP.Y = FloorY;
-                if(Cursor2P.Y < FloorY) Cursor2P.Y = FloorY;
                 
-                v2 Size = V2(AbsoluteValue(Cursor2P.X-CursorP.X), AbsoluteValue(Cursor2P.Y-CursorP.Y));
-                *CurrentBoundary = MakeCollisionRect(((Cursor2P+CursorP)/2)-EntityP, Size);
-            }else if(BoundaryType == BoundaryType_FreeForm){
-                NOT_IMPLEMENTED_YET;
-                *CurrentBoundary = MakeCollisionCircle(Cursor2P-EntityP, Length(Cursor2P-CursorP), 15);
-            }
-            
-            v2 Size = RectSize(CurrentBoundary->Bounds);
-            f32 Epsilon = 0.001f;
-            if((Size.X <= Epsilon) && (Size.Y <= Epsilon)){
-                *CurrentBoundary = {};
+                f32 YToMiddle = 0.5f*AbsSize.X;
+                if(Size.Y < 0.0f){
+                    YToMiddle += Size.Y;
+                }
+                v2 ToCenter = V2(0.5f*Size.X, YToMiddle);
+                Action.Boundary.Offset = Bounds.Min + ToCenter - EntityP;
             }else{
-                collision_boundary *BoundariesEnd = BoundarySet + SelectedInfo->BoundaryCount;
-                CurrentBoundary++;
-                if(CurrentBoundary >= BoundariesEnd){
-                    CurrentBoundary = BoundarySet;
-                }
+                Action.Boundary.Offset = GetRectCenter(Action.Boundary.Bounds) - EntityP;
             }
             
-            Action = EntityEditorAction_None;
+            v2 PointSize = V2(0.03f);
+            RenderCenteredRectangle(Action.Boundary.Bounds.Min, PointSize, -10.0f, YELLOW, &Camera);
+            RenderCenteredRectangle(Action.Boundary.Bounds.Max, PointSize, -10.0f, YELLOW, &Camera);
+            
+            collision_boundary Boundary = ConvertToCollisionBoundary(&Action.Boundary, &TransientStorageArena);
+            RenderBoundary(&Camera, &Boundary, -2.0f, EntityP);
         }break;
-        case EntityEditorAction_RightClick: {
-            collision_boundary *Boundary = GetBoundaryThatMouseIsOver();
-            if(Boundary){
-                *Boundary = BoundarySet[SelectedInfo->BoundaryCount-1];
-                CurrentBoundary = &BoundarySet[SelectedInfo->BoundaryCount-1];
+        
+        case EntityEditorAction_Dragging: {
+            Action.DraggingBoundary->Offset = CursorP + Action.DraggingOffset - EntityP;
+            asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
+            f32 GridSize = Asset->Scale/(Camera.MetersToPixels);
+            Action.DraggingBoundary->Offset = SnapPoint(Action.DraggingBoundary->Offset, GridSize);
+            
+            v2 Offset = Action.DraggingBoundary->Offset + EntityP;
+            rect Bounds = Action.DraggingBoundary->Bounds;
+            Bounds = OffsetRect(Bounds, Offset);
+            if(Bounds.Min.Y < FloorY){
+                Action.DraggingBoundary->Offset.Y += FloorY-Bounds.Min.Y;
             }
         }break;
-        case EntityEditorAction_RightClickDragging: break;
-        case EntityEditorAction_EndRightClick: break;
-        default: INVALID_CODE_PATH; break;
+        
+        case EntityEditorAction_Remove: {
+            RemoveInfoBoundary(Action.RemoveBoundary);
+        }break;
+        
     }
 }
 
 //~ UI
 void
 entity_editor::DoUI(){
-    
     //~ Basic editing functions
     {
         window *Window = UIManager.BeginWindow("Entity Editor", OSInput.WindowSize, V2(400, 0));
@@ -217,78 +290,96 @@ entity_editor::DoUI(){
         window *Window = UIManager.BeginWindow("Edit Collision Boundaries", 
                                                V2(0, OSInput.WindowSize.Y), v2{400, 0});
         
-        Window->ToggleButton("Stop editing boundaries", "Edit boundaries",
-                             &DoEditBoundaries);
+        
+        Window->ToggleButton("Don't add boundary", "Add Boundary", &AddBoundary);
         
         const char *BoundaryTable[] = {
-            "None", "Rectangle", "Circle", "Wedge", "Group"
+            "None", "Rectangle", "Circle", "Pill"
         };
         Window->Text("Current boundary type: %s", BoundaryTable[BoundaryType]);
         if(Window->Button("<<< Mode", 2)){
-            if(BoundaryType == BoundaryType_FreeForm){
-                BoundaryType = BoundaryType_Rect;
-            }else if(BoundaryType == BoundaryType_Rect){
-                BoundaryType = BoundaryType_FreeForm;
+            if(BoundaryType == EntityInfoBoundaryType_Rect){
+                BoundaryType = EntityInfoBoundaryType_Pill;
+            }else if(BoundaryType == EntityInfoBoundaryType_Circle){
+                BoundaryType = EntityInfoBoundaryType_Rect;
+            }else if(BoundaryType == EntityInfoBoundaryType_Pill){
+                BoundaryType = EntityInfoBoundaryType_Circle;
             }
-        }
-        if(Window->Button("Mode >>>", 2)){
-            if(BoundaryType == BoundaryType_FreeForm){
-                BoundaryType = BoundaryType_Rect;
-            }else if(BoundaryType == BoundaryType_Rect){
-                BoundaryType = BoundaryType_FreeForm;
+        } if(Window->Button("Mode >>>", 2)){
+            if(BoundaryType == EntityInfoBoundaryType_Rect){
+                BoundaryType = EntityInfoBoundaryType_Circle;
+            }else if(BoundaryType == EntityInfoBoundaryType_Circle){
+                BoundaryType = EntityInfoBoundaryType_Pill;
+            }else if(BoundaryType == EntityInfoBoundaryType_Pill){
+                BoundaryType = EntityInfoBoundaryType_Rect;
             }
         }
         
         TOGGLE_FLAG(Window, "Can stand on", SelectedInfo->CollisionFlags, BoundaryFlag_CanStandOn);
         
         //~ Boundary set management
-        u32 BoundarySetIndex = ((u32)(BoundarySet - SelectedInfo->Boundaries) / SelectedInfo->BoundaryCount) + 1;
+        u32 BoundarySetIndex = ((u32)(BoundarySet - SelectedInfo->EditingBoundaries) / SelectedInfo->BoundaryCount) + 1;
         Window->Text("Boundary set: %u/%u", BoundarySetIndex, SelectedInfo->BoundarySets);
         if(Window->Button("<<< Boundary set", 2)){
             BoundarySet -= SelectedInfo->BoundaryCount;
-            if(BoundarySet < SelectedInfo->Boundaries){
-                BoundarySet = (SelectedInfo->Boundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)));
+            if(BoundarySet < SelectedInfo->EditingBoundaries){
+                BoundarySet = (SelectedInfo->EditingBoundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)));
             }
-            CurrentBoundary = BoundarySet;
+            AddingBoundary = BoundarySet;
         }
+        
         if(Window->Button("Boundary set >>>", 2)){
             BoundarySet += SelectedInfo->BoundaryCount;
-            if(BoundarySet > (SelectedInfo->Boundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)))){
-                BoundarySet = SelectedInfo->Boundaries;
+            if(BoundarySet > (SelectedInfo->EditingBoundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)))){
+                BoundarySet = SelectedInfo->EditingBoundaries;
             }
-            CurrentBoundary = BoundarySet;
+            AddingBoundary = BoundarySet;
         }
         
         Window->Text("Boundary count: %u", SelectedInfo->BoundaryCount);
+        Window->Text("Current boundary: %llu", ((u64)AddingBoundary - (u64)SelectedInfo->EditingBoundaries)/sizeof(entity_info_boundary));
+        
+#if 0
+        entity_info_boundary *Boundary = &BoundarySet[0];
+        if(Boundary){
+            v2 Offset = Boundary->Offset + EntityP;
+            rect Bounds = Boundary->Bounds;
+            Bounds = OffsetRect(Bounds, Offset);
+            v2 PointSize = V2(0.05f);
+            RenderCenteredRectangle(Offset, PointSize, -10.0f, YELLOW, &Camera);
+            RenderCenteredRectangle(Bounds.Min, PointSize, -10.0f, GREEN, &Camera);
+            RenderCenteredRectangle(Bounds.Max, PointSize, -10.0f, PURPLE, &Camera);
+            
+            Window->Text("BoundsMin: (%f, %f)", Bounds.Min.X, Bounds.Min.Y);
+            Window->Text("BoundsMax: (%f, %f)", Bounds.Max.X, Bounds.Max.Y);
+        }
+#endif
         
         Window->End();
     }
     
     if(UIManager.HandledInput){
-        Action = EntityEditorAction_None;
+        Action.Type = EntityEditorAction_None;
     }
 }
 
 //~
 void 
 entity_editor::UpdateAndRender(){
-    EntityP = {5, 5};
-    FloorY  = 5;
-    
-    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
-    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
-    Camera.Update();
-    
-    ProcessInput();
+    EntityP        = V2(5, 5);
+    FloorY         = 4.0f;
+    SelectorOffset = 1.0f;
     
     if(!SelectedInfo){
         SelectedInfoID = 1;
         SelectedInfo = &EntityInfos[1];
-        BoundarySet = SelectedInfo->Boundaries;
-        CurrentBoundary = BoundarySet;
+        BoundarySet = SelectedInfo->EditingBoundaries;
+        AddingBoundary = BoundarySet;
     }
     
-    DoUI();
+    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
+    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
+    Camera.Update();
     
     { // Draw floor
         v2 Min;
@@ -302,6 +393,10 @@ entity_editor::UpdateAndRender(){
     
     asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
     EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
+    
+    ProcessInput();
+    
+    DoUI();
     
     ProcessAction();
     
@@ -328,78 +423,25 @@ entity_editor::UpdateAndRender(){
     f32 Z = -1.0f;
     
     for(u32 I = 0; I < SelectedInfo->BoundaryCount; I++){
-        RenderBoundary(&Camera, &BoundarySet[I], Z, EntityP);
+        collision_boundary Boundary = ConvertToCollisionBoundary(&BoundarySet[I], &TransientStorageArena);
+        RenderBoundary(&Camera, &Boundary, Z, EntityP);
     }
     
     {
-        b8 AttemptToSelectInfo = false;
-        if(Action == EntityEditorAction_AttemptToSelectInfo){
-            AttemptToSelectInfo = true;
-            Action = EntityEditorAction_None;
-        }
-        v2 P = v2{0.5f, 2.0f};
-        u32 InfoToSelect = 
-            UpdateAndRenderInfoSelector(P, CursorP, AttemptToSelectInfo, 
-                                        Camera.MetersToPixels, SelectedInfoID, true, 0.0f, 
-                                        FloorY-1.0f);
-        if(InfoToSelect > 0){
-            SelectedInfoID = InfoToSelect;
-            SelectedInfo = &EntityInfos[InfoToSelect];
-            BoundarySet = SelectedInfo->Boundaries;
-            CurrentBoundary = BoundarySet;
+        u32 InfoToSelect = UpdateAndRenderInfoSelector(V2(0.5f, FloorY-SelectorOffset-1.0f), CursorP, &Camera, SelectedInfoID);
+        
+        if(Action.Type == EntityEditorAction_SelectInfo){
+            Action.Type = EntityEditorAction_None;
+            
+            if(InfoToSelect > 0){
+                SelectedInfoID = InfoToSelect;
+                SelectedInfo = &EntityInfos[InfoToSelect];
+                BoundarySet = SelectedInfo->EditingBoundaries;
+                AddingBoundary = BoundarySet;
+            }
         }
     }
     
     DEBUGRenderOverlay();
     Renderer.RenderToScreen();
-}
-
-
-//~ Entity info selector
-
-// TODO(Tyler): This function needs to be cleaned up
-internal u32
-UpdateAndRenderInfoSelector(v2 P, v2 MouseP, b8 AttemptSelect, f32 MetersToPixels, 
-                            u32 SelectedInfo, b8 TestY, f32 YMin, f32 YMax){
-    camera Camera = {}; Camera.MetersToPixels = MetersToPixels;
-    
-    u32 InfoToSelect = 0;
-    const f32 THICKNESS = 0.03f;
-    
-    for(u32 I = 1; I < EntityInfos.Count; I++){
-        entity_info *Info = &EntityInfos[I];
-        asset *Asset = GetSpriteSheet(Info->Asset);
-        v2 Size;
-        v2 StartP = P;
-        v2 Center = P;
-        Size = Asset->SizeInMeters*Asset->Scale;
-        Center.X += 0.5f*Size.X;
-        RenderFrameOfSpriteSheet(&Camera, Info->Asset, 0, 
-                                 Center, 0.0f);
-        P.X += Size.X;
-        
-        v2 Min = v2{StartP.X, StartP.Y-0.5f*Size.Y};
-        v2 Max = Min + Size;
-        if(I == SelectedInfo){
-            f32 Thickness = 0.06f;
-            f32 Offset = 0.2f;
-            RenderRectangle({Min.X, Min.Y-Offset}, {Max.X, Min.Y-Offset+Thickness}, -0.1f, BLUE, &Camera);
-        }
-        
-        if((StartP.X <= MouseP.X) && (MouseP.X <= P.X)){
-            if(TestY){
-                if(!((YMin <= MouseP.Y) && (MouseP.Y <= YMax))) continue;
-            }
-            RenderRectangle(Min, {Max.X, Min.Y+THICKNESS}, -0.1f, WHITE, &Camera);
-            RenderRectangle({Max.X-THICKNESS, Min.Y}, {Max.X, Max.Y}, -0.1f, WHITE, &Camera);
-            RenderRectangle({Min.X, Max.Y}, {Max.X, Max.Y-THICKNESS}, -0.1f, WHITE, &Camera);
-            RenderRectangle({Min.X, Min.Y}, {Min.X+THICKNESS, Max.Y}, -0.1f, WHITE, &Camera);
-            
-            if(AttemptSelect){
-                InfoToSelect= I;
-            }
-        }
-    }
-    
-    return(InfoToSelect);
 }

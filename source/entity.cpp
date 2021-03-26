@@ -108,14 +108,9 @@ _ShouldEntityUpdate(entity *Entity){
         Result = (Entity->NumberOfTimesAnimationHasPlayed > 0);
     }else if(Entity->ChangeCondition == ChangeCondition_CooldownOver){
         Result = (Entity->Cooldown <= 0);
+    }else if(Entity->ChangeCondition == ChangeCondition_None){
+        Result = true;
     }
-    
-    return(Result);
-}
-
-internal b8
-ShouldEntityUpdate(entity *Entity){
-    b8 Result = (Entity->ChangeCondition == ChangeCondition_None);
     
     return(Result);
 }
@@ -144,10 +139,8 @@ StunEnemy(enemy_entity *Enemy){
 }
 
 internal void
-MovePlatformer(dynamic_physics_object *Physics, f32 Movement){
+MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f){
     // TODO(Tyler): Load from file
-    local_constant f32 Gravity = 20.0f;
-    
     v2 ddP = {};
     if(Physics->State & PhysicsObjectState_Falling){
         ddP.Y -= Gravity;
@@ -156,8 +149,6 @@ MovePlatformer(dynamic_physics_object *Physics, f32 Movement){
     v2 FloorNormal = Physics->FloorNormal;
     v2 FloorTangent = TripleProduct(FloorNormal, V2(Movement, 0.0f));
     ddP += FloorTangent; 
-    
-    
     
     Physics->ddP += ddP;
 }
@@ -196,7 +187,7 @@ internal void
 UpdateAndRenderPlatformerPlayer(camera *Camera){
     player_entity *Player = EntityManager.Player;
     dynamic_physics_object *Physics = Player->DynamicPhysics;
-    if(ShouldEntityUpdate(Player)){
+    if(_ShouldEntityUpdate(Player)){
         f32 MovementSpeed = 50; // TODO(Tyler): Load this from a variables file
         f32 Movement = 0.0f;
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
@@ -337,6 +328,7 @@ UpdateAndRenderTopDownPlayer(camera *Camera){
     }
     ddP *= MovementSpeed;
     
+    
     MoveEntity(EntityManager.Player, 0, ddP, 0.7f, 0.7f);
     
     Camera->SetCenter(EntityManager.Player->P, CurrentWorld);
@@ -380,50 +372,48 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     FOR_BUCKET_ARRAY(It, &Enemies){
         enemy_entity *Enemy = It.Item;
         dynamic_physics_object *Physics = Enemy->DynamicPhysics;
+        //Physics->DebugInfo.DebugThisOne = true;
         
-        if(!ShouldEntityUpdate(Enemy)){ continue; }
         
-        
-        // TODO(Tyler): Stop using percentages here
-        f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
-        f32 StateAlongPath = (Enemy->Physics->P.X-Enemy->PathStart.X)/PathLength;
-        f32 PathSpeed = 1.0f;
-        if((StateAlongPath > 0.8f) &&
-           (Enemy->Direction > 0)){
-            f32 State = (1.0f-StateAlongPath);
-            PathSpeed = (State/0.2f);
-        }else if((StateAlongPath < 0.2f) &&
-                 (Enemy->Direction < 0)){
-            PathSpeed = (StateAlongPath/0.2f);
-        }
-        
-        if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
-           (Enemy->Direction == Direction_Left)){
-            SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-            Enemy->Direction = Direction_Right;
-            Physics->dP = {0};
-        }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
-                 (Enemy->Direction == Direction_Right)){
-            SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-            Enemy->Direction = Direction_Left;
-            Physics->dP = {0};
-        }else{
-            f32 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
-            
-#if 0            
-            v2 ddP = {};
-            if(Physics->State & PhysicsObjectState_Falling){
-                if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-                }else{
-                    ddP.Y = -11.0f;
-                }
+        if(_ShouldEntityUpdate(Enemy)){
+            // TODO(Tyler): Stop using percentages here
+            f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
+            f32 StateAlongPath = (Enemy->Physics->P.X-Enemy->PathStart.X)/PathLength;
+            f32 PathSpeed = 1.0f;
+            if((StateAlongPath > 0.8f) &&
+               (Enemy->Direction > 0)){
+                f32 State = (1.0f-StateAlongPath);
+                PathSpeed = (State/0.2f);
+            }else if((StateAlongPath < 0.2f) &&
+                     (Enemy->Direction < 0)){
+                PathSpeed = (StateAlongPath/0.2f);
             }
-            Physics->ddP += ddP;
-#endif
             
-            ChangeEntityState(Enemy, State_Moving);
-            
-            MovePlatformer(Physics, Movement);
+            if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
+               (Enemy->Direction == Direction_Left)){
+                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+                Enemy->Direction = Direction_Right;
+                Physics->dP = {0};
+            }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
+                     (Enemy->Direction == Direction_Right)){
+                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+                Enemy->Direction = Direction_Left;
+                Physics->dP = {0};
+            }else{
+                f32 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
+                
+                f32 Gravity = 0.0f;
+                if(Physics->State & PhysicsObjectState_Falling){
+                    if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
+                    }else{
+                        Gravity = 11.0f;
+                    }
+                }
+                
+                ChangeEntityState(Enemy, State_Moving);
+                
+                MovePlatformer(Physics, Movement, Gravity);
+            }
         }
         
         UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTime);

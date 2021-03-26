@@ -1,29 +1,44 @@
 #ifndef ENTITY_EDITOR_H
 #define ENTITY_EDITOR_H
 
-//~ entity_editor
-enum entity_editor_action {
+//~ Entity editor
+enum entity_editor_action_type {
     EntityEditorAction_None,
     
-    EntityEditorAction_LeftClick = EditorAction_TOTAL,
-    EntityEditorAction_LeftClickDragging,
-    EntityEditorAction_EndLeftClick,
+    EntityEditorAction_Making,
+    EntityEditorAction_Dragging,
+    EntityEditorAction_Remove,
+    EntityEditorAction_SelectInfo,
+};
+
+struct entity_editor_action {
+    entity_editor_action_type Type;
     
-    EntityEditorAction_RightClick,
-    EntityEditorAction_RightClickDragging,
-    EntityEditorAction_EndRightClick,
-    
-    EntityEditorAction_AttemptToSelectInfo,
-    EntityEditorAction_DraggingBoundary,
+    union {
+        // Making
+        entity_info_boundary Boundary;
+        
+        // Dragging
+        struct {
+            entity_info_boundary *DraggingBoundary;
+            v2 DraggingOffset;
+        };
+        
+        // Removing
+        struct {
+            entity_info_boundary *RemoveBoundary;
+        };
+    };
 };
 
 struct entity_editor {
-    b8 DoEditBoundaries;
-    collision_boundary *BoundarySet;
-    collision_boundary *CurrentBoundary;
-    collision_boundary_type BoundaryType = BoundaryType_Rect;
-    collision_boundary *DraggingBoundary;
+    entity_info_boundary *BoundarySet;
     
+    entity_info_boundary_type BoundaryType = EntityInfoBoundaryType_Rect;
+    entity_info_boundary *AddingBoundary;
+    entity_info_boundary *EditingBoundary;
+    
+    b8 AddBoundary;
     entity_editor_action Action;
     
     camera Camera;
@@ -34,6 +49,7 @@ struct entity_editor {
     v2 DraggingOffset;
     
     f32 FloorY;
+    f32 SelectorOffset;
     v2 EntityP;
     u32          CurrentFrame;
     entity_state CurrentState     = State_None;
@@ -49,8 +65,9 @@ struct entity_editor {
     void ProcessKeyDown(os_key_code KeyCode);
     void ProcessBoundaryAction();
     void DoUI();
-    inline void CanonicalizeBoundary(collision_boundary *Boundary);
-    collision_boundary *GetBoundaryThatMouseIsOver();
+    entity_info_boundary *GetBoundaryThatCursorIsOver();
+    inline void RemoveInfoBoundary(entity_info_boundary *Boundary);
+    inline v2 SnapPoint(v2 Point, f32 Fraction);
 };
 
 //~ Tables
@@ -79,11 +96,5 @@ global_constant entity_type REVERSE_ENTITY_TYPE_TABLE[EntityType_TOTAL] {
     EntityType_TOTAL,  // 8
     EntityType_TOTAL,  // 9
 };
-
-//~ MiscellaneousS
-internal u32
-UpdateAndRenderInfoSelector(v2 P, v2 MouseP, b8 AttemptSelect, 
-                            f32 MetersToPixels, u32 SelectedInfo=0, b8 TestY=false, 
-                            f32 YMin=0.0f, f32 YMax=0.0f);
 
 #endif //ENTITY_EDITOR_H

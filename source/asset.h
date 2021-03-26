@@ -32,7 +32,6 @@ struct asset {
     union{
         // Spritesheet
         struct {
-            v2s SizeInPixels;
             // TODO(Tyler): This is kinda a bogus attribute(SizeInMeters), change this!
             v2 SizeInMeters; 
             v2 SizeInTexCoords;

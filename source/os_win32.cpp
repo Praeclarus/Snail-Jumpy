@@ -237,7 +237,7 @@ Win32DefaultHandlerRoutine(DWORD ControlSignal){
             // get it to close without crashing.
             
             WorldManager.WriteWorldsToFiles();
-            //WriteEntityInfos("entities.sje");
+            WriteEntityInfos("entities.sje");
             ExitProcess(0);
         }break;
         default: {
@@ -350,7 +350,7 @@ WinMain(HINSTANCE Instance,
     
 #if defined(SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT)
     WorldManager.WriteWorldsToFiles();
-    //WriteEntityInfos("entities.sje");
+    WriteEntityInfos("entities.sje");
 #endif
     FreeConsole();
     
