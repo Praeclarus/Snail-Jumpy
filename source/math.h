@@ -36,6 +36,17 @@ Floor(f32 A){
 }
 
 internal inline f32
+Clamp(f32 Value, f32 Min, f32 Max){
+    f32 Result = Value;
+    if(Result < Min){
+        Result = Min;
+    }else if(Result > Max){
+        Result = Max;
+    }
+    return(Result);
+}
+
+internal inline f32
 Ceil(f32 A){
     return(ceilf(A));
 }
