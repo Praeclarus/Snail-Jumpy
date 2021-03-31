@@ -156,6 +156,7 @@ world_manager::LoadWorld(const char *LevelName){
                         
                         //Enemy->Physics = PhysicsSystem.AddObject(Boundary, 1);
                         Enemy->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
+                        Enemy->DynamicPhysics->DebugInfo.DebugThisOne = true;
                         // TODO(Tyler): This is not correct!!!
                         Enemy->Bounds = OffsetRect(Info->Boundaries->Bounds, Info->Boundaries->Offset);
                         Enemy->Type  = Info->Type;
@@ -215,13 +216,13 @@ world_manager::LoadWorld(const char *LevelName){
                 
             }
             
-#if 0            
             
+#if 0            
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
                 static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
-                Wedge->P = V2(6.0f, 1.5f);
+                Wedge->P = V2(6.0f, 0.5f);
             }
             
             {

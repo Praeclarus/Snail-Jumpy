@@ -743,6 +743,11 @@ void
 physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
     PhysicsDebugger.DoDebug = true;
     
+    if(PhysicsDebugger.DefineStep()){ return; }
+    if(PhysicsDebugger.IsCurrent()){
+        PhysicsDebugger.DrawString("Floor raycast");
+    }
+    
     v2 Raycast = V2(0, -Depth);
     physics_collision Collision = MakeDummyCollision();
     for(collision_boundary *Boundary = Object->Boundaries;
@@ -753,16 +758,21 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
     }
     
     if(PhysicsDebugger.DefineStep()){ return; }
-    if(PhysicsDebugger.IsCurrent()){
-        PhysicsDebugger.DrawString("Floor raycast");
-    }
     
     if(Collision.TimeOfImpact >= 1.0f){ 
+        if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too far"); }
         Object->State |= PhysicsObjectState_Falling;
         return;
     }
-    if(Object->State & PhysicsObjectState_Falling) { return; }
-    if(Collision.Normal.Y < WALKABLE_STEEPNESS) { return; }
+    if(Object->State & PhysicsObjectState_Falling) { 
+        if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, is falling"); }
+        return; 
+    }
+    if(Collision.Normal.Y < WALKABLE_STEEPNESS) { 
+        if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too steaph"); }
+        return; 
+    }
+    
     
     Object->P += Raycast*Collision.TimeOfImpact;
     Object->P += Collision.Correction;
@@ -832,16 +842,6 @@ physics_system::DoPhysics(){
             Object->dP = Object->DebugInfo.dP;
             Object->ddP = Object->DebugInfo.ddP;
             Object->Delta = Object->DebugInfo.Delta;
-            
-            if(IsPointInBoundary(GameCamera.ScreenPToWorldP(OSInput.MouseP), Object->Boundaries, Object->P)){
-                PhysicsDebugger.DrawPoint(Object->P, V20, RED);
-                PhysicsDebugger.DrawPoint(V2(Object->P.X, Object->P.Y+0.4f), V20, RED);
-                PhysicsDebugger.DrawLineFrom(Object->P, V20,  Object->Delta, GREEN);
-                v2 P = Object->P;
-                P.Y += 0.2f;
-                v2 StringP = GameCamera.WorldPToScreenP(P);;
-                RenderFormatString(&DebugFont, YELLOW, StringP.X, StringP.Y, -12.0f, "(%f, %f)", Object->Delta.X, Object->Delta.Y);
-            }
         }
         
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
@@ -865,6 +865,18 @@ physics_system::DoPhysics(){
                 ReferenceCount++;
                 Object->Delta += Reference->Delta;
                 Reference = Reference->ReferenceFrame;
+            }
+        }
+        
+        if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
+            if(IsPointInBoundary(GameCamera.ScreenPToWorldP(OSInput.MouseP), Object->Boundaries, Object->P)){
+                PhysicsDebugger.DrawPoint(Object->P, V20, RED);
+                PhysicsDebugger.DrawPoint(V2(Object->P.X, Object->P.Y+0.4f), V20, RED);
+                PhysicsDebugger.DrawLineFrom(Object->P, V20,  Object->Delta, GREEN);
+                v2 P = Object->P;
+                P.Y += 0.2f;
+                v2 StringP = GameCamera.WorldPToScreenP(P);;
+                RenderFormatString(&DebugFont, YELLOW, StringP.X, StringP.Y, -12.0f, "(%f, %f)", Object->Delta.X, Object->Delta.Y);
             }
         }
     }
@@ -989,8 +1001,9 @@ physics_system::DoPhysics(){
                         //ObjectA->dP = {};
                         //ObjectA->TargetdP = {};
                         //ObjectA->Delta = {};
-                        ObjectA->dP       -= Collision->Normal*Dot(ObjectA->dP, V2(0, 1));
-                        ObjectA->TargetdP -= Collision->Normal*Dot(ObjectA->TargetdP, V2(0, 1));
+                        v2 Up = V2(0, 1);
+                        ObjectA->dP       -= Up*Dot(ObjectA->dP, Up);
+                        ObjectA->TargetdP -= Up*Dot(ObjectA->TargetdP, Up);
                         //ObjectA->Delta    -= Collision->Normal*Dot(ObjectA->TargetdP, V2(0, 1));
                     }
                     
@@ -1031,10 +1044,18 @@ physics_system::DoPhysics(){
                 if(ObjectB->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
                 ObjectB->P -= CorrectionPercent*Collision->Correction;
                 
+                v2 Normal = -Collision->Normal;
+                if(Normal.Y > WALKABLE_STEEPNESS){
+                    ObjectB->State &= ~PhysicsObjectState_Falling;
+                    v2 Up = V2(0, 1);
+                    ObjectB->dP       -= Up*Dot(ObjectB->dP, Up);
+                    ObjectB->TargetdP -= Up*Dot(ObjectB->TargetdP, Up);
+                }
+                
                 if(Dot(ObjectB->Delta, Collision->Normal) > 0){
                     ObjectB->Delta = {};
-                    //ObjectB->dP    -= COR*Collision->Normal*Dot(ObjectB->dP, Collision->Normal);
-                    //ObjectB->Delta -= COR*Collision->Normal*Dot(ObjectB->Delta, Collision->Normal);
+                    ObjectB->dP    -= COR*Collision->Normal*Dot(ObjectB->dP, Normal);
+                    ObjectB->Delta -= COR*Collision->Normal*Dot(ObjectB->Delta, Normal);
                 }
             }
         }
