@@ -397,12 +397,14 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                (Enemy->Direction == Direction_Left)){
                 SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
                 Enemy->Direction = Direction_Right;
-                Physics->dP = {0};
+                Physics->dP = {};
+                Physics->TargetdP = {};
             }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
                      (Enemy->Direction == Direction_Right)){
                 SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
                 Enemy->Direction = Direction_Left;
-                Physics->dP = {0};
+                Physics->dP = {};
+                Physics->TargetdP = {};
             }else{
                 f32 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
                 

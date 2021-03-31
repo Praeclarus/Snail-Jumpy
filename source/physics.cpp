@@ -743,11 +743,6 @@ void
 physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
     PhysicsDebugger.DoDebug = true;
     
-    if(PhysicsDebugger.DefineStep()){ return; }
-    if(PhysicsDebugger.IsCurrent()){
-        PhysicsDebugger.DrawString("No collision");
-    }
-    
     v2 Raycast = V2(0, -Depth);
     physics_collision Collision = MakeDummyCollision();
     for(collision_boundary *Boundary = Object->Boundaries;
@@ -759,40 +754,40 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
     
     if(PhysicsDebugger.DefineStep()){ return; }
     if(PhysicsDebugger.IsCurrent()){
-        PhysicsDebugger.DrawString("No collision");
+        PhysicsDebugger.DrawString("Floor raycast");
     }
     
-    if(Collision.TimeOfImpact < 1.0f){
-        if(!(Object->State & PhysicsObjectState_Falling)){
-            Object->P += Raycast*Collision.TimeOfImpact;
-            Object->P += Collision.Correction;
-            
-            Object->dP       -= Collision.Normal*Dot(Object->dP, Collision.Normal);
-            Object->TargetdP -= Collision.Normal*Dot(Object->TargetdP, Collision.Normal);
-            //Object->Delta -= Collision.Normal*Dot(Object->Delta, Collision.Normal);
-            Object->FloorNormal = Collision.Normal;
-            
-            if(Collision.IsDynamic){
-                Object->ReferenceFrame = (dynamic_physics_object *)Collision.ObjectB;
-            }else{
-                Object->ReferenceFrame = 0;
-            }
-            
-            if(PhysicsDebugger.IsCurrent()){
-                physics_object *ObjectB = Collision.ObjectB;
-                PhysicsDebugger.DrawString("Yes floor");
-                PhysicsDebugger.DrawPoint(Object->P, V20, WHITE);
-                PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLACK);
-                PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision.Normal, PINK);
-                PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision.TimeOfImpact);
-                PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision.Correction.X, Collision.Correction.Y);
-                PhysicsDebugger.DrawString("MassA: %f, MassB: %f", Object->Mass, ObjectB->Mass);
-            }
-        }
-    }else{
+    if(Collision.TimeOfImpact >= 1.0f){ 
         Object->State |= PhysicsObjectState_Falling;
+        return;
+    }
+    if(Object->State & PhysicsObjectState_Falling) { return; }
+    if(Collision.Normal.Y < WALKABLE_STEEPNESS) { return; }
+    
+    Object->P += Raycast*Collision.TimeOfImpact;
+    Object->P += Collision.Correction;
+    
+    Object->dP       -= Collision.Normal*Dot(Object->dP, Collision.Normal);
+    Object->TargetdP -= Collision.Normal*Dot(Object->TargetdP, Collision.Normal);
+    //Object->Delta -= Collision.Normal*Dot(Object->Delta, Collision.Normal);
+    Object->FloorNormal = Collision.Normal;
+    
+    if(Collision.IsDynamic){
+        Object->ReferenceFrame = (dynamic_physics_object *)Collision.ObjectB;
+    }else{
+        Object->ReferenceFrame = 0;
     }
     
+    if(PhysicsDebugger.IsCurrent()){
+        physics_object *ObjectB = Collision.ObjectB;
+        PhysicsDebugger.DrawString("Yes floor");
+        PhysicsDebugger.DrawPoint(Object->P, V20, WHITE);
+        PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLACK);
+        PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision.Normal, PINK);
+        PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision.TimeOfImpact);
+        PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision.Correction.X, Collision.Correction.Y);
+        PhysicsDebugger.DrawString("MassA: %f, MassB: %f", Object->Mass, ObjectB->Mass);
+    }
 }
 
 void
@@ -818,12 +813,7 @@ physics_system::DoPhysics(){
         f32 DragCoefficient = 0.7f;
         Object->ddP.X += -DragCoefficient*Object->dP.X*AbsoluteValue(Object->dP.X);
         Object->ddP.Y += -DragCoefficient*Object->dP.Y*AbsoluteValue(Object->dP.Y);
-        v2 ReferencedP = V20;
-        if(Object->ReferenceFrame){ 
-            ReferencedP = dTime*Object->ReferenceFrame->dP;
-        }
         Object->Delta = (dTime*Object->dP + 
-                         ReferencedP +
                          0.5f*Square(dTime)*Object->ddP);
         //Object->dP += dTime*Object->ddP;
         Object->TargetdP += dTime*Object->ddP;
@@ -863,6 +853,20 @@ physics_system::DoPhysics(){
             }
         }
 #endif
+    }
+    
+    FOR_BUCKET_ARRAY(It, &Objects){
+        dynamic_physics_object *Object = It.Item;
+        if(Object->ReferenceFrame){ 
+            dynamic_physics_object *Reference = Object->ReferenceFrame;
+            u32 ReferenceCount = 0;
+            while(Reference &&
+                  (ReferenceCount < 5)){
+                ReferenceCount++;
+                Object->Delta += Reference->Delta;
+                Reference = Reference->ReferenceFrame;
+            }
+        }
     }
     
     // TODO(Tyler): Move this into physics_debugger
@@ -980,8 +984,7 @@ physics_system::DoPhysics(){
                     
                     ObjectA->P += CorrectionPercent*Collision->Correction;
                     
-                    f32 Steepness = 0.1f;
-                    if(Collision->Normal.Y > Steepness){
+                    if(Collision->Normal.Y > WALKABLE_STEEPNESS){
                         ObjectA->State &= ~PhysicsObjectState_Falling;
                         //ObjectA->dP = {};
                         //ObjectA->TargetdP = {};
