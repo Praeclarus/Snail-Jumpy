@@ -379,6 +379,7 @@ Normalize(v2 V){
     return(Result);
 }
 
+// Perpendicular to A in the direction of B
 internal inline v2 
 TripleProduct(v2 A, v2 B){
     // A cross B cross A = (A cross B) cross A

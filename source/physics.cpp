@@ -4,7 +4,7 @@ physics_debugger PhysicsDebugger;
 inline void
 physics_debugger::Begin(){
     Current = {};
-    Layout = CreateLayout(200, 300, 30, DebugFont.Size, 100, -10.2f);
+    Layout = CreateLayout(1500, 700, 30, DebugFont.Size, 100, -10.2f);
     Origin = V2(4.0f, 4.0f);
 }
 
@@ -395,7 +395,7 @@ DoGJK(v2 Simplex[3], collision_boundary *BoundaryA, v2 AP, collision_boundary *B
         if(PhysicsDebugger.DefineStep()){ return(false); }
         if(PhysicsDebugger.IsCurrent()){
             PhysicsDebugger.DrawPoint(AP, V20, WHITE);
-            PhysicsDebugger.DrawPoint(BP, V20, BLUE);
+            PhysicsDebugger.DrawPoint(BP, V20, BLACK);
             PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V20, Delta, ORANGE);
             
             v2 Normal = Normalize(Direction);
@@ -534,13 +534,20 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
         if(PhysicsDebugger.DefineStep()){  return(Result); }
         if(PhysicsDebugger.IsCurrent()){
             PhysicsDebugger.DrawPoint(AP, V20, WHITE);
-            PhysicsDebugger.DrawPoint(BP, V20, BLUE);
+            PhysicsDebugger.DrawPoint(BP, V20, BLACK);
             PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V20, Delta, ORANGE);
             
             for(u32 I=0; I < Polytope.Count; I++){
                 u32 J = (I+1)%Polytope.Count;
                 PhysicsDebugger.DrawLine(PhysicsDebugger.Origin, Polytope[I], Polytope[J], PURPLE);
                 PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, Polytope[I], GREEN);
+                
+                if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
+                    v2 P = PhysicsDebugger.Origin + (PhysicsDebugger.Scale * Polytope[I]);
+                    P.Y += 0.1f;
+                    v2 NameP = GameCamera.WorldPToScreenP(P);
+                    RenderFormatString(&DebugFont, BLACK, NameP.X, NameP.Y, -10.0f, "%u", I);
+                }
             }
             
             f32 Percent = Dot(DeltaDirection, IntersectionPoint)/Dot(DeltaDirection, Delta);
@@ -572,9 +579,9 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
                 Result.TimeOfImpact = 1.0f;
             }else if(Result.TimeOfImpact < -TimeEpsilon){
                 //v2 Difference = Delta - IntersectionPoint;
-                //Result.Correction = InverseNormal * Dot(-InverseNormal, Difference);
                 v2 Difference = Delta - (Percent+Epsilon)*Delta;
-                Result.Correction = Difference;
+                Result.Correction = InverseNormal * Dot(InverseNormal, Difference);
+                //Result.Correction = Difference;
                 Result.TimeOfImpact = 0.0f;
             }else if(Result.TimeOfImpact < 0.0f){
                 Result.TimeOfImpact = 0.0f;
@@ -590,7 +597,7 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
     if(PhysicsDebugger.DefineStep()){ return(Result); 
     }
     if(PhysicsDebugger.IsCurrent()){
-        PhysicsDebugger.DrawPoint(BP, V20, BLUE);
+        PhysicsDebugger.DrawPoint(BP, V20, BLACK);
         for(u32 I=0; I < Polytope.Count; I++){
             u32 J = (I+1)%Polytope.Count;
             PhysicsDebugger.DrawLine(PhysicsDebugger.Origin, Polytope[I], Polytope[J], PURPLE);
@@ -625,11 +632,7 @@ DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB,
     //Result.AlongDelta        = Dot(Normalize(Delta), BP-AP);
     Result.TimeOfImpact      = F32_POSITIVE_INFINITY;
     
-    local_constant f32 Epsilon = 0.0001f;
-    if((-Epsilon <= Delta.X) && (Delta.X <= Epsilon) &&
-       (-Epsilon <= Delta.Y) && (Delta.Y <= Epsilon)){
-        return(Result);
-    }
+    if((Delta.X == 0.0f) && (Delta.Y == 0.0f)) return(Result);
     
     v2 Simplex[3];
     if(DoGJK(Simplex, BoundaryA, AP, BoundaryB, BP, Delta)){
@@ -645,6 +648,10 @@ DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB,
 void 
 physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta){
     local_constant f32 Epsilon = 0.0001f;
+    if((-Epsilon <= Delta.X) && (Delta.X <= Epsilon) &&
+       (-Epsilon <= Delta.Y) && (Delta.Y <= Epsilon)){
+        return;
+    }
     
     FOR_BUCKET_ARRAY(ItB, &StaticObjects){
         static_physics_object *ObjectB = ItB.Item;
@@ -759,7 +766,9 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
         if(!(Object->State & PhysicsObjectState_Falling)){
             Object->P += Raycast*Collision.TimeOfImpact;
             Object->P += Collision.Correction;
-            Object->dP -= Collision.Normal*Dot(Object->dP, Collision.Normal);
+            
+            Object->dP       -= Collision.Normal*Dot(Object->dP, Collision.Normal);
+            Object->TargetdP -= Collision.Normal*Dot(Object->TargetdP, Collision.Normal);
             //Object->Delta -= Collision.Normal*Dot(Object->Delta, Collision.Normal);
             Object->FloorNormal = Collision.Normal;
             
@@ -773,7 +782,7 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
                 physics_object *ObjectB = Collision.ObjectB;
                 PhysicsDebugger.DrawString("Yes floor");
                 PhysicsDebugger.DrawPoint(Object->P, V20, WHITE);
-                PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
+                PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLACK);
                 PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision.Normal, PINK);
                 PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision.TimeOfImpact);
                 PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision.Correction.X, Collision.Correction.Y);
@@ -806,7 +815,7 @@ physics_system::DoPhysics(){
         dynamic_physics_object *Object = It.Item;
         
         // NOTE(Tyler): This may not be the best way to integrate dP, Delta, but it works
-        f32 DragCoefficient = 1.0f;
+        f32 DragCoefficient = 0.7f;
         Object->ddP.X += -DragCoefficient*Object->dP.X*AbsoluteValue(Object->dP.X);
         Object->ddP.Y += -DragCoefficient*Object->dP.Y*AbsoluteValue(Object->dP.Y);
         v2 ReferencedP = V20;
@@ -816,19 +825,10 @@ physics_system::DoPhysics(){
         Object->Delta = (dTime*Object->dP + 
                          ReferencedP +
                          0.5f*Square(dTime)*Object->ddP);
-        Object->dP += dTime*Object->ddP;
+        //Object->dP += dTime*Object->ddP;
+        Object->TargetdP += dTime*Object->ddP;
+        Object->dP += Object->AccelerationFactor*(Object->TargetdP-Object->dP);
         Object->ddP = {};
-        
-        local_constant f32 Epsilon = 0.0001f;
-        if((-Epsilon <= Object->Delta.X) && (Object->Delta.X <= Epsilon) &&
-           (-Epsilon <= Object->Delta.Y) && (Object->Delta.Y <= Epsilon)){
-            Object->Delta = {};
-        }
-        
-        if((-Epsilon <= Object->dP.X) && (Object->dP.X <= Epsilon) &&
-           (-Epsilon <= Object->dP.Y) && (Object->dP.Y <= Epsilon)){
-            Object->dP = {};
-        }
         
         // DEBUG
         if(PhysicsDebugger.StartOfPhysicsFrame){
@@ -893,8 +893,19 @@ physics_system::DoPhysics(){
         //~ Detect collisions
         FOR_BUCKET_ARRAY(ItA, &Objects){
             dynamic_physics_object *ObjectA = ItA.Item;
-            //ObjectA->State |= PhysicsObjectState_Falling;
-            PhysicsDebugger.DrawString("Delta: (%f, %f)", ObjectA->Delta.X, ObjectA->Delta.Y);
+            
+            local_constant f32 Epsilon = 0.0001f;
+            if((-Epsilon <= ObjectA->Delta.X) && (ObjectA->Delta.X <= Epsilon) &&
+               (-Epsilon <= ObjectA->Delta.Y) && (ObjectA->Delta.Y <= Epsilon)){
+                ObjectA->Delta = {};
+            }
+            
+            if((-Epsilon <= ObjectA->dP.X) && (ObjectA->dP.X <= Epsilon) &&
+               (-Epsilon <= ObjectA->dP.Y) && (ObjectA->dP.Y <= Epsilon)){
+                ObjectA->dP = {};
+            }
+            
+            PhysicsDebugger.DrawString("%u %u Delta: (%f, %f)", Iteration, AIndex, ObjectA->Delta.X, ObjectA->Delta.Y);
             
             DidCollides[AIndex] = false;
             Collisions[AIndex] = {};
@@ -953,39 +964,40 @@ physics_system::DoPhysics(){
                 dynamic_physics_object *ObjectA = It.Item;
                 
                 if(DidCollides[Index]){
-                    f32 Steepness = 0.1f;
-                    if(Collision->Normal.Y > Steepness){
-                        ObjectA->State &= ~PhysicsObjectState_Falling;
-                    }
-                    
                     physics_collision *Collision = &Collisions[Index];
                     physics_object *ObjectB = Collision->ObjectB;
                     
                     ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
                     ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
                     
-                    ObjectA->dP    -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
-                    ObjectA->Delta -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
+                    ObjectA->dP       -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
+                    ObjectA->TargetdP -= COR*Collision->Normal*Dot(ObjectA->TargetdP, Collision->Normal);
+                    ObjectA->Delta    -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
                     
                     f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
                     if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
                     //ObjectA->Delta += CorrectionPercent*Collision->Correction;
-                    ObjectA->P += CorrectionPercent*Collision->Correction;
-                    f32 Epsilon = 0.000001f;
-                    if(!((Collision->Correction.X > -Epsilon) && 
-                         (Collision->Correction.X < Epsilon) &&
-                         (Collision->Correction.Y > -Epsilon) && 
-                         (Collision->Correction.Y < Epsilon))){
-                        u32 PlaceHolder = 5421;
-                    }
                     
+                    ObjectA->P += CorrectionPercent*Collision->Correction;
+                    
+                    f32 Steepness = 0.1f;
+                    if(Collision->Normal.Y > Steepness){
+                        ObjectA->State &= ~PhysicsObjectState_Falling;
+                        //ObjectA->dP = {};
+                        //ObjectA->TargetdP = {};
+                        //ObjectA->Delta = {};
+                        ObjectA->dP       -= Collision->Normal*Dot(ObjectA->dP, V2(0, 1));
+                        ObjectA->TargetdP -= Collision->Normal*Dot(ObjectA->TargetdP, V2(0, 1));
+                        //ObjectA->Delta    -= Collision->Normal*Dot(ObjectA->TargetdP, V2(0, 1));
+                    }
                     
                     if(PhysicsDebugger.DefineStep()){ return; }
                     if(PhysicsDebugger.IsCurrent()){
                         PhysicsDebugger.DrawString("Yes collision");
+                        PhysicsDebugger.DrawPoint(ObjectA->P-CorrectionPercent*Collision->Correction, V20, YELLOW);
                         PhysicsDebugger.DrawPoint(ObjectA->P, V20, WHITE);
                         if(ObjectB) { 
-                            PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLUE);
+                            PhysicsDebugger.DrawPoint(ObjectB->P, V20, BLACK);
                             PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision->Normal, PINK);
                             PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
                         }
@@ -1017,8 +1029,9 @@ physics_system::DoPhysics(){
                 ObjectB->P -= CorrectionPercent*Collision->Correction;
                 
                 if(Dot(ObjectB->Delta, Collision->Normal) > 0){
-                    ObjectB->dP    -= COR*Collision->Normal*Dot(ObjectB->dP, Collision->Normal);
-                    ObjectB->Delta -= COR*Collision->Normal*Dot(ObjectB->Delta, Collision->Normal);
+                    ObjectB->Delta = {};
+                    //ObjectB->dP    -= COR*Collision->Normal*Dot(ObjectB->dP, Collision->Normal);
+                    //ObjectB->Delta -= COR*Collision->Normal*Dot(ObjectB->Delta, Collision->Normal);
                 }
             }
         }

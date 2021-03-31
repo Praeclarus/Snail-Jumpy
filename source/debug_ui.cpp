@@ -36,6 +36,8 @@ DEBUGRenderOverlay(){
                          PlayerPhysics->P.X, PlayerPhysics->P.Y);
             LayoutString(&Layout, &DebugFont, BLACK, "Player.dP: (%f, %f)", 
                          PlayerPhysics->dP.X, PlayerPhysics->dP.Y);
+            LayoutString(&Layout, &DebugFont, BLACK, "Player.TargetdP: (%f, %f)", 
+                         PlayerPhysics->TargetdP.X, PlayerPhysics->TargetdP.Y);
             LayoutString(&Layout, &DebugFont, BLACK, "FloorNormal: (%f, %f)", 
                          PlayerPhysics->FloorNormal.X, PlayerPhysics->FloorNormal.Y);
             if(PlayerPhysics->ReferenceFrame){

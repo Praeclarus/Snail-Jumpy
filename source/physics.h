@@ -108,11 +108,13 @@ struct static_physics_object : public physics_object {
 };
 
 struct dynamic_physics_object : public physics_object {
-    v2 dP, ddP;
+    v2 dP, TargetdP, ddP;
+    f32 AccelerationFactor = 0.7f;
     v2 Delta;
     debug_physics_info DebugInfo;
     physics_object_state_flags State;
     v2 FloorNormal;
+    v2 FloorTangent;
     dynamic_physics_object *ReferenceFrame;
 };
 

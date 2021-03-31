@@ -147,9 +147,11 @@ MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f)
         Physics->FloorNormal = V2(0, 1);
     }
     v2 FloorNormal = Physics->FloorNormal;
-    v2 FloorTangent = TripleProduct(FloorNormal, V2(Movement, 0.0f));
-    ddP += FloorTangent; 
-    
+    // TODO(Tyler): Why is this Normalize needed? Does TripleProduct not return a normalized 
+    // vector for two normalize inputs?
+    v2 FloorTangent = Normalize(TripleProduct(FloorNormal, V2(1, 0)));
+    Physics->TargetdP -= FloorTangent*Dot(Physics->TargetdP, FloorTangent); 
+    Physics->TargetdP += Movement*FloorTangent;
     Physics->ddP += ddP;
 }
 
@@ -188,7 +190,7 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
     player_entity *Player = EntityManager.Player;
     dynamic_physics_object *Physics = Player->DynamicPhysics;
     if(_ShouldEntityUpdate(Player)){
-        f32 MovementSpeed = 50; // TODO(Tyler): Load this from a variables file
+        f32 MovementSpeed = 6; // TODO(Tyler): Load this from a variables file
         f32 Movement = 0.0f;
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
             Player->Direction = Direction_Right;
@@ -201,19 +203,21 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         
         
         // TODO(Tyler): Load from file (Player->JumpTime)
-        if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.1f;
-        local_constant f32 JumpPower = 88.0f;
-        v2 ddP = {0};
+        if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.075f;
+        local_constant f32 JumpPower = 2.0f;
+        f32 Jump = 0.0f;
         if(EntityManager.PlayerInput.Jump &&
            (Player->JumpTime > 0.0f)){
             //ddP += 88.0f*Physics->FloorNormal;
-            ddP.Y += JumpPower;
+            Jump += JumpPower;
             Player->JumpTime -= OSInput.dTime;
             Physics->State |= PhysicsObjectState_Falling;
+            Physics->TargetdP += V2(0, Jump);
+            Physics->ddP.Y = 0.0f;
+            
         }else if(!EntityManager.PlayerInput.Jump){
             Player->JumpTime = 0.0f;
         }
-        Physics->ddP += ddP;
         
         if(Physics->State & PhysicsObjectState_Falling){
             f32 Epsilon = 0.01f;
@@ -575,7 +579,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             
             if(Physics->State & PhysicsObjectState_Falling){
                 v2 ddP = V2(0.0f, -11.0f);
-                Physics->ddP += ddP;
+                f32 dTime = OSInput.dTime;
+                Physics->TargetdP += dTime*ddP;
             }
             
             v2 Size = RectSize(Projectile->Bounds);
