@@ -203,17 +203,18 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
     Assert(Data);
     enemy_entity *Enemy = (enemy_entity *)Data;
     Assert(Enemy->Type == EntityType_Enemy);
-    b8 Result = false;
-    
     dynamic_physics_object *ObjectA = Enemy->DynamicPhysics;
     physics_object *ObjectB = Collision->ObjectB;
     entity *CollisionEntity = ObjectB->Entity;
+    
     if(CollisionEntity){
         switch(CollisionEntity->Type){
             case EntityType_Player: {
-                if(Collision->Normal.Y > 0.0f){
+                f32 XRange = 0.1f;
+                if((Collision->Normal.Y > 0.0f) &&
+                   (-XRange <= Collision->Normal.X) && (Collision->Normal.X <= XRange)){
                     EntityManager.DamagePlayer(Enemy->Damage);
-                    Result = true;
+                    return(true);
                 }
             }break;
             default: {
@@ -232,7 +233,19 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
         }
     }
     
-    return(Result);
+    f32 COR = 1.0f;
+    if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+        // TODO(Tyler): So that dragonflies can't move downwards. 
+        // This isn't a very good solution however
+        v2 Normal = Collision->Normal;
+        Normal.Y = 0.0f;
+        ObjectA->dP       -= COR*Normal*Dot(ObjectA->dP, Normal);
+        ObjectA->TargetdP -= COR*Normal*Dot(ObjectA->TargetdP, Normal);
+        ObjectA->Delta    -= COR*Normal*Dot(ObjectA->Delta, Normal);
+    }
+    
+    
+    return(true);
 }
 
 internal b8

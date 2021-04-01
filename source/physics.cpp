@@ -230,6 +230,23 @@ CollisionResponseStub(entity *Data, physics_collision *Collision){
     return(Result);
 }
 
+internal b8
+ChooseCollision(f32 TimeOfImpact, f32 AlongDelta, physics_collision *Collision){
+    local_constant f32 Epsilon = 0.0001f;
+    b8 Result = false;
+    
+    if(Collision->TimeOfImpact < TimeOfImpact){
+        Result = true;
+    }else if((Collision->TimeOfImpact > TimeOfImpact-Epsilon) && 
+             (Collision->TimeOfImpact < TimeOfImpact+Epsilon)){
+        if(Collision->AlongDelta < AlongDelta){
+            Result = true;
+        }
+    }
+    
+    return(Result);
+}
+
 //~ Physics
 
 void
@@ -409,7 +426,7 @@ DoGJK(v2 Simplex[3], collision_boundary *BoundaryA, v2 AP, collision_boundary *B
     b8 DoesCollide = false;
     PhysicsDebugger.Base = Simplex[0];
     while(true){
-        if(PhysicsDebugger.DefineStep()){ return(false); }
+        if(PhysicsDebugger.DefineStep()) return(false);
         if(PhysicsDebugger.IsCurrent()){
             PhysicsDebugger.DrawPoint(AP, V20, WHITE);
             PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
@@ -548,7 +565,7 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
         }
         
         // DEBUG
-        if(PhysicsDebugger.DefineStep()){  return(Result); }
+        if(PhysicsDebugger.DefineStep()) return(Result);
         if(PhysicsDebugger.IsCurrent()){
             PhysicsDebugger.DrawPoint(AP, V20, WHITE);
             PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
@@ -611,8 +628,7 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
         }
     }
     
-    if(PhysicsDebugger.DefineStep()){ return(Result); 
-    }
+    if(PhysicsDebugger.DefineStep()) return(Result); 
     if(PhysicsDebugger.IsCurrent()){
         PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
         for(u32 I=0; I < Polytope.Count; I++){
@@ -662,7 +678,6 @@ DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB,
 
 void 
 physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta){
-    local_constant f32 Epsilon = 0.0001f;
     if((Delta.X == 0.0f) && (Delta.Y == 0.0f)) { return; }
     
     FOR_BUCKET_ARRAY(ItB, &StaticObjects){
@@ -674,14 +689,8 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
             v2 Simplex[3];
             physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, Delta);
             Collision.ObjectB = ObjectB;
-            
-            if(Collision.TimeOfImpact < OutCollision->TimeOfImpact){
+            if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
                 *OutCollision = Collision;
-            }else if((Collision.TimeOfImpact > OutCollision->TimeOfImpact-Epsilon) && 
-                     (Collision.TimeOfImpact < OutCollision->TimeOfImpact+Epsilon)){
-                if(Collision.AlongDelta < OutCollision->AlongDelta){
-                    *OutCollision = Collision;
-                }
             }
         }
     }
@@ -689,8 +698,6 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
 
 void
 physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, bucket_location StartLocation={}){
-    local_constant f32 Epsilon = 0.0001f;
-    
     u32 BIndexOffset = 1;
     StartLocation.ItemIndex++;
     FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartLocation){
@@ -706,14 +713,8 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
             Collision.ObjectB = ObjectB;
             Collision.IsDynamic = true;
             Collision.BIndexOffset = BIndexOffset;
-            
-            if(Collision.TimeOfImpact < OutCollision->TimeOfImpact){
+            if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
                 *OutCollision = Collision;
-            }else if((Collision.TimeOfImpact > OutCollision->TimeOfImpact-Epsilon) && 
-                     (Collision.TimeOfImpact < OutCollision->TimeOfImpact+Epsilon)){
-                if(Collision.AlongDelta < OutCollision->AlongDelta){
-                    *OutCollision = Collision;
-                }
             }
         }
         
@@ -721,16 +722,14 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
     }
 }
 
+// NOTE(Tyler): No BIndexOffset
 void
 physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject=0){
-    local_constant f32 Epsilon = 0.0001f;
-    
-    u32 BIndexOffset = 1;
     PhysicsDebugger.DoDebug = true;
     FOR_BUCKET_ARRAY(ItB, &Objects){
         dynamic_physics_object *ObjectB = ItB.Item;
         
-        if(ObjectB == SkipObject){ BIndexOffset++; continue; }
+        if(ObjectB == SkipObject) continue; 
         
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
@@ -739,18 +738,10 @@ physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collisi
             physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, Delta);
             Collision.ObjectB = ObjectB;
             Collision.IsDynamic = true;
-            Collision.BIndexOffset = BIndexOffset;
-            
-            if(Collision.TimeOfImpact < OutCollision->TimeOfImpact){
+            if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
                 *OutCollision = Collision;
-            }else if((Collision.TimeOfImpact > OutCollision->TimeOfImpact-Epsilon) && 
-                     (Collision.TimeOfImpact < OutCollision->TimeOfImpact+Epsilon)){
-                if(Collision.AlongDelta < OutCollision->AlongDelta){
-                    *OutCollision = Collision;
-                }
             }
         }
-        BIndexOffset++;
     }
 }
 
@@ -760,7 +751,7 @@ void
 physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
     PhysicsDebugger.DoDebug = true;
     
-    if(PhysicsDebugger.DefineStep()){ return; }
+    if(PhysicsDebugger.DefineStep()) return;
     if(PhysicsDebugger.IsCurrent()){
         PhysicsDebugger.DrawString("Floor raycast");
     }
@@ -774,7 +765,7 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
         DoCollisionsNotRelative(&Collision, Boundary, Object->P, Raycast, Object);
     }
     
-    if(PhysicsDebugger.DefineStep()){ return; }
+    if(PhysicsDebugger.DefineStep()) return;
     
     if(Collision.TimeOfImpact >= 1.0f){ 
         if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too far"); }
@@ -872,7 +863,6 @@ physics_system::DoPhysics(){
 #endif
     }
     
-    
     FOR_BUCKET_ARRAY(It, &Objects){
         dynamic_physics_object *Object = It.Item;
         if(Object->ReferenceFrame){ 
@@ -922,66 +912,56 @@ physics_system::DoPhysics(){
         Iteration++;
         
         f32 CurrentTimeOfImpact = 1.0f;
-        u32 AIndex = 0;
         
         //~ Detect collisions
-        FOR_BUCKET_ARRAY(ItA, &Objects){
-            dynamic_physics_object *ObjectA = ItA.Item;
-            
-            local_constant f32 Epsilon = 0.0001f;
-            if((-Epsilon <= ObjectA->Delta.X) && (ObjectA->Delta.X <= Epsilon) &&
-               (-Epsilon <= ObjectA->Delta.Y) && (ObjectA->Delta.Y <= Epsilon)){
-                ObjectA->Delta = {};
-            }
-            
-            if((-Epsilon <= ObjectA->dP.X) && (ObjectA->dP.X <= Epsilon) &&
-               (-Epsilon <= ObjectA->dP.Y) && (ObjectA->dP.Y <= Epsilon)){
-                ObjectA->dP = {};
-            }
-            
-            PhysicsDebugger.DrawString("%u %u Delta: (%f, %f)", Iteration, AIndex, ObjectA->Delta.X, ObjectA->Delta.Y);
-            
-            // DEBUG
-            // TODO(Tyler): Move this into physics_debugger
-            PhysicsDebugger.DoDebug = ObjectA->DebugInfo.DebugThisOne;
-            PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, V20, WHITE);
-            
-            physics_collision Collision = MakeDummyCollision();
-            for(collision_boundary *Boundary = ObjectA->Boundaries;
-                Boundary < ObjectA->Boundaries+ObjectA->BoundaryCount;
-                Boundary++){
-                DoStaticCollisions(&Collision, Boundary, ObjectA->P, ObjectA->Delta);
-                DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, ItA.Location);
-            }
-            
-            u32 BIndex = AIndex + Collision.BIndexOffset;
-            if(Collision.TimeOfImpact < CurrentTimeOfImpact){
-                CurrentTimeOfImpact = Collision.TimeOfImpact;
-                Collisions[AIndex]  = Collision;
-                if(Collision.IsDynamic){
-                    Collisions[BIndex]  = MakeBCollision(Collision, ObjectA);
+        {
+            u32 AIndex = 0;
+            FOR_BUCKET_ARRAY(ItA, &Objects){
+                dynamic_physics_object *ObjectA = ItA.Item;
+                
+                local_constant f32 Epsilon = 0.0001f;
+                if((-Epsilon <= ObjectA->Delta.X) && (ObjectA->Delta.X <= Epsilon) &&
+                   (-Epsilon <= ObjectA->Delta.Y) && (ObjectA->Delta.Y <= Epsilon)){
+                    ObjectA->Delta = {};
                 }
-                for(u32 I=0; I<AIndex; I++){
-                    Collisions[I] = MakeDummyCollision();
+                
+                if((-Epsilon <= ObjectA->dP.X) && (ObjectA->dP.X <= Epsilon) &&
+                   (-Epsilon <= ObjectA->dP.Y) && (ObjectA->dP.Y <= Epsilon)){
+                    ObjectA->dP = {};
                 }
-            }else if((Collision.TimeOfImpact > CurrentTimeOfImpact-Epsilon) && 
-                     (Collision.TimeOfImpact < CurrentTimeOfImpact+Epsilon)){
-                if(Collisions[AIndex].TimeOfImpact < 1.0f){
-                    if(Collision.AlongDelta < Collisions[AIndex].AlongDelta){
-                        Collisions[AIndex]  = Collision;
-                        if(Collision.IsDynamic){
-                            Collisions[BIndex]  = MakeBCollision(Collision, ObjectA);
+                
+                PhysicsDebugger.DrawString("%u %u Delta: (%f, %f)", Iteration, AIndex, ObjectA->Delta.X, ObjectA->Delta.Y);
+                
+                // DEBUG
+                // TODO(Tyler): Move this into physics_debugger
+                PhysicsDebugger.DoDebug = ObjectA->DebugInfo.DebugThisOne;
+                PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, V20, WHITE);
+                
+                physics_collision Collision = MakeDummyCollision();
+                for(collision_boundary *Boundary = ObjectA->Boundaries;
+                    Boundary < ObjectA->Boundaries+ObjectA->BoundaryCount;
+                    Boundary++){
+                    DoStaticCollisions(&Collision, Boundary, ObjectA->P, ObjectA->Delta);
+                    DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, ItA.Location);
+                }
+                
+                u32 BIndex = AIndex + Collision.BIndexOffset;
+                if(ChooseCollision(CurrentTimeOfImpact, F32_POSITIVE_INFINITY, &Collision)){
+                    Collisions[AIndex] = Collision;
+                    if(Collision.TimeOfImpact < CurrentTimeOfImpact){
+                        CurrentTimeOfImpact = Collision.TimeOfImpact;
+                        for(u32 I=0; I<AIndex; I++){
+                            Collisions[I] = MakeDummyCollision();
                         }
                     }
-                }else{
-                    Collisions[AIndex]  = Collision;
+                    
                     if(Collision.IsDynamic){
                         Collisions[BIndex]  = MakeBCollision(Collision, ObjectA);
                     }
                 }
+                
+                AIndex++;
             }
-            
-            AIndex++;
         }
         
         //~ Solve collisions
@@ -1000,7 +980,7 @@ physics_system::DoPhysics(){
                 ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
                 
                 if(Collisions[Index].TimeOfImpact < 1.0f){
-                    if(PhysicsDebugger.DefineStep()){ return; }
+                    if(PhysicsDebugger.DefineStep()) return;
                     
                     if(ObjectA->Response(ObjectA->Entity, Collision)){
                         if(PhysicsDebugger.IsCurrent()){
@@ -1045,16 +1025,17 @@ physics_system::DoPhysics(){
             }
         }
         
-        if(PhysicsDebugger.DefineStep()){ return; }
+        if(PhysicsDebugger.DefineStep()) return;
     }
     
+    //~ Do floor raycasts
     FOR_BUCKET_ARRAY(It, &Objects){
         dynamic_physics_object *Object = It.Item;
         if(!(Object->State & PhysicsObjectState_Floats)){
             DoFloorRaycast(Object);
         }
         
-        if(PhysicsDebugger.DefineStep()){ return; }
+        if(PhysicsDebugger.DefineStep()) return;
     }
     
     // DEBUG

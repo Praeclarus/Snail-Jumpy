@@ -134,9 +134,6 @@ world_manager::LoadWorld(const char *LevelName){
             collision_boundary *TeleporterBoundary = PhysicsSystem.AllocBoundaries(1);
             *TeleporterBoundary = MakeCollisionRect(V20, TILE_SIZE);
             
-            // TODO(Tyler): Formalize player starting position
-            AddPlayer(V2(1.55f, 1.55f));
-            
             for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
                 entity_data *Entity = &CurrentWorld->Entities[I];
                 switch(Entity->Type){
@@ -210,6 +207,9 @@ world_manager::LoadWorld(const char *LevelName){
                 }
                 
             }
+            
+            // TODO(Tyler): Formalize player starting position
+            AddPlayer(V2(1.55f, 1.55f));
             
 #if 0
             {
