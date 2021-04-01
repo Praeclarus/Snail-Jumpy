@@ -23,36 +23,30 @@ world_manager::IsLevelCompleted(const char *LevelName){
 internal void
 AddPlayer(v2 P){
     EntityManager.PlayerInput = {};
-    *EntityManager.Player = {};
-    entity_info *Info = &EntityInfos[1]; // TODO(Tyler): I don't like this
+    player_entity *Player = EntityManager.Player;
+    *Player = {};
+    // TODO(Tyler): Maybe make a constant
+    entity_info *Info = &EntityInfos[1]; 
+    Player->Type = EntityType_Player;
     
-#if 1
-    EntityManager.Player->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
-#else
-    collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-    //*Boundary = MakeCollisionRect(V20, TILE_SIZE);
-    *Boundary = MakeCollisionPill(V2(0.0f, -0.16f), 0.1f, 0.3f, 5);
-    //*Boundary = MakeCollisionCircle(V20, 0.2f, 15);
-    EntityManager.Player->Physics = PhysicsSystem.AddObject(Boundary, 1);
-#endif
-    
-    EntityManager.Player->Type = EntityType_Player;
-    
-    dynamic_physics_object *Physics = EntityManager.Player->DynamicPhysics;
+    Player->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
+    dynamic_physics_object *Physics = Player->DynamicPhysics;
     Physics->Mass = 1.0f;
+    Physics->Response = Info->Response;
+    Physics->Entity = Player;
+    Physics->P = P;
     
-    EntityManager.Player->Physics->P = P;
-    EntityManager.Player->ZLayer = -5.0f;
-    EntityManager.Player->YOffset = 0.5f / 2.0f;
     
-    EntityManager.Player->Direction = Direction_Left;
-    EntityManager.Player->State = State_Idle;
-    //EntityManager.Player->Asset = "player";
-    EntityManager.Player->Asset = "player";
-    EntityManager.Player->AnimationState = 0.0f;
-    EntityManager.Player->JumpTime = 1.0f;
+    Player->ZLayer = -5.0f;
+    Player->YOffset = 0.5f / 2.0f;
     
-    EntityManager.Player->Health = 9;
+    Player->Direction = Direction_Left;
+    Player->State = State_Idle;
+    Player->Asset = "player";
+    Player->AnimationState = 0.0f;
+    Player->JumpTime = 1.0f;
+    
+    Player->Health = 9;
     
     Physics->DebugInfo.DebugThisOne = true;
 }
@@ -151,12 +145,10 @@ world_manager::LoadWorld(const char *LevelName){
                         enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
                         *Enemy = {};
                         
-                        //collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-                        //*Boundary = MakeCollisionWedge(V2(0.5f,-0.5f), -1.0f, 1.0f);
-                        
-                        //Enemy->Physics = PhysicsSystem.AddObject(Boundary, 1);
                         Enemy->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
-                        Enemy->DynamicPhysics->DebugInfo.DebugThisOne = true;
+                        Enemy->Physics->Response = Info->Response;
+                        Enemy->Physics->Entity = Enemy;
+                        
                         // TODO(Tyler): This is not correct!!!
                         Enemy->Bounds = OffsetRect(Info->Boundaries->Bounds, Info->Boundaries->Offset);
                         Enemy->Type  = Info->Type;
@@ -169,7 +161,7 @@ world_manager::LoadWorld(const char *LevelName){
                         v2 P = Entity->P; P.Y += 0.01f;
                         Enemy->Physics->P = P;
                         Enemy->Y = P.Y;
-                        //Enemy->Physics->Mass = Info->Mass;
+                        Enemy->Physics->Mass = Info->Mass;
                         
                         Enemy->Speed = Info->Speed;
                         Enemy->Damage = Info->Damage;
@@ -186,8 +178,7 @@ world_manager::LoadWorld(const char *LevelName){
                         if(SetIndex > 0){
                             SetIndex--;
                             Assert(SetIndex < Info->BoundarySets);
-                            
-                            //Enemy->Physics->Boundary = Info->Boundaries[SetIndex];
+                            Enemy->Physics->Boundaries = &Info->Boundaries[SetIndex];
                         }
                     }break;
                     case EntityType_Teleporter: {
@@ -220,7 +211,7 @@ world_manager::LoadWorld(const char *LevelName){
                 
             }
             
-#if 0            
+#if 0
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);

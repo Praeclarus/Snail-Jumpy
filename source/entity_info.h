@@ -29,8 +29,7 @@ struct entity_info {
         };
     };
     
-    // NOTE(Tyler): The P member of the collision_boundary struct here is an offset
-    boundary_flags CollisionFlags;
+    collision_response_function *Response;
     
     // The boundary set is based off an offset into this
     entity_info_boundary *EditingBoundaries;

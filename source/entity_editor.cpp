@@ -315,8 +315,6 @@ entity_editor::DoUI(){
             }
         }
         
-        TOGGLE_FLAG(Window, "Can stand on", SelectedInfo->CollisionFlags, BoundaryFlag_CanStandOn);
-        
         //~ Boundary set management
         u32 BoundarySetIndex = ((u32)(BoundarySet - SelectedInfo->EditingBoundaries) / SelectedInfo->BoundaryCount) + 1;
         Window->Text("Boundary set: %u/%u", BoundarySetIndex, SelectedInfo->BoundarySets);

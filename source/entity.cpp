@@ -139,8 +139,17 @@ StunEnemy(enemy_entity *Enemy){
 }
 
 internal void
+TurnEnemy(enemy_entity *Enemy, direction Direction){
+    SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
+    Enemy->Direction = Direction;
+    Enemy->DynamicPhysics->dP.X = 0.0f;
+    Enemy->DynamicPhysics->TargetdP.X = 0.0f;
+}
+
+//~ Physics stuff
+
+internal void
 MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f){
-    // TODO(Tyler): Load from file
     v2 ddP = {};
     if(Physics->State & PhysicsObjectState_Falling){
         ddP.Y -= Gravity;
@@ -149,12 +158,96 @@ MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f)
         Physics->FloorNormal = V2(0, 1);
     }
     v2 FloorNormal = Physics->FloorNormal;
-    // TODO(Tyler): Why is this Normalize needed? Does TripleProduct not return a normalized 
-    // vector for two normalize inputs?
     v2 FloorTangent = Normalize(TripleProduct(FloorNormal, V2(1, 0)));
     Physics->TargetdP -= FloorTangent*Dot(Physics->TargetdP, FloorTangent); 
     Physics->TargetdP += Movement*FloorTangent;
     Physics->ddP += ddP;
+}
+
+internal b8
+EnemyCollisionResponse(entity *Data, physics_collision *Collision){
+    Assert(Data);
+    enemy_entity *Enemy = (enemy_entity *)Data;
+    Assert(Enemy->Type == EntityType_Enemy);
+    
+    dynamic_physics_object *ObjectA = Enemy->DynamicPhysics;
+    physics_object *ObjectB = Collision->ObjectB;
+    entity *CollisionEntity = ObjectB->Entity;
+    if(CollisionEntity){
+        switch(CollisionEntity->Type){
+            case EntityType_Player: {
+                EntityManager.DamagePlayer(Enemy->Damage);
+                return(true);
+            }break;
+            default: {
+                INVALID_CODE_PATH;
+            }break;
+        }
+    }
+    
+    if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+        if(Collision->Normal.Y < WALKABLE_STEEPNESS){
+            if(Collision->Normal.X > 0.0f){
+                TurnEnemy(Enemy, Direction_Right);
+            }else{
+                TurnEnemy(Enemy, Direction_Left);
+            }
+        }
+    }
+    
+    return(false);
+}
+
+internal b8
+DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
+    Assert(Data);
+    enemy_entity *Enemy = (enemy_entity *)Data;
+    Assert(Enemy->Type == EntityType_Enemy);
+    b8 Result = false;
+    
+    dynamic_physics_object *ObjectA = Enemy->DynamicPhysics;
+    physics_object *ObjectB = Collision->ObjectB;
+    entity *CollisionEntity = ObjectB->Entity;
+    if(CollisionEntity){
+        switch(CollisionEntity->Type){
+            case EntityType_Player: {
+                if(Collision->Normal.Y > 0.0f){
+                    EntityManager.DamagePlayer(Enemy->Damage);
+                    Result = true;
+                }
+            }break;
+            default: {
+                INVALID_CODE_PATH;
+            }break;
+        }
+    }else{
+        if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+            if(Collision->Normal.Y < WALKABLE_STEEPNESS){
+                if(Collision->Normal.X > 0.0f){
+                    TurnEnemy(Enemy, Direction_Right);
+                }else{
+                    TurnEnemy(Enemy, Direction_Left);
+                }
+            }
+        }
+    }
+    
+    return(Result);
+}
+
+internal b8
+PlayerCollisionResponse(entity *Data, physics_collision *Collision){
+    Assert(Data);
+    player_entity *Player = (player_entity *)Data;
+    Assert(Player->Type == EntityType_Player);
+    b8 Result = false;
+    
+    physics_object *ObjectB = Collision->ObjectB;
+    entity *CollisionEntity = ObjectB->Entity;
+    if(!CollisionEntity) return(false);
+    
+    
+    return(Result);
 }
 
 //~ Entity updating and rendering
@@ -275,75 +368,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
     UpdateAndRenderAnimation(Camera, Player, OSInput.dTime);
 }
 
-internal void
-UpdateAndRenderTopDownPlayer(camera *Camera){
-    v2 ddP = {0};
-    
-#if 0    
-    if(IsKeyDown(KeyCode_Right) && !IsKeyDown(KeyCode_Left)){
-        ddP.X += 1;
-    }else if(IsKeyDown(KeyCode_Left) && !IsKeyDown(KeyCode_Right)){
-        ddP.X -= 1;
-    }
-    
-    if(IsKeyDown(KeyCode_Up) && !IsKeyDown(KeyCode_Down)){
-        ddP.Y += 1;
-    }else if(IsKeyDown(KeyCode_Down) && !IsKeyDown(KeyCode_Up)){
-        ddP.Y -= 1;
-    }
-    
-    player_entity *Player = EntityManager.Player;
-    if((ddP.X != 0.0f) && (ddP.Y != 0.0f)) ddP /= SquareRoot(LengthSquared(ddP));
-    
-#if 0
-    if((ddP.X == 0.0f) && (ddP.Y > 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningNorth);
-    }else if((ddP.X > 0.0f) && (ddP.Y > 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningNorthEast);
-    }else if((ddP.X > 0.0f) && (ddP.Y == 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningEast);
-    }else if((ddP.X > 0.0f) && (ddP.Y < 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningSouthEast);
-    }else if((ddP.X == 0.0f) && (ddP.Y < 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningSouth);
-    }else if((ddP.X < 0.0f) && (ddP.Y < 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningSouthWest);
-    }else if((ddP.X < 0.0f) && (ddP.Y == 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningWest);
-    }else if((ddP.X < 0.0f) && (ddP.Y > 0.0f)){
-        PlayAnimation(Player, TopdownPlayerAnimation_RunningNorthWest);
-    }else {
-        switch(Player->CurrentAnimation){
-            case TopdownPlayerAnimation_RunningNorth:     PlayAnimation(Player, TopdownPlayerAnimation_IdleNorth); break;
-            case TopdownPlayerAnimation_RunningNorthEast: PlayAnimation(Player, TopdownPlayerAnimation_IdleNorthEast); break;
-            case TopdownPlayerAnimation_RunningEast:      PlayAnimation(Player, TopdownPlayerAnimation_IdleEast); break;
-            case TopdownPlayerAnimation_RunningSouthEast: PlayAnimation(Player, TopdownPlayerAnimation_IdleSouthEast); break;
-            case TopdownPlayerAnimation_RunningSouth:     PlayAnimation(Player, TopdownPlayerAnimation_IdleSouth); break;
-            case TopdownPlayerAnimation_RunningSouthWest: PlayAnimation(Player, TopdownPlayerAnimation_IdleSouthWest); break;
-            case TopdownPlayerAnimation_RunningWest:      PlayAnimation(Player, TopdownPlayerAnimation_IdleWest); break;
-            case TopdownPlayerAnimation_RunningNorthWest: PlayAnimation(Player, TopdownPlayerAnimation_IdleNorthWest); break;
-        }
-        
-    }
-#endif
-    
-    
-    f32 MovementSpeed = 100;
-    if(IsKeyDown(KeyCode_Shift)){
-        MovementSpeed = 200;
-    }
-    ddP *= MovementSpeed;
-    
-    
-    MoveEntity(EntityManager.Player, 0, ddP, 0.7f, 0.7f);
-    
-    Camera->SetCenter(EntityManager.Player->P, CurrentWorld);
-    UpdateAndRenderAnimation(Camera, EntityManager.Player, 
-                             OSInput.dTime);
-#endif
-    
-}
-
 void 
 entity_manager::UpdateAndRenderEntities(camera *Camera){
     
@@ -397,16 +421,10 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             
             if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
                (Enemy->Direction == Direction_Left)){
-                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-                Enemy->Direction = Direction_Right;
-                Physics->dP = {};
-                Physics->TargetdP = {};
+                TurnEnemy(Enemy, Direction_Right);
             }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
                      (Enemy->Direction == Direction_Right)){
-                SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
-                Enemy->Direction = Direction_Left;
-                Physics->dP = {};
-                Physics->TargetdP = {};
+                TurnEnemy(Enemy, Direction_Left);
             }else{
                 f32 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
                 dynamic_physics_object *Physics = Enemy->DynamicPhysics;
@@ -490,7 +508,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     //~ Player
     BEGIN_TIMED_BLOCK(UpdateAndRenderPlayer);
     if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-        UpdateAndRenderTopDownPlayer(Camera);
+        NOT_IMPLEMENTED_YET;
     }else{
         UpdateAndRenderPlatformerPlayer(Camera);
     }

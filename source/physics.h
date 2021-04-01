@@ -54,17 +54,10 @@ enum collision_boundary_type {
     BoundaryType_FreeForm,
 };
 
-typedef u32 boundary_flags;
-enum _boundary_flags {
-    BoundaryFlag_None = 0,
-    BoundaryFlag_CanStandOn = (1 << 0),
-};
-
 typedef v2 gjk_simplex[3];
 
 struct collision_boundary {
     collision_boundary_type Type;
-    boundary_flags Flags;
     v2 Offset;
     rect Bounds;
     
@@ -89,7 +82,9 @@ global_constant u32 MAX_BOUNDARY_CHILDREN = 3;
 
 //~ Physics
 
-typedef b8 collision_response_function(void *Data);
+struct entity;
+struct physics_collision;
+typedef b8 collision_response_function(entity *Data, physics_collision *Collision);
 
 enum physics_object_state_flags_ {
     PhysicsObjectState_None    = 0,
@@ -105,7 +100,7 @@ struct physics_object {
     u8 BoundaryCount;
     
     collision_response_function *Response;
-    void *ResponseData;
+    entity *Entity;
 };
 
 struct static_physics_object : public physics_object {

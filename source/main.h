@@ -58,10 +58,10 @@ enum direction {
 
 typedef u32 entity_flags;
 enum _entity_flags {
-    EntityFlag_None                           = 0,
-    EntityFlag_CanBeStunned                   = (1 << 0),
-    EntityFlag_NotAffectedByGravity           = (1 << 1),
-    EntityFlag_MirrorBoundariesWhenGoingRight = (1 << 2),
+    EntityFlag_None                 = 0,
+    EntityFlag_CanBeStunned         = (1 << 0),
+    EntityFlag_NotAffectedByGravity = (1 << 1),
+    EntityFlag_FlipBoundaries       = (1 << 2),
 };
 
 enum entity_type {
@@ -182,5 +182,9 @@ internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f
 internal b8 _ShouldEntityUpdate(entity *Entity);
 internal inline void RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset=V2(0,0));
 internal inline void ProcessDefaultEvent(os_event *Event);
+
+internal b8 EnemyCollisionResponse(entity *Data, physics_collision *Collision);
+internal b8 PlayerCollisionResponse(entity *Data, physics_collision *Collision);
+internal b8 DragonflyCollisionResponse(entity *Data, physics_collision *Collision);
 
 #endif
