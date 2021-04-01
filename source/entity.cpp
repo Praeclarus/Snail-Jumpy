@@ -145,6 +145,8 @@ MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f)
     if(Physics->State & PhysicsObjectState_Falling){
         ddP.Y -= Gravity;
         Physics->FloorNormal = V2(0, 1);
+    }else if(Physics->State & PhysicsObjectState_Floats){
+        Physics->FloorNormal = V2(0, 1);
     }
     v2 FloorNormal = Physics->FloorNormal;
     // TODO(Tyler): Why is this Normalize needed? Does TripleProduct not return a normalized 
@@ -407,6 +409,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                 Physics->TargetdP = {};
             }else{
                 f32 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
+                dynamic_physics_object *Physics = Enemy->DynamicPhysics;
                 
                 f32 Gravity = 0.0f;
                 if(Physics->State & PhysicsObjectState_Falling){
@@ -414,6 +417,9 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                     }else{
                         Gravity = 11.0f;
                     }
+                }
+                if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
+                    Physics->TargetdP.Y = Enemy->Y-Physics->P.Y;
                 }
                 
                 ChangeEntityState(Enemy, State_Moving);

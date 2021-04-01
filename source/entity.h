@@ -97,6 +97,7 @@ struct teleporter_entity : public entity {
 struct enemy_entity : public entity {
     f32 Speed;
     v2 PathStart, PathEnd;
+    f32 Y; // Dragonflies
     s32 Damage;
 };
 

@@ -3,9 +3,10 @@ global render_texture_handle DefaultTexture;
 void
 renderer::NewFrame(memory_arena *Arena, v2s OutputSize_){
     local_constant u32 INITIAL_SIZE = Kilobytes(3);
-    DynamicArrayInitialize(&CommandBuffer, INITIAL_SIZE, Arena);
-    DynamicArrayInitialize(&Vertices, INITIAL_SIZE, Arena);
-    DynamicArrayInitialize(&Indices, INITIAL_SIZE, Arena);
+    // TODO HACK(Tyler): Use Arena here! This is just a temporary and awful fix.
+    DynamicArrayInitialize(&CommandBuffer, INITIAL_SIZE, 0);
+    DynamicArrayInitialize(&Vertices, INITIAL_SIZE, 0);
+    DynamicArrayInitialize(&Indices, INITIAL_SIZE, 0);
     OutputSize = OutputSize_;
     CommandCount = 0;
 }

@@ -9,7 +9,7 @@ struct profiled_block {
 };
 
 struct profile_data {
-    profiled_block Blocks[512];
+    profiled_block Blocks[10000000];
     u32 CurrentBlockIndex;
     u32 CurrentLevel;
 };

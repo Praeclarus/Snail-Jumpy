@@ -94,6 +94,7 @@ global_constant color RED    = color{1.0f,  0.0f,  0.0f, 1.0f};
 global_constant color YELLOW = color{1.0f,  1.0f,  0.0f, 1.0f};
 global_constant color BLUE   = color{0.0f,  0.0f,  1.0f, 1.0f};
 global_constant color GREEN  = color{0.0f,  1.0f,  0.0f, 1.0f};
+global_constant color DARK_GREEN = color{0.0f,  0.5f,  0.0f, 1.0f};
 global_constant color BROWN  = color{0.41f, 0.20f, 0.0f, 1.0f};
 global_constant color PINK   = color{1.0f,  0.0f,  1.0f, 1.0f};
 global_constant color PURPLE = color{0.42f, 0.05f, 0.68f,1.0f};

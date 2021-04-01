@@ -89,10 +89,12 @@ global_constant u32 MAX_BOUNDARY_CHILDREN = 3;
 
 //~ Physics
 
+typedef b8 collision_response_function(void *Data);
+
 enum physics_object_state_flags_ {
     PhysicsObjectState_None    = 0,
     PhysicsObjectState_Falling = (1 << 0),
-    PhysicsObjectState_Moving  = (1 << 1),
+    PhysicsObjectState_Floats  = (1 << 1),
 };
 typedef u32 physics_object_state_flags;
 
@@ -101,6 +103,9 @@ struct physics_object {
     f32 Mass;
     collision_boundary *Boundaries;
     u8 BoundaryCount;
+    
+    collision_response_function *Response;
+    void *ResponseData;
 };
 
 struct static_physics_object : public physics_object {
@@ -122,6 +127,7 @@ struct physics_collision {
     physics_object *ObjectB;
     b8 IsDynamic;
     
+    u32 BIndexOffset;
     v2 Normal;
     v2 Correction;
     f32 TimeOfImpact;

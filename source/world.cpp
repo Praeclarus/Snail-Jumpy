@@ -137,11 +137,11 @@ world_manager::LoadWorld(const char *LevelName){
                 Score = 0; // UpdateCoin changes this value
             }
             
-            // TODO(Tyler): Formalize player starting position
-            AddPlayer(V2(1.55f, 1.55f));
-            
             collision_boundary *TeleporterBoundary = PhysicsSystem.AllocBoundaries(1);
             *TeleporterBoundary = MakeCollisionRect(V20, TILE_SIZE);
+            
+            // TODO(Tyler): Formalize player starting position
+            AddPlayer(V2(1.55f, 1.55f));
             
             for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
                 entity_data *Entity = &CurrentWorld->Entities[I];
@@ -161,10 +161,14 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Bounds = OffsetRect(Info->Boundaries->Bounds, Info->Boundaries->Offset);
                         Enemy->Type  = Info->Type;
                         Enemy->Flags = Info->Flags;
+                        if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
+                            Enemy->DynamicPhysics->State |= PhysicsObjectState_Floats;
+                        }
                         Enemy->Info = Entity->InfoID;
                         
                         v2 P = Entity->P; P.Y += 0.01f;
                         Enemy->Physics->P = P;
+                        Enemy->Y = P.Y;
                         //Enemy->Physics->Mass = Info->Mass;
                         
                         Enemy->Speed = Info->Speed;
@@ -215,7 +219,6 @@ world_manager::LoadWorld(const char *LevelName){
                 }
                 
             }
-            
             
 #if 0            
             {
@@ -295,7 +298,7 @@ world_manager::LoadWorldFromFile(const char *Name){
         
         NewWorld->Width = Header->WidthInTiles;
         NewWorld->Height = Header->HeightInTiles;
-        NewWorld->Entities = CreateNewArray<entity_data>(&Memory, 64);
+        NewWorld->Entities = CreateNewArray<entity_data>(&Memory, 256);
         NewWorld->Entities.Count = Header->EntityCount;
         if(Header->IsTopDown){
             NewWorld->Flags |= WorldFlag_IsTopDown;
