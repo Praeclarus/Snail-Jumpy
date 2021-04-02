@@ -184,7 +184,14 @@ world_manager::LoadWorld(const char *LevelName){
                         teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
                         
                         *Teleporter = {};
-                        Teleporter->Physics = PhysicsSystem.AddStaticObject(TeleporterBoundary, 1);
+                        trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(TeleporterBoundary, 1);
+                        Physics->P = Entity->P;
+                        Physics->Response = TeleporterResponse;
+                        Physics->Entity = Teleporter;
+                        
+                        Teleporter->Type = EntityType_Teleporter;
+                        Teleporter->Physics = Physics;
+                        Teleporter->Bounds = TeleporterBoundary->Bounds;
                         Teleporter->Level = Entity->Level;
                         Teleporter->IsLocked = !IsLevelCompleted(Entity->TRequiredLevel);
                     }break;

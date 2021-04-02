@@ -179,6 +179,17 @@ CoinResponse(entity *Data, physics_collision *Collision){
 }
 
 internal b8
+TeleporterResponse(entity *Data, physics_collision *Collision){
+    Assert(Data);
+    teleporter_entity *Teleporter = (teleporter_entity *)Data;
+    Assert(Teleporter->Type == EntityType_Teleporter);
+    
+    Teleporter->IsSelected = true;
+    
+    return(false);
+}
+
+internal b8
 EnemyCollisionResponse(entity *Data, physics_collision *Collision){
     Assert(Data);
     enemy_entity *Enemy = (enemy_entity *)Data;
@@ -541,47 +552,23 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             RenderRectangle(Teleporter->Physics->P-(Size/2), Teleporter->Physics->P+(Size/2), 0.0f, 
                             GREEN, Camera);
             
-            v2 Radius = Size/2;
-            v2 PlayerMin = Player->Physics->P-(RectSize(Player->Bounds)/2);
-            v2 PlayerMax = Player->Physics->P+(RectSize(Player->Bounds)/2);
-            if((Teleporter->Physics->P.X-Radius.X <= PlayerMax.X) &&
-               (PlayerMin.X <= Teleporter->Physics->P.X+Radius.X) &&
-               (Teleporter->Physics->P.Y-Radius.Y <= PlayerMax.Y) &&
-               (PlayerMin.Y  <= Teleporter->Physics->P.Y+Radius.Y)){
+            if(Teleporter->IsSelected){
                 world_data *World = WorldManager.GetOrCreateWorld(Teleporter->Level);
                 if(World){
-                    v2 TileSize = v2{0.1f, 0.1f};
-                    v2 MapSize = TileSize.X * v2{(f32)World->Width, (f32)World->Height};
-                    
-                    v2 MapP = v2{
-                        Teleporter->Physics->P.X-MapSize.X/2,
-                        Teleporter->Physics->P.Y+Size.Y/2
-                    };
-                    
-                    RenderRectangle(MapP, MapP+MapSize, -0.1f,
-                                    Color(0.5f, 0.5f, 0.5f, 1.0f), Camera);
-                    v2 StringP = v2{
-                        Teleporter->Physics->P.X,
-                        Teleporter->Physics->P.Y + Size.Y/2 + MapSize.Y + 0.07f
-                    };
+                    v2 StringP = Teleporter->Physics->P;
+                    StringP.Y += 0.5f;
                     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
                     StringP.X -= Advance/2/Camera->MetersToPixels;
                     RenderString(&MainFont, GREEN,
                                  StringP.X, StringP.Y, -1.0f, Teleporter->Level, Camera);
-                    f32 Thickness = 0.03f;
-                    v2 Min = MapP-v2{Thickness, Thickness};
-                    v2 Max = MapP+MapSize+v2{Thickness, Thickness};
-                    color Color = color{0.2f, 0.5f, 0.2f, 1.0f};
-                    RenderRectangle(Min, V2(Max.X, Min.Y+Thickness), -0.11f, Color);
-                    RenderRectangle(V2(Max.X-Thickness, Min.Y), V2(Max.X, Max.Y), -0.11f, Color, Camera);
-                    RenderRectangle(V2(Min.X, Max.Y), V2(Max.X, Max.Y-Thickness), -0.11f, Color, Camera);
-                    RenderRectangle(V2(Min.X, Min.Y), V2(Min.X+Thickness, Max.Y), -0.11f, Color, Camera);
                 }
 #if 0
                 if(IsKeyJustPressed(KeyCode_Space)){
                     ChangeState(GameMode_MainGame, Teleporter->Level);
                 }
 #endif
+                
+                Teleporter->IsSelected = false;
             }
         }else{
             RenderRectangle(Teleporter->Physics->P-(Size/2), Teleporter->Physics->P+(Size/2), 0.0f, 

@@ -325,6 +325,7 @@ physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
     Result->BoundaryCount = Count;
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
+    Result->IsActive = true;
     
     return(Result);
 }
@@ -344,9 +345,9 @@ physics_system::AllocBoundaries(u32 Count){
 //~ Collision detection
 
 internal inline v2
-GJKSupport(collision_boundary *Boundary, 
-           v2 P, v2 Delta,
-           v2 Direction){
+DoSupport(collision_boundary *Boundary, 
+          v2 P, v2 Delta,
+          v2 Direction){
     v2 Result = {};
     
     switch(Boundary->Type){
@@ -381,7 +382,7 @@ GJKSupport(collision_boundary *Boundary,
 internal inline v2 
 CalculateSupport(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta, v2 Direction){
     // TODO(Tyler): Currently this only supports single collision boundaries
-    v2 Result = GJKSupport(BoundaryA, AP, Delta, Direction) - GJKSupport(BoundaryB, BP, V20, -Direction);
+    v2 Result = DoSupport(BoundaryA, AP, Delta, Direction) - DoSupport(BoundaryB, BP, V20, -Direction);
     return(Result);
 }
 
