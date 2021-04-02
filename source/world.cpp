@@ -199,8 +199,12 @@ world_manager::LoadWorld(const char *LevelName){
                         door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
                         collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                         *Boundary = MakeCollisionRect(V20, Entity->Size);
-                        Door->Physics = PhysicsSystem.AddStaticObject(Boundary, 1);
-                        Door->IsOpen = false;
+                        static_physics_object *Physics = PhysicsSystem.AddStaticObject(Boundary, 1);
+                        Physics->P = Entity->P;
+                        
+                        Door->Physics = Physics;
+                        Door->Bounds = Boundary->Bounds;
+                        
                         
                         if(IsLevelCompleted(Entity->DRequiredLevel)){
                             OpenDoor(Door);

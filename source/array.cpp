@@ -376,7 +376,7 @@ BucketArrayAlloc(bucket_array<T, U> *Array){
         DynamicArrayUnorderedRemove(&Array->UnfullBuckets, 0);
     }
     
-    return Result;
+    return(Result);
 }
 
 template <typename T, u32 U>

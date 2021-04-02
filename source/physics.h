@@ -90,6 +90,7 @@ enum physics_object_state_flags_ {
     PhysicsObjectState_None    = 0,
     PhysicsObjectState_Falling = (1 << 0),
     PhysicsObjectState_Floats  = (1 << 1),
+    PhysicsObjectState_IsInactive = (1 << 2),
 };
 typedef u32 physics_object_state_flags;
 
@@ -97,6 +98,7 @@ struct physics_object {
     v2 P;
     f32 Mass;
     collision_boundary *Boundaries;
+    physics_object_state_flags State;
     u8 BoundaryCount;
     
     union{
@@ -110,7 +112,6 @@ struct static_physics_object : public physics_object {
 };
 
 struct trigger_physics_object : public physics_object {
-    b8 IsActive;
 };
 
 struct dynamic_physics_object : public physics_object {
@@ -118,7 +119,6 @@ struct dynamic_physics_object : public physics_object {
     f32 AccelerationFactor = 0.7f;
     v2 Delta;
     debug_physics_info DebugInfo;
-    physics_object_state_flags State;
     v2 FloorNormal;
     v2 FloorTangent;
     dynamic_physics_object *ReferenceFrame;

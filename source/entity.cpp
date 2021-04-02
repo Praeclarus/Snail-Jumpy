@@ -24,6 +24,7 @@ internal inline void
 OpenDoor(door_entity *Door){
     if(!Door->IsOpen){ Door->Cooldown = 1.0f; }
     Door->IsOpen = true;
+    Door->Physics->State |= PhysicsObjectState_IsInactive;
 }
 
 inline void
@@ -71,7 +72,7 @@ UpdateCoin(coin_entity *Coin){
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
         Coin->Cooldown = 1.0f;
         Coin->Physics->P = NewP;
-        Coin->TriggerPhysics->IsActive = false;
+        Coin->TriggerPhysics->State |= PhysicsObjectState_IsInactive;
     }
 }
 
@@ -435,7 +436,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTime;
         }else{
-            Coin->TriggerPhysics->IsActive = true;
+            Coin->TriggerPhysics->State &= ~PhysicsObjectState_IsInactive;
             RenderRectangle(Coin->Physics->P-(Size/2), Coin->Physics->P+(Size/2), 0.0f, 
                             YELLOW, Camera);
         }
