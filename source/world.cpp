@@ -153,7 +153,7 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Type  = Info->Type;
                         Enemy->Flags = Info->Flags;
                         if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-                            Enemy->DynamicPhysics->State |= PhysicsObjectState_Floats;
+                            Enemy->DynamicPhysics->State |= PhysicsObjectState_DontFloorRaycast;
                         }
                         Enemy->Info = Entity->InfoID;
                         
@@ -247,7 +247,7 @@ world_manager::LoadWorld(const char *LevelName){
             }
 #endif
             
-#if 0
+#if 1
             AddParticles(V2(3.0f, 3.0f));
             AddParticles(V2(5.0f, 3.0f));
             AddParticles(V2(7.0f, 3.0f));
@@ -255,14 +255,22 @@ world_manager::LoadWorld(const char *LevelName){
 #endif
             
             
-#if 0            
             {
                 projectile_entity *Projectile = BucketArrayAlloc(&EntityManager.Projectiles);
                 Projectile->Type = EntityType_Projectile;
                 Projectile->RemainingLife = 0.0f;
-                Projectile->Physics = PhysicsSystem.AddObject(ProjectileBoundary, 1);
+                collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+                *Boundary = MakeCollisionRect(V20, V2(0.3f));
+                trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
+                
+                Physics->State |= PhysicsObjectState_DontFloorRaycast;
+                Physics->State |= PhysicsObjectState_Falling;
+                Physics->TriggerResponse = ProjectileResponse;
+                Physics->Entity = Projectile;
+                
+                Projectile->Physics = Physics;
+                Projectile->Bounds = Boundary->Bounds;
             }
-#endif
             
         }
     }

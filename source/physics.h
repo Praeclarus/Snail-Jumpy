@@ -87,10 +87,10 @@ typedef b8   collision_response_function(entity *Data, physics_collision *Collis
 typedef void trigger_response_function(entity *Data, entity *EntityB);
 
 enum physics_object_state_flags_ {
-    PhysicsObjectState_None    = 0,
-    PhysicsObjectState_Falling = (1 << 0),
-    PhysicsObjectState_Floats  = (1 << 1),
-    PhysicsObjectState_IsInactive = (1 << 2),
+    PhysicsObjectState_None             = 0,
+    PhysicsObjectState_Falling          = (1 << 0),
+    PhysicsObjectState_DontFloorRaycast = (1 << 1),
+    PhysicsObjectState_IsInactive       = (1 << 2),
 };
 typedef u32 physics_object_state_flags;
 

@@ -141,6 +141,14 @@ StunEnemy(enemy_entity *Enemy){
     }
 }
 
+internal b8
+IsEnemyStunned(enemy_entity *Enemy){
+    b8 Result = ((Enemy->State == State_Retreating) ||
+                 (Enemy->State == State_Stunned) ||
+                 (Enemy->State == State_Returning));
+    return(Result);
+}
+
 internal void
 TurnEnemy(enemy_entity *Enemy, direction Direction){
     SetEntityStateUntilAnimationIsOver(Enemy, State_Turning);
@@ -158,7 +166,7 @@ MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f)
     if(Physics->State & PhysicsObjectState_Falling){
         ddP.Y -= Gravity;
         Physics->FloorNormal = V2(0, 1);
-    }else if(Physics->State & PhysicsObjectState_Floats){
+    }else if(Physics->State & PhysicsObjectState_DontFloorRaycast){
         Physics->FloorNormal = V2(0, 1);
     }
     v2 FloorNormal = Physics->FloorNormal;
@@ -192,6 +200,20 @@ TeleporterResponse(entity *Data, entity *EntityB){
     return;
 }
 
+internal void
+ProjectileResponse(entity *Data, entity *EntityB){
+    Assert(Data);
+    projectile_entity *Projectile = (projectile_entity *)Data;
+    Assert(Projectile->Type == EntityType_Projectile);
+    if(EntityB->Type != EntityType_Enemy) return;
+    enemy_entity *Enemy = (enemy_entity *)EntityB;
+    if(!(Enemy->Flags & EntityFlag_CanBeStunned)) return;
+    StunEnemy(Enemy);
+    
+    
+    return;
+}
+
 internal b8
 EnemyCollisionResponse(entity *Data, physics_collision *Collision){
     Assert(Data);
@@ -204,8 +226,12 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
     if(CollisionEntity){
         switch(CollisionEntity->Type){
             case EntityType_Player: {
-                EntityManager.DamagePlayer(Enemy->Damage);
-                return(true);
+                if(IsEnemyStunned(Enemy)){
+                    return(false);
+                }else{
+                    EntityManager.DamagePlayer(Enemy->Damage);
+                    return(true);
+                }
             }break;
             default: {
                 INVALID_CODE_PATH;
@@ -371,7 +397,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             else {ChangeEntityState(Player, State_Idle); }
         }
         
-#if 0    
         if(EntityManager.PlayerInput.Shoot){
             Player->WeaponChargeTime += OSInput.dTime;
             if(Player->WeaponChargeTime > 1.0f){
@@ -387,21 +412,25 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
                 Player->WeaponChargeTime = 0.6f;
             }
             
+            trigger_physics_object *ProjectilePhysics = Projectile->TriggerPhysics;
+            
             // TODO(Tyler): Hot loaded variables file for tweaking these values in 
             // realtime
+            f32 XPower = 17.0f;
+            f32 YPower = 5.0f;
             switch(Player->Direction){
-                case Direction_Left:  Projectile->Physics->dP = v2{-13,   3}; break;
-                case Direction_Right: Projectile->Physics->dP = v2{ 13,   3}; break;
+                case Direction_Left:  Projectile->dP = V2(-XPower, YPower); break;
+                case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
             }
             
-            Projectile->Physics->P = Player->Physics->P;
-            Projectile->Physics->P.Y += 0.15f;
-            Projectile->Physics->dP *= Player->WeaponChargeTime;
+            ProjectilePhysics->P = Player->Physics->P;
+            ProjectilePhysics->P.Y += 0.15f;
+            Projectile->dP *= Player->WeaponChargeTime;
+            Projectile->dP += Physics->dP;
             Projectile->RemainingLife = 3.0f;
             Player->WeaponChargeTime = 0.0f;
             
         }
-#endif
         
         if(Player->Physics->P.Y < -3.0f){
             EntityManager.DamagePlayer(2);
@@ -450,6 +479,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         dynamic_physics_object *Physics = Enemy->DynamicPhysics;
         //Physics->DebugInfo.DebugThisOne = true;
         
+        f32 Movement = 0.0f;
+        f32 Gravity = 0.0f;
         if(ShouldEntityUpdate(Enemy)){
             if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
                (Enemy->Direction == Direction_Left)){
@@ -458,10 +489,9 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                      (Enemy->Direction == Direction_Right)){
                 TurnEnemy(Enemy, Direction_Left);
             }else{
-                f32 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
+                Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
                 dynamic_physics_object *Physics = Enemy->DynamicPhysics;
                 
-                f32 Gravity = 0.0f;
                 if(Physics->State & PhysicsObjectState_Falling){
                     if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
                         Physics->TargetdP.Y = Enemy->TargetY-Physics->P.Y;
@@ -472,11 +502,10 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                 Physics->State |= PhysicsObjectState_Falling;
                 
                 ChangeEntityState(Enemy, State_Moving);
-                
-                MovePlatformer(Physics, Movement, Gravity);
             }
         }
         
+        MovePlatformer(Physics, Movement, Gravity);
         UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTime);
         UpdateEnemyBoundary(Enemy);
     }
@@ -605,21 +634,25 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     FOR_BUCKET_ARRAY(It, &Projectiles){
         
         projectile_entity *Projectile = It.Item;
-        dynamic_physics_object *Physics = Projectile->DynamicPhysics;
+        trigger_physics_object *Physics = Projectile->TriggerPhysics;
         
         if(Projectile->RemainingLife > 0.0f){
+            Physics->State &= ~PhysicsObjectState_IsInactive;
+            
             Projectile->RemainingLife -= OSInput.dTime;
             
-            if(Physics->State & PhysicsObjectState_Falling){
-                v2 ddP = V2(0.0f, -11.0f);
-                f32 dTime = OSInput.dTime;
-                Physics->TargetdP += dTime*ddP;
-            }
+            v2 ddP = V2(0.0f, -11.0f);
+            f32 dTime = OSInput.dTime;
+            Physics->P += dTime*Projectile->dP;
+            Projectile->dP += dTime*ddP;
+            
             
             v2 Size = RectSize(Projectile->Bounds);
             RenderRectangle(Projectile->Physics->P-0.5f*Size, 
                             Projectile->Physics->P+0.5f*Size, 
                             0.7f, WHITE, Camera);
+        }else{
+            Physics->State |= PhysicsObjectState_IsInactive;
         }
     }
     END_TIMED_BLOCK();

@@ -1060,7 +1060,7 @@ physics_system::DoPhysics(){
     //~ Do floor raycasts
     FOR_BUCKET_ARRAY(It, &Objects){
         dynamic_physics_object *Object = It.Item;
-        if(!(Object->State & PhysicsObjectState_Floats) &&
+        if(!(Object->State & PhysicsObjectState_DontFloorRaycast) &&
            !(Object->State & PhysicsObjectState_Falling)){
             DoFloorRaycast(Object);
         }

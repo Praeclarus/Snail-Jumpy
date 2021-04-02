@@ -111,6 +111,7 @@ struct player_entity : public entity {
 
 struct projectile_entity : public entity {
     f32 RemainingLife;
+    v2 dP;
 };
 
 struct entity_manager {
