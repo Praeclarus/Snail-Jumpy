@@ -124,7 +124,7 @@ world_manager::LoadWorld(const char *LevelName){
                     coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
                     Coin->Type = EntityType_Coin;
                     Coin->Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
-                    Coin->Physics->Response = CoinResponse;
+                    Coin->Physics->TriggerResponse = CoinResponse;
                     Coin->Physics->Entity = Coin;
                     Coin->Bounds = Boundary->Bounds;
                     UpdateCoin(Coin);
@@ -186,7 +186,7 @@ world_manager::LoadWorld(const char *LevelName){
                         *Teleporter = {};
                         trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(TeleporterBoundary, 1);
                         Physics->P = Entity->P;
-                        Physics->Response = TeleporterResponse;
+                        Physics->TriggerResponse = TeleporterResponse;
                         Physics->Entity = Teleporter;
                         
                         Teleporter->Type = EntityType_Teleporter;

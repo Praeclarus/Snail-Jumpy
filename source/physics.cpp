@@ -381,7 +381,6 @@ DoSupport(collision_boundary *Boundary,
 
 internal inline v2 
 CalculateSupport(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta, v2 Direction){
-    // TODO(Tyler): Currently this only supports single collision boundaries
     v2 Result = DoSupport(BoundaryA, AP, Delta, Direction) - DoSupport(BoundaryB, BP, V20, -Direction);
     return(Result);
 }
@@ -408,7 +407,7 @@ UpdateSimplex(v2 Simplex[3], u32 *SimplexCount, v2 *Direction){
             }
         }break;
         case 3: {
-            // TODO(Tyler): This is a place that could be optimized
+            // TODO(Tyler): This is a place that could be significantly improved
             
             v2 P2P0 = Simplex[0]-Simplex[2];
             v2 P2P1 = Simplex[1]-Simplex[2];
@@ -479,7 +478,10 @@ DoGJK(v2 Simplex[3], collision_boundary *BoundaryA, v2 AP, collision_boundary *B
         
         v2 NewPoint = CalculateSupport(BoundaryA, AP, BoundaryB, BP, Delta, Direction);
         if(Dot(NewPoint, Direction) < 0.0f){ 
-            // The new point is in the wrong direction because there is no point going the right direction
+            // The new point is in the wrong direction, hence
+            // there is no point going the right direction, hence
+            // the simplex doesn't enclose the origin, hence
+            // no collision
             break;
         }
         Simplex[SimplexCount] = NewPoint;
@@ -499,10 +501,9 @@ struct epa_result {
     v2 Normal;
 };
 
-// Expanding polytope algorithm that expands the poltope in the direction of the difference of the velocities,
-// This requires a GJK with a sweeping support function
+// Variation on the expanding polytope algorithm that takes the object's delta into account
 internal epa_result
-DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta, v2 Simplex[3]){
+DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta, v2 Simplex[3]){
     const f32 Epsilon = 0.001f;
     
     dynamic_array<v2> Polytope; 
@@ -658,7 +659,7 @@ DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB,
     
     v2 Simplex[3];
     if(DoGJK(Simplex, BoundaryA, AP, BoundaryB, BP, Delta)){
-        epa_result EPAResult = DoVelocityEPA(BoundaryA, AP, BoundaryB, BP, Delta, Simplex);
+        epa_result EPAResult = DoDeltaEPA(BoundaryA, AP, BoundaryB, BP, Delta, Simplex);
         Result.Normal            = EPAResult.Normal;
         Result.Correction        = EPAResult.Correction;
         Result.TimeOfImpact      = EPAResult.TimeOfImpact;
@@ -999,7 +1000,7 @@ physics_system::DoPhysics(){
             
             if(Triggers[It.I].IsValid){
                 trigger_physics_object *Trigger = Triggers[It.I].Trigger;
-                Trigger->Response(Trigger->Entity, 0);
+                Trigger->TriggerResponse(Trigger->Entity, ObjectA->Entity);
             }
             
             if(Collisions[It.I].TimeOfImpact < 1.0f){

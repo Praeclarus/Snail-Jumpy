@@ -83,7 +83,8 @@ global_constant u32 MAX_BOUNDARY_CHILDREN = 3;
 
 struct entity;
 struct physics_collision;
-typedef b8 collision_response_function(entity *Data, physics_collision *Collision);
+typedef b8   collision_response_function(entity *Data, physics_collision *Collision);
+typedef void trigger_response_function(entity *Data, entity *EntityB);
 
 enum physics_object_state_flags_ {
     PhysicsObjectState_None    = 0,
@@ -98,7 +99,10 @@ struct physics_object {
     collision_boundary *Boundaries;
     u8 BoundaryCount;
     
-    collision_response_function *Response;
+    union{
+        collision_response_function *Response;
+        trigger_response_function   *TriggerResponse;
+    };
     entity *Entity;
 };
 

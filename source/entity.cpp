@@ -167,26 +167,28 @@ MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f)
     Physics->ddP += ddP;
 }
 
-internal b8
-CoinResponse(entity *Data, physics_collision *Collision){
+internal void
+CoinResponse(entity *Data, entity *EntityB){
     Assert(Data);
     coin_entity *Coin = (coin_entity *)Data;
     Assert(Coin->Type == EntityType_Coin);
+    if(EntityB->Type != EntityType_Player) return;
     
     UpdateCoin(Coin);
     
-    return(false);
+    return;
 }
 
-internal b8
-TeleporterResponse(entity *Data, physics_collision *Collision){
+internal void
+TeleporterResponse(entity *Data, entity *EntityB){
     Assert(Data);
     teleporter_entity *Teleporter = (teleporter_entity *)Data;
     Assert(Teleporter->Type == EntityType_Teleporter);
+    if(EntityB->Type != EntityType_Player) return;
     
     Teleporter->IsSelected = true;
     
-    return(false);
+    return;
 }
 
 internal b8
