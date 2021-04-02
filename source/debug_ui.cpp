@@ -42,8 +42,8 @@ DEBUGRenderOverlay(){
                          PlayerPhysics->FloorNormal.X, PlayerPhysics->FloorNormal.Y);
         }
         LayoutString(&Layout, &DebugFont,
-                     BLACK, "PhysicsDebugger: %u %u", 
-                     PhysicsDebugger.Current.Position, PhysicsDebugger.Current.Object);
+                     BLACK, "PhysicsDebugger: %u", 
+                     PhysicsDebugger.Current);
     }
     if(DebugConfig.Overlay & DebugOverlay_Profiler){
         LayoutFps(&Layout);

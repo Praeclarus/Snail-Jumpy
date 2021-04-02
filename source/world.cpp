@@ -47,8 +47,6 @@ AddPlayer(v2 P){
     Player->JumpTime = 1.0f;
     
     Player->Health = 9;
-    
-    Physics->DebugInfo.DebugThisOne = true;
 }
 
 internal void
@@ -118,13 +116,17 @@ world_manager::LoadWorld(const char *LevelName){
                              CurrentWorld->Width, CurrentWorld->Height);
             
             {
-                collision_boundary *CoinBoundary = PhysicsSystem.AllocBoundaries(1);
-                *CoinBoundary = MakeCollisionRect(V20, V2(0.3f, 0.3f));
+                collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+                *Boundary = MakeCollisionRect(V20, V2(0.3f));
                 
                 u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
                 for(u32 I = 0; I < N; I++){
                     coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
-                    Coin->Physics = PhysicsSystem.AddStaticObject(CoinBoundary, 1);
+                    Coin->Type = EntityType_Coin;
+                    Coin->Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
+                    Coin->Physics->Response = CoinResponse;
+                    Coin->Physics->Entity = Coin;
+                    Coin->Bounds = Boundary->Bounds;
                     UpdateCoin(Coin);
                     Coin->Cooldown = 0.0f;
                 }
@@ -157,7 +159,7 @@ world_manager::LoadWorld(const char *LevelName){
                         
                         v2 P = Entity->P; P.Y += 0.01f;
                         Enemy->Physics->P = P;
-                        Enemy->Y = P.Y;
+                        Enemy->TargetY = P.Y;
                         Enemy->Physics->Mass = Info->Mass;
                         
                         Enemy->Speed = Info->Speed;
@@ -216,7 +218,7 @@ world_manager::LoadWorld(const char *LevelName){
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
                 static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
-                Wedge->P = V2(6.0f, 0.5f);
+                Wedge->P = V2(3.0f, 0.5f);
             }
             
             {

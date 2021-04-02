@@ -4,7 +4,6 @@
 //~ Debug stuff
 struct debug_physics_info {
     v2 P, dP, ddP, Delta;
-    b8 DebugThisOne;
 };
 
 typedef u32 physics_debugger_flags;
@@ -13,21 +12,16 @@ enum physics_debugger_flags_ {
     PhysicsDebuggerFlags_StepPhysics = (1 << 0),
 };
 
-struct physics_debugger_position {
-    // Arbitrary numbers to keep track of position, do not work between physics frames
-    u32 Position;
-    u32 Object;
-};
-
 // The debugger currently only supports single moving objects
 struct physics_debugger {
+    camera Camera;
     physics_debugger_flags Flags;
-    physics_debugger_position Current;
-    physics_debugger_position Paused;
+    // Arbitrary numbers to keep track of position, do not work between physics frames
+    u32 Current;
+    u32 Paused;
     layout Layout;
     f32 Scale = 3.0f;
     v2 Origin;
-    b8 DoDebug;
     b8 StartOfPhysicsFrame = true;
     
     // These are so that functions don't need extra return values or arguments
@@ -36,15 +30,20 @@ struct physics_debugger {
     };
     
     inline void Begin();
+    inline void End();
     inline b8   DefineStep();
     inline void BreakWhen(b8 Value); // Assert is a macro, so it can't be the name here
     inline b8   IsCurrent();
     
+    inline void DrawPolygon(v2 *Points, u32 PointCount);
     inline void DrawLine(v2 Offset, v2 A, v2 B, color Color);
     inline void DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color);
     inline void DrawNormal(v2 Offset, v2 Point, v2 Delta, color Color);
     inline void DrawPoint(v2 Offset, v2 Point, color Color);
     inline void DrawString(const  char *String, ...);
+    inline void DrawStringAtP(v2 P, const char *Format, ...);
+    
+    inline void DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount);
 };
 
 //~ Collision boundary
@@ -104,7 +103,10 @@ struct physics_object {
 };
 
 struct static_physics_object : public physics_object {
-    
+};
+
+struct trigger_physics_object : public physics_object {
+    b8 IsActive;
 };
 
 struct dynamic_physics_object : public physics_object {
@@ -129,9 +131,15 @@ struct physics_collision {
     f32 AlongDelta;
 };
 
+struct physics_trigger {
+    b8 IsValid;
+    trigger_physics_object *Trigger;
+};
+
 struct physics_system {
     bucket_array<dynamic_physics_object, 64> Objects;
     bucket_array<static_physics_object, 64> StaticObjects;
+    bucket_array<trigger_physics_object, 64> TriggerObjects;
     memory_arena PermanentBoundaryMemory;
     memory_arena BoundaryMemory;
     
@@ -141,10 +149,12 @@ struct physics_system {
     void DoFloorRaycast(dynamic_physics_object *Object, f32 Depth);
     
     void DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta);
+    void DoTriggerCollisions(physics_trigger *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta);
     void DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, bucket_location StartLocation);
     void DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject);
     dynamic_physics_object *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
     static_physics_object *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
+    trigger_physics_object *AddTriggerObject(collision_boundary *Boundaries, u8 BoundaryCount);
     collision_boundary *AllocPermanentBoundaries(u32 Count);
     collision_boundary *AllocBoundaries(u32 Count);
 };

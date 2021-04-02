@@ -322,6 +322,7 @@ template <typename T>
 struct bucket_array_iterator {
     T *Item;
     bucket_location Location;
+    u32 I;
 };
 
 template <typename T, u32 U>
@@ -461,6 +462,8 @@ BucketArrayIterationNext(bucket_array<T, U> *Array, bucket_array_iterator<T> *It
             }
         }
     }
+    
+    Iterator->I++;
 }
 
 template <typename T, u32 U>

@@ -234,11 +234,10 @@ ProcessDefaultEvent(os_event *Event){
                         PhysicsDebugger.Flags |= PhysicsDebuggerFlags_StepPhysics;
                     } 
                 }break;
-                case KeyCode_F9: if(PhysicsDebugger.Paused.Position > 0) {
-                    PhysicsDebugger.Paused.Position--; 
-                    if(PhysicsDebugger.Paused.Object > 0)  PhysicsDebugger.Paused.Object--; 
+                case KeyCode_F9: if(PhysicsDebugger.Paused > 0) {
+                    PhysicsDebugger.Paused--; 
                 } break;
-                case KeyCode_F10: PhysicsDebugger.Paused.Position++; break;
+                case KeyCode_F10: PhysicsDebugger.Paused++; break;
                 
                 case 'J': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
                     if(PhysicsDebugger.Scale > 0.1f){

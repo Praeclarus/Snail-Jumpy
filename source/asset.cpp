@@ -447,7 +447,7 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
             Entity->NumberOfTimesAnimationHasPlayed++;
         }
         
-        if(_ShouldEntityUpdate(Entity) &&
+        if(ShouldEntityUpdate(Entity) &&
            (Entity->Type == EntityType_Enemy)){
             switch(Entity->State){
                 case State_Turning:    { 

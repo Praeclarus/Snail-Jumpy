@@ -70,8 +70,11 @@ UpdateCoin(coin_entity *Coin){
         }
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
         Coin->Cooldown = 1.0f;
+        Coin->Physics->P = NewP;
+        Coin->TriggerPhysics->IsActive = false;
     }
 }
+
 
 internal void
 ChangeEntityState(entity *Entity, entity_state NewState){
@@ -101,7 +104,7 @@ SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState){
 }
 
 internal b8
-_ShouldEntityUpdate(entity *Entity){
+ShouldEntityUpdate(entity *Entity){
     b8 Result = false;
     
     if(Entity->ChangeCondition == ChangeCondition_AnimationOver){
@@ -126,7 +129,6 @@ UpdateEnemyBoundary(enemy_entity *Enemy){
         Assert(NewBoundarySet < Info->BoundarySets);
         
         //Enemy->Physics->Boundary = Info->Boundaries[NewBoundarySet];
-        
     }
 }
 
@@ -144,6 +146,7 @@ TurnEnemy(enemy_entity *Enemy, direction Direction){
     Enemy->Direction = Direction;
     Enemy->DynamicPhysics->dP.X = 0.0f;
     Enemy->DynamicPhysics->TargetdP.X = 0.0f;
+    UpdateEnemyBoundary(Enemy);
 }
 
 //~ Physics stuff
@@ -162,6 +165,17 @@ MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f)
     Physics->TargetdP -= FloorTangent*Dot(Physics->TargetdP, FloorTangent); 
     Physics->TargetdP += Movement*FloorTangent;
     Physics->ddP += ddP;
+}
+
+internal b8
+CoinResponse(entity *Data, physics_collision *Collision){
+    Assert(Data);
+    coin_entity *Coin = (coin_entity *)Data;
+    Assert(Coin->Type == EntityType_Coin);
+    
+    UpdateCoin(Coin);
+    
+    return(false);
 }
 
 internal b8
@@ -207,10 +221,12 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
     physics_object *ObjectB = Collision->ObjectB;
     entity *CollisionEntity = ObjectB->Entity;
     
+    f32 COR = 1.0f;
+    
     if(CollisionEntity){
         switch(CollisionEntity->Type){
             case EntityType_Player: {
-                f32 XRange = 0.1f;
+                f32 XRange = 0.2f;
                 if((Collision->Normal.Y > 0.0f) &&
                    (-XRange <= Collision->Normal.X) && (Collision->Normal.X <= XRange)){
                     EntityManager.DamagePlayer(Enemy->Damage);
@@ -220,6 +236,20 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
             default: {
                 INVALID_CODE_PATH;
             }break;
+        }
+        if(Collision->Normal.Y < 0.0f){
+            // NOTE(Tyler): Entity is walking on the dragonfly
+            if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+                v2 Normal = Collision->Normal;
+                Normal.Y = 0.0f;
+                //v2 Normal = {};
+                //Normal.X = SignOf(Collision->Normal.X);
+                
+                ObjectA->dP       -= COR*Normal*Dot(ObjectA->dP, Normal);
+                ObjectA->TargetdP -= COR*Normal*Dot(ObjectA->TargetdP, Normal);
+                ObjectA->Delta    -= COR*Normal*Dot(ObjectA->Delta, Normal);
+            }
+            return(true);
         }
     }else{
         if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
@@ -233,19 +263,7 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
         }
     }
     
-    f32 COR = 1.0f;
-    if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
-        // TODO(Tyler): So that dragonflies can't move downwards. 
-        // This isn't a very good solution however
-        v2 Normal = Collision->Normal;
-        Normal.Y = 0.0f;
-        ObjectA->dP       -= COR*Normal*Dot(ObjectA->dP, Normal);
-        ObjectA->TargetdP -= COR*Normal*Dot(ObjectA->TargetdP, Normal);
-        ObjectA->Delta    -= COR*Normal*Dot(ObjectA->Delta, Normal);
-    }
-    
-    
-    return(true);
+    return(false);
 }
 
 internal b8
@@ -297,7 +315,7 @@ internal void
 UpdateAndRenderPlatformerPlayer(camera *Camera){
     player_entity *Player = EntityManager.Player;
     dynamic_physics_object *Physics = Player->DynamicPhysics;
-    if(_ShouldEntityUpdate(Player)){
+    if(ShouldEntityUpdate(Player)){
         f32 MovementSpeed = 6; // TODO(Tyler): Load this from a variables file
         f32 Movement = 0.0f;
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
@@ -404,6 +422,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTime;
         }else{
+            Coin->TriggerPhysics->IsActive = true;
             RenderRectangle(Coin->Physics->P-(Size/2), Coin->Physics->P+(Size/2), 0.0f, 
                             YELLOW, Camera);
         }
@@ -417,21 +436,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         dynamic_physics_object *Physics = Enemy->DynamicPhysics;
         //Physics->DebugInfo.DebugThisOne = true;
         
-        
-        if(_ShouldEntityUpdate(Enemy)){
-            // TODO(Tyler): Stop using percentages here
-            f32 PathLength = Enemy->PathEnd.X-Enemy->PathStart.X;
-            f32 StateAlongPath = (Enemy->Physics->P.X-Enemy->PathStart.X)/PathLength;
-            f32 PathSpeed = 1.0f;
-            if((StateAlongPath > 0.8f) &&
-               (Enemy->Direction > 0)){
-                f32 State = (1.0f-StateAlongPath);
-                PathSpeed = (State/0.2f);
-            }else if((StateAlongPath < 0.2f) &&
-                     (Enemy->Direction < 0)){
-                PathSpeed = (StateAlongPath/0.2f);
-            }
-            
+        if(ShouldEntityUpdate(Enemy)){
             if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
                (Enemy->Direction == Direction_Left)){
                 TurnEnemy(Enemy, Direction_Right);
@@ -445,13 +450,12 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                 f32 Gravity = 0.0f;
                 if(Physics->State & PhysicsObjectState_Falling){
                     if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
+                        Physics->TargetdP.Y = Enemy->TargetY-Physics->P.Y;
                     }else{
                         Gravity = 11.0f;
                     }
                 }
-                if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-                    Physics->TargetdP.Y = Enemy->Y-Physics->P.Y;
-                }
+                Physics->State |= PhysicsObjectState_Falling;
                 
                 ChangeEntityState(Enemy, State_Moving);
                 

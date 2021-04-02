@@ -178,8 +178,7 @@ internal void UpdateEnemyBoundary(enemy_entity *Enemy);
 internal void ChangeEntityState(entity *Entity, entity_state NewState);
 internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
 internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
-//internal b8 ShouldEntityUpdate(entity *Entity);
-internal b8 _ShouldEntityUpdate(entity *Entity);
+internal b8 ShouldEntityUpdate(entity *Entity);
 internal inline void RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset=V2(0,0));
 internal inline void ProcessDefaultEvent(os_event *Event);
 

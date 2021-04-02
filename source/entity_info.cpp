@@ -25,7 +25,7 @@ ConvertToCollisionBoundary(entity_info_boundary *InfoBoundary, memory_arena *Are
         }break;
         case EntityInfoBoundaryType_Circle: {
             f32 Radius = Minimum(0.5f*Size.X, 0.5f*Size.Y);
-            Result = MakeCollisionCircle(V20, Radius , 15, Arena);
+            Result = MakeCollisionCircle(V20, Radius , 16, Arena);
         }break;
         case EntityInfoBoundaryType_Pill: {
             f32 Radius = 0.5f*Size.X;

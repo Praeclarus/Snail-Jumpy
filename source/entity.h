@@ -72,6 +72,7 @@ struct entity {
     union {
         physics_object *Physics;
         static_physics_object *StaticPhysics;
+        trigger_physics_object *TriggerPhysics;
         dynamic_physics_object *DynamicPhysics;
     };
 };
@@ -97,7 +98,7 @@ struct teleporter_entity : public entity {
 struct enemy_entity : public entity {
     f32 Speed;
     v2 PathStart, PathEnd;
-    f32 Y; // Dragonflies
+    f32 TargetY; // Dragonflies
     s32 Damage;
 };
 

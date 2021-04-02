@@ -6,22 +6,29 @@ physics_debugger::Begin(){
     Current = {};
     Layout = CreateLayout(1500, 700, 30, DebugFont.Size, 100, -10.2f);
     Origin = V2(4.0f, 4.0f);
+    DrawPoint(Origin, V20, WHITE);
+}
+
+inline void
+physics_debugger::End(){
+    Paused = {};
+    StartOfPhysicsFrame = true;
 }
 
 inline b8
 physics_debugger::DefineStep(){
-    if(DoDebug){
-        if(Current.Position >= Paused.Position &&
-           (Flags & PhysicsDebuggerFlags_StepPhysics)){
-            return(true);
-        }
-        
-        Current.Position++;
-        
-        if(++Current.Object > Paused.Object){
-            Paused.Object = Current.Object;
-        }
+    if(Current >= Paused &&
+       (Flags & PhysicsDebuggerFlags_StepPhysics)){
+        return(true);
     }
+    
+    Current++;
+    
+#if 0    
+    if(++Current.Object > Paused.Object){
+        Paused.Object = Current.Object;
+    }
+#endif
     
     return(false);
 }
@@ -32,14 +39,13 @@ physics_debugger::BreakWhen(b8 Value){
        Value){
         Flags |= PhysicsDebuggerFlags_StepPhysics;
         Paused = Current;
-        Paused.Position++;
+        Paused++;
     }
 }
 
 inline b8 
 physics_debugger::IsCurrent(){
-    b8 Result = (DoDebug &&
-                 (PhysicsDebugger.Current.Object == PhysicsDebugger.Paused.Object));
+    b8 Result = (PhysicsDebugger.Current == PhysicsDebugger.Paused);
     return(Result);
 }
 
@@ -61,7 +67,7 @@ physics_debugger::DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color){
 inline void
 physics_debugger::DrawNormal(v2 Offset, v2 A, v2 Delta, color Color){
     if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
-    Delta = Normalize(Delta); // A bit of a waste for most cases
+    Delta = Normalize(Delta);
     RenderLineFrom(Offset-GameCamera.P+Scale*A, 0.2f*Delta, -10, 0.015f, Color, &GameCamera);
 }
 
@@ -80,10 +86,48 @@ physics_debugger::DrawString(const char *Format, ...){
     va_end(VarArgs);
 }
 
+inline void
+physics_debugger::DrawStringAtP(v2 P, const char *Format, ...){
+    if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    
+    P.Y += 0.1f;
+    v2 StringP = GameCamera.WorldPToScreenP(P);
+    VRenderFormatString(&DebugFont, BLACK, StringP.X, StringP.Y, -10.0f, Format, VarArgs);
+    
+    va_end(VarArgs);
+}
+
+inline void
+physics_debugger::DrawPolygon(v2 *Points, u32 PointCount){
+    if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
+    for(u32 I=0; I < PointCount; I++){
+        u32 J = (I+1)%PointCount;
+        DrawLine(Origin, Points[I], Points[J], PURPLE);
+        DrawPoint(Origin, Points[I], GREEN);
+        
+        v2 P = Origin + (Scale * Points[I]);
+        P.Y += 0.1f;
+        v2 NameP = GameCamera.WorldPToScreenP(P);
+        RenderFormatString(&DebugFont, BLACK, NameP.X, NameP.Y, -10.0f, "%u", I);
+    }
+}
+
+inline void
+physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount){
+    if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
+    PhysicsDebugger.DrawPoint(AP, V20, WHITE);
+    PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
+    PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V20, Delta, ORANGE);
+    PhysicsDebugger.DrawPolygon(Points, PointCount);
+    PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
+}
+
+
 //~ Boundary management
 internal inline b8
 IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
-    
     b8 Result = IsPointInRect(Point, OffsetRect(Boundary->Bounds, Base+Boundary->Offset));
     return(Result);
 }
@@ -210,7 +254,7 @@ MakeCollisionPill(v2 Offset, f32 Radius, f32 Height, u32 HalfSegments, memory_ar
 
 //~ Helpers
 internal inline physics_collision
-MakeDummyCollision(){
+MakeCollision(){
     physics_collision Result = {};
     Result.TimeOfImpact = F32_POSITIVE_INFINITY;
     return(Result);
@@ -230,29 +274,13 @@ CollisionResponseStub(entity *Data, physics_collision *Collision){
     return(Result);
 }
 
-internal b8
-ChooseCollision(f32 TimeOfImpact, f32 AlongDelta, physics_collision *Collision){
-    local_constant f32 Epsilon = 0.0001f;
-    b8 Result = false;
-    
-    if(Collision->TimeOfImpact < TimeOfImpact){
-        Result = true;
-    }else if((Collision->TimeOfImpact > TimeOfImpact-Epsilon) && 
-             (Collision->TimeOfImpact < TimeOfImpact+Epsilon)){
-        if(Collision->AlongDelta < AlongDelta){
-            Result = true;
-        }
-    }
-    
-    return(Result);
-}
-
 //~ Physics
 
 void
 physics_system::Initialize(memory_arena *Arena){
     BucketArrayInitialize(&Objects, Arena);
     BucketArrayInitialize(&StaticObjects, Arena);
+    BucketArrayInitialize(&TriggerObjects, Arena);
     BoundaryMemory          = PushNewArena(Arena, 3*128*sizeof(collision_boundary));
     PermanentBoundaryMemory = PushNewArena(Arena, 128*sizeof(collision_boundary));
 }
@@ -261,6 +289,7 @@ void
 physics_system::Reload(u32 Width, u32 Height){
     BucketArrayRemoveAll(&Objects);
     BucketArrayRemoveAll(&StaticObjects);
+    BucketArrayRemoveAll(&TriggerObjects);
     ClearArena(&BoundaryMemory);
     
     PhysicsDebugger.Paused = {};
@@ -281,6 +310,17 @@ physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
 static_physics_object *
 physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
     static_physics_object *Result = BucketArrayAlloc(&StaticObjects);
+    Result->Boundaries = Boundaries;
+    Result->BoundaryCount = Count;
+    Result->Mass = F32_POSITIVE_INFINITY;
+    Result->Response = CollisionResponseStub;
+    
+    return(Result);
+}
+
+trigger_physics_object *
+physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
+    trigger_physics_object *Result = BucketArrayAlloc(&TriggerObjects);
     Result->Boundaries = Boundaries;
     Result->BoundaryCount = Count;
     Result->Mass = F32_POSITIVE_INFINITY;
@@ -428,20 +468,11 @@ DoGJK(v2 Simplex[3], collision_boundary *BoundaryA, v2 AP, collision_boundary *B
     while(true){
         if(PhysicsDebugger.DefineStep()) return(false);
         if(PhysicsDebugger.IsCurrent()){
-            PhysicsDebugger.DrawPoint(AP, V20, WHITE);
-            PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
-            PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V20, Delta, ORANGE);
+            PhysicsDebugger.DrawBaseGJK(AP, BP, Delta, Simplex, SimplexCount);
             
-            v2 Normal = Normalize(Direction);
-            PhysicsDebugger.DrawNormal(PhysicsDebugger.Origin, PhysicsDebugger.Base, Normal, PINK);
+            PhysicsDebugger.DrawNormal(PhysicsDebugger.Origin, PhysicsDebugger.Base, Direction, PINK);
             
-            //PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
-            PhysicsDebugger.DrawString("SimplexCount: %u", SimplexCount);
-            for(u32 I=0; I < SimplexCount; I++){
-                u32 J = (I+1)%SimplexCount;
-                PhysicsDebugger.DrawLine(PhysicsDebugger.Origin, Simplex[I], Simplex[J], PURPLE);
-                PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, Simplex[I], GREEN);
-            }
+            PhysicsDebugger.DrawString("Simplex Count: %u", SimplexCount);
         }
         
         
@@ -471,9 +502,7 @@ struct epa_result {
 // This requires a GJK with a sweeping support function
 internal epa_result
 DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta, v2 Simplex[3]){
-    TIMED_FUNCTION();
-    
-    const f32 Epsilon = 0.0001f;
+    const f32 Epsilon = 0.001f;
     
     dynamic_array<v2> Polytope; 
     DynamicArrayInitialize(&Polytope, 20, &TransientStorageArena);
@@ -541,16 +570,6 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
                         IntersectionPoint = Point;
                     }
                 }
-                
-#if 0
-                else{ // Only if the thing is penetrating
-                    FoundEdge = true;
-                    EdgeIndex = I;
-                    InverseNormal = Normalize(TripleProduct(B-A, -A));
-                    EdgeDistance = Dot(InverseNormal, -A);
-                    IntersectionPoint = Point
-                }
-#endif
             }
         }
         PhysicsDebugger.BreakWhen(!FoundEdge);
@@ -564,25 +583,10 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
             Distance = Dot(NewPoint, -InverseNormal);
         }
         
-        // DEBUG
+        //~ DEBUG
         if(PhysicsDebugger.DefineStep()) return(Result);
         if(PhysicsDebugger.IsCurrent()){
-            PhysicsDebugger.DrawPoint(AP, V20, WHITE);
-            PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
-            PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V20, Delta, ORANGE);
-            
-            for(u32 I=0; I < Polytope.Count; I++){
-                u32 J = (I+1)%Polytope.Count;
-                PhysicsDebugger.DrawLine(PhysicsDebugger.Origin, Polytope[I], Polytope[J], PURPLE);
-                PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, Polytope[I], GREEN);
-                
-                if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-                    v2 P = PhysicsDebugger.Origin + (PhysicsDebugger.Scale * Polytope[I]);
-                    P.Y += 0.1f;
-                    v2 NameP = GameCamera.WorldPToScreenP(P);
-                    RenderFormatString(&DebugFont, BLACK, NameP.X, NameP.Y, -10.0f, "%u", I);
-                }
-            }
+            PhysicsDebugger.DrawBaseGJK(AP, BP, Delta, Polytope.Items, Polytope.Count);
             
             f32 Percent = Dot(DeltaDirection, IntersectionPoint)/Dot(DeltaDirection, Delta);
             if((Delta.X == 0.0f) && (Delta.Y == 0.0f)){
@@ -595,8 +599,7 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
             PhysicsDebugger.DrawNormal(PhysicsDebugger.Origin, Base,  InverseNormal, YELLOW);
             PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, IntersectionPoint, ORANGE);
             
-            //PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
-            PhysicsDebugger.DrawString("Polytope.Count: %u", Polytope.Count);
+            PhysicsDebugger.DrawString("Polytope Count: %u", Polytope.Count);
             PhysicsDebugger.DrawString("Time of impact: %f", 1.0f-Percent);
         }
         
@@ -628,25 +631,13 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
         }
     }
     
+    //~ DEBUG
     if(PhysicsDebugger.DefineStep()) return(Result); 
     if(PhysicsDebugger.IsCurrent()){
-        PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
-        for(u32 I=0; I < Polytope.Count; I++){
-            u32 J = (I+1)%Polytope.Count;
-            PhysicsDebugger.DrawLine(PhysicsDebugger.Origin, Polytope[I], Polytope[J], PURPLE);
-            PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, Polytope[I], GREEN);
-            
-            if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-                v2 P = PhysicsDebugger.Origin + (PhysicsDebugger.Scale * Polytope[I]);
-                P.Y += 0.1f;
-                v2 NameP = GameCamera.WorldPToScreenP(P);
-                RenderFormatString(&DebugFont, BLACK, NameP.X, NameP.Y, -10.0f, "%u", I);
-            }
-        }
+        PhysicsDebugger.DrawBaseGJK(AP, BP, Delta, Polytope.Items, Polytope.Count);
         
         PhysicsDebugger.DrawNormal(PhysicsDebugger.Origin, V20, Result.Normal, PINK);
         
-        //PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
         PhysicsDebugger.DrawString("Polytope.Count: %u", Polytope.Count);
         PhysicsDebugger.DrawString("Time of impact: %f", Result.TimeOfImpact);
         PhysicsDebugger.DrawString("Correction: (%f, %f)", Result.Correction.X, Result.Correction.Y);
@@ -660,7 +651,6 @@ DoVelocityEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *Boundary
 
 internal physics_collision
 DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta){
-    
     physics_collision Result = {};
     Result.AlongDelta        = Dot(Normalize(Delta), BP-AP);
     Result.TimeOfImpact      = F32_POSITIVE_INFINITY;
@@ -676,6 +666,23 @@ DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB,
     return(Result);
 }
 
+internal b8
+ChooseCollision(f32 TimeOfImpact, f32 AlongDelta, physics_collision *Collision){
+    local_constant f32 Epsilon = 0.0001f;
+    b8 Result = false;
+    
+    if(Collision->TimeOfImpact < TimeOfImpact){
+        Result = true;
+    }else if((Collision->TimeOfImpact > TimeOfImpact-Epsilon) && 
+             (Collision->TimeOfImpact < TimeOfImpact+Epsilon)){
+        if(Collision->AlongDelta < AlongDelta){
+            Result = true;
+        }
+    }
+    
+    return(Result);
+}
+
 void 
 physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta){
     if((Delta.X == 0.0f) && (Delta.Y == 0.0f)) { return; }
@@ -686,11 +693,28 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
             BoundaryB++){
-            v2 Simplex[3];
             physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, Delta);
             Collision.ObjectB = ObjectB;
             if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
                 *OutCollision = Collision;
+            }
+        }
+    }
+}
+
+void 
+physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta){
+    FOR_BUCKET_ARRAY(ItB, &TriggerObjects){
+        trigger_physics_object *ObjectB = ItB.Item;
+        if(!ObjectB->IsActive) continue;
+        
+        for(collision_boundary *BoundaryB = ObjectB->Boundaries;
+            BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
+            BoundaryB++){
+            v2 Simplex[3];
+            if(DoGJK(Simplex, Boundary, P, BoundaryB, ObjectB->P, Delta)){
+                OutTrigger->IsValid = true;
+                OutTrigger->Trigger = ObjectB;
             }
         }
     }
@@ -708,7 +732,6 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
             BoundaryB++){
-            v2 Simplex[3];
             physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, RelativeDelta);
             Collision.ObjectB = ObjectB;
             Collision.IsDynamic = true;
@@ -725,7 +748,6 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
 // NOTE(Tyler): No BIndexOffset
 void
 physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject=0){
-    PhysicsDebugger.DoDebug = true;
     FOR_BUCKET_ARRAY(ItB, &Objects){
         dynamic_physics_object *ObjectB = ItB.Item;
         
@@ -734,7 +756,6 @@ physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collisi
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
             BoundaryB++){
-            v2 Simplex[3];
             physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, Delta);
             Collision.ObjectB = ObjectB;
             Collision.IsDynamic = true;
@@ -749,15 +770,13 @@ physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collisi
 
 void
 physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
-    PhysicsDebugger.DoDebug = true;
-    
     if(PhysicsDebugger.DefineStep()) return;
     if(PhysicsDebugger.IsCurrent()){
         PhysicsDebugger.DrawString("Floor raycast");
     }
     
     v2 Raycast = V2(0, -Depth);
-    physics_collision Collision = MakeDummyCollision();
+    physics_collision Collision = MakeCollision();
     for(collision_boundary *Boundary = Object->Boundaries;
         Boundary < Object->Boundaries+Object->BoundaryCount;
         Boundary++){
@@ -772,10 +791,6 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
         Object->State |= PhysicsObjectState_Falling;
         return;
     }
-    if(Object->State & PhysicsObjectState_Falling) { 
-        if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, is falling"); }
-        return; 
-    }
     if(Collision.Normal.Y < WALKABLE_STEEPNESS) { 
         if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too steaph"); }
         return; 
@@ -787,7 +802,6 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
     
     Object->dP       -= Collision.Normal*Dot(Object->dP, Collision.Normal);
     Object->TargetdP -= Collision.Normal*Dot(Object->TargetdP, Collision.Normal);
-    //Object->Delta -= Collision.Normal*Dot(Object->Delta, Collision.Normal);
     Object->FloorNormal = Collision.Normal;
     
     if(Collision.IsDynamic){
@@ -813,15 +827,16 @@ physics_system::DoPhysics(){
     TIMED_FUNCTION();
     local_constant f32 Epsilon = 0.0001f;
     
-    // DEBUG prepare for new physics frame
+    // DEBUG
     PhysicsDebugger.Begin();
     
     f32 dTime = OSInput.dTime;
     
     physics_collision *Collisions = PushArray(&TransientStorageArena, physics_collision, Objects.Count);
     for(u32 I=0; I<Objects.Count; I++){
-        Collisions[I] = MakeDummyCollision();
+        Collisions[I] = MakeCollision();
     }
+    physics_trigger *Triggers = PushArray(&TransientStorageArena, physics_trigger, Objects.Count);
     
     //~  Calculate entity deltas
     FOR_BUCKET_ARRAY(It, &Objects){
@@ -833,12 +848,12 @@ physics_system::DoPhysics(){
         Object->ddP.Y += -DragCoefficient*Object->dP.Y*AbsoluteValue(Object->dP.Y);
         Object->Delta = (dTime*Object->dP + 
                          0.5f*Square(dTime)*Object->ddP);
-        //Object->dP += dTime*Object->ddP;
+        Object->dP += dTime*Object->ddP;
         Object->TargetdP += dTime*Object->ddP;
         Object->dP += Object->AccelerationFactor*(Object->TargetdP-Object->dP);
         Object->ddP = {};
         
-        // DEBUG
+        //~ DEBUG
         if(PhysicsDebugger.StartOfPhysicsFrame){
             Object->DebugInfo.P = Object->P;
             Object->DebugInfo.dP = Object->dP;
@@ -852,19 +867,8 @@ physics_system::DoPhysics(){
             Object->Delta = Object->DebugInfo.Delta;
         }
         
-#if defined(SNAIL_JUMPY_DEBUG_BUILD)
-        if(DebugConfig.Overlay & DebugOverlay_Boundaries){
-            for(collision_boundary *Boundary = Object->Boundaries;
-                Boundary < Object->Boundaries+Object->BoundaryCount;
-                Boundary++){
-                RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
-            }
-        }
-#endif
-    }
-    
-    FOR_BUCKET_ARRAY(It, &Objects){
-        dynamic_physics_object *Object = It.Item;
+        // TODO(Tyler): This needs to be calculated each iteration, so that delta changes
+        // are taken into account
         if(Object->ReferenceFrame){ 
             dynamic_physics_object *Reference = Object->ReferenceFrame;
             u32 ReferenceCount = 0;
@@ -876,32 +880,52 @@ physics_system::DoPhysics(){
             }
         }
         
-        if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-            if(IsPointInBoundary(GameCamera.ScreenPToWorldP(OSInput.MouseP), Object->Boundaries, Object->P)){
-                PhysicsDebugger.DrawPoint(Object->P, V20, RED);
-                PhysicsDebugger.DrawPoint(V2(Object->P.X, Object->P.Y+0.4f), V20, RED);
-                PhysicsDebugger.DrawLineFrom(Object->P, V20,  Object->Delta, GREEN);
-                v2 P = Object->P;
-                P.Y += 0.2f;
-                v2 StringP = GameCamera.WorldPToScreenP(P);;
-                RenderFormatString(&DebugFont, YELLOW, StringP.X, StringP.Y, -12.0f, "(%f, %f)", Object->Delta.X, Object->Delta.Y);
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
+        if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+            for(collision_boundary *Boundary = Object->Boundaries;
+                Boundary < Object->Boundaries+Object->BoundaryCount;
+                Boundary++){
+                RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
             }
         }
-    }
-    
-#if defined(SNAIL_JUMPY_DEBUG_BUILD)
-    if(DebugConfig.Overlay & DebugOverlay_Boundaries){
-        FOR_BUCKET_ARRAY(It, &StaticObjects){
-            static_physics_object *Object = It.Item;
-            RenderBoundary(&GameCamera, Object->Boundaries, -10.0f, Object->P);
-        }
-    }
 #endif
+        
+    }
     
     // TODO(Tyler): Move this into physics_debugger
     if(PhysicsDebugger.StartOfPhysicsFrame){
         PhysicsDebugger.StartOfPhysicsFrame = false;
     }
+    
+    
+    //~ DEBUG
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
+    if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+        FOR_BUCKET_ARRAY(It, &StaticObjects){
+            static_physics_object *Object = It.Item;
+            for(collision_boundary *Boundary = Object->Boundaries;
+                Boundary < Object->Boundaries+Object->BoundaryCount;
+                Boundary++){
+                RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
+            }
+        }
+    }
+#endif
+    
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
+    if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+        FOR_BUCKET_ARRAY(It, &TriggerObjects){
+            trigger_physics_object *Object = It.Item;
+            if(!Object->IsActive) continue;
+            
+            for(collision_boundary *Boundary = Object->Boundaries;
+                Boundary < Object->Boundaries+Object->BoundaryCount;
+                Boundary++){
+                RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
+            }
+        }
+    }
+#endif
     
     //~ Do collisions
     u32 IterationsToDo = Objects.Count*PHYSICS_ITERATIONS_PER_OBJECT;
@@ -914,114 +938,112 @@ physics_system::DoPhysics(){
         f32 CurrentTimeOfImpact = 1.0f;
         
         //~ Detect collisions
-        {
-            u32 AIndex = 0;
-            FOR_BUCKET_ARRAY(ItA, &Objects){
-                dynamic_physics_object *ObjectA = ItA.Item;
-                
-                local_constant f32 Epsilon = 0.0001f;
-                if((-Epsilon <= ObjectA->Delta.X) && (ObjectA->Delta.X <= Epsilon) &&
-                   (-Epsilon <= ObjectA->Delta.Y) && (ObjectA->Delta.Y <= Epsilon)){
-                    ObjectA->Delta = {};
-                }
-                
-                if((-Epsilon <= ObjectA->dP.X) && (ObjectA->dP.X <= Epsilon) &&
-                   (-Epsilon <= ObjectA->dP.Y) && (ObjectA->dP.Y <= Epsilon)){
-                    ObjectA->dP = {};
-                }
-                
-                PhysicsDebugger.DrawString("%u %u Delta: (%f, %f)", Iteration, AIndex, ObjectA->Delta.X, ObjectA->Delta.Y);
-                
-                // DEBUG
-                // TODO(Tyler): Move this into physics_debugger
-                PhysicsDebugger.DoDebug = ObjectA->DebugInfo.DebugThisOne;
-                PhysicsDebugger.DrawPoint(PhysicsDebugger.Origin, V20, WHITE);
-                
-                physics_collision Collision = MakeDummyCollision();
-                for(collision_boundary *Boundary = ObjectA->Boundaries;
-                    Boundary < ObjectA->Boundaries+ObjectA->BoundaryCount;
-                    Boundary++){
-                    DoStaticCollisions(&Collision, Boundary, ObjectA->P, ObjectA->Delta);
-                    DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, ItA.Location);
-                }
-                
-                u32 BIndex = AIndex + Collision.BIndexOffset;
-                if(ChooseCollision(CurrentTimeOfImpact, F32_POSITIVE_INFINITY, &Collision)){
-                    Collisions[AIndex] = Collision;
-                    if(Collision.TimeOfImpact < CurrentTimeOfImpact){
-                        CurrentTimeOfImpact = Collision.TimeOfImpact;
-                        for(u32 I=0; I<AIndex; I++){
-                            Collisions[I] = MakeDummyCollision();
-                        }
-                    }
-                    
-                    if(Collision.IsDynamic){
-                        Collisions[BIndex]  = MakeBCollision(Collision, ObjectA);
+        FOR_BUCKET_ARRAY(ItA, &Objects){
+            dynamic_physics_object *ObjectA = ItA.Item;
+            
+            local_constant f32 Epsilon = 0.0001f;
+            if((-Epsilon <= ObjectA->Delta.X) && (ObjectA->Delta.X <= Epsilon) &&
+               (-Epsilon <= ObjectA->Delta.Y) && (ObjectA->Delta.Y <= Epsilon)){
+                ObjectA->Delta = {};
+            }
+            
+            if((-Epsilon <= ObjectA->dP.X) && (ObjectA->dP.X <= Epsilon) &&
+               (-Epsilon <= ObjectA->dP.Y) && (ObjectA->dP.Y <= Epsilon)){
+                ObjectA->dP = {};
+            }
+            
+            //~ DEBUG
+            
+            physics_collision Collision = MakeCollision();
+            physics_trigger Trigger = {};
+            for(collision_boundary *Boundary = ObjectA->Boundaries;
+                Boundary < ObjectA->Boundaries+ObjectA->BoundaryCount;
+                Boundary++){
+                DoStaticCollisions(&Collision, Boundary, ObjectA->P, ObjectA->Delta);
+                DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, ItA.Location);
+                DoTriggerCollisions(&Trigger, Boundary, ObjectA->P, ObjectA->Delta);
+            }
+            
+            u32 BIndex = ItA.I + Collision.BIndexOffset;
+            if(ChooseCollision(CurrentTimeOfImpact, F32_POSITIVE_INFINITY, &Collision)){
+                Collisions[ItA.I] = Collision;
+                Triggers[ItA.I]   = Trigger;
+                if(Collision.TimeOfImpact < CurrentTimeOfImpact){
+                    CurrentTimeOfImpact = Collision.TimeOfImpact;
+                    for(u32 I=0; I<ItA.I; I++){
+                        Collisions[I] = MakeCollision();
+                        Triggers[I]   = {};
                     }
                 }
                 
-                AIndex++;
+                if(Collision.IsDynamic){
+                    Collisions[BIndex]  = MakeBCollision(Collision, ObjectA);
+                }
+            }else if(Trigger.IsValid){
+                Triggers[ItA.I] = Trigger;
             }
         }
         
         //~ Solve collisions
-        // TODO(Tyler): Move into physics_debugger
-        PhysicsDebugger.DoDebug = true;
+        
         f32 COR = 1.0f;
         FrameTimeRemaining -= FrameTimeRemaining*CurrentTimeOfImpact;
-        {
-            u32 Index = 0;
-            FOR_BUCKET_ARRAY(It, &Objects){
-                physics_collision *Collision = &Collisions[Index];
+        FOR_BUCKET_ARRAY(It, &Objects){
+            physics_collision *Collision = &Collisions[It.I];
+            
+            dynamic_physics_object *ObjectA = It.Item;
+            
+            ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
+            ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
+            
+            if(Triggers[It.I].IsValid){
+                trigger_physics_object *Trigger = Triggers[It.I].Trigger;
+                Trigger->Response(Trigger->Entity, 0);
+            }
+            
+            if(Collisions[It.I].TimeOfImpact < 1.0f){
+                if(PhysicsDebugger.DefineStep()) return;
                 
-                dynamic_physics_object *ObjectA = It.Item;
-                
-                ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
-                ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
-                
-                if(Collisions[Index].TimeOfImpact < 1.0f){
-                    if(PhysicsDebugger.DefineStep()) return;
+                if(ObjectA->Response(ObjectA->Entity, Collision)){
+                    if(PhysicsDebugger.IsCurrent()){
+                        PhysicsDebugger.DrawString("Entity handled collision");
+                    }
+                }else{
+                    physics_object *ObjectB = Collision->ObjectB;
                     
-                    if(ObjectA->Response(ObjectA->Entity, Collision)){
-                        if(PhysicsDebugger.IsCurrent()){
-                            PhysicsDebugger.DrawString("Entity handled collision");
+                    if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+                        ObjectA->dP       -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
+                        ObjectA->TargetdP -= COR*Collision->Normal*Dot(ObjectA->TargetdP, Collision->Normal);
+                        ObjectA->Delta    -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
+                        ObjectA->Delta -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
+                    }
+                    
+                    f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
+                    if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
+                    ObjectA->P += CorrectionPercent*Collision->Correction;
+                    
+                    if(Collision->Normal.Y > WALKABLE_STEEPNESS){
+                        ObjectA->State &= ~PhysicsObjectState_Falling;
+                    }
+                    
+                    //~ DEBUG
+                    if(PhysicsDebugger.IsCurrent()){
+                        PhysicsDebugger.DrawString("Yes collision");
+                        PhysicsDebugger.DrawPoint(ObjectA->P-CorrectionPercent*Collision->Correction, V20, YELLOW);
+                        PhysicsDebugger.DrawPoint(ObjectA->P, V20, WHITE);
+                        if(ObjectB) { 
+                            PhysicsDebugger.DrawPoint(ObjectB->P, V20, DARK_GREEN);
+                            PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision->Normal, PINK);
+                            PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
                         }
-                    }else{
-                        physics_object *ObjectB = Collision->ObjectB;
-                        
-                        if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
-                            ObjectA->dP       -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
-                            ObjectA->TargetdP -= COR*Collision->Normal*Dot(ObjectA->TargetdP, Collision->Normal);
-                            ObjectA->Delta    -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
-                        }
-                        
-                        f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
-                        if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
-                        ObjectA->P += CorrectionPercent*Collision->Correction;
-                        
-                        if(Collision->Normal.Y > WALKABLE_STEEPNESS){
-                            ObjectA->State &= ~PhysicsObjectState_Falling;
-                        }
-                        
-                        if(PhysicsDebugger.IsCurrent()){
-                            PhysicsDebugger.DrawString("Yes collision");
-                            PhysicsDebugger.DrawPoint(ObjectA->P-CorrectionPercent*Collision->Correction, V20, YELLOW);
-                            PhysicsDebugger.DrawPoint(ObjectA->P, V20, WHITE);
-                            if(ObjectB) { 
-                                PhysicsDebugger.DrawPoint(ObjectB->P, V20, DARK_GREEN);
-                                PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision->Normal, PINK);
-                                PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
-                            }
-                            PhysicsDebugger.DrawString("CurrentTimeOfImpact: %f", CurrentTimeOfImpact);
-                            PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision->TimeOfImpact);
-                            PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision->Correction.X, Collision->Correction.Y);
-                            PhysicsDebugger.DrawString("Along delta: %f", Collision->AlongDelta);
-                        }
+                        PhysicsDebugger.DrawString("CurrentTimeOfImpact: %f", CurrentTimeOfImpact);
+                        PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision->TimeOfImpact);
+                        PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision->Correction.X, Collision->Correction.Y);
+                        PhysicsDebugger.DrawString("Along delta: %f", Collision->AlongDelta);
                     }
                 }
                 
-                Collisions[Index] = MakeDummyCollision();
-                Index++;
+                Collisions[It.I] = MakeCollision();
             }
         }
         
@@ -1031,7 +1053,8 @@ physics_system::DoPhysics(){
     //~ Do floor raycasts
     FOR_BUCKET_ARRAY(It, &Objects){
         dynamic_physics_object *Object = It.Item;
-        if(!(Object->State & PhysicsObjectState_Floats)){
+        if(!(Object->State & PhysicsObjectState_Floats) &&
+           !(Object->State & PhysicsObjectState_Falling)){
             DoFloorRaycast(Object);
         }
         
@@ -1039,8 +1062,7 @@ physics_system::DoPhysics(){
     }
     
     // DEBUG
-    PhysicsDebugger.Paused = {};
-    PhysicsDebugger.StartOfPhysicsFrame = true;
+    PhysicsDebugger.End();
 }
 
 inline void
