@@ -24,12 +24,6 @@ physics_debugger::DefineStep(){
     
     Current++;
     
-#if 0    
-    if(++Current.Object > Paused.Object){
-        Paused.Object = Current.Object;
-    }
-#endif
-    
     return(false);
 }
 
@@ -394,7 +388,8 @@ UpdateSimplex(v2 Simplex[3], u32 *SimplexCount, v2 *Direction){
             if(Dot(Simplex[0]-Simplex[1], -Simplex[1]) > 0.0f){
                 *Direction = TripleProduct(Simplex[0]-Simplex[1], -Simplex[1]);
                 if((Direction->X == 0.0f) && (Direction->Y == 0.0f)){
-                    *Direction = TripleProduct(Simplex[0]-Simplex[1], V2(0.01f, 0.0f)-Simplex[1]);
+                    // TODO(Tyler): I have no idea if there is a better way to do this
+                    *Direction = TripleProduct(Simplex[0]-Simplex[1], V2(0.1f, 0.1f)-Simplex[1]);
                 }
                 
                 PhysicsDebugger.Base = 0.5f*(Simplex[0]+Simplex[1]);
@@ -504,7 +499,7 @@ struct epa_result {
 // Variation on the expanding polytope algorithm that takes the object's delta into account
 internal epa_result
 DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta, v2 Simplex[3]){
-    const f32 Epsilon = 0.001f;
+    const f32 Epsilon = 0.0001f;
     
     dynamic_array<v2> Polytope; 
     DynamicArrayInitialize(&Polytope, 20, &TransientStorageArena);
@@ -515,20 +510,20 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
     v2 DeltaNormal = Normalize(Clockwise90(Delta));
     v2 DeltaDirection = Normalize(Delta);
     
-    enum {
-        FoundEdgeType_None,
-        FoundEdgeType_Colinear,
-        FoundEdgeType_InReverse,
+    enum found_edge_type {
+        FoundEdge_None,
+        FoundEdge_Colinear,
+        FoundEdge_Beyond,
+        FoundEdge_Ordinary,
     };
     
     epa_result Result = {};
     while(true){
-        b8 FoundEdge = false;
-        b8 IsColinear = false;
         u32 EdgeIndex = 0;
         f32 EdgeDistance = 0;
         v2 InverseNormal = {};
         v2 IntersectionPoint = {};
+        found_edge_type FoundEdge = FoundEdge_None;
         
         for(u32 I=0; I < Polytope.Count; I++){
             v2 A = Polytope[I];
@@ -539,8 +534,7 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
             
             if(((-Epsilon <= AAlongDeltaNormal) && (AAlongDeltaNormal <= Epsilon)) && // Collinear
                ((-Epsilon <= BAlongDeltaNormal) && (BAlongDeltaNormal <= Epsilon))){
-                FoundEdge = true;
-                IsColinear = true;
+                FoundEdge = FoundEdge_Colinear;
                 EdgeIndex = I;
                 InverseNormal = V20;
                 EdgeDistance = Dot(InverseNormal, -A);
@@ -557,15 +551,15 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
                 
                 if(-Epsilon <= PointAlongDeltaDirection){
                     if(PointAlongDeltaDirection <= DeltaLength+Epsilon){ // The delta intersects
-                        FoundEdge = true;
+                        FoundEdge = FoundEdge_Ordinary;
                         EdgeIndex = I;
                         InverseNormal = Normalize(TripleProduct(B-A, -A));
                         EdgeDistance = Dot(InverseNormal, -A);
                         PointAlongDeltaDirection = Clamp(PointAlongDeltaDirection, 0.0f, DeltaLength);
                         IntersectionPoint = PointAlongDeltaDirection*DeltaDirection;
                         break;
-                    }else if(!IsColinear){
-                        FoundEdge = true;
+                    }else if(FoundEdge != FoundEdge_Colinear){ // Intersect along the delta but beyond it
+                        FoundEdge = FoundEdge_Beyond;
                         EdgeIndex = I;
                         InverseNormal = Normalize(TripleProduct(B-A, -A));
                         EdgeDistance = Dot(InverseNormal, -A);
@@ -574,7 +568,7 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
                 }
             }
         }
-        PhysicsDebugger.BreakWhen(!FoundEdge);
+        PhysicsDebugger.BreakWhen(FoundEdge == FoundEdge_None);
         
         f32 Distance;
         v2 NewPoint = V20;
