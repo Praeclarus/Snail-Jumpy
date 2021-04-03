@@ -292,14 +292,14 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
             }
             return(true);
         }
-    }else{
-        if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
-            if(Collision->Normal.Y < WALKABLE_STEEPNESS){
-                if(Collision->Normal.X > 0.0f){
-                    TurnEnemy(Enemy, Direction_Right);
-                }else{
-                    TurnEnemy(Enemy, Direction_Left);
-                }
+    }
+    if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+        if((Collision->Normal.Y < WALKABLE_STEEPNESS) &&
+           (-WALKABLE_STEEPNESS < Collision->Normal.Y)){
+            if(Collision->Normal.X > 0.0f){
+                TurnEnemy(Enemy, Direction_Right);
+            }else{
+                TurnEnemy(Enemy, Direction_Left);
             }
         }
     }
