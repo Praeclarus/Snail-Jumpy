@@ -30,7 +30,7 @@ UpdateAndRenderInfoSelector(v2 P, v2 MouseP, camera *ParentCamera, u32 SelectedI
         if(I == SelectedInfo){
             f32 Thickness = 0.06f;
             f32 Offset = 0.2f;
-            RenderRectangle(V2(Min.X, Min.Y-Offset), V2(Max.X, Min.Y-Offset+Thickness), -0.1f, BLUE, &Camera);
+            RenderRect(Rect(V2(Min.X, Min.Y-Offset), V2(Max.X, Min.Y-Offset+Thickness)), -0.1f, BLUE, &Camera);
         }
         
         if((P.X <= MouseP.X) && (MouseP.X <= P.X+Size.X)){
@@ -45,7 +45,7 @@ UpdateAndRenderInfoSelector(v2 P, v2 MouseP, camera *ParentCamera, u32 SelectedI
     
     if(Result){
         if((YMin <= MouseP.Y) && (MouseP.Y <= YMax)){
-            RenderRectangleOutlineMinMax(FoundMin, FoundMax, -0.1f, WHITE, &Camera, Thickness);
+            RenderRectOutline(Rect(FoundMin, FoundMax), -0.1f, WHITE, &Camera, Thickness);
         }else{
             Result = 0;
         }
@@ -218,8 +218,8 @@ entity_editor::ProcessAction(){
             }
             
             v2 PointSize = V2(0.03f);
-            RenderCenteredRectangle(Action.Boundary.Bounds.Min, PointSize, -10.0f, YELLOW, &Camera);
-            RenderCenteredRectangle(Action.Boundary.Bounds.Max, PointSize, -10.0f, YELLOW, &Camera);
+            RenderRect(CenterRect(Action.Boundary.Bounds.Min, PointSize), -10.0f, YELLOW, &Camera);
+            RenderRect(CenterRect(Action.Boundary.Bounds.Max, PointSize), -10.0f, YELLOW, &Camera);
             
             collision_boundary Boundary = ConvertToCollisionBoundary(&Action.Boundary, &TransientStorageArena);
             RenderBoundary(&Camera, &Boundary, -2.0f, EntityP);
@@ -386,7 +386,7 @@ entity_editor::UpdateAndRender(){
         v2 Max;
         Max.Y = FloorY;
         Max.X = (OSInput.WindowSize.X/Camera.MetersToPixels) - 1.0f;
-        RenderRectangle(Min, Max, 0.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
+        RenderRect(Rect(Min, Max), 0.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
     }
     
     asset *Asset = GetSpriteSheet(SelectedInfo->Asset);

@@ -48,8 +48,8 @@ physics_debugger::IsCurrent(){
 inline void
 physics_debugger::DrawPoint(v2 Offset, v2 Point, color Color){
     if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
-    RenderCenteredRectangle(Offset-GameCamera.P + Scale*Point, V2(0.05f, 0.05f),
-                            -10.3f, Color, &GameCamera);
+    RenderRect(CenterRect(Offset-GameCamera.P + Scale*Point, V2(0.05f)),
+               -10.3f, Color, &GameCamera);
 }
 
 inline void
@@ -133,8 +133,8 @@ RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset){
     switch(Boundary->Type){
         case BoundaryType_None: break;
         case BoundaryType_Rect: {
-            RenderRectangle(Offset+Boundary->Bounds.Min, Offset+Boundary->Bounds.Max, Z, 
-                            Color_, Camera);
+            RenderRect(OffsetRect(Boundary->Bounds, Offset), Z, 
+                       Color_, Camera);
         }break;
         case BoundaryType_FreeForm: {
             u32 Count = Boundary->FreeFormPointCount;
@@ -147,8 +147,8 @@ RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset){
         }break;
         default: INVALID_CODE_PATH;
     }
-    RenderRectangleOutlineMinMax(Offset+Boundary->Bounds.Min, Offset+Boundary->Bounds.Max, Z-0.1f,
-                                 RED, Camera, 0.015f);
+    RenderRectOutline(OffsetRect(Boundary->Bounds, Offset), Z-0.1f,
+                      RED, Camera, 0.015f);
 }
 
 internal inline collision_boundary
@@ -1086,6 +1086,9 @@ physics_system::DoPhysics(){
     }
     
     //~ Do particles
+    
+    // TODO(Tyler): This is a very naive and probably rather slow particle system implementation,
+    // This might be a good SIMDization excersize
     BEGIN_TIMED_BLOCK(PhysicsParticles);
     FOR_BUCKET_ARRAY(It, &ParticleSystems){
         physics_particle_system *System = It.Item;
@@ -1132,7 +1135,9 @@ physics_system::DoPhysics(){
             Particle->P += Collision.Correction;
             Particle->dP -= COR*Collision.Normal*Dot(Particle->dP, Collision.Normal);
             
-            RenderCenteredRectangle(Particle->P, V2(0.1f), -5.0f, RED, &GameCamera);
+            // TODO(Tyler): I don't know what we want particles to do so...
+            // This is here just to see them until that is figured out
+            RenderRect(CenterRect(Particle->P, V2(0.03f)), -5.0f, RED, &GameCamera);
             
             Particle->Lifetime -= dTime;
         }

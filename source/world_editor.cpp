@@ -595,29 +595,29 @@ world_editor::RenderCursor(){
     
     switch(Mode){
         case EditMode_AddWall: {
-            RenderCenteredRectangle(Center, TILE_SIZE, -0.1f, BLACK, &Camera);
-            RenderCenteredRectangle(Center, (TILE_SIZE-2*Margin),-0.11f, WHITE, &Camera);
+            RenderRect(CenterRect(Center, TILE_SIZE), -0.1f, BLACK, &Camera);
+            RenderRect(CenterRect(Center, (TILE_SIZE-2*Margin)),-0.11f, WHITE, &Camera);
         }break;
         case EditMode_AddTeleporter: {
-            RenderCenteredRectangle(Center, TILE_SIZE, -0.1f, BLACK, &Camera);
-            RenderCenteredRectangle(Center, (TILE_SIZE-2*Margin), -0.11f, GREEN, &Camera);
+            RenderRect(CenterRect(Center, TILE_SIZE), -0.1f, BLACK, &Camera);
+            RenderRect(CenterRect(Center, (TILE_SIZE-2*Margin)), -0.11f, GREEN, &Camera);
         }break;
         case EditMode_AddDoor: {
             if(Action == WorldEditorAction_AddDragging){
                 v2 ViewTileP2 = TILE_SIDE*CursorP2;
-                RenderRectangle(ViewTileP, ViewTileP2, -0.5f, BROWN, &Camera);
+                RenderRect(Rect(ViewTileP, ViewTileP2), -0.5f, BROWN, &Camera);
             }else{
-                RenderRectangle(ViewTileP, ViewTileP+TILE_SIZE, -0.5f, BROWN, &Camera);
+                RenderRect(Rect(ViewTileP, ViewTileP+TILE_SIZE), -0.5f, BROWN, &Camera);
             }
         }break;
         case EditMode_AddCoinP: {
             v2 Size = {0.3f, 0.3f};
-            RenderCenteredRectangle(Center, Size, 0.0f, BLACK, &Camera);
-            RenderCenteredRectangle(Center, (Size-2*Margin), -0.1f, YELLOW, &Camera);
+            RenderRect(CenterRect(Center, Size), 0.0f, BLACK, &Camera);
+            RenderRect(CenterRect(Center, (Size-2*Margin)), -0.1f, YELLOW, &Camera);
         }break;
         case EditMode_AddEnemy: {
             if(EntityToAddInfoID == 0){
-                RenderCenteredRectangle(Center, TILE_SIZE, -0.11f, PINK, &Camera);
+                RenderRect(CenterRect(Center, TILE_SIZE), -0.11f, PINK, &Camera);
             }else{ 
                 entity_info *Info = &EntityInfos[EntityToAddInfoID];
                 v2 P = v2{Center.X, ViewTileP.Y};
@@ -828,11 +828,11 @@ world_editor::UpdateAndRender(){
             u8 TileId = World->Map[Y*World->Width + X];
             v2 P = TILE_SIDE*V2((f32)X, (f32)Y);
             if(TileId == EntityType_Wall){
-                RenderRectangle(P, P+TILE_SIZE, 0.0f, WHITE, &Camera);
+                RenderRect(Rect(P, P+TILE_SIZE), 0.0f, WHITE, &Camera);
             }else if(TileId == EntityType_Coin){
                 v2 Center = P + 0.5f*TILE_SIZE;
                 v2 Size = {0.3f, 0.3f};
-                RenderCenteredRectangle(Center, Size, 0.0f, YELLOW, &Camera);
+                RenderRect(CenterRect(Center, Size), 0.0f, YELLOW, &Camera);
             }
         }
     }
@@ -859,7 +859,7 @@ world_editor::UpdateAndRender(){
                 }else{ INVALID_CODE_PATH; }
                 
                 if(SelectedThing == Entity){
-                    RenderRectangleOutline(P, Size, -0.1f, EDITOR_SELECTED_COLOR, &Camera);
+                    RenderRectOutline(CenterRect(P, Size), -0.1f, EDITOR_SELECTED_COLOR, &Camera);
                     local_constant color BASE_COLOR     = Color(0.0f, 0.0f, 0.5f, 1.0f);
                     {
                         color Color = BASE_COLOR;
@@ -868,7 +868,7 @@ world_editor::UpdateAndRender(){
                         }else if(IsPointInRect(MouseP, CenterRect(Entity->PathStart, ENEMY_PATH_HANDLE_SIZE))){
                             Color = EDITOR_HOVERED_COLOR; 
                         }
-                        RenderCenteredRectangle(Entity->PathStart, ENEMY_PATH_HANDLE_SIZE, -1.0f, Color, &Camera);
+                        RenderRect(CenterRect(Entity->PathStart, ENEMY_PATH_HANDLE_SIZE), -1.0f, Color, &Camera);
                     }{
                         color Color = BASE_COLOR;
                         if(InfoialThing == EditorInfoialThing_PathEnd){
@@ -876,12 +876,12 @@ world_editor::UpdateAndRender(){
                         }else if(IsPointInRect(MouseP, CenterRect(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE))){
                             Color = EDITOR_HOVERED_COLOR; 
                         }
-                        RenderCenteredRectangle(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE, -1.0f, Color, &Camera);
+                        RenderRect(CenterRect(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE), -1.0f, Color, &Camera);
                     }
                 }else if(IsPointInRect(MouseP, CenterRect(Entity->P, Asset->SizeInMeters*Asset->Scale)) &&
                          (!UIManager.MouseOverWindow)){
                     local_constant color COLOR = color{0.0f, 0.0f, 0.7f, 1.0f};
-                    RenderRectangleOutline(P, Size, -0.1f, COLOR, &Camera);
+                    RenderRectOutline(CenterRect(P, Size), -0.1f, COLOR, &Camera);
                 }
             }break;
             case EntityType_Teleporter: {
@@ -894,9 +894,9 @@ world_editor::UpdateAndRender(){
                     OutlineColor = EDITOR_HOVERED_COLOR;
                 }
                 
-                RenderRectangleOutline(Entity->P, TILE_SIZE, -0.1f, 
-                                       OutlineColor, &Camera);
-                RenderCenteredRectangle(Entity->P, TILE_SIZE, 0.0f, GREEN, &Camera);
+                RenderRectOutline(CenterRect(Entity->P, TILE_SIZE), -0.1f, 
+                                  OutlineColor, &Camera);
+                RenderRect(CenterRect(Entity->P, TILE_SIZE), 0.0f, GREEN, &Camera);
             }break;
             case EntityType_Door: {
                 v2 Margin = v2{0.05f, 0.05f};
@@ -908,9 +908,9 @@ world_editor::UpdateAndRender(){
                     OutlineColor = EDITOR_HOVERED_COLOR;
                 }
                 
-                RenderRectangleOutline(Entity->P, Entity->Size, -0.1f, 
-                                       OutlineColor, &Camera);
-                RenderCenteredRectangle(Entity->P, Entity->Size, 0.0f, BROWN, &Camera);
+                RenderRectOutline(CenterRect(Entity->P, Entity->Size), -0.1f, 
+                                  OutlineColor, &Camera);
+                RenderRect(CenterRect(Entity->P, Entity->Size), 0.0f, BROWN, &Camera);
             }break;
             case EntityType_Art: {
                 asset *Asset = GetArt(Entity->Asset);
@@ -921,7 +921,7 @@ world_editor::UpdateAndRender(){
                     RenderCenteredTexture(Entity->P, Size, Entity->Z, 
                                           Asset->Texture, V2(0,0), V2(1,1), false, &Camera);
                 }else{
-                    RenderCenteredRectangle(Entity->P, TILE_SIZE, 0.0f, PINK, &Camera);
+                    RenderRect(CenterRect(Entity->P, TILE_SIZE), 0.0f, PINK, &Camera);
                 }
                 
                 color OutlineColor = {};
@@ -933,7 +933,7 @@ world_editor::UpdateAndRender(){
                     OutlineColor = EDITOR_HOVERED_COLOR;
                 }
                 
-                RenderRectangleOutline(Entity->P, Size, Entity->Z-0.1f, OutlineColor, &Camera);
+                RenderRectOutline(CenterRect(Entity->P, Size), Entity->Z-0.1f, OutlineColor, &Camera);
             }break;
         }
     }

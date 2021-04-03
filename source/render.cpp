@@ -138,17 +138,17 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=3
 }
 
 internal void
-RenderRectangle(v2 MinCorner, v2 MaxCorner, f32 Z, color Color, camera *Camera=0){
+RenderRect(rect Rect, f32 Z, color Color, camera *Camera=0){
     if(Camera){
-        MinCorner -= Camera->P;
-        MaxCorner -= Camera->P;
-        MinCorner *= Camera->MetersToPixels;
-        MaxCorner *= Camera->MetersToPixels;
+        Rect.Min-= Camera->P;
+        Rect.Max-= Camera->P;
+        Rect.Min *= Camera->MetersToPixels;
+        Rect.Max *= Camera->MetersToPixels;
         
-        if(Renderer.OutputSize.X < MinCorner.X) return;
-        if(Renderer.OutputSize.Y < MinCorner.Y) return;
-        if(MaxCorner.X < 0.0f) return;
-        if(MaxCorner.Y < 0.0f) return;
+        if(Renderer.OutputSize.X < Rect.Min.X) return;
+        if(Renderer.OutputSize.Y < Rect.Min.Y) return;
+        if(Rect.Max.X < 0.0f) return;
+        if(Rect.Max.Y < 0.0f) return;
     }
     
     auto RenderItem = Renderer.PushRenderItem(Z, (Color.A < 1.0f));
@@ -156,10 +156,10 @@ RenderRectangle(v2 MinCorner, v2 MaxCorner, f32 Z, color Color, camera *Camera=0
     RenderItem->Texture = DefaultTexture;
     
     vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
-    Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 1.0f};
-    Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 1.0f};
-    Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 0.0f};
+    Vertices[0] = {Rect.Min.X, Rect.Min.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+    Vertices[1] = {Rect.Min.X, Rect.Max.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 1.0f};
+    Vertices[2] = {Rect.Max.X, Rect.Max.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 1.0f};
+    Vertices[3] = {Rect.Max.X, Rect.Min.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 0.0f};
     
     u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
     Indices[0] = 0;
@@ -168,12 +168,6 @@ RenderRectangle(v2 MinCorner, v2 MaxCorner, f32 Z, color Color, camera *Camera=0
     Indices[3] = 0;
     Indices[4] = 2;
     Indices[5] = 3;
-}
-
-internal void
-RenderRectangleBySize(v2 Min, v2 Size, f32 Z, color Color,
-                      camera *Camera=0){
-    RenderRectangle(Min, Min+Size, Z, Color, Camera);
 }
 
 internal void
@@ -375,28 +369,12 @@ RenderCenteredString(font *Font, color Color, v2 Center,
 }
 
 internal inline void
-RenderCenteredRectangle(v2 Center, v2 Size, f32 Z, color Color, camera *Camera=0){
-    RenderRectangle(Center-Size/2, Center+Size/2, Z, Color, Camera);
-}
-
-internal inline void
-RenderRectangleOutline(v2 Center, v2 Size, f32 Z, 
-                       color Color, camera *Camera=0, f32 Thickness=0.03f){
-    v2 Min = Center-Size/2;
-    v2 Max = Center+Size/2;
-    RenderRectangle(Min, {Max.X, Min.Y+Thickness}, Z, Color, Camera);
-    RenderRectangle({Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, Z, Color, Camera);
-    RenderRectangle({Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, Z, Color, Camera);
-    RenderRectangle({Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, Z, Color, Camera);
-}
-
-internal inline void
-RenderRectangleOutlineMinMax(v2 Min, v2 Max, f32 Z, 
-                             color Color, camera *Camera=0, f32 Thickness=0.03f){
-    RenderRectangle(Min, {Max.X, Min.Y+Thickness}, Z, Color, Camera);
-    RenderRectangle({Max.X-Thickness, Min.Y}, {Max.X, Max.Y}, Z, Color, Camera);
-    RenderRectangle({Min.X, Max.Y}, {Max.X, Max.Y-Thickness}, Z, Color, Camera);
-    RenderRectangle({Min.X, Min.Y}, {Min.X+Thickness, Max.Y}, Z, Color, Camera);
+RenderRectOutline(rect Rect_, f32 Z, 
+                  color Color, camera *Camera=0, f32 Thickness=0.03f){
+    RenderRect(Rect(Rect_.Min, V2(Rect_.Max.X, Rect_.Min.Y+Thickness)), Z, Color, Camera);
+    RenderRect(Rect(V2(Rect_.Max.X-Thickness, Rect_.Min.Y), V2(Rect_.Max.X, Rect_.Max.Y)), Z, Color, Camera);
+    RenderRect(Rect(V2(Rect_.Min.X, Rect_.Max.Y), V2(Rect_.Max.X, Rect_.Max.Y-Thickness)), Z, Color, Camera);
+    RenderRect(Rect(V2(Rect_.Min.X, Rect_.Min.Y), V2(Rect_.Min.X+Thickness, Rect_.Max.Y)), Z, Color, Camera);
 }
 
 internal inline color

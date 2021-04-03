@@ -46,7 +46,7 @@ UpdateAndRenderMainGame(){
         v2 P = v2{15.25f, 3.25f};
         v2 DrawP = P;
         v2 Radius = 0.5f*TILE_SIZE;
-        RenderCenteredRectangle(DrawP, TILE_SIZE, 0.0f, ORANGE, &GameCamera);
+        RenderRect(CenterRect(DrawP, TILE_SIZE), 0.0f, ORANGE, &GameCamera);
         v2 PlayerMin = Player->Physics->P-(RectSize(EntityManager.Player->Bounds)/2);
         v2 PlayerMax = Player->Physics->P+(RectSize(EntityManager.Player->Bounds)/2);
         if((P.X-Radius.X <= PlayerMax.X)  &&
@@ -103,8 +103,8 @@ UpdateAndRenderMainGame(){
         Percent = EntityManager.Player->WeaponChargeTime;
         Max.X += 4.0f*Percent;
         Max.Y += 0.2f;
-        RenderRectangle(Min, Max, -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f),
-                        &DummyCamera);
+        RenderRect(Rect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f),
+                   &DummyCamera);
     }
     
     // Health display

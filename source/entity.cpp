@@ -453,7 +453,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         wall_entity *Entity = It.Item;  
         
         v2 Size = RectSize(Entity->Bounds);
-        RenderCenteredRectangle(Entity->Physics->P, Size, 0.0f, WHITE, Camera);
+        RenderRect(CenterRect(Entity->Physics->P, Size), 0.0f, WHITE, Camera);
     }
     END_TIMED_BLOCK();
     
@@ -461,13 +461,12 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     BEGIN_TIMED_BLOCK(UpdateAndRenderCoins);
     FOR_BUCKET_ARRAY(It, &Coins){
         coin_entity *Coin = It.Item;
-        v2 Size = RectSize(Coin->Bounds);
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTime;
         }else{
             Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
-            RenderRectangle(Coin->Physics->P-(Size/2), Coin->Physics->P+(Size/2), 0.0f, 
-                            YELLOW, Camera);
+            RenderRect(OffsetRect(Coin->Bounds, Coin->Physics->P), 0.0f, 
+                       YELLOW, Camera);
         }
     }
     END_TIMED_BLOCK();
@@ -531,11 +530,9 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     BEGIN_TIMED_BLOCK(UpdateAndRenderTeleporters);
     FOR_BUCKET_ARRAY(It, &Teleporters){
         teleporter_entity *Teleporter = It.Item;
-        v2 Size = RectSize(Teleporter->Bounds);
-        
         if(!Teleporter->IsLocked){
-            RenderRectangle(Teleporter->Physics->P-(Size/2), Teleporter->Physics->P+(Size/2), 0.0f, 
-                            GREEN, Camera);
+            RenderRect(OffsetRect(Teleporter->Bounds, Teleporter->Physics->P), 0.0f, 
+                       GREEN, Camera);
             
             if(Teleporter->IsSelected){
                 world_data *World = WorldManager.GetOrCreateWorld(Teleporter->Level);
@@ -556,8 +553,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                 Teleporter->IsSelected = false;
             }
         }else{
-            RenderRectangle(Teleporter->Physics->P-(Size/2), Teleporter->Physics->P+(Size/2), 0.0f, 
-                            Color(0.0f, 0.0f, 1.0f, 0.5f), Camera);
+            RenderRect(OffsetRect(Teleporter->Bounds, Teleporter->Physics->P), 0.0f, 
+                       Color(0.0f, 0.0f, 1.0f, 0.5f), Camera);
         }
     }
     END_TIMED_BLOCK();
@@ -566,18 +563,17 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     BEGIN_TIMED_BLOCK(UpdateAndRenderDoors);
     FOR_BUCKET_ARRAY(It, &Doors){
         door_entity *Door = It.Item;
-        v2 Size = RectSize(Door->Bounds);
         Door->Cooldown -= OSInput.dTime;
         
         if(!Door->IsOpen){
-            RenderRectangle(Door->Physics->P-(Size/2), Door->Physics->P+(Size/2), 0.0f, BROWN, Camera);
+            RenderRect(OffsetRect(Door->Bounds, Door->Physics->P), 0.0f, BROWN, Camera);
         }else{
             color Color = BROWN;
             Color.A = Door->Cooldown;
             if(Color.A < 0.3f){
                 Color.A = 0.3f;
             }
-            RenderRectangle(Door->Physics->P-(Size/2), Door->Physics->P+(Size/2), 0.0f, Color, Camera);
+            RenderRect(OffsetRect(Door->Bounds, Door->Physics->P), 0.0f, Color, Camera);
         }
     }
     END_TIMED_BLOCK();
@@ -599,11 +595,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             Physics->P += dTime*Projectile->dP;
             Projectile->dP += dTime*ddP;
             
-            
-            v2 Size = RectSize(Projectile->Bounds);
-            RenderRectangle(Projectile->Physics->P-0.5f*Size, 
-                            Projectile->Physics->P+0.5f*Size, 
-                            0.7f, WHITE, Camera);
+            RenderRect(OffsetRect(Projectile->Bounds, Projectile->Physics->P),
+                       0.7f, WHITE, Camera);
         }else{
             Physics->State |= PhysicsObjectState_Inactive;
         }

@@ -54,7 +54,7 @@ AddParticles(v2 P){
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
     *Boundary = MakeCollisionRect(V20, V2(0.03f));
     //*Boundary = MakeCollisionPoint();
-    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 50, 2.0f);
+    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 200, 2.0f);
 }
 
 internal void
@@ -238,16 +238,9 @@ world_manager::LoadWorld(const char *LevelName){
                 static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
                 Wedge->P = V2(6.0f, 0.5f);
             }
-            
-            {
-                collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-                *Boundary = MakeCollisionWedge(V2(0,0), 0.5f, 0.5f);
-                static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
-                Wedge->P = V2(9.5f, 1.0f);
-            }
 #endif
             
-#if 0            
+#if 0
             AddParticles(V2(3.0f, 3.0f));
             AddParticles(V2(5.0f, 3.0f));
             AddParticles(V2(7.0f, 3.0f));

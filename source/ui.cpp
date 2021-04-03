@@ -138,8 +138,8 @@ window::Button(const char *Text, u32 ButtonsOnRow){
         if(Manager->MouseButtonIsDown(MouseButton_Left)){ Manager->HandledInput = true; }
     }
     
-    RenderRectangle({X, Y-Height}, {X+Width, Y}, Z-0.1f, 
-                    Alphiphy(ButtonColor, Fade));
+    RenderRect(Rect(V2(X, Y-Height), V2(X+Width, Y)), Z-0.1f, 
+               Alphiphy(ButtonColor, Fade));
     f32 TextWidth = GetStringAdvance(Theme->NormalFont, Text);
     f32 HeightOffset = (Theme->NormalFont->Ascent/2);
     RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
@@ -270,16 +270,16 @@ window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     f32 Margin = 10;
     v2 BorderSize = v2{3, 3};
     
-    RenderRectangle(Min, Max, Z-0.11f, 
-                    Alphiphy(Color, Fade));
+    RenderRect(Rect(Min, Max), Z-0.11f, 
+               Alphiphy(Color, Fade));
     v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - Theme->NormalFont->Size/2};
     RenderString(Theme->NormalFont, Alphiphy(TextColor, Fade), 
                  v2{P.X, P.Y}, Z-0.12f, Buffer);
     if(Manager->SelectedWidgetID == ID){
         f32 Advance = GetStringAdvance(Theme->NormalFont, Buffer);
         f32 CursorWidth = 10;
-        RenderRectangle(V2(P.X+Advance, P.Y-2), 
-                        V2(P.X+Advance+CursorWidth, P.Y), Z-0.12f, TextColor);
+        RenderRect(Rect(V2(P.X+Advance, P.Y-2),  V2(P.X+Advance+CursorWidth, P.Y)), 
+                   Z-0.12f, TextColor);
     }
 }
 
@@ -348,8 +348,8 @@ window::ToggleBox(const char *Text, b8 Value){
         }
     }
     
-    RenderRectangle({X, Y-Height}, {X+ButtonWidth, Y}, Z-0.1f, 
-                    Alphiphy(ButtonColor, Fade));
+    RenderRect(Rect(V2(X, Y-Height), V2(X+ButtonWidth, Y)), Z-0.1f, 
+               Alphiphy(ButtonColor, Fade));
     f32 HeightOffset = (Theme->NormalFont->Ascent/2);
     if(Value){
         RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
@@ -439,19 +439,19 @@ window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
             }else if(I == *Selected){
                 Color = Theme->ButtonClickedColor;
             }
-            RenderRectangle(V2(X, NewRectY), V2(X+Width, RectY), Z-0.5f, 
-                            Alphiphy(Color, Fade));
+            RenderRect(Rect(V2(X, NewRectY), V2(X+Width, RectY)), Z-0.5f, 
+                       Alphiphy(Color, Fade));
             RectY = NewRectY;
         }
     }else{
-        RenderRectangle({X, Y-Height}, {X+Width, Y}, Z-0.1f, 
-                        Alphiphy(Theme->ButtonBaseColor, Fade));
+        RenderRect(Rect(V2(X, Y-Height), V2(X+Width, Y)), Z-0.1f, 
+                   Alphiphy(Theme->ButtonBaseColor, Fade));
         RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
                      V2(X+Theme->Padding, TextY), Z-0.11f, Texts[*Selected]);
     }
     
-    RenderRectangle({X, Y-Height}, {X+0.5f*Theme->Padding, Y}, Z-0.51f, 
-                    Alphiphy(Theme->NormalColor, Fade));
+    RenderRect(Rect(V2(X, Y-Height), V2(X+0.5f*Theme->Padding, Y)), Z-0.51f, 
+               Alphiphy(Theme->NormalColor, Fade));
 }
 
 void
@@ -488,7 +488,7 @@ window::End(){
         v2 Max = TopLeft;
         Max.X += Size.X;
         Max.Y += TitleBarHeight;
-        RenderRectangle(Min, Max, Z, Alphiphy(Theme->TitleBarColor, Fade));
+        RenderRect(Rect(Min, Max), Z, Alphiphy(Theme->TitleBarColor, Fade));
         if(Max.Y > OSInput.WindowSize.Y){
             TopLeft.Y = OSInput.WindowSize.Y - TitleBarHeight;
         }
@@ -500,7 +500,7 @@ window::End(){
         Min.Y -= Size.Y;
         v2 Max = TopLeft;
         Max.X += Size.X;
-        RenderRectangle(Min, Max, Z, Alphiphy(Theme->BackgroundColor, Fade));
+        RenderRect(Rect(Min, Max), Z, Alphiphy(Theme->BackgroundColor, Fade));
         if(Max.X > OSInput.WindowSize.X){
             TopLeft.X = OSInput.WindowSize.X - Size.X;
         }else if(Min.X < 0){
