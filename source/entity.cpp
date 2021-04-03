@@ -24,7 +24,7 @@ internal inline void
 OpenDoor(door_entity *Door){
     if(!Door->IsOpen){ Door->Cooldown = 1.0f; }
     Door->IsOpen = true;
-    Door->Physics->State |= PhysicsObjectState_IsInactive;
+    Door->Physics->State |= PhysicsObjectState_Inactive;
 }
 
 inline void
@@ -72,7 +72,7 @@ UpdateCoin(coin_entity *Coin){
         Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
         Coin->Cooldown = 1.0f;
         Coin->Physics->P = NewP;
-        Coin->TriggerPhysics->State |= PhysicsObjectState_IsInactive;
+        Coin->TriggerPhysics->State |= PhysicsObjectState_Inactive;
     }
 }
 
@@ -121,23 +121,23 @@ ShouldEntityUpdate(entity *Entity){
 
 internal void
 UpdateEnemyBoundary(enemy_entity *Enemy){
+    entity_info *Info = &EntityInfos[Enemy->Info];
     u8 NewBoundarySet = GetBoundarySetIndex(Enemy->Info, Enemy->State);
     if((NewBoundarySet > 0) &&
        (NewBoundarySet != Enemy->BoundarySet)){
-        entity_info *Info = &EntityInfos[Enemy->Info];
         Enemy->BoundarySet = NewBoundarySet;
         NewBoundarySet--;
         Assert(NewBoundarySet < Info->BoundarySets);
-        
-        //Enemy->Physics->Boundary = Info->Boundaries[NewBoundarySet];
-    }
-}
-
-internal void
-StunEnemy(enemy_entity *Enemy){
-    if(Enemy->Flags & EntityFlag_CanBeStunned){
-        SetEntityStateUntilAnimationIsOver(Enemy, State_Retreating);
-        UpdateEnemyBoundary(Enemy);
+        Enemy->Physics->Boundaries = &Info->Boundaries[NewBoundarySet*Info->BoundaryCount];
+    }else{
+        if(Info->Flags & EntityFlag_FlipBoundaries){
+            Assert(Info->BoundarySets == 2);
+            if(Enemy->Direction == Direction_Left){
+                Enemy->Physics->Boundaries = &Info->Boundaries[0*Info->BoundaryCount];
+            }else{
+                Enemy->Physics->Boundaries = &Info->Boundaries[1*Info->BoundaryCount];
+            }
+        }
     }
 }
 
@@ -147,6 +147,16 @@ IsEnemyStunned(enemy_entity *Enemy){
                  (Enemy->State == State_Stunned) ||
                  (Enemy->State == State_Returning));
     return(Result);
+}
+
+internal void
+StunEnemy(enemy_entity *Enemy){
+    if(IsEnemyStunned(Enemy)) return;
+    
+    if(Enemy->Flags & EntityFlag_CanBeStunned){
+        SetEntityStateUntilAnimationIsOver(Enemy, State_Retreating);
+        UpdateEnemyBoundary(Enemy);
+    }
 }
 
 internal void
@@ -210,7 +220,6 @@ ProjectileResponse(entity *Data, entity *EntityB){
     if(!(Enemy->Flags & EntityFlag_CanBeStunned)) return;
     StunEnemy(Enemy);
     
-    
     return;
 }
 
@@ -224,18 +233,13 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
     physics_object *ObjectB = Collision->ObjectB;
     entity *CollisionEntity = ObjectB->Entity;
     if(CollisionEntity){
-        switch(CollisionEntity->Type){
-            case EntityType_Player: {
-                if(IsEnemyStunned(Enemy)){
-                    return(false);
-                }else{
-                    EntityManager.DamagePlayer(Enemy->Damage);
-                    return(true);
-                }
-            }break;
-            default: {
-                INVALID_CODE_PATH;
-            }break;
+        if(CollisionEntity->Type == EntityType_Player){
+            if(IsEnemyStunned(Enemy)){
+                return(false);
+            }else{
+                EntityManager.DamagePlayer(Enemy->Damage);
+                return(true);
+            }
         }
     }
     
@@ -246,6 +250,8 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
             }else{
                 TurnEnemy(Enemy, Direction_Left);
             }
+        }else if(Collision->Normal.Y > 0.0f){ // Hits floor
+            GameCamera.Shake(0.1f, 0.05f, 200);
         }
     }
     
@@ -264,18 +270,13 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
     f32 COR = 1.0f;
     
     if(CollisionEntity){
-        switch(CollisionEntity->Type){
-            case EntityType_Player: {
-                f32 XRange = 0.2f;
-                if((Collision->Normal.Y > 0.0f) &&
-                   (-XRange <= Collision->Normal.X) && (Collision->Normal.X <= XRange)){
-                    EntityManager.DamagePlayer(Enemy->Damage);
-                    return(true);
-                }
-            }break;
-            default: {
-                INVALID_CODE_PATH;
-            }break;
+        if(CollisionEntity->Type == EntityType_Player){
+            f32 XRange = 0.2f;
+            if((Collision->Normal.Y > 0.0f) &&
+               (-XRange <= Collision->Normal.X) && (Collision->Normal.X <= XRange)){
+                EntityManager.DamagePlayer(Enemy->Damage);
+                return(true);
+            }
         }
         if(Collision->Normal.Y < 0.0f){
             // NOTE(Tyler): Entity is walking on the dragonfly
@@ -417,7 +418,7 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             // TODO(Tyler): Hot loaded variables file for tweaking these values in 
             // realtime
             f32 XPower = 17.0f;
-            f32 YPower = 5.0f;
+            f32 YPower = 3.0f;
             switch(Player->Direction){
                 case Direction_Left:  Projectile->dP = V2(-XPower, YPower); break;
                 case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
@@ -426,7 +427,7 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             ProjectilePhysics->P = Player->Physics->P;
             ProjectilePhysics->P.Y += 0.15f;
             Projectile->dP *= Player->WeaponChargeTime;
-            Projectile->dP += Physics->dP;
+            Projectile->dP += 0.3f*Physics->dP;
             Projectile->RemainingLife = 3.0f;
             Player->WeaponChargeTime = 0.0f;
             
@@ -465,7 +466,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         if(Coin->Cooldown > 0.0f){
             Coin->Cooldown -= OSInput.dTime;
         }else{
-            Coin->TriggerPhysics->State &= ~PhysicsObjectState_IsInactive;
+            Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
             RenderRectangle(Coin->Physics->P-(Size/2), Coin->Physics->P+(Size/2), 0.0f, 
                             YELLOW, Camera);
         }
@@ -480,7 +481,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         //Physics->DebugInfo.DebugThisOne = true;
         
         f32 Movement = 0.0f;
-        f32 Gravity = 0.0f;
+        f32 Gravity = 11.0f;
         if(ShouldEntityUpdate(Enemy)){
             if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
                (Enemy->Direction == Direction_Left)){
@@ -492,14 +493,10 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                 Movement = ((Enemy->Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
                 dynamic_physics_object *Physics = Enemy->DynamicPhysics;
                 
-                if(Physics->State & PhysicsObjectState_Falling){
-                    if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-                        Physics->TargetdP.Y = Enemy->TargetY-Physics->P.Y;
-                    }else{
-                        Gravity = 11.0f;
-                    }
+                if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
+                    Physics->TargetdP.Y = Enemy->TargetY-Physics->P.Y;
+                    Gravity = 0.0f;
                 }
-                Physics->State |= PhysicsObjectState_Falling;
                 
                 ChangeEntityState(Enemy, State_Moving);
             }
@@ -637,7 +634,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         trigger_physics_object *Physics = Projectile->TriggerPhysics;
         
         if(Projectile->RemainingLife > 0.0f){
-            Physics->State &= ~PhysicsObjectState_IsInactive;
+            Physics->State &= ~PhysicsObjectState_Inactive;
             
             Projectile->RemainingLife -= OSInput.dTime;
             
@@ -652,7 +649,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                             Projectile->Physics->P+0.5f*Size, 
                             0.7f, WHITE, Camera);
         }else{
-            Physics->State |= PhysicsObjectState_IsInactive;
+            Physics->State |= PhysicsObjectState_Inactive;
         }
     }
     END_TIMED_BLOCK();

@@ -43,8 +43,21 @@ internal void
 MakeInfoBoundaries(){
     for(u32 I=0; I < EntityInfos.Count; I++){
         entity_info *Info = &EntityInfos[I];
-        for(u32 J=0; J < (u32)(Info->BoundarySets*Info->BoundaryCount); J++){
-            Info->Boundaries[J] = ConvertToCollisionBoundary(&Info->EditingBoundaries[J]);
+        // TODO HACK(Tyler):  Terrible solution until a better means of doing different boundaries for entity infos is chosen
+        if(Info->Flags & EntityFlag_FlipBoundaries){
+            Assert(Info->BoundarySets == 2);
+            for(u32 J=0; J < (u32)(Info->BoundaryCount); J++){
+                Info->Boundaries[J] = ConvertToCollisionBoundary(&Info->EditingBoundaries[J]);
+            }
+            for(u32 J=0; J < (u32)(Info->BoundaryCount); J++){
+                u32 K = J + Info->BoundaryCount;
+                Info->Boundaries[K] = ConvertToCollisionBoundary(&Info->EditingBoundaries[J]);
+                Info->Boundaries[K].Offset.X = -Info->Boundaries[K].Offset.X;
+            }
+        }else{
+            for(u32 J=0; J < (u32)(Info->BoundarySets*Info->BoundaryCount); J++){
+                Info->Boundaries[J] = ConvertToCollisionBoundary(&Info->EditingBoundaries[J]);
+            }
         }
     }
 }
@@ -54,6 +67,9 @@ RegisterInfo(u8 BoundaryCount, u8 BoundarySets,
              f32 Mass,
              entity_flags EntityFlags=EntityFlag_None,
              collision_response_function *Response=CollisionResponseStub){
+    // TODO HACK(Tyler):  Terrible solution until a better means of doing different boundaries for entity infos is chosen
+    if(EntityFlags & EntityFlag_FlipBoundaries) Assert(BoundarySets == 2);
+    
     entity_info *Info = PushNewArrayItem(&EntityInfos);
     Info->Flags = EntityFlags;
     u32 TotalCount = BoundarySets*BoundaryCount;
@@ -62,6 +78,7 @@ RegisterInfo(u8 BoundaryCount, u8 BoundarySets,
     Info->BoundarySets = BoundarySets;
     Info->BoundaryCount = BoundaryCount;
     Info->Response = Response;
+    Info->BoundaryTable[State_None] = 1;
     return(Info);
 }
 
@@ -77,31 +94,25 @@ RegisterEnemyInfo(u8 BoundaryCount, u8 BoundarySets,
     return(Info);
 }
 
-// TODO(Tyler): Maybe metaprogram this???
 internal void
 RegisterEntityInfos(){
     PushNewArrayItem(&EntityInfos); // Reserve 0th index
     
     entity_info *Player    = RegisterInfo(1, 1, 1.0f, EntityFlag_None, PlayerCollisionResponse);
-    Player->BoundaryTable[State_None] = 1;
     
     entity_info *Snail     = RegisterEnemyInfo(1, 1, 1.0f, 1.0f, 2, EntityFlag_CanBeStunned);
-    Snail->BoundaryTable[State_None] = 1;
     
     entity_info *Sally     = RegisterEnemyInfo(1, 2, 2.0f, 0.8f, 3, EntityFlag_CanBeStunned);
-    Sally->BoundaryTable[State_None] = 1;
     Sally->BoundaryTable[State_Retreating] = 2;
     Sally->BoundaryTable[State_Stunned]    = 2;
     Sally->BoundaryTable[State_Returning]  = 2;
     
     entity_info *Speedy    = RegisterEnemyInfo(1, 1, 0.7f, 10.0f, 1, EntityFlag_CanBeStunned);
-    Speedy->BoundaryTable[State_None] = 1;
     
-    entity_info *Dragonfly = RegisterEnemyInfo(2, 1, 1.5f, 1.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
-    Dragonfly->BoundaryTable[State_None] = 1;
+    entity_info *Dragonfly = RegisterEnemyInfo(2, 2, 1.5f, 1.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
 }
 
-//~ 
+//~ File loading
 
 // Only the parts of the entity infos that are edited by the entity editor are saved
 internal void

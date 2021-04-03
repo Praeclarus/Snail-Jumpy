@@ -325,7 +325,7 @@ physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
     Result->BoundaryCount = Count;
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
-    Result->State &= ~PhysicsObjectState_IsInactive;
+    Result->State &= ~PhysicsObjectState_Inactive;
     
     return(Result);
 }
@@ -691,7 +691,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
     
     FOR_BUCKET_ARRAY(ItB, &StaticObjects){
         static_physics_object *ObjectB = ItB.Item;
-        if(ObjectB->State & PhysicsObjectState_IsInactive) continue;
+        if(ObjectB->State & PhysicsObjectState_Inactive) continue;
         
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
@@ -709,7 +709,7 @@ void
 physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta){
     FOR_BUCKET_ARRAY(ItB, &TriggerObjects){
         trigger_physics_object *ObjectB = ItB.Item;
-        if(ObjectB->State & PhysicsObjectState_IsInactive) continue;
+        if(ObjectB->State & PhysicsObjectState_Inactive) continue;
         
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
@@ -729,7 +729,7 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
     StartLocation.ItemIndex++;
     FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartLocation){
         dynamic_physics_object *ObjectB = ItB.Item;
-        if(ObjectB->State & PhysicsObjectState_IsInactive) continue;
+        if(ObjectB->State & PhysicsObjectState_Inactive) continue;
         
         v2 RelativeDelta = Delta-ObjectB->Delta;
         
@@ -754,7 +754,7 @@ void
 physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject=0){
     FOR_BUCKET_ARRAY(ItB, &Objects){
         dynamic_physics_object *ObjectB = ItB.Item;
-        if(ObjectB->State & PhysicsObjectState_IsInactive) continue;
+        if(ObjectB->State & PhysicsObjectState_Inactive) continue;
         
         if(ObjectB == SkipObject) continue; 
         
@@ -887,7 +887,7 @@ physics_system::DoPhysics(){
         
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
         if(DebugConfig.Overlay & DebugOverlay_Boundaries){
-            if(Object->State & PhysicsObjectState_IsInactive) continue;
+            if(Object->State & PhysicsObjectState_Inactive) continue;
             for(collision_boundary *Boundary = Object->Boundaries;
                 Boundary < Object->Boundaries+Object->BoundaryCount;
                 Boundary++){
@@ -909,7 +909,7 @@ physics_system::DoPhysics(){
     if(DebugConfig.Overlay & DebugOverlay_Boundaries){
         FOR_BUCKET_ARRAY(It, &StaticObjects){
             static_physics_object *Object = It.Item;
-            if(Object->State & PhysicsObjectState_IsInactive) continue;
+            if(Object->State & PhysicsObjectState_Inactive) continue;
             for(collision_boundary *Boundary = Object->Boundaries;
                 Boundary < Object->Boundaries+Object->BoundaryCount;
                 Boundary++){
@@ -923,7 +923,7 @@ physics_system::DoPhysics(){
     if(DebugConfig.Overlay & DebugOverlay_Boundaries){
         FOR_BUCKET_ARRAY(It, &TriggerObjects){
             trigger_physics_object *Object = It.Item;
-            if(Object->State & PhysicsObjectState_IsInactive) continue;
+            if(Object->State & PhysicsObjectState_Inactive) continue;
             
             for(collision_boundary *Boundary = Object->Boundaries;
                 Boundary < Object->Boundaries+Object->BoundaryCount;

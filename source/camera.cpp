@@ -68,8 +68,9 @@ camera::Update(){
     
     ActualP += MoveFactor*(TargetP-ActualP);
     if(ShakeTimeRemaining > 0.0f){
-        P.X = ActualP.X + ShakeStrength*0.5f*Cos(ShakeTimeRemaining*ShakeFrequency*1.5f);
-        P.Y = ActualP.Y + ShakeStrength*Cos(ShakeTimeRemaining*ShakeFrequency);
+        P = ActualP;
+        P.X += ShakeStrength*0.5f*Cos(ShakeTimeRemaining*ShakeFrequency*1.5f);
+        P.Y += ShakeStrength*Cos(ShakeTimeRemaining*ShakeFrequency);
         
         ShakeTimeRemaining -= OSInput.dTime;
     }else{
