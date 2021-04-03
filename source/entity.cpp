@@ -6,7 +6,6 @@ entity_manager::Reset(){
     BucketArrayInitialize(&Coins,     &Memory);
     BucketArrayInitialize(&Enemies,   &Memory);
     BucketArrayInitialize(&Arts,      &Memory);
-    BucketArrayInitialize(&Particles, &Memory);
     Player = PushStruct(&Memory, player_entity);
     BucketArrayInitialize(&Teleporters, &Memory);
     BucketArrayInitialize(&Doors,       &Memory);
@@ -516,49 +515,6 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
         RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
                               V2(0,0), V2(1,1), false, Camera);
-    }
-    END_TIMED_BLOCK();
-    
-    //~ Particles 
-    // TODO(Tyler): This is a really naive implementation of particles and shouldn't stay
-    BEGIN_TIMED_BLOCK(UpdateAndRenderParticles);
-    FOR_BUCKET_ARRAY(It, &Particles){
-        particle_entity *ParticleEntity = It.Item;
-        
-        const s32 RADIUS = 2;
-        // TODO(Tyler): SIMDize this!!!
-        for(u32 Particle = 0; Particle < ParticleEntity->ParticleCount; Particle++){
-            u32 BaseSeed = Particle+It.Location.BucketIndex+It.Location.ItemIndex;
-            if(ParticleEntity->LifeTimes[Particle] < 0.0f){
-                {
-                    s32 Random0 = (((s32)GetRandomNumber(BaseSeed) % (2*RADIUS)) - RADIUS);
-                    s32 Random1 = (((s32)GetRandomNumber(BaseSeed+1) % (2*RADIUS)) - RADIUS);
-                    f32 XOffset = 0.1f * ((f32)Random0);
-                    f32 YOffset = 0.1f * ((f32)Random1);
-                    ParticleEntity->Ps[Particle] = ParticleEntity->P + V2(XOffset, YOffset);
-                }
-                
-                {
-                    ParticleEntity->dPs[Particle] = V2(0.0f, 0.0f);
-                    s32 Random0 = (((s32)GetRandomNumber(BaseSeed+2) % 32) - 16);
-                    s32 Random1 = (((s32)GetRandomNumber(BaseSeed+3) % 32) - 16);
-                    f32 XOffset = 0.01f * ((f32)Random0);
-                    f32 YOffset = 0.1f * ((f32)Random1);
-                    ParticleEntity->dPs[Particle] += V2(XOffset, YOffset);
-                }
-                
-                ParticleEntity->LifeTimes[Particle] = 0.1f*(f32)(GetRandomNumber(BaseSeed+4) % 32);
-            }
-            v2 ddP = V2(0.0f, -5.0f);
-            ddP -= 0.5f*ParticleEntity->dPs[Particle];
-            
-            ParticleEntity->Ps[Particle]  += (ParticleEntity->dPs[Particle]*OSInput.dTime +
-                                              ddP*Square(OSInput.dTime));
-            ParticleEntity->dPs[Particle] += ddP*OSInput.dTime;
-            
-            ParticleEntity->LifeTimes[Particle] -= OSInput.dTime;
-            RenderCenteredRectangle(ParticleEntity->Ps[Particle], V2(0.05f, 0.05f), -1.0f, RED, Camera);
-        }
     }
     END_TIMED_BLOCK();
     

@@ -63,7 +63,15 @@ CreateNewArray(memory_arena *Arena, u32 MaxCount){
     array<T> Result = {0};
     Result.Items = PushArray(Arena, T, MaxCount);
     Result.MaxCount = MaxCount;
-    
+    return(Result);
+}
+
+template<typename T> internal inline array<T>
+CreateFullArray(memory_arena *Arena, u32 Count){
+    array<T> Result = {0};
+    Result.Items = PushArray(Arena, T, Count);
+    Result.Count = Count;
+    Result.MaxCount = Count;
     return(Result);
 }
 

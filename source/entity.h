@@ -29,21 +29,12 @@ struct coin_data {
 
 //~ Entities
 
-// TODO(Tyler): These ('art_entity' and 'particle_entity') might not work best as an entity
+// TODO(Tyler): These ('art_entity') might not work best as an entity
 // they might be better handled in a different way.
 struct art_entity {
     v2 P;
     f32 Z;
     const char *Asset;
-};
-
-global_constant u32 MAX_PARTICLE_COUNT = 128; // TODO(Tyler): REMOVE ME!!!!
-struct particle_entity {
-    u32 ParticleCount;
-    v2 P;
-    v2 Ps[MAX_PARTICLE_COUNT];
-    v2 dPs[MAX_PARTICLE_COUNT];
-    f32 LifeTimes[MAX_PARTICLE_COUNT];
 };
 
 
@@ -127,7 +118,6 @@ struct entity_manager {
     bucket_array<coin_entity, 16>       Coins;
     bucket_array<enemy_entity, 16>      Enemies;
     bucket_array<art_entity, 32>        Arts;
-    bucket_array<particle_entity, 8>    Particles;
     player_entity                      *Player;
     bucket_array<teleporter_entity, 16> Teleporters;
     bucket_array<door_entity, 16>       Doors;

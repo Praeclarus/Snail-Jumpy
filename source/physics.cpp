@@ -152,6 +152,13 @@ RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset){
 }
 
 internal inline collision_boundary
+MakeCollisionPoint(){
+    collision_boundary Result = {};
+    Result.Type = BoundaryType_Point;
+    return(Result);
+}
+
+internal inline collision_boundary
 MakeCollisionRect(v2 Offset, v2 Size){
     collision_boundary Result = {};
     Result.Type = BoundaryType_Rect;
@@ -275,6 +282,8 @@ physics_system::Initialize(memory_arena *Arena){
     BucketArrayInitialize(&Objects, Arena);
     BucketArrayInitialize(&StaticObjects, Arena);
     BucketArrayInitialize(&TriggerObjects, Arena);
+    BucketArrayInitialize(&ParticleSystems, Arena);
+    ParticleMemory          = PushNewArena(Arena, 64*128*sizeof(physics_particle));
     BoundaryMemory          = PushNewArena(Arena, 3*128*sizeof(collision_boundary));
     PermanentBoundaryMemory = PushNewArena(Arena, 128*sizeof(collision_boundary));
 }
@@ -284,6 +293,8 @@ physics_system::Reload(u32 Width, u32 Height){
     BucketArrayRemoveAll(&Objects);
     BucketArrayRemoveAll(&StaticObjects);
     BucketArrayRemoveAll(&TriggerObjects);
+    BucketArrayRemoveAll(&ParticleSystems);
+    ClearArena(&ParticleMemory);
     ClearArena(&BoundaryMemory);
     
     PhysicsDebugger.Paused = {};
@@ -297,7 +308,6 @@ physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
     Result->BoundaryCount = Count;
     Result->Mass = 1.0f; // Default mass
     Result->Response = CollisionResponseStub;
-    
     return(Result);
 }
 
@@ -308,7 +318,6 @@ physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
     Result->BoundaryCount = Count;
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
-    
     return(Result);
 }
 
@@ -320,7 +329,17 @@ physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
     Result->State &= ~PhysicsObjectState_Inactive;
-    
+    return(Result);
+}
+
+physics_particle_system *
+physics_system::AddParticleSystem(v2 P, collision_boundary *Boundary, u32 Count,
+                                  f32 COR=1.0f){
+    physics_particle_system *Result = BucketArrayAlloc(&ParticleSystems);
+    Result->Particles = CreateFullArray<physics_particle>(&ParticleMemory, Count);
+    Result->Boundary = Boundary;
+    Result->P = P;
+    Result->COR = COR;
     return(Result);
 }
 
@@ -361,6 +380,7 @@ DoSupport(collision_boundary *Boundary,
             }
         }break;
         case BoundaryType_None: break;
+        case BoundaryType_Point: break;
         default: INVALID_CODE_PATH;
     }
     
@@ -718,9 +738,13 @@ physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_bound
 }
 
 void
-physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, bucket_location StartLocation={}){
+physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtLocation=false, bucket_location StartLocation={}){
     u32 BIndexOffset = 1;
-    StartLocation.ItemIndex++;
+    if(!StartAtLocation){ 
+        StartLocation = {}; 
+    }else{
+        StartLocation.ItemIndex++; 
+    }
     FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartLocation){
         dynamic_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
@@ -961,7 +985,7 @@ physics_system::DoPhysics(){
                 Boundary < ObjectA->Boundaries+ObjectA->BoundaryCount;
                 Boundary++){
                 DoStaticCollisions(&Collision, Boundary, ObjectA->P, ObjectA->Delta);
-                DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, ItA.Location);
+                DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, true, ItA.Location);
                 DoTriggerCollisions(&Trigger, Boundary, ObjectA->P, ObjectA->Delta);
             }
             
@@ -1016,7 +1040,6 @@ physics_system::DoPhysics(){
                         ObjectA->dP       -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
                         ObjectA->TargetdP -= COR*Collision->Normal*Dot(ObjectA->TargetdP, Collision->Normal);
                         ObjectA->Delta    -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
-                        ObjectA->Delta -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
                     }
                     
                     f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
@@ -1061,6 +1084,60 @@ physics_system::DoPhysics(){
         
         if(PhysicsDebugger.DefineStep()) return;
     }
+    
+    //~ Do particles
+    BEGIN_TIMED_BLOCK(PhysicsParticles);
+    FOR_BUCKET_ARRAY(It, &ParticleSystems){
+        physics_particle_system *System = It.Item;
+        f32 COR = System->COR;
+        
+        for(u32 I=0; I < System->Particles.Count; I++){
+            physics_particle *Particle = &System->Particles[I];
+            
+            if(Particle->Lifetime <= 0.0f){
+                // TODO(Tyler): Random number generation
+                {
+                    u32 Seed = (u32)((u64)Particle) + (u32)Counter;
+                    s32 Random0 = ((s32)GetRandomNumber(Seed)) % 7;
+                    s32 Random1 = ((s32)GetRandomNumber(Seed*543)) % 10;
+                    f32 XOffset = 0.1f * ((f32)Random0);
+                    f32 YOffset = 0.1f * ((f32)Random1);
+                    Particle->P = System->P + V2(XOffset, YOffset);
+                }
+                {
+                    u32 Seed = (u32)((u64)Particle) * (u32)Counter;
+                    s32 Random0 = ((s32)GetRandomNumber(Seed*43)) % 23;
+                    s32 Random1 = ((s32)GetRandomNumber(Seed*234)) % 21;
+                    f32 XOffset = 0.1f * ((f32)Random0);
+                    f32 YOffset = 0.1f * ((f32)Random1);
+                    Particle->dP = System->StartdP + V2(XOffset, YOffset);
+                }
+                
+                Particle->Lifetime = 3.0f;
+            }
+            
+            f32 DragCoefficient = 0.7f;
+            v2 ddP = V2(0.0f, -11.0f);
+            ddP.X += -DragCoefficient*Particle->dP.X*AbsoluteValue(Particle->dP.X);
+            ddP.Y += -DragCoefficient*Particle->dP.Y*AbsoluteValue(Particle->dP.Y);
+            v2 Delta = (dTime*Particle->dP + 
+                        0.5f*Square(dTime)*ddP);
+            Particle->dP += dTime*ddP;
+            
+            physics_collision Collision = MakeCollision();
+            DoStaticCollisions(&Collision, System->Boundary, Particle->P, Delta);
+            f32 TimeOfImpact = 1.0f;
+            if(Collision.TimeOfImpact < 1.0f) TimeOfImpact = Collision.TimeOfImpact;
+            Particle->P  += TimeOfImpact*Delta;
+            Particle->P += Collision.Correction;
+            Particle->dP -= COR*Collision.Normal*Dot(Particle->dP, Collision.Normal);
+            
+            RenderCenteredRectangle(Particle->P, V2(0.1f), -5.0f, RED, &GameCamera);
+            
+            Particle->Lifetime -= dTime;
+        }
+    }
+    END_TIMED_BLOCK();
     
     // DEBUG
     PhysicsDebugger.End();
