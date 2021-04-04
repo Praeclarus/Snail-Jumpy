@@ -476,6 +476,15 @@ IsPointInRect(v2 Point, rect Rect){
     return(Result);
 }
 
+internal inline b8
+DoRectsOverlap(rect A, rect B){
+    b8 Result = ((A.Min.X <= B.Max.X) &&
+                 (B.Min.X <= A.Max.X) &&
+                 (A.Min.Y <= B.Max.Y) &&
+                 (B.Min.Y <= A.Max.Y));
+    return(Result);
+}
+
 internal inline rect
 GrowRect(rect Rect, f32 G){
     rect Result = Rect;

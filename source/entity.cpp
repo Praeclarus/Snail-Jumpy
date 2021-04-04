@@ -118,25 +118,30 @@ ShouldEntityUpdate(entity *Entity){
     return(Result);
 }
 
+internal inline void
+ChangeEntityBoundaries(entity *Entity, u8 SetID){
+    entity_info *Info = &EntityInfos[Entity->Info];
+    collision_boundary *NewBoundaries = GetInfoBoundaries(Info, SetID);
+    Entity->BoundarySet = SetID;
+    Entity->Physics->Boundaries = NewBoundaries;
+    Entity->Bounds = GetBoundsOfBoundaries(NewBoundaries, Info->BoundaryCount);
+}
+
 internal void
 UpdateEnemyBoundary(enemy_entity *Enemy){
     entity_info *Info = &EntityInfos[Enemy->Info];
     u8 NewBoundarySet = GetBoundarySetIndex(Enemy->Info, Enemy->State);
-    if((NewBoundarySet > 0) &&
-       (NewBoundarySet != Enemy->BoundarySet)){
-        Enemy->BoundarySet = NewBoundarySet;
-        NewBoundarySet--;
-        Assert(NewBoundarySet < Info->BoundarySets);
-        Enemy->Physics->Boundaries = &Info->Boundaries[NewBoundarySet*Info->BoundaryCount];
-    }else{
-        if(Info->Flags & EntityFlag_FlipBoundaries){
-            Assert(Info->BoundarySets == 2);
-            if(Enemy->Direction == Direction_Left){
-                Enemy->Physics->Boundaries = &Info->Boundaries[0*Info->BoundaryCount];
-            }else{
-                Enemy->Physics->Boundaries = &Info->Boundaries[1*Info->BoundaryCount];
-            }
+    if(Info->Flags & EntityFlag_FlipBoundaries){
+        
+        Assert(Info->BoundarySets == 2);
+        if(Enemy->Direction == Direction_Left){
+            ChangeEntityBoundaries(Enemy, 1);
+        }else{
+            ChangeEntityBoundaries(Enemy, 2);
         }
+    }else if((NewBoundarySet > 0) &&
+             (NewBoundarySet != Enemy->BoundarySet)){
+        ChangeEntityBoundaries(Enemy, NewBoundarySet);
     }
 }
 
@@ -368,13 +373,12 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
         MovePlatformer(Physics, Movement);
         
         
-        // TODO(Tyler): Load from file (Player->JumpTime)
+        // TODO(Tyler): Load from file ('JumpTime', 'JumpPower')
         if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.075f;
         local_constant f32 JumpPower = 2.0f;
         f32 Jump = 0.0f;
         if(EntityManager.PlayerInput.Jump &&
            (Player->JumpTime > 0.0f)){
-            //ddP += 88.0f*Physics->FloorNormal;
             Jump += JumpPower;
             Player->JumpTime -= OSInput.dTime;
             Physics->State |= PhysicsObjectState_Falling;
@@ -429,7 +433,6 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             Projectile->dP += 0.3f*Physics->dP;
             Projectile->RemainingLife = 3.0f;
             Player->WeaponChargeTime = 0.0f;
-            
         }
         
         if(Player->Physics->P.Y < -3.0f){

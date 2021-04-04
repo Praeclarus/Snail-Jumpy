@@ -119,7 +119,7 @@ physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount
 }
 
 
-//~ Boundary management
+//~ Boundary stuff7
 internal inline b8
 IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
     b8 Result = IsPointInRect(Point, OffsetRect(Boundary->Bounds, Base+Boundary->Offset));
@@ -253,7 +253,22 @@ MakeCollisionPill(v2 Offset, f32 Radius, f32 Height, u32 HalfSegments, memory_ar
     return(Result);
 }
 
-//~ Helpers
+internal rect
+GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
+    v2 Min = V2(F32_POSITIVE_INFINITY);
+    v2 Max = V2(F32_NEGATIVE_INFINITY);
+    for(u32 I=0; I < BoundaryCount; I++){
+        Min.X = Minimum(Boundaries[I].Bounds.Min.X, Min.X);
+        Min.Y = Minimum(Boundaries[I].Bounds.Min.Y, Min.Y);
+        Max.X = Maximum(Boundaries[I].Bounds.Max.X, Max.X);
+        Max.Y = Maximum(Boundaries[I].Bounds.Max.Y, Max.Y);
+    }
+    rect Result = Rect(Min, Max);
+    return(Result);
+}
+
+
+//~ Collision stuff
 internal inline physics_collision
 MakeCollision(){
     physics_collision Result = {};
@@ -306,6 +321,7 @@ physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
     dynamic_physics_object *Result = BucketArrayAlloc(&Objects);
     Result->Boundaries = Boundaries;
     Result->BoundaryCount = Count;
+    
     Result->Mass = 1.0f; // Default mass
     Result->Response = CollisionResponseStub;
     return(Result);
@@ -316,6 +332,7 @@ physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
     static_physics_object *Result = BucketArrayAlloc(&StaticObjects);
     Result->Boundaries = Boundaries;
     Result->BoundaryCount = Count;
+    
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
     return(Result);
@@ -356,6 +373,27 @@ physics_system::AllocBoundaries(u32 Count){
 }
 
 //~ Collision detection
+
+// TODO(Tyler): I implemented this quickly to see if it would make things a bit faster.
+// It made things slower, though it could simply be that not enough objects are not 
+// colliding for it to be worthwhile??? Or maybe it is something else entirely?
+// Or it could very well be I imlemented it in a very naive way??
+internal inline b8
+DoAABBTest(rect BoundsA, v2 AP, 
+           rect BoundsB, v2 BP, v2 Delta){
+    rect RectA1 = BoundsA;
+    rect RectA2 = OffsetRect(RectA1, Delta);
+    rect RectA;
+    RectA.Min.X = Minimum(RectA1.Min.X, RectA2.Min.X);
+    RectA.Min.Y = Minimum(RectA1.Min.Y, RectA2.Min.Y);
+    RectA.Max.X = Maximum(RectA1.Max.X, RectA2.Max.X);
+    RectA.Max.Y = Maximum(RectA1.Max.Y, RectA2.Max.Y);
+    OffsetRect(RectA, AP);
+    rect RectB = BoundsB;
+    OffsetRect(RectB, BP);
+    b8 Result = DoRectsOverlap(RectA, RectB);
+    return(Result);
+}
 
 internal inline v2
 DoSupport(collision_boundary *Boundary, 
@@ -468,7 +506,9 @@ UpdateSimplex(v2 Simplex[3], u32 *SimplexCount, v2 *Direction){
 }
 
 internal inline b8
-DoGJK(v2 Simplex[3], collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta){
+DoGJK(v2 Simplex[3], 
+      collision_boundary *BoundaryA, v2 AP, 
+      collision_boundary *BoundaryB, v2 BP, v2 Delta){
     f32 ObjectBPAlongDelta = Dot(Delta, BP-AP);
     u32 SimplexCount = 1; // Account for the first support point
     v2 Direction = AP - BP;
@@ -667,9 +707,8 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
 
 internal physics_collision
 DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta){
-    physics_collision Result = {};
+    physics_collision Result = MakeCollision();
     Result.AlongDelta        = Dot(Normalize(Delta), BP-AP);
-    Result.TimeOfImpact      = F32_POSITIVE_INFINITY;
     
     v2 Simplex[3];
     if(DoGJK(Simplex, BoundaryA, AP, BoundaryB, BP, Delta)){
@@ -818,7 +857,6 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
         if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too steaph"); }
         return; 
     }
-    
     
     Object->P += Raycast*Collision.TimeOfImpact;
     Object->P += Collision.Correction;
@@ -1087,7 +1125,7 @@ physics_system::DoPhysics(){
     
     //~ Do particles
     
-    // TODO(Tyler): This is a very naive and probably rather slow particle system implementation,
+    // TODO(Tyler): This is a very naive and rather slow particle system implementation,
     // This might be a good SIMDization excersize
     BEGIN_TIMED_BLOCK(PhysicsParticles);
     FOR_BUCKET_ARRAY(It, &ParticleSystems){
@@ -1097,26 +1135,30 @@ physics_system::DoPhysics(){
         for(u32 I=0; I < System->Particles.Count; I++){
             physics_particle *Particle = &System->Particles[I];
             
+            f32 BaseLifetime = 0.5f;
             if(Particle->Lifetime <= 0.0f){
                 // TODO(Tyler): Random number generation
                 {
                     u32 Seed = (u32)((u64)Particle) + (u32)Counter;
-                    s32 Random0 = ((s32)GetRandomNumber(Seed)) % 7;
-                    s32 Random1 = ((s32)GetRandomNumber(Seed*543)) % 10;
+                    s32 Random0 = ((s32)GetRandomNumber(Seed)) % 4;
+                    s32 Random1 = ((s32)GetRandomNumber(Seed*543)) % 5;
                     f32 XOffset = 0.1f * ((f32)Random0);
                     f32 YOffset = 0.1f * ((f32)Random1);
                     Particle->P = System->P + V2(XOffset, YOffset);
                 }
                 {
                     u32 Seed = (u32)((u64)Particle) * (u32)Counter;
-                    s32 Random0 = ((s32)GetRandomNumber(Seed*43)) % 23;
-                    s32 Random1 = ((s32)GetRandomNumber(Seed*234)) % 21;
+                    s32 Random0 = ((s32)GetRandomNumber(Seed*43)) % 7;
+                    s32 Random1 = ((s32)GetRandomNumber(Seed*234)) % 9;
                     f32 XOffset = 0.1f * ((f32)Random0);
                     f32 YOffset = 0.1f * ((f32)Random1);
                     Particle->dP = System->StartdP + V2(XOffset, YOffset);
                 }
                 
-                Particle->Lifetime = 3.0f;
+                u32 Seed = (u32)((u64)Particle) * (u32)Counter;
+                s32 Random0 = ((s32)GetRandomNumber(Seed*321)) % 5;
+                f32 Factor = 0.2f*Random0 + 0.3f;
+                Particle->Lifetime = BaseLifetime + Factor;
             }
             
             f32 DragCoefficient = 0.7f;
@@ -1137,7 +1179,9 @@ physics_system::DoPhysics(){
             
             // TODO(Tyler): I don't know what we want particles to do so...
             // This is here just to see them until that is figured out
-            RenderRect(CenterRect(Particle->P, V2(0.03f)), -5.0f, RED, &GameCamera);
+            color C = Color(0.6f, 0.5f, 0.3f, 1.0f);
+            C= Alphiphy(C, Particle->Lifetime/BaseLifetime);
+            RenderRect(CenterRect(Particle->P, V2(0.07f)), -10.0f, C, &GameCamera);
             
             Particle->Lifetime -= dTime;
         }

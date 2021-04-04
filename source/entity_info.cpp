@@ -13,6 +13,16 @@ GetBoundarySetIndex(u32 InfoID, entity_state State){
     return(Result);
 }
 
+internal inline collision_boundary *
+GetInfoBoundaries(entity_info *Info, u8 SetID){
+    Assert(SetID > 0);
+    SetID--;
+    Assert(SetID < Info->BoundarySets);
+    collision_boundary *Result = &Info->Boundaries[SetID*Info->BoundaryCount];
+    
+    return(Result);
+}
+
 internal inline collision_boundary
 ConvertToCollisionBoundary(entity_info_boundary *InfoBoundary, memory_arena *Arena=0){
     collision_boundary Result = {};

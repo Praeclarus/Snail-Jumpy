@@ -5,7 +5,7 @@ global f32 CompletionCooldown;
 internal void
 GameProcessKeyDown(os_event *Event){
     switch((u32)Event->Key){
-        case KeyCode_Escape: ChangeState(GameMode_MainGame, "Overworld"); break;
+        //case KeyCode_Escape: ChangeState(GameMode_MainGame, "Overworld"); break;
         case 'E':            ToggleWorldEditor(); break;
         case 'P': {
             CurrentWorld->Flags |= WorldFlag_IsCompleted;
@@ -41,14 +41,14 @@ UpdateAndRenderMainGame(){
     EntityManager.UpdateAndRenderEntities(&GameCamera);
     
     player_entity *Player = EntityManager.Player;
-    // Gate
+    //~ Gate
     {
         v2 P = v2{15.25f, 3.25f};
         v2 DrawP = P;
         v2 Radius = 0.5f*TILE_SIZE;
         RenderRect(CenterRect(DrawP, TILE_SIZE), 0.0f, ORANGE, &GameCamera);
-        v2 PlayerMin = Player->Physics->P-(RectSize(EntityManager.Player->Bounds)/2);
-        v2 PlayerMax = Player->Physics->P+(RectSize(EntityManager.Player->Bounds)/2);
+        v2 PlayerMin = Player->Physics->P-(RectSize(Player->Bounds)/2);
+        v2 PlayerMax = Player->Physics->P+(RectSize(Player->Bounds)/2);
         if((P.X-Radius.X <= PlayerMax.X)  &&
            (PlayerMin.X  <= P.X+Radius.X) &&
            (P.Y-Radius.Y <= PlayerMax.Y)  &&

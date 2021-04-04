@@ -52,9 +52,10 @@ AddPlayer(v2 P){
 internal void
 AddParticles(v2 P){
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-    *Boundary = MakeCollisionRect(V20, V2(0.03f));
-    //*Boundary = MakeCollisionPoint();
-    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 200, 2.0f);
+    //*Boundary = MakeCollisionRect(V20, V2(0.03f));
+    *Boundary = MakeCollisionPoint();
+    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 50, 1.5f);
+    System->StartdP = V2(0.0f, -3.0f);
 }
 
 internal void
@@ -143,24 +144,9 @@ world_manager::LoadWorld(const char *LevelName){
                         entity_info *Info = &EntityInfos[Entity->InfoID];
                         enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
                         *Enemy = {};
-                        
-                        Enemy->Physics = PhysicsSystem.AddObject(Info->Boundaries, Info->BoundaryCount);
-                        Enemy->Physics->Response = Info->Response;
-                        Enemy->Physics->Entity = Enemy;
-                        
-                        // TODO(Tyler): This is not correct!!!
-                        Enemy->Bounds = OffsetRect(Info->Boundaries->Bounds, Info->Boundaries->Offset);
-                        Enemy->Type  = Info->Type;
-                        Enemy->Flags = Info->Flags;
-                        if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-                            Enemy->DynamicPhysics->State |= PhysicsObjectState_DontFloorRaycast;
-                        }
-                        Enemy->Info = Entity->InfoID;
-                        
                         v2 P = Entity->P; P.Y += 0.01f;
-                        Enemy->Physics->P = P;
+                        
                         Enemy->TargetY = P.Y;
-                        Enemy->Physics->Mass = Info->Mass;
                         
                         Enemy->Speed = Info->Speed;
                         Enemy->Damage = Info->Damage;
@@ -173,12 +159,23 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->PathStart = Entity->PathStart;
                         Enemy->PathEnd = Entity->PathEnd;
                         
-                        u8 SetIndex = Info->BoundaryTable[Enemy->State];
-                        if(SetIndex > 0){
-                            SetIndex--;
-                            Assert(SetIndex < Info->BoundarySets);
-                            Enemy->Physics->Boundaries = &Info->Boundaries[SetIndex];
+                        u8 SetID = GetBoundarySetIndex(Entity->InfoID, Enemy->State);
+                        collision_boundary *Boundaries = GetInfoBoundaries(Info, SetID);
+                        
+                        Enemy->Physics = PhysicsSystem.AddObject(Boundaries, Info->BoundaryCount);
+                        Enemy->Physics->Response = Info->Response;
+                        Enemy->Physics->Entity = Enemy;
+                        
+                        Enemy->Bounds = GetBoundsOfBoundaries(Boundaries, Info->BoundaryCount);
+                        Enemy->Type  = Info->Type;
+                        Enemy->Flags = Info->Flags;
+                        if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
+                            Enemy->DynamicPhysics->State |= PhysicsObjectState_DontFloorRaycast;
                         }
+                        Enemy->Info = Entity->InfoID;
+                        
+                        Enemy->Physics->P = P;
+                        Enemy->Physics->Mass = Info->Mass;
                     }break;
                     case EntityType_Teleporter: {
                         teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
