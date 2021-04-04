@@ -98,6 +98,7 @@ enum physics_object_state_flags_ {
 
 struct physics_object {
     v2 P;
+    rect Bounds;
     f32 Mass;
     collision_boundary *Boundaries;
     physics_object_state_flags State;

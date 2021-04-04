@@ -321,6 +321,7 @@ physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
     dynamic_physics_object *Result = BucketArrayAlloc(&Objects);
     Result->Boundaries = Boundaries;
     Result->BoundaryCount = Count;
+    Result->Bounds = GetBoundsOfBoundaries(Boundaries, Count);
     
     Result->Mass = 1.0f; // Default mass
     Result->Response = CollisionResponseStub;
@@ -332,6 +333,7 @@ physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
     static_physics_object *Result = BucketArrayAlloc(&StaticObjects);
     Result->Boundaries = Boundaries;
     Result->BoundaryCount = Count;
+    Result->Bounds = GetBoundsOfBoundaries(Boundaries, Count);
     
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
@@ -374,10 +376,6 @@ physics_system::AllocBoundaries(u32 Count){
 
 //~ Collision detection
 
-// TODO(Tyler): I implemented this quickly to see if it would make things a bit faster.
-// It made things slower, though it could simply be that not enough objects are not 
-// colliding for it to be worthwhile??? Or maybe it is something else entirely?
-// Or it could very well be I imlemented it in a very naive way??
 internal inline b8
 DoAABBTest(rect BoundsA, v2 AP, 
            rect BoundsB, v2 BP, v2 Delta){
@@ -388,9 +386,9 @@ DoAABBTest(rect BoundsA, v2 AP,
     RectA.Min.Y = Minimum(RectA1.Min.Y, RectA2.Min.Y);
     RectA.Max.X = Maximum(RectA1.Max.X, RectA2.Max.X);
     RectA.Max.Y = Maximum(RectA1.Max.Y, RectA2.Max.Y);
-    OffsetRect(RectA, AP);
+    RectA = OffsetRect(RectA, AP);
     rect RectB = BoundsB;
-    OffsetRect(RectB, BP);
+    RectB = OffsetRect(RectB, BP);
     b8 Result = DoRectsOverlap(RectA, RectB);
     return(Result);
 }
@@ -745,6 +743,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
     FOR_BUCKET_ARRAY(ItB, &StaticObjects){
         static_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
+        if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
         
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
@@ -768,6 +767,8 @@ physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_bound
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
             BoundaryB++){
             v2 Simplex[3];
+            if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
+            
             if(DoGJK(Simplex, Boundary, P, BoundaryB, ObjectB->P, Delta)){
                 OutTrigger->IsValid = true;
                 OutTrigger->Trigger = ObjectB;
@@ -787,6 +788,7 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
     FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartLocation){
         dynamic_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
+        if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
         
         v2 RelativeDelta = Delta-ObjectB->Delta;
         
@@ -812,6 +814,7 @@ physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collisi
     FOR_BUCKET_ARRAY(ItB, &Objects){
         dynamic_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
+        if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
         
         if(ObjectB == SkipObject) continue; 
         

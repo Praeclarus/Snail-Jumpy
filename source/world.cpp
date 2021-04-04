@@ -237,7 +237,7 @@ world_manager::LoadWorld(const char *LevelName){
             }
 #endif
             
-#if 0
+#if 1
             AddParticles(V2(3.0f, 3.0f));
             AddParticles(V2(5.0f, 3.0f));
             AddParticles(V2(7.0f, 3.0f));
