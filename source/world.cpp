@@ -52,9 +52,8 @@ AddPlayer(v2 P){
 internal void
 AddParticles(v2 P){
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-    //*Boundary = MakeCollisionRect(V20, V2(0.03f));
     *Boundary = MakeCollisionPoint();
-    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 50, 1.5f);
+    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 20, 1.5f);
     System->StartdP = V2(0.0f, -3.0f);
 }
 
@@ -220,22 +219,6 @@ world_manager::LoadWorld(const char *LevelName){
             
             // TODO(Tyler): Formalize player starting position
             AddPlayer(V2(1.55f, 1.55f));
-            
-#if 0
-            {
-                collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-                *Boundary = MakeCollisionWedge(V2(0,0), -1.0f, 1.0f);
-                static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
-                Wedge->P = V2(6.0f, 0.5f);
-            }
-            
-            {
-                collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-                *Boundary = MakeCollisionWedge(V2(0,0), 1.0f, 1.0f);
-                static_physics_object *Wedge = PhysicsSystem.AddStaticObject(Boundary, 1);
-                Wedge->P = V2(6.0f, 0.5f);
-            }
-#endif
             
 #if 0
             AddParticles(V2(3.0f, 3.0f));

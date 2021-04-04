@@ -465,7 +465,7 @@ world_editor::DoPopup(){
     b8 Result = false;
     switch(Popup){
         case EditorPopup_TextInput: {
-            window *Window = UIManager.BeginPopup("World", V2(500, 500));
+            window *Window = UIManager.BeginPopup("World", V2(500, 500), V2(500, 0));
             MaybeFadeWindow(Window);
             Window->TextInput(PopupBuffer, sizeof(PopupBuffer), WIDGET_ID);
             if(Window->Button("Submit", 2)){

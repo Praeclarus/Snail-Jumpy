@@ -258,10 +258,8 @@ GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
     v2 Min = V2(F32_POSITIVE_INFINITY);
     v2 Max = V2(F32_NEGATIVE_INFINITY);
     for(u32 I=0; I < BoundaryCount; I++){
-        Min.X = Minimum(Boundaries[I].Bounds.Min.X, Min.X);
-        Min.Y = Minimum(Boundaries[I].Bounds.Min.Y, Min.Y);
-        Max.X = Maximum(Boundaries[I].Bounds.Max.X, Max.X);
-        Max.Y = Maximum(Boundaries[I].Bounds.Max.Y, Max.Y);
+        Min = MinimumV2(Boundaries[I].Bounds.Min+Boundaries[I].Offset, Min);
+        Max = MaximumV2(Boundaries[I].Bounds.Max+Boundaries[I].Offset, Max);
     }
     rect Result = Rect(Min, Max);
     return(Result);
@@ -377,15 +375,14 @@ physics_system::AllocBoundaries(u32 Count){
 //~ Collision detection
 
 internal inline b8
-DoAABBTest(rect BoundsA, v2 AP, 
+DoAABBTest(rect BoundsA, v2 Offset, v2 AP, 
            rect BoundsB, v2 BP, v2 Delta){
+    BoundsA = OffsetRect(BoundsA, Offset);
     rect RectA1 = BoundsA;
     rect RectA2 = OffsetRect(RectA1, Delta);
     rect RectA;
-    RectA.Min.X = Minimum(RectA1.Min.X, RectA2.Min.X);
-    RectA.Min.Y = Minimum(RectA1.Min.Y, RectA2.Min.Y);
-    RectA.Max.X = Maximum(RectA1.Max.X, RectA2.Max.X);
-    RectA.Max.Y = Maximum(RectA1.Max.Y, RectA2.Max.Y);
+    RectA.Min = MinimumV2(RectA1.Min, RectA2.Min);
+    RectA.Max = MaximumV2(RectA1.Max, RectA2.Max);
     RectA = OffsetRect(RectA, AP);
     rect RectB = BoundsB;
     RectB = OffsetRect(RectB, BP);
@@ -743,7 +740,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
     FOR_BUCKET_ARRAY(ItB, &StaticObjects){
         static_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
-        if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
+        if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
         
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
@@ -762,12 +759,12 @@ physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_bound
     FOR_BUCKET_ARRAY(ItB, &TriggerObjects){
         trigger_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
+        if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
         
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
             BoundaryB++){
             v2 Simplex[3];
-            if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
             
             if(DoGJK(Simplex, Boundary, P, BoundaryB, ObjectB->P, Delta)){
                 OutTrigger->IsValid = true;
@@ -788,10 +785,10 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
     FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartLocation){
         dynamic_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
-        if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
         
         v2 RelativeDelta = Delta-ObjectB->Delta;
         
+        if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, RelativeDelta)) continue;
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
             BoundaryB++){
@@ -814,7 +811,7 @@ physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collisi
     FOR_BUCKET_ARRAY(ItB, &Objects){
         dynamic_physics_object *ObjectB = ItB.Item;
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
-        if(!DoAABBTest(Boundary->Bounds, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
+        if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
         
         if(ObjectB == SkipObject) continue; 
         
@@ -1129,7 +1126,8 @@ physics_system::DoPhysics(){
     //~ Do particles
     
     // TODO(Tyler): This is a very naive and rather slow particle system implementation,
-    // This might be a good SIMDization excersize
+    // this might be a good SIMDization excersize, or some other means of optimization.
+    // Maybe spatial hashing would be best? And without the AABB?
     BEGIN_TIMED_BLOCK(PhysicsParticles);
     FOR_BUCKET_ARRAY(It, &ParticleSystems){
         physics_particle_system *System = It.Item;

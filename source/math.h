@@ -388,6 +388,24 @@ TripleProduct(v2 A, v2 B){
     return(Result);
 }
 
+internal inline v2
+MinimumV2(v2 A, v2 B){
+    v2 Result;
+    Result.X = Minimum(A.X, B.X);
+    Result.Y = Minimum(A.Y, B.Y);
+    
+    return(Result);
+}
+
+internal inline v2
+MaximumV2(v2 A, v2 B){
+    v2 Result;
+    Result.X = Maximum(A.X, B.X);
+    Result.Y = Maximum(A.Y, B.Y);
+    
+    return(Result);
+}
+
 //~ Colors
 union v4 {
     struct {
