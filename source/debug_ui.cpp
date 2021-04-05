@@ -51,5 +51,5 @@ DEBUGRenderOverlay(){
     }
 }
 #else
-internal void DEBUGRenderOverlay();
+internal void DEBUGRenderOverlay() {};
 #endif

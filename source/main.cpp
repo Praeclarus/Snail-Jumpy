@@ -224,7 +224,7 @@ ProcessDefaultEvent(os_event *Event){
                 case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift; break;
                 case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Ctrl;  break;
                 case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
-#ifdef SNAIL_JUMPY_DEBUG_BUILD
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
                 case KeyCode_F1: ToggleOverlay(DebugOverlay_Miscellaneous); break;
                 case KeyCode_F2: ToggleOverlay(DebugOverlay_Profiler); break;
                 case KeyCode_F3: ToggleOverlay(DebugOverlay_Boundaries); break;

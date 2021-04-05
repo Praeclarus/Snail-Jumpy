@@ -1,6 +1,7 @@
 physics_debugger PhysicsDebugger;
 
 //~ Debug stuff
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
 inline void
 physics_debugger::Begin(){
     Current = {};
@@ -116,7 +117,22 @@ physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount
     PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V20, Delta, ORANGE);
     PhysicsDebugger.DrawPolygon(Points, PointCount);
     PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
-}
+} 
+#else
+inline void physics_debugger::Begin(){}
+inline void physics_debugger::End(){}
+inline b8   physics_debugger::DefineStep(){ return(false); }
+inline void physics_debugger::BreakWhen(b8 Value){}
+inline b8   physics_debugger::IsCurrent(){ return(false); }
+inline void physics_debugger::DrawPoint(v2 Offset, v2 Point, color Color){}
+inline void physics_debugger::DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color){}
+inline void physics_debugger::DrawNormal(v2 Offset, v2 A, v2 Delta, color Color){}
+inline void physics_debugger::DrawLine(v2 Offset, v2 A, v2 B, color Color){}
+inline void physics_debugger::DrawString(const char *Format, ...){}
+inline void physics_debugger::DrawStringAtP(v2 P, const char *Format, ...){}
+inline void physics_debugger::DrawPolygon(v2 *Points, u32 PointCount){}
+inline void physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount){} 
+#endif
 
 
 //~ Boundary stuff7
@@ -216,6 +232,7 @@ MakeCollisionCircle(v2 Offset, f32 Radius, u32 Segments, memory_arena *Arena=0){
 
 internal inline collision_boundary
 MakeCollisionPill(v2 Offset, f32 Radius, f32 Height, u32 HalfSegments, memory_arena *Arena=0){
+    // TODO(Tyler): Formalize this?
     if(!Arena) Arena = &PhysicsSystem.BoundaryMemory;
     
     collision_boundary Result = {};
@@ -265,6 +282,24 @@ GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
     return(Result);
 }
 
+internal inline void
+SetObjectBoundaries(physics_object *Object, collision_boundary *Boundaries, u8 Count){
+    Object->Boundaries = Boundaries;
+    Object->BoundaryCount = Count;
+    Object->Bounds = GetBoundsOfBoundaries(Boundaries, Count);
+}
+
+internal inline void
+RenderObject(physics_object *Object){
+    if(Object->State & PhysicsObjectState_Inactive) return;
+    
+    RenderRectOutline(OffsetRect(Object->Bounds, Object->P), -11.0f, GREEN, &GameCamera, 0.02f);
+    for(collision_boundary *Boundary = Object->Boundaries;
+        Boundary < Object->Boundaries+Object->BoundaryCount;
+        Boundary++){
+        RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
+    }
+}
 
 //~ Collision stuff
 internal inline physics_collision
@@ -317,9 +352,7 @@ physics_system::Reload(u32 Width, u32 Height){
 dynamic_physics_object *
 physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
     dynamic_physics_object *Result = BucketArrayAlloc(&Objects);
-    Result->Boundaries = Boundaries;
-    Result->BoundaryCount = Count;
-    Result->Bounds = GetBoundsOfBoundaries(Boundaries, Count);
+    SetObjectBoundaries(Result, Boundaries, Count);
     
     Result->Mass = 1.0f; // Default mass
     Result->Response = CollisionResponseStub;
@@ -329,10 +362,7 @@ physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
 static_physics_object *
 physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
     static_physics_object *Result = BucketArrayAlloc(&StaticObjects);
-    Result->Boundaries = Boundaries;
-    Result->BoundaryCount = Count;
-    Result->Bounds = GetBoundsOfBoundaries(Boundaries, Count);
-    
+    SetObjectBoundaries(Result, Boundaries, Count);
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
     return(Result);
@@ -776,7 +806,6 @@ physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_bound
 
 void
 physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtLocation=false, bucket_location StartLocation={}){
-    u32 BIndexOffset = 1;
     if(!StartAtLocation){ 
         StartLocation = {}; 
     }else{
@@ -788,20 +817,20 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
         
         v2 RelativeDelta = Delta-ObjectB->Delta;
         
-        if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, RelativeDelta)) continue;
+        if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, RelativeDelta)){
+            continue;
+        }
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
             BoundaryB++){
             physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, RelativeDelta);
             Collision.ObjectB = ObjectB;
             Collision.IsDynamic = true;
-            Collision.BIndexOffset = BIndexOffset;
+            Collision.BIndexOffset = ItB.I+1;
             if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
                 *OutCollision = Collision;
             }
         }
-        
-        BIndexOffset++;
     }
 }
 
@@ -810,10 +839,9 @@ void
 physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject=0){
     FOR_BUCKET_ARRAY(ItB, &Objects){
         dynamic_physics_object *ObjectB = ItB.Item;
+        if(ObjectB == SkipObject) continue; 
         if(ObjectB->State & PhysicsObjectState_Inactive) continue;
         if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
-        
-        if(ObjectB == SkipObject) continue; 
         
         for(collision_boundary *BoundaryB = ObjectB->Boundaries;
             BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
@@ -941,17 +969,6 @@ physics_system::DoPhysics(){
             }
         }
         
-#if defined(SNAIL_JUMPY_DEBUG_BUILD)
-        if(DebugConfig.Overlay & DebugOverlay_Boundaries){
-            if(Object->State & PhysicsObjectState_Inactive) continue;
-            for(collision_boundary *Boundary = Object->Boundaries;
-                Boundary < Object->Boundaries+Object->BoundaryCount;
-                Boundary++){
-                RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
-            }
-        }
-#endif
-        
     }
     
     // TODO(Tyler): Move this into physics_debugger
@@ -963,31 +980,21 @@ physics_system::DoPhysics(){
     //~ DEBUG
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
     if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+        // NOTE(Tyler): This doesn't need to be done here, but it is nice to have 
+        // as few #ifs as possible
+        FOR_BUCKET_ARRAY(It, &Objects){
+            RenderObject(It.Item);
+        }
+        
         FOR_BUCKET_ARRAY(It, &StaticObjects){
-            static_physics_object *Object = It.Item;
-            if(Object->State & PhysicsObjectState_Inactive) continue;
-            for(collision_boundary *Boundary = Object->Boundaries;
-                Boundary < Object->Boundaries+Object->BoundaryCount;
-                Boundary++){
-                RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
-            }
+            RenderObject(It.Item);
         }
-    }
-#endif
-    
-#if defined(SNAIL_JUMPY_DEBUG_BUILD)
-    if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+        
         FOR_BUCKET_ARRAY(It, &TriggerObjects){
-            trigger_physics_object *Object = It.Item;
-            if(Object->State & PhysicsObjectState_Inactive) continue;
-            
-            for(collision_boundary *Boundary = Object->Boundaries;
-                Boundary < Object->Boundaries+Object->BoundaryCount;
-                Boundary++){
-                RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
-            }
+            RenderObject(It.Item);
         }
     }
+    
 #endif
     
     //~ Do collisions
@@ -1052,20 +1059,27 @@ physics_system::DoPhysics(){
         f32 COR = 1.0f;
         FrameTimeRemaining -= FrameTimeRemaining*CurrentTimeOfImpact;
         FOR_BUCKET_ARRAY(It, &Objects){
+            if(PhysicsDebugger.DefineStep()) return;
+            
             physics_collision *Collision = &Collisions[It.I];
             
             dynamic_physics_object *ObjectA = It.Item;
             
             ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
             ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
+            if(PhysicsDebugger.IsCurrent()){
+                PhysicsDebugger.DrawPoint(ObjectA->P, V20, YELLOW);
+            }
             
             if(Triggers[It.I].IsValid){
                 trigger_physics_object *Trigger = Triggers[It.I].Trigger;
                 Trigger->TriggerResponse(Trigger->Entity, ObjectA->Entity);
+                if(PhysicsDebugger.IsCurrent()){
+                    PhysicsDebugger.DrawString("Entity hit trigger");
+                }
             }
             
             if(Collisions[It.I].TimeOfImpact < 1.0f){
-                if(PhysicsDebugger.DefineStep()) return;
                 
                 if(ObjectA->Response(ObjectA->Entity, Collision)){
                     if(PhysicsDebugger.IsCurrent()){

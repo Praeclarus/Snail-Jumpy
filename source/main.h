@@ -8,7 +8,7 @@
 #include "primitive_types.h"
 #include "math.h"
 
-//~ Constants
+//~ Constants, several of these should be hotloaded in a variables file
 global_constant f32 MAXIMUM_SECONDS_PER_FRAME = (1.0f / 20.0f);
 global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
 global_constant u32 PHYSICS_ITERATIONS_PER_OBJECT = 4;
@@ -18,7 +18,6 @@ global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
 global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant u32 DEFAULT_BUFFER_SIZE = 512;
 global_constant char *STARTUP_LEVEL = "Debug";
-//global_constant char *STARTUP_LEVEL = "Debug_Speed_Test";
 global_constant f32 WALKABLE_STEEPNESS = 0.2f;
 
 //~ TODO(Tyler): Things that need a better place to go

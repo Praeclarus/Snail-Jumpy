@@ -123,7 +123,7 @@ ChangeEntityBoundaries(entity *Entity, u8 SetID){
     entity_info *Info = &EntityInfos[Entity->Info];
     collision_boundary *NewBoundaries = GetInfoBoundaries(Info, SetID);
     Entity->BoundarySet = SetID;
-    Entity->Physics->Boundaries = NewBoundaries;
+    SetObjectBoundaries(Entity->Physics, NewBoundaries, Info->BoundaryCount);
     Entity->Bounds = GetBoundsOfBoundaries(NewBoundaries, Info->BoundaryCount);
 }
 
@@ -219,6 +219,7 @@ ProjectileResponse(entity *Data, entity *EntityB){
     Assert(Data);
     projectile_entity *Projectile = (projectile_entity *)Data;
     Assert(Projectile->Type == EntityType_Projectile);
+    if(EntityB->Type != EntityType_Player) Projectile->RemainingLife = 0.0f;
     if(EntityB->Type != EntityType_Enemy) return;
     enemy_entity *Enemy = (enemy_entity *)EntityB;
     if(!(Enemy->Flags & EntityFlag_CanBeStunned)) return;
@@ -247,6 +248,7 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
         }
     }
     
+    
     if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
         if(Collision->Normal.Y < WALKABLE_STEEPNESS){
             if(Collision->Normal.X > 0.0f){
@@ -258,7 +260,6 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
             GameCamera.Shake(0.1f, 0.05f, 200);
         }
     }
-    
     return(false);
 }
 
@@ -429,7 +430,7 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             
             ProjectilePhysics->P = Player->Physics->P;
             ProjectilePhysics->P.Y += 0.15f;
-            Projectile->dP *= Player->WeaponChargeTime;
+            Projectile->dP *= Player->WeaponChargeTime+0.2f;
             Projectile->dP += 0.3f*Physics->dP;
             Projectile->RemainingLife = 3.0f;
             Player->WeaponChargeTime = 0.0f;
@@ -599,7 +600,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             Projectile->dP += dTime*ddP;
             
             RenderRect(OffsetRect(Projectile->Bounds, Projectile->Physics->P),
-                       0.7f, WHITE, Camera);
+                       -10.0f, WHITE, Camera);
         }else{
             Physics->State |= PhysicsObjectState_Inactive;
         }
