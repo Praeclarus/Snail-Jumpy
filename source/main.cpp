@@ -150,6 +150,7 @@ InitializeGame(){
     if(GameMode == GameMode_WorldEditor){
         WorldEditor.World = CurrentWorld;
     }
+    
 }
 
 internal void

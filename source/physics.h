@@ -127,14 +127,15 @@ struct dynamic_physics_object : public physics_object {
     dynamic_physics_object *ReferenceFrame;
 };
 
-struct physics_particle {
-    v2 P, dP;
-    f32 Lifetime;
+struct physics_particle_x4 {
+    v2_x4 P, dP;
+    
+    f32_x4 Lifetime;
 };
 
 struct physics_particle_system {
     collision_boundary *Boundary;
-    array<physics_particle> Particles;
+    array<physics_particle_x4> Particles;
     v2 P;
     v2 StartdP;
     f32 COR;

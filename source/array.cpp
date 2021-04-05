@@ -59,7 +59,7 @@ PushNArrayItems(array<T> *Array, u32 N){
 }
 
 template<typename T> internal inline array<T>
-CreateNewArray(memory_arena *Arena, u32 MaxCount){
+CreateNewArray(memory_arena *Arena, u32 MaxCount, umw Alignment=4){
     array<T> Result = {0};
     Result.Items = PushArray(Arena, T, MaxCount);
     Result.MaxCount = MaxCount;
@@ -67,9 +67,9 @@ CreateNewArray(memory_arena *Arena, u32 MaxCount){
 }
 
 template<typename T> internal inline array<T>
-CreateFullArray(memory_arena *Arena, u32 Count){
+CreateFullArray(memory_arena *Arena, u32 Count, umw Alignment=4){
     array<T> Result = {0};
-    Result.Items = PushArray(Arena, T, Count);
+    Result.Items = PushAlignedArray(Arena, T, Count, Alignment);
     Result.Count = Count;
     Result.MaxCount = Count;
     return(Result);
@@ -349,8 +349,7 @@ AllocateBucket(bucket_array<T, U> *Array){
 
 template <typename T, u32 U>
 internal void
-BucketArrayInitialize(bucket_array<T, U> *Array, memory_arena *Arena, 
-                      u32 InitialBuckets=4){
+BucketArrayInitialize(bucket_array<T, U> *Array, memory_arena *Arena, u32 InitialBuckets=4){
     Assert(Arena);
     
     *Array = {};

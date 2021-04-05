@@ -331,7 +331,8 @@ physics_system::Initialize(memory_arena *Arena){
     BucketArrayInitialize(&StaticObjects, Arena);
     BucketArrayInitialize(&TriggerObjects, Arena);
     BucketArrayInitialize(&ParticleSystems, Arena);
-    ParticleMemory          = PushNewArena(Arena, 64*128*sizeof(physics_particle));
+    //ParticleMemory          = PushNewArena(Arena, 64*128*sizeof(physics_particle_x4));
+    ParticleMemory          = PushNewArena(Arena, 64*1000*sizeof(physics_particle_x4));
     BoundaryMemory          = PushNewArena(Arena, 3*128*sizeof(collision_boundary));
     PermanentBoundaryMemory = PushNewArena(Arena, 128*sizeof(collision_boundary));
 }
@@ -383,7 +384,7 @@ physics_particle_system *
 physics_system::AddParticleSystem(v2 P, collision_boundary *Boundary, u32 Count,
                                   f32 COR=1.0f){
     physics_particle_system *Result = BucketArrayAlloc(&ParticleSystems);
-    Result->Particles = CreateFullArray<physics_particle>(&ParticleMemory, Count);
+    Result->Particles = CreateFullArray<physics_particle_x4>(&ParticleMemory, Count, 16);
     Result->Boundary = Boundary;
     Result->P = P;
     Result->COR = COR;
@@ -1138,6 +1139,8 @@ physics_system::DoPhysics(){
     }
     
     //~ Do particles
+#define RepeatExpr(V) F32X4(V, V, V, V)
+    
     
     // TODO(Tyler): This is a very naive and rather slow particle system implementation,
     // this might be a good SIMDization excersize, or some other means of optimization.
@@ -1148,42 +1151,21 @@ physics_system::DoPhysics(){
         f32 COR = System->COR;
         
         for(u32 I=0; I < System->Particles.Count; I++){
-            physics_particle *Particle = &System->Particles[I];
+            physics_particle_x4 *Particle = &System->Particles[I];
             
             f32 BaseLifetime = 0.5f;
-            if(Particle->Lifetime <= 0.0f){
-                // TODO(Tyler): Random number generation
-                {
-                    u32 Seed = (u32)((u64)Particle) + (u32)Counter;
-                    s32 Random0 = ((s32)GetRandomNumber(Seed)) % 4;
-                    s32 Random1 = ((s32)GetRandomNumber(Seed*543)) % 5;
-                    f32 XOffset = 0.1f * ((f32)Random0);
-                    f32 YOffset = 0.1f * ((f32)Random1);
-                    Particle->P = System->P + V2(XOffset, YOffset);
-                }
-                {
-                    u32 Seed = (u32)((u64)Particle) * (u32)Counter;
-                    s32 Random0 = ((s32)GetRandomNumber(Seed*43)) % 7;
-                    s32 Random1 = ((s32)GetRandomNumber(Seed*234)) % 9;
-                    f32 XOffset = 0.1f * ((f32)Random0);
-                    f32 YOffset = 0.1f * ((f32)Random1);
-                    Particle->dP = System->StartdP + V2(XOffset, YOffset);
-                }
-                
-                u32 Seed = (u32)((u64)Particle) * (u32)Counter;
-                s32 Random0 = ((s32)GetRandomNumber(Seed*321)) % 5;
-                f32 Factor = 0.2f*Random0 + 0.3f;
-                Particle->Lifetime = BaseLifetime + Factor;
-            }
+            f32_x4 BaseLifetimeX4 = F32X4(BaseLifetime);
             
-            f32 DragCoefficient = 0.7f;
-            v2 ddP = V2(0.0f, -11.0f);
+            f32_x4 dTimeX4 = F32X4(dTime);
+            f32_x4 DragCoefficient = F32X4(0.7f);
+            v2_x4 ddP = V2X4(F32X4(0.0f), F32X4(-11.0f));
             ddP.X += -DragCoefficient*Particle->dP.X*AbsoluteValue(Particle->dP.X);
             ddP.Y += -DragCoefficient*Particle->dP.Y*AbsoluteValue(Particle->dP.Y);
-            v2 Delta = (dTime*Particle->dP + 
-                        0.5f*Square(dTime)*ddP);
-            Particle->dP += dTime*ddP;
+            v2_x4 Delta = (dTimeX4*Particle->dP + 
+                           F32X4(0.5f)*Square(dTimeX4)*ddP);
+            Particle->dP += dTimeX4*ddP;
             
+#if 0            
             physics_collision Collision = MakeCollision();
             DoStaticCollisions(&Collision, System->Boundary, Particle->P, Delta);
             f32 TimeOfImpact = 1.0f;
@@ -1191,17 +1173,47 @@ physics_system::DoPhysics(){
             Particle->P  += TimeOfImpact*Delta;
             Particle->P += Collision.Correction;
             Particle->dP -= COR*Collision.Normal*Dot(Particle->dP, Collision.Normal);
+#endif
             
-            // TODO(Tyler): I don't know what we want particles to do so...
-            // This is here just to see them until that is figured out
-            color C = Color(0.6f, 0.5f, 0.3f, 1.0f);
-            C = Alphiphy(C, Particle->Lifetime/BaseLifetime);
-            RenderRect(CenterRect(Particle->P, V2(0.07f)), -10.0f, C, &GameCamera);
+            Particle->P += Delta;
             
-            Particle->Lifetime -= dTime;
+            v2_x4 StartP = V2X4(System->P);
+            v2_x4 StartdP = V2X4(System->StartdP);
+            
+            u32 Seed = (u32)(u64)Particle;
+            f32_x4 RandomPX = StartP.X + RepeatExpr(GetRandomFloat(Seed+=(u32)__rdtsc()>>3, 12, 0.1f));
+            f32_x4 RandomPY = StartP.Y + RepeatExpr(GetRandomFloat(Seed+=(u32)__rdtsc()>>3, 13, 0.1f));
+            f32_x4 RandomdPX = StartdP.X + RepeatExpr(GetRandomFloat(Seed+=(u32)__rdtsc()>>3, 19, 0.2f));
+            f32_x4 RandomdPY = StartdP.Y + RepeatExpr(GetRandomFloat(Seed+=(u32)__rdtsc()>>3, 17, 0.2f));
+            f32_x4 RandomLifetimes = BaseLifetimeX4 + RepeatExpr(GetRandomFloat(Seed+=Seed, 5, 0.2f));
+            
+            __m128 M = _mm_cmple_ps(Particle->Lifetime.V, _mm_setzero_ps());
+            Particle->Lifetime.V = _mm_or_ps(_mm_and_ps(M, RandomLifetimes.V), 
+                                             _mm_andnot_ps(M, Particle->Lifetime.V));
+            Particle->P.X.V = _mm_or_ps(_mm_and_ps(M, RandomPX.V), 
+                                        _mm_andnot_ps(M, Particle->P.X.V));
+            Particle->P.Y.V = _mm_or_ps(_mm_and_ps(M, RandomPY.V), 
+                                        _mm_andnot_ps(M, Particle->P.Y.V));
+            Particle->dP.X.V = _mm_or_ps(_mm_and_ps(M, RandomdPX.V), 
+                                         _mm_andnot_ps(M, Particle->dP.X.V));
+            Particle->dP.Y.V = _mm_or_ps(_mm_and_ps(M, RandomdPY.V), 
+                                         _mm_andnot_ps(M, Particle->dP.Y.V));
+            Particle->Lifetime -= dTimeX4;
+            
+            for(u32 I=0; I < 4; I++){
+                f32 Lifetime = GetOneF32(Particle->Lifetime, I);
+                if(Lifetime > 0.0f){
+                    v2 P = V2(GetOneF32(Particle->P.X, I), GetOneF32(Particle->P.Y, I));
+                    color C = Color(0.6f, 0.5f, 0.3f, 1.0f);
+                    C = Alphiphy(C, Lifetime/BaseLifetime);
+                    RenderRect(CenterRect(P, V2(0.07f)), -10.0f, C, &GameCamera);
+                }
+            }
+            
         }
     }
     END_TIMED_BLOCK();
+#undef RepeatExpr
     
     // DEBUG
     PhysicsDebugger.End();

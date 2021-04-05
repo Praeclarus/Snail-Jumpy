@@ -53,7 +53,7 @@ internal void
 AddParticles(v2 P){
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
     *Boundary = MakeCollisionPoint();
-    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 20, 1.5f);
+    physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 100, 1.5f);
     System->StartdP = V2(0.0f, -3.0f);
 }
 

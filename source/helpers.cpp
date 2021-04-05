@@ -41,3 +41,10 @@ GetRandomNumber(u32 Seed){
     u32 RandomNumber = RANDOM_NUMBER_TABLE[(u32)(Counter*4132.0f + Seed) % ArrayCount(RANDOM_NUMBER_TABLE)];
     return(RandomNumber);
 }
+
+internal inline f32
+GetRandomFloat(u32 Seed, u32 Spread=5, f32 Power=0.2f){
+    s32 Random = ((s32)GetRandomNumber(Seed)) % Spread;
+    f32 Result = Power * (f32)Random;
+    return(Result);
+}

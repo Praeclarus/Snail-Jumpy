@@ -1,14 +1,17 @@
 
 //~ Memory arena
-// TODO(Tyler): There might be alignment issues, that need to be fixed in the future
 
-// NOTE(Tyler): Must be initialized to zero when first created
+internal inline umw
+AlignValue(umw Value, umw Alignment){
+    umw Result = ((Value+(Alignment-1)) & ~(Alignment-1));
+    return(Result);
+}
+
 struct memory_arena {
     u8 *Memory;
     umw Used;
     umw PreviousUsed;
     umw Size;
-    u32 TempCount;
 };
 
 internal void
@@ -20,21 +23,30 @@ InitializeArena(memory_arena *Arena, void *Memory, umw Size){
 
 #define PushStruct(Arena, Type) (Type *)PushMemory(Arena, sizeof(Type))
 #define PushArray(Arena, Type, Count) (Type *)PushMemory(Arena, sizeof(Type)*(Count))
+
+#define PushAlignedStruct(Arena, Type, Alignment) (Type *)PushMemory(Arena, sizeof(Type), Alignment)
+#define PushAlignedArray(Arena, Type, Count, Alignment) (Type *)PushMemory(Arena, sizeof(Type)*(Count), Alignment)
+
 internal void *
-PushMemory(memory_arena *Arena, umw Size){
+PushMemory(memory_arena *Arena, umw Size, umw Alignment=4){
+    Size = AlignValue(Size, Alignment);
     Assert((Arena->Used + Size) < Arena->Size);
-    void *Result = Arena->Memory+Arena->Used;
+    umw UnAligned = (umw)(Arena->Memory+Arena->Used);
+    u8 *Result = (u8 *)AlignValue(UnAligned, Alignment);
+    umw Difference = (umw)Result - UnAligned;
+    
     Arena->PreviousUsed = Arena->Used;
-    Arena->Used += Size;
+    Arena->Used += Size+Difference;
     ZeroMemory(Result, Size);
+    
     return(Result);
 }
 
 internal void *
-ResizeMemory(memory_arena *Arena, void *OldMemory, umw OldSize, umw NewSize){
+ResizeMemory(memory_arena *Arena, void *OldMemory, umw OldSize, umw NewSize, umw Alignment=4){
     // We just forget about the old allocation, this shouldn't probably shouldn't be
-    // used in arenas that are never reset
-    void *Result = PushMemory(Arena, NewSize);
+    // used in arenas that are never cleared
+    void *Result = PushMemory(Arena, NewSize, Alignment);
     CopyMemory(Result, OldMemory, OldSize);
     
     return(Result);
@@ -48,46 +60,9 @@ PushCString(memory_arena *Arena, const char *String){
     return(Result);
 }
 
-struct temp_memory {
-    u8 *Memory;
-    umw Used;
-    umw Size;
-};
-
-internal void
-BeginTempMemory(memory_arena *Arena, temp_memory *TempMemory, umw Size){
-    Arena->TempCount++;
-    Assert((Arena->Used+Size) < Arena->Size);
-    TempMemory->Memory = Arena->Memory+Arena->Used;
-    Arena->Used += Size;
-    TempMemory->Size = Size;
-    TempMemory->Used = 0;
-}
-
 internal void
 ClearArena(memory_arena *Arena){
     Arena->Used = 0;
-}
-
-#define PushTempStruct(Arena, Type) (Type *)PushTempMemory(Arena, sizeof(Type))
-#define PushTempArray(Arena, Type, Count) (Type *)PushTempMemory(Arena, sizeof(Type)*(Count))
-internal void *
-PushTempMemory(temp_memory *TempMemory, umw Size){
-    Assert((TempMemory->Used + Size) < TempMemory->Size);
-    void *Result = TempMemory->Memory+TempMemory->Used;
-    ZeroMemory(Result, Size);
-    TempMemory->Used += Size;
-    return(Result);
-}
-
-internal void
-EndTempMemory(memory_arena *Arena, temp_memory *TempMemory){
-    Assert(Arena->TempCount > 0);
-    
-    u8 *Address = (Arena->Memory+Arena->Used) - TempMemory->Size;
-    Assert(Address == TempMemory->Memory);
-    
-    Arena->Used -= TempMemory->Size;
 }
 
 internal memory_arena
@@ -103,8 +78,7 @@ PushNewArena(memory_arena *Arena, umw Size){
 }
 
 //~ Variable definitions
-// I don't really want to have these here, but C++ and the static initialization order  
-// fiasco thing is a terrible thing
+// TODO(Tyler): Reorganize globals
 
 global memory_arena PermanentStorageArena;
 global memory_arena TransientStorageArena;
