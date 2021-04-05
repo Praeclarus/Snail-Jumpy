@@ -273,7 +273,7 @@ V2Invert(v2 A)
 }
 
 internal inline v2
-operator*(v2 A, float B)
+operator*(v2 A, f32 B)
 {
     v2 Result;
     Result.X = A.X * B;
@@ -282,7 +282,7 @@ operator*(v2 A, float B)
 }
 
 internal inline v2
-operator*(float B, v2 A)
+operator*(f32 B, v2 A)
 {
     v2 Result;
     Result.X = A.X * B;
@@ -291,7 +291,7 @@ operator*(float B, v2 A)
 }
 
 internal inline v2
-operator/(v2 A, float B)
+operator/(v2 A, f32 B)
 {
     v2 Result;
     Result.X = A.X / B;
@@ -314,14 +314,14 @@ operator-=(v2 &A, v2 B)
 }
 
 internal inline v2
-operator*=(v2 &A, float B)
+operator*=(v2 &A, f32 B)
 {
     A = B * A;
     return(A);
 }
 
 internal inline v2
-operator/=(v2 &A, float B)
+operator/=(v2 &A, f32 B)
 {
     A = A / B;
     return(A);
@@ -329,7 +329,7 @@ operator/=(v2 &A, float B)
 
 internal inline f32
 Dot(v2 A, v2 B) {
-    float Result = (A.X*B.X)+(A.Y*B.Y);
+    f32 Result = (A.X*B.X)+(A.Y*B.Y);
     return(Result);
 }
 
@@ -345,14 +345,6 @@ internal inline v2
 CounterClockwise90(v2 A, v2 Origin=V2(0,0)){
     A -= Origin;
     v2 Result = V2(-A.Y, A.X);
-    Result += Origin;
-    return(Result);
-}
-
-internal inline v2
-Invert(v2 A, v2 Origin=V2(0,0)){
-    A -= Origin;
-    v2 Result = -A;
     Result += Origin;
     return(Result);
 }

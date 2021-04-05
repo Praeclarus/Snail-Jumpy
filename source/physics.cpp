@@ -1195,7 +1195,7 @@ physics_system::DoPhysics(){
             // TODO(Tyler): I don't know what we want particles to do so...
             // This is here just to see them until that is figured out
             color C = Color(0.6f, 0.5f, 0.3f, 1.0f);
-            C= Alphiphy(C, Particle->Lifetime/BaseLifetime);
+            C = Alphiphy(C, Particle->Lifetime/BaseLifetime);
             RenderRect(CenterRect(Particle->P, V2(0.07f)), -10.0f, C, &GameCamera);
             
             Particle->Lifetime -= dTime;

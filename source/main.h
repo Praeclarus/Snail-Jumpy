@@ -7,6 +7,8 @@
 
 #include "primitive_types.h"
 #include "math.h"
+#include "intrinsics.h"
+#include "simd.h"
 
 //~ Constants, several of these should be hotloaded in a variables file
 global_constant f32 MAXIMUM_SECONDS_PER_FRAME = (1.0f / 20.0f);
@@ -138,7 +140,6 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 //~ Includes
 #include "random.h"
 #include "helpers.cpp"
-#include "intrinsics.h"
 #include "memory_arena.cpp"
 #include "freelist_allocator.cpp"
 #include "debug.h"
