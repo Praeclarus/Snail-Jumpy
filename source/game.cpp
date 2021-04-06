@@ -32,6 +32,8 @@ GameProcessInput(){
 
 internal void
 UpdateAndRenderMainGame(){
+    TIMED_FUNCTION();
+    
     GameProcessInput();
     
     Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));

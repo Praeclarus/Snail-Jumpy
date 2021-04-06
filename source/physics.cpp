@@ -293,11 +293,11 @@ internal inline void
 RenderObject(physics_object *Object){
     if(Object->State & PhysicsObjectState_Inactive) return;
     
-    RenderRectOutline(OffsetRect(Object->Bounds, Object->P), -11.0f, GREEN, &GameCamera, 0.02f);
+    RenderRectOutline(OffsetRect(Object->Bounds, Object->P), -10.0f, GREEN, &GameCamera, 0.02f);
     for(collision_boundary *Boundary = Object->Boundaries;
         Boundary < Object->Boundaries+Object->BoundaryCount;
         Boundary++){
-        RenderBoundary(&GameCamera, Boundary, -10.0f, Object->P);
+        RenderBoundary(&GameCamera, Boundary, -10.1f, Object->P);
     }
 }
 
@@ -327,27 +327,39 @@ CollisionResponseStub(entity *Data, physics_collision *Collision){
 
 void
 physics_system::Initialize(memory_arena *Arena){
+    BucketArrayInitialize(&ParticleSystems, Arena);
     BucketArrayInitialize(&Objects, Arena);
     BucketArrayInitialize(&StaticObjects, Arena);
     BucketArrayInitialize(&TriggerObjects, Arena);
-    BucketArrayInitialize(&ParticleSystems, Arena);
-    //ParticleMemory          = PushNewArena(Arena, 64*128*sizeof(physics_particle_x4));
-    ParticleMemory          = PushNewArena(Arena, 64*1000*sizeof(physics_particle_x4));
+    BucketArrayInitialize(&Tilemaps, Arena);
+    ParticleMemory          = PushNewArena(Arena, 64*128*sizeof(physics_particle_x4));
     BoundaryMemory          = PushNewArena(Arena, 3*128*sizeof(collision_boundary));
     PermanentBoundaryMemory = PushNewArena(Arena, 128*sizeof(collision_boundary));
 }
 
 void
 physics_system::Reload(u32 Width, u32 Height){
+    BucketArrayRemoveAll(&ParticleSystems);
     BucketArrayRemoveAll(&Objects);
     BucketArrayRemoveAll(&StaticObjects);
     BucketArrayRemoveAll(&TriggerObjects);
-    BucketArrayRemoveAll(&ParticleSystems);
+    BucketArrayRemoveAll(&Tilemaps);
     ClearArena(&ParticleMemory);
     ClearArena(&BoundaryMemory);
     
     PhysicsDebugger.Paused = {};
     PhysicsDebugger.StartOfPhysicsFrame = true;
+}
+
+physics_particle_system *
+physics_system::AddParticleSystem(v2 P, collision_boundary *Boundary, u32 Count,
+                                  f32 COR=1.0f){
+    physics_particle_system *Result = BucketArrayAlloc(&ParticleSystems);
+    Result->Particles = CreateFullArray<physics_particle_x4>(&ParticleMemory, Count, 16);
+    Result->Boundary = Boundary;
+    Result->P = P;
+    Result->COR = COR;
+    return(Result);
 }
 
 dynamic_physics_object *
@@ -380,14 +392,17 @@ physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
     return(Result);
 }
 
-physics_particle_system *
-physics_system::AddParticleSystem(v2 P, collision_boundary *Boundary, u32 Count,
-                                  f32 COR=1.0f){
-    physics_particle_system *Result = BucketArrayAlloc(&ParticleSystems);
-    Result->Particles = CreateFullArray<physics_particle_x4>(&ParticleMemory, Count, 16);
-    Result->Boundary = Boundary;
-    Result->P = P;
-    Result->COR = COR;
+physics_tilemap *
+physics_system::AddTilemap(u8 *Tilemap, u8 Value, u32 Width, u32 Height, v2 TileSize){
+    physics_tilemap *Result = BucketArrayAlloc(&Tilemaps);
+    Result->Map       = Tilemap;
+    Result->Value     = Value;
+    Result->MapWidth  = Width;
+    Result->MapHeight = Height;
+    Result->TileSize  = TileSize;
+    Result->Boundary  = AllocBoundaries(1);
+    *Result->Boundary = MakeCollisionRect(V20, TileSize);
+    
     return(Result);
 }
 
@@ -783,6 +798,47 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
             }
         }
     }
+    
+    FOR_BUCKET_ARRAY(ItB, &Tilemaps){
+        physics_tilemap *Tilemap = ItB.Item;
+        rect Bounds = OffsetRect(Boundary->Bounds, Boundary->Offset+P);
+        Bounds = SweepRect(Bounds, Delta);
+        Bounds.Min.X /= Tilemap->TileSize.X;
+        Bounds.Min.Y /= Tilemap->TileSize.Y;
+        Bounds.Max.X /= Tilemap->TileSize.X;
+        Bounds.Max.Y /= Tilemap->TileSize.Y;
+        
+        rect_s32 BoundsS32 = RectS32(Bounds);
+        v2s TilemapMax = V2S(Tilemap->MapWidth, Tilemap->MapHeight);
+        BoundsS32.Min = MaximumV2S(V2S(0), BoundsS32.Min);
+        BoundsS32.Max = MaximumV2S(V2S(0), BoundsS32.Max);
+        BoundsS32.Min = MinimumV2S(TilemapMax, BoundsS32.Min);
+        BoundsS32.Max = MinimumV2S(TilemapMax, BoundsS32.Max);
+        
+        for(s32 Y = BoundsS32.Min.Y; Y < BoundsS32.Max.Y; Y++){
+            for(s32 X = BoundsS32.Min.X; X < BoundsS32.Max.X; X++){
+                u8 TileId = Tilemap->Map[(Y*Tilemap->MapWidth)+X];
+                v2 TileP = V2((f32)X, (f32)Y);
+                TileP += V2(0.5f);
+                TileP.X *= Tilemap->TileSize.X;
+                TileP.Y *= Tilemap->TileSize.Y;
+                rect TileBounds = CenterRect(V20, Tilemap->TileSize);
+                
+                if(TileId == Tilemap->Value){
+                    physics_collision Collision = DoCollision(Boundary, P, Tilemap->Boundary, TileP, Delta);
+                    Collision.ObjectB = PushStruct(&TransientStorageArena, physics_object);
+                    Collision.ObjectB->P          = TileP;
+                    Collision.ObjectB->Bounds     = TileBounds;
+                    Collision.ObjectB->Mass       = F32_POSITIVE_INFINITY;
+                    Collision.ObjectB->Boundaries = Tilemap->Boundary;
+                    Collision.ObjectB->BoundaryCount = 1;
+                    if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
+                        *OutCollision = Collision;
+                    }
+                }
+            }
+        }
+    }
 }
 
 void 
@@ -1145,7 +1201,6 @@ physics_system::DoPhysics(){
     // TODO(Tyler): This is a very naive and rather slow particle system implementation,
     // this might be a good SIMDization excersize, or some other means of optimization.
     // Maybe spatial hashing would be best? And without the AABB?
-    BEGIN_TIMED_BLOCK(PhysicsParticles);
     FOR_BUCKET_ARRAY(It, &ParticleSystems){
         physics_particle_system *System = It.Item;
         f32 COR = System->COR;
@@ -1212,7 +1267,6 @@ physics_system::DoPhysics(){
             
         }
     }
-    END_TIMED_BLOCK();
 #undef RepeatExpr
     
     // DEBUG

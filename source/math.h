@@ -223,6 +223,12 @@ V2S(s32 X, s32 Y){
 }
 
 internal inline v2s
+V2S(s32 XY){ 
+    v2s Result = v2s{XY, XY}; 
+    return(Result);
+}
+
+internal inline v2s
 V2S(v2 A){ 
     v2s Result; 
     Result.X = (s32)A.X;
@@ -398,6 +404,24 @@ MaximumV2(v2 A, v2 B){
     return(Result);
 }
 
+internal inline v2s
+MinimumV2S(v2s A, v2s B){
+    v2s Result;
+    Result.X = Minimum(A.X, B.X);
+    Result.Y = Minimum(A.Y, B.Y);
+    
+    return(Result);
+}
+
+internal inline v2s
+MaximumV2S(v2s A, v2s B){
+    v2s Result;
+    Result.X = Maximum(A.X, B.X);
+    Result.Y = Maximum(A.Y, B.Y);
+    
+    return(Result);
+}
+
 //~ Colors
 union v4 {
     struct {
@@ -452,6 +476,7 @@ RectS32(rect Rect){
     rect_s32 Result;
     Result.Min.X = Truncate(Rect.Min.X);
     Result.Min.Y = Truncate(Rect.Min.Y);
+    Result.Max.X = (s32)Ceil(Rect.Max.X);
     Result.Max.X = (s32)Ceil(Rect.Max.X);
     Result.Max.Y = (s32)Ceil(Rect.Max.Y);
     return(Result);
@@ -523,6 +548,24 @@ FixRect(rect Rect){
     Result.Max.X = Maximum(Rect.Min.X, Rect.Max.X);
     Result.Max.Y = Maximum(Rect.Min.Y, Rect.Max.Y);
     
+    return(Result);
+}
+
+internal inline rect
+SweepRect(rect RectA, v2 Delta){
+    rect RectB = OffsetRect(RectA, Delta);
+    rect Result;
+    Result.Min = MinimumV2(RectA.Min, RectB.Min);
+    Result.Max = MaximumV2(RectA.Max, RectB.Max);
+    
+    return(Result);
+}
+
+internal inline rect
+ScaleRect(rect Rect, f32 Scale){
+    rect Result = Rect;
+    Result.Min *= Scale;
+    Result.Max *= Scale;
     return(Result);
 }
 

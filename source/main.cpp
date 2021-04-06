@@ -132,7 +132,7 @@ InitializeGame(){
     
     LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
     
-    InitializeRenderer();
+    Renderer.Initialize();
     StringMemory = PushNewArena(&PermanentStorageArena, Kilobytes(32));
     LoadFont(&TransientStorageArena, &DebugFont, "Roboto-Regular.ttf", 22);
     LoadFont(&TransientStorageArena, &TitleFont, "Roboto-Regular.ttf", 30);

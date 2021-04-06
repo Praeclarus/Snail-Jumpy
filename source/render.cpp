@@ -1,13 +1,21 @@
 global render_texture_handle DefaultTexture;
 
 void
-renderer::NewFrame(memory_arena *Arena, v2s OutputSize_){
+renderer::Initialize(){
     local_constant u32 INITIAL_SIZE = Kilobytes(3);
-    // TODO HACK(Tyler): Use Arena here! This is just a temporary and awful fix.
+    // TODO HACK(Tyler): We want memory that can grow here!
     DynamicArrayInitialize(&CommandBuffer, INITIAL_SIZE, 0);
     DynamicArrayInitialize(&Vertices, INITIAL_SIZE, 0);
     DynamicArrayInitialize(&Indices, INITIAL_SIZE, 0);
+    InitializeRenderer();
+}
+
+void
+renderer::NewFrame(memory_arena *Arena, v2s OutputSize_){
     OutputSize = OutputSize_;
+    DynamicArrayClear(&CommandBuffer);
+    DynamicArrayClear(&Vertices);
+    DynamicArrayClear(&Indices);
     CommandCount = 0;
 }
 

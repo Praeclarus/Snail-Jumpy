@@ -80,7 +80,7 @@ struct renderer {
     void ClearScreen(color Color);
     
     // Platform specific
-    b8 Initialize();
+    void Initialize();
     void RenderToScreen(); 
 };
 

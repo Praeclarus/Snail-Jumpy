@@ -2,7 +2,7 @@
 void
 entity_manager::Reset(){
     Memory.Used = 0;
-    BucketArrayInitialize(&Walls,     &Memory);
+    BucketArrayInitialize(&Tilemaps,  &Memory);
     BucketArrayInitialize(&Coins,     &Memory);
     BucketArrayInitialize(&Enemies,   &Memory);
     BucketArrayInitialize(&Arts,      &Memory);
@@ -452,17 +452,27 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     TIMED_FUNCTION();
     
     //~ Walls
-    BEGIN_TIMED_BLOCK(UpdateAndRenderWalls);
-    FOR_BUCKET_ARRAY(It, &Walls){
-        wall_entity *Entity = It.Item;  
+    FOR_BUCKET_ARRAY(It, &Tilemaps){
+        tilemap_entity *Tilemap = It.Item;  
         
-        v2 Size = RectSize(Entity->Bounds);
-        RenderRect(CenterRect(Entity->Physics->P, Size), 0.0f, WHITE, Camera);
+        for(u32 Y = 0; Y < Tilemap->MapHeight; Y++){
+            for(u32 X = 0; X < Tilemap->MapWidth; X++){
+                u8 TileId = Tilemap->Map[(Y*Tilemap->MapWidth)+X];
+                
+                if(TileId == EntityType_Wall){
+                    v2 TileP = V2((f32)X, (f32)Y);
+                    TileP += V2(0.5f);
+                    TileP.X *= Tilemap->TileSize.X;
+                    TileP.Y *= Tilemap->TileSize.Y;
+                    rect TileBounds = CenterRect(V20, Tilemap->TileSize);
+                    
+                    RenderRect(OffsetRect(TileBounds, TileP), Tilemap->ZLayer, WHITE, Camera);
+                }
+            }
+        }
     }
-    END_TIMED_BLOCK();
     
     //~ Coins
-    BEGIN_TIMED_BLOCK(UpdateAndRenderCoins);
     FOR_BUCKET_ARRAY(It, &Coins){
         coin_entity *Coin = It.Item;
         if(Coin->Cooldown > 0.0f){
@@ -473,10 +483,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                        YELLOW, Camera);
         }
     }
-    END_TIMED_BLOCK();
     
     //~ Enemies
-    BEGIN_TIMED_BLOCK(UpdateAndRenderEnemies);
     FOR_BUCKET_ARRAY(It, &Enemies){
         enemy_entity *Enemy = It.Item;
         dynamic_physics_object *Physics = Enemy->DynamicPhysics;
@@ -508,10 +516,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTime);
         UpdateEnemyBoundary(Enemy);
     }
-    END_TIMED_BLOCK();
     
     //~ Arts
-    BEGIN_TIMED_BLOCK(UpdateAndRenderArts);
     FOR_BUCKET_ARRAY(It, &Arts){
         art_entity *Art = It.Item;
         asset *Asset = GetArt(Art->Asset);
@@ -519,19 +525,15 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
                               V2(0,0), V2(1,1), false, Camera);
     }
-    END_TIMED_BLOCK();
     
     //~ Player
-    BEGIN_TIMED_BLOCK(UpdateAndRenderPlayer);
     if(CurrentWorld->Flags & WorldFlag_IsTopDown){
         NOT_IMPLEMENTED_YET;
     }else{
         UpdateAndRenderPlatformerPlayer(Camera);
     }
-    END_TIMED_BLOCK();
     
     //~ Teleporters
-    BEGIN_TIMED_BLOCK(UpdateAndRenderTeleporters);
     FOR_BUCKET_ARRAY(It, &Teleporters){
         teleporter_entity *Teleporter = It.Item;
         if(!Teleporter->IsLocked){
@@ -561,10 +563,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                        Color(0.0f, 0.0f, 1.0f, 0.5f), Camera);
         }
     }
-    END_TIMED_BLOCK();
     
     //~ Doors
-    BEGIN_TIMED_BLOCK(UpdateAndRenderDoors);
     FOR_BUCKET_ARRAY(It, &Doors){
         door_entity *Door = It.Item;
         Door->Cooldown -= OSInput.dTime;
@@ -580,10 +580,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             RenderRect(OffsetRect(Door->Bounds, Door->Physics->P), 0.0f, Color, Camera);
         }
     }
-    END_TIMED_BLOCK();
     
     //~ Projectiles
-    BEGIN_TIMED_BLOCK(UpdateAndRenderProjectiles);
     FOR_BUCKET_ARRAY(It, &Projectiles){
         
         projectile_entity *Projectile = It.Item;
@@ -605,7 +603,6 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             Physics->State |= PhysicsObjectState_Inactive;
         }
     }
-    END_TIMED_BLOCK();
     
     DoPhysics();
 }

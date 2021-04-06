@@ -114,6 +114,14 @@ struct physics_object {
 struct static_physics_object : public physics_object {
 };
 
+struct physics_tilemap {
+    u8 *Map;
+    u8 Value;
+    u32 MapWidth, MapHeight; 
+    v2 TileSize;
+    collision_boundary *Boundary;
+};
+
 struct trigger_physics_object : public physics_object {
 };
 
@@ -159,10 +167,13 @@ struct physics_trigger {
 };
 
 struct physics_system {
+    // TODO(Tyler): This only need be here if we do physics particles
+    bucket_array<physics_particle_system, 64> ParticleSystems;
+    
     bucket_array<dynamic_physics_object, 64> Objects;
     bucket_array<static_physics_object, 64> StaticObjects;
     bucket_array<trigger_physics_object, 64> TriggerObjects;
-    bucket_array<physics_particle_system, 64> ParticleSystems;
+    bucket_array<physics_tilemap, 64> Tilemaps;
     memory_arena ParticleMemory;
     memory_arena PermanentBoundaryMemory;
     memory_arena BoundaryMemory;
@@ -178,10 +189,11 @@ struct physics_system {
     void DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtLocation, bucket_location StartLocation);
     void DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject);
     
-    dynamic_physics_object *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
-    static_physics_object *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
-    trigger_physics_object *AddTriggerObject(collision_boundary *Boundaries, u8 BoundaryCount);
     physics_particle_system *AddParticleSystem(v2 P, collision_boundary *Boundary, u32 ParticleCount, f32 COR);
+    dynamic_physics_object  *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
+    static_physics_object   *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
+    trigger_physics_object  *AddTriggerObject(collision_boundary *Boundaries, u8 BoundaryCount);
+    physics_tilemap         *AddTilemap(u8 *Tilemap, u8 Value, u32 Width, u32 Height, v2 TileSize);
     
     collision_boundary *AllocPermanentBoundaries(u32 Count);
     collision_boundary *AllocBoundaries(u32 Count);

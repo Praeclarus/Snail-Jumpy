@@ -59,7 +59,7 @@ struct entity {
     
     rect Bounds;
     
-    // Determined by entity typeh
+    // Determined by entity type
     union {
         physics_object *Physics;
         static_physics_object *StaticPhysics;
@@ -68,8 +68,11 @@ struct entity {
     };
 };
 
-// TODO(Tyler): These struct might have too much information from 'entity' for now
-struct wall_entity : public entity {
+// TODO(Tyler): Have too much information from 'entity' for now
+struct tilemap_entity : public entity {
+    u8 *Map;
+    u32 MapWidth, MapHeight;
+    v2 TileSize;
 };
 
 struct coin_entity : public entity {
@@ -114,7 +117,7 @@ struct entity_manager {
     // TODO(Tyler): The numbers could be tuned better
     // TODO(Tyler): Bucket arrays might be a bit overkill
     // TODO(Tyler): Wall set entity
-    bucket_array<wall_entity, 64>       Walls;
+    bucket_array<tilemap_entity, 64>    Tilemaps;
     bucket_array<coin_entity, 16>       Coins;
     bucket_array<enemy_entity, 16>      Enemies;
     bucket_array<art_entity, 32>        Arts;

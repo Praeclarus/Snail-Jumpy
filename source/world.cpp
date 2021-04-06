@@ -57,29 +57,6 @@ AddParticles(v2 P){
     System->StartdP = V2(0.0f, -3.0f);
 }
 
-internal void
-LoadWallsFromMap(const u8 * const MapData, u32 WallCount,
-                 u32 WidthInTiles, u32 HeightInTiles){
-    collision_boundary *WallBoundary = PhysicsSystem.AllocBoundaries(1);
-    *WallBoundary = MakeCollisionRect(V20, TILE_SIZE);
-    for(u32 Y = 0; Y < HeightInTiles; Y++){
-        for(u32 X = 0; X < WidthInTiles; X++){
-            u8 TileId = MapData[(Y*WidthInTiles)+X];
-            if(TileId == EntityType_Coin){
-                EntityManager.CoinData.NumberOfCoinPs++;
-                continue;
-            }else if(TileId == EntityType_Wall){
-                wall_entity *Wall = BucketArrayAlloc(&EntityManager.Walls);
-                *Wall = {};
-                Wall->Physics = PhysicsSystem.AddStaticObject(WallBoundary, 1);
-                Wall->Physics->P = V2(((f32)X+0.5f)*TILE_SIDE, ((f32)Y+0.5f)*TILE_SIDE);
-                Wall->Bounds = CenterRect(V20, TILE_SIZE);
-                // TODO(Tyler): This is terrible and probably wastes so much space
-            }
-        }
-    }
-}
-
 void
 world_manager::LoadWorld(const char *LevelName){
     TIMED_FUNCTION();
@@ -95,29 +72,37 @@ world_manager::LoadWorld(const char *LevelName){
             PhysicsSystem.Reload(World->Width, World->Height);
             MakeInfoBoundaries();
             
-            // Coins
-            EntityManager.CoinData.Tiles = CurrentWorld->Map;
-            EntityManager.CoinData.XTiles = CurrentWorld->Width;
-            EntityManager.CoinData.YTiles = CurrentWorld->Height;
-            EntityManager.CoinData.TileSideInMeters = TILE_SIDE;
-            EntityManager.CoinData.NumberOfCoinPs = 0;
+            //~ Walls
+            tilemap_entity *Tilemap = BucketArrayAlloc(&EntityManager.Tilemaps);
+            Tilemap->Map = World->Map;
+            Tilemap->MapWidth  = World->Width;
+            Tilemap->MapHeight = World->Height;
+            Tilemap->TileSize = TILE_SIZE;
+            PhysicsSystem.AddTilemap(CurrentWorld->Map, EntityType_Wall, 
+                                     CurrentWorld->Width, CurrentWorld->Height, 
+                                     TILE_SIZE);
             
-            // Walls
-            u32 WallCount = 0;
-            for(u32 I = 0; 
-                I < CurrentWorld->Width*CurrentWorld->Height; 
-                I++){
-                u8 Tile = CurrentWorld->Map[I];
-                if(Tile == EntityType_Wall){
-                    WallCount++;
-                }
-            }
-            LoadWallsFromMap(CurrentWorld->Map, WallCount,
-                             CurrentWorld->Width, CurrentWorld->Height);
-            
+            //~ Coins
             {
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
                 *Boundary = MakeCollisionRect(V20, V2(0.3f));
+                
+                // Coins
+                EntityManager.CoinData.Tiles = CurrentWorld->Map;
+                EntityManager.CoinData.XTiles = CurrentWorld->Width;
+                EntityManager.CoinData.YTiles = CurrentWorld->Height;
+                EntityManager.CoinData.TileSideInMeters = TILE_SIDE;
+                EntityManager.CoinData.NumberOfCoinPs = 0;
+                
+                for(u32 Y = 0; Y < World->Height; Y++){
+                    for(u32 X = 0; X < World->Width; X++){
+                        u8 TileId = World->Map[(Y*World->Width)+X];
+                        if(TileId == EntityType_Coin){
+                            EntityManager.CoinData.NumberOfCoinPs++;
+                            continue;
+                        }
+                    }
+                }
                 
                 u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
                 for(u32 I = 0; I < N; I++){
@@ -133,12 +118,15 @@ world_manager::LoadWorld(const char *LevelName){
                 Score = 0; // UpdateCoin changes this value
             }
             
+            //~ General entities
             collision_boundary *TeleporterBoundary = PhysicsSystem.AllocBoundaries(1);
             *TeleporterBoundary = MakeCollisionRect(V20, TILE_SIZE);
             
             for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
                 entity_data *Entity = &CurrentWorld->Entities[I];
                 switch(Entity->Type){
+                    
+                    //~ Enemies
                     case EntityType_Enemy: {
                         entity_info *Info = &EntityInfos[Entity->InfoID];
                         enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
@@ -176,6 +164,8 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Physics->P = P;
                         Enemy->Physics->Mass = Info->Mass;
                     }break;
+                    
+                    //~ Teleporters
                     case EntityType_Teleporter: {
                         teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
                         
@@ -191,6 +181,8 @@ world_manager::LoadWorld(const char *LevelName){
                         Teleporter->Level = Entity->Level;
                         Teleporter->IsLocked = !IsLevelCompleted(Entity->TRequiredLevel);
                     }break;
+                    
+                    //~ Doors
                     case EntityType_Door: {
                         door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
                         collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
@@ -201,11 +193,12 @@ world_manager::LoadWorld(const char *LevelName){
                         Door->Physics = Physics;
                         Door->Bounds = Boundary->Bounds;
                         
-                        
                         if(IsLevelCompleted(Entity->DRequiredLevel)){
                             OpenDoor(Door);
                         }
                     }break;
+                    
+                    //~Arts
                     case EntityType_Art: {
                         art_entity *Art = BucketArrayAlloc(&EntityManager.Arts);
                         *Art = {};
@@ -217,6 +210,7 @@ world_manager::LoadWorld(const char *LevelName){
                 
             }
             
+            //~ Player
             // TODO(Tyler): Formalize player starting position
             AddPlayer(V2(1.55f, 1.55f));
             
@@ -227,7 +221,7 @@ world_manager::LoadWorld(const char *LevelName){
             AddParticles(V2(9.0f, 3.0f));
 #endif
             
-            
+            //~ Projectiles
             {
                 projectile_entity *Projectile = BucketArrayAlloc(&EntityManager.Projectiles);
                 Projectile->Type = EntityType_Projectile;
