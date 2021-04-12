@@ -41,8 +41,8 @@ renderer::BeginClipRegion(v2 Min, v2 Max, camera *Camera){
         Min *= Camera->MetersToPixels;
         Max *= Camera->MetersToPixels;
     }
-    Command->Min = V2S((s32)Min.X, (s32)Min.Y);
-    Command->Max = V2S((s32)Max.X, (s32)Max.Y);
+    Command->Min = MaximumV2S(V2S(Min), V2S0);
+    Command->Max = MinimumV2S(V2S(Max), OutputSize);
 }
 
 void
@@ -254,15 +254,13 @@ RenderCenteredTexture(v2 Center, v2 Size, f32 Z,
 }
 
 internal void
-RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String, camera *Camera=0){
+RenderString(font *Font, color Color, v2 P, f32 Z, const char *String, camera *Camera=0){
     if(Camera){
-        X -= Camera->P.X;
-        Y -= Camera->P.Y;
-        X *= Camera->MetersToPixels;
-        Y *= Camera->MetersToPixels;
+        P -= Camera->P;
+        P *= Camera->MetersToPixels;
     }
     
-    Y = Renderer.OutputSize.Y - Y;
+    P.Y = Renderer.OutputSize.Y - P.Y;
     
     u32 Length = CStringLength(String);
     
@@ -272,12 +270,12 @@ RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String, c
     
     vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4*Length);
     u32 VertexOffset = 0;
-    float ActualY = Renderer.OutputSize.Y - Y;
+    float ActualY = Renderer.OutputSize.Y - P.Y;
     for(char C = *String; C; C = *(++String)){
         stbtt_aligned_quad Q;
         stbtt_GetBakedQuad(Font->CharData,
                            Font->TextureWidth, Font->TextureHeight,
-                           C-32, &X, &Y, &Q, 1);
+                           C-32, &P.X, &P.Y, &Q, 1);
         Q.y0 = Renderer.OutputSize.Y - Q.y0;
         Q.y1 = Renderer.OutputSize.Y - Q.y1;
         Vertices[VertexOffset]   = {Q.x0, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
@@ -302,47 +300,79 @@ RenderString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *String, c
 }
 
 internal inline void
-RenderString(font *Font, color Color, v2 P, f32 Z, 
-             const char *String, camera *Camera=0){
-    RenderString(Font, Color, P.X, P.Y, Z, String, Camera);
-}
-
-internal inline void
-VRenderFormatString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *Format, 
+VRenderFormatString(font *Font, color Color, v2 P, f32 Z, const char *Format, 
                     va_list VarArgs){
     char Buffer[1024];
     stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
-    RenderString(Font,
-                 Color, X, Y, Z, Buffer);
-}
-
-internal inline void
-RenderFormatString(font *Font, color Color, f32 X, f32 Y, f32 Z, const char *Format, ...){
-    va_list VarArgs;
-    va_start(VarArgs, Format);
-    VRenderFormatString(Font, Color, X, Y, Z, Format, VarArgs);
-    va_end(VarArgs);
+    RenderString(Font, Color, P, Z, Buffer);
 }
 
 internal inline void
 RenderFormatString(font *Font, color Color, v2 P, f32 Z, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
-    VRenderFormatString(Font, Color, P.X, P.Y, Z, Format, VarArgs);
+    VRenderFormatString(Font, Color, P, Z, Format, VarArgs);
     va_end(VarArgs);
 }
 
 internal f32
-GetStringAdvance(font *Font, const char *String){
+GetStringAdvance(font *Font, const char *String, b8 CountEndingSpace=false){
     f32 Result = 0;
     f32 X = 0.0f;
     f32 Y = 0.0f;
+    char LastC = '\0';
     for(char C = *String; C; C = *(++String)){
         stbtt_aligned_quad Q;
         stbtt_GetBakedQuad(Font->CharData,
                            Font->TextureWidth, Font->TextureHeight,
                            C-32, &X, &Y, &Q, 1);
         Result = Q.x1;
+        LastC = C;
+    }
+    
+    // NOTE(Tyler): This is so that the ending space is actually factored in, usually it is
+    // not.
+    if(CountEndingSpace){
+        if(LastC == ' '){
+            stbtt_aligned_quad Q;
+            stbtt_GetBakedQuad(Font->CharData,
+                               Font->TextureWidth, Font->TextureHeight,
+                               LastC-32, &X, &Y, &Q, 1);
+            Result = Q.x1;
+        }
+    }
+    
+    return(Result);
+}
+
+internal f32
+GetStringAdvanceByCount(font *Font, const char *String, u32 Count, b8 CountEndingSpace=false){
+    f32 Result = 0;
+    f32 X = 0.0f;
+    f32 Y = 0.0f;
+    char LastC = '\0';
+    u32 I = 0;
+    for(char C = *String; C; C = *(++String)){
+        if(I >= Count) break;
+        stbtt_aligned_quad Q;
+        stbtt_GetBakedQuad(Font->CharData,
+                           Font->TextureWidth, Font->TextureHeight,
+                           C-32, &X, &Y, &Q, 1);
+        Result = Q.x1;
+        LastC = C;
+        I++;
+    }
+    
+    // NOTE(Tyler): This is so that the ending space is actually factored in, usually it is
+    // not.
+    if(CountEndingSpace){
+        if(LastC == ' '){
+            stbtt_aligned_quad Q;
+            stbtt_GetBakedQuad(Font->CharData,
+                               Font->TextureWidth, Font->TextureHeight,
+                               LastC-32, &X, &Y, &Q, 1);
+            Result = Q.x1;
+        }
     }
     
     return(Result);
@@ -367,12 +397,12 @@ GetFormatStringAdvance(font *Font, const char *Format, ...){
 
 internal inline void 
 RenderCenteredString(font *Font, color Color, v2 Center,
-                     f32 Z, char *Format, ...){
+                     f32 Z, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
     f32 Advance = VGetFormatStringAdvance(Font, Format, VarArgs);
     Center.X -= Advance/2.0f;
-    VRenderFormatString(Font, Color, Center.X, Center.Y, Z, Format, VarArgs);
+    VRenderFormatString(Font, Color, Center, Z, Format, VarArgs);
     va_end(VarArgs);
 }
 

@@ -21,6 +21,12 @@ HashKey(const char *String) {
     return(Result);
 }
 
+internal constexpr u64
+HashKey(u64 Value) {
+    u64 Result = Value;
+    return(Result);
+}
+
 internal constexpr b32
 CompareKeys(const char *A, const char *B){
     b32 Result = true;
@@ -30,6 +36,12 @@ CompareKeys(const char *A, const char *B){
         }
     }
     
+    return(Result);
+}
+
+internal constexpr b32
+CompareKeys(u64 A, u64 B){
+    b32 Result = (A == B);
     return(Result);
 }
 

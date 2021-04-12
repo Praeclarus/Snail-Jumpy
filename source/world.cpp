@@ -42,7 +42,7 @@ AddPlayer(v2 P){
     
     Player->Direction = Direction_Left;
     Player->State = State_Idle;
-    Player->Asset = "player";
+    Player->Asset = Info->Asset;
     Player->AnimationState = 0.0f;
     Player->JumpTime = 1.0f;
     

@@ -393,7 +393,7 @@ GetAssetNameListByType(const char *_CurrentAsset, asset_type Type, u32 *OutSelec
 }
 
 internal const char *
-AssetNameDropDown(window *Window, const char *SelectedAsset, 
+AssetNameDropDown(ui_window *Window, const char *SelectedAsset, 
                   asset_type AssetType, u64 WidgetID){
     TIMED_FUNCTION();
     

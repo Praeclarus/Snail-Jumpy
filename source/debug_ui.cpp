@@ -11,8 +11,7 @@ DEBUGRenderAllProfileData(layout *Layout){
         }
         
         f32 ActualX = Layout->CurrentP.X + (Layout->Advance.X*(f32)Block->Level);
-        RenderFormatString(&DebugFont, BLACK,
-                           ActualX, Layout->CurrentP.Y, -1.0f,
+        RenderFormatString(&DebugFont, BLACK, V2(ActualX, Layout->CurrentP.Y), -1.0f,
                            "%s: %'8llucy", Block->Name, Block->CycleCount);
         Layout->CurrentP.Y -= DebugFont.Size;
     }

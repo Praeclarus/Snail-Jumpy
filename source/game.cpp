@@ -85,7 +85,7 @@ UpdateAndRenderMainGame(){
             Color.A = 2.0f * CompletionCooldown/3.0f;
         }
         RenderFormatString(&MainFont, Color, 
-                           TopCenter.X-(0.5f*Advance), TopCenter.Y, -0.9f,
+                           V2(TopCenter.X-(0.5f*Advance), TopCenter.Y), -0.9f,
                            "Level completed!");
         
         CompletionCooldown -= OSInput.dTime;
@@ -139,12 +139,12 @@ UpdateAndRenderMainGame(){
         }
         
         RenderFormatString(&DebugFont, BLACK, 
-                           GameCamera.MetersToPixels*P.X, GameCamera.MetersToPixels*P.Y,
+                           GameCamera.MetersToPixels*P,
                            -2.0f, "Health: %d", Player->Health);
     }
     
     //~ Debug UI
-    RenderFormatString(&MainFont, GREEN, 100, OSInput.WindowSize.Height-100,
+    RenderFormatString(&MainFont, GREEN, V2(100, OSInput.WindowSize.Height-100),
                        -0.9f, "Score: %u", Score);
     
     DEBUGRenderOverlay();

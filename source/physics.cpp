@@ -89,7 +89,7 @@ physics_debugger::DrawStringAtP(v2 P, const char *Format, ...){
     
     P.Y += 0.1f;
     v2 StringP = GameCamera.WorldPToScreenP(P);
-    VRenderFormatString(&DebugFont, BLACK, StringP.X, StringP.Y, -10.0f, Format, VarArgs);
+    VRenderFormatString(&DebugFont, BLACK, StringP, -10.0f, Format, VarArgs);
     
     va_end(VarArgs);
 }
@@ -105,7 +105,7 @@ physics_debugger::DrawPolygon(v2 *Points, u32 PointCount){
         v2 P = Origin + (Scale * Points[I]);
         P.Y += 0.1f;
         v2 NameP = GameCamera.WorldPToScreenP(P);
-        RenderFormatString(&DebugFont, BLACK, NameP.X, NameP.Y, -10.0f, "%u", I);
+        RenderFormatString(&DebugFont, BLACK, NameP, -10.0f, "%u", I);
     }
 }
 
@@ -1197,10 +1197,8 @@ physics_system::DoPhysics(){
     //~ Do particles
 #define RepeatExpr(V) F32X4(V, V, V, V)
     
-    
-    // TODO(Tyler): This is a very naive and rather slow particle system implementation,
-    // this might be a good SIMDization excersize, or some other means of optimization.
-    // Maybe spatial hashing would be best? And without the AABB?
+    // TODO(Tyler): This isn't a very good particle system. We might want 
+    // particle collisions though which might be hard with this system
     FOR_BUCKET_ARRAY(It, &ParticleSystems){
         physics_particle_system *System = It.Item;
         f32 COR = System->COR;
@@ -1219,16 +1217,6 @@ physics_system::DoPhysics(){
             v2_x4 Delta = (dTimeX4*Particle->dP + 
                            F32X4(0.5f)*Square(dTimeX4)*ddP);
             Particle->dP += dTimeX4*ddP;
-            
-#if 0            
-            physics_collision Collision = MakeCollision();
-            DoStaticCollisions(&Collision, System->Boundary, Particle->P, Delta);
-            f32 TimeOfImpact = 1.0f;
-            if(Collision.TimeOfImpact < 1.0f) TimeOfImpact = Collision.TimeOfImpact;
-            Particle->P  += TimeOfImpact*Delta;
-            Particle->P += Collision.Correction;
-            Particle->dP -= COR*Collision.Normal*Dot(Particle->dP, Collision.Normal);
-#endif
             
             Particle->P += Delta;
             
@@ -1255,6 +1243,7 @@ physics_system::DoPhysics(){
                                          _mm_andnot_ps(M, Particle->dP.Y.V));
             Particle->Lifetime -= dTimeX4;
             
+            // TODO(Tyler): The rendering here is one of the slowest parts
             for(u32 I=0; I < 4; I++){
                 f32 Lifetime = GetOneF32(Particle->Lifetime, I);
                 if(Lifetime > 0.0f){

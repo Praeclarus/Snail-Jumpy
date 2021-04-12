@@ -26,7 +26,7 @@ EndLayoutSameY(layout *Layout){
 
 internal void
 VLayoutString(layout *Layout, font *Font, color Color, const char *Format, va_list VarArgs){
-    VRenderFormatString(Font, Color, Layout->CurrentP.X, Layout->CurrentP.Y, 
+    VRenderFormatString(Font, Color, Layout->CurrentP, 
                         -0.7f, Format, VarArgs);
     Layout->CurrentP.Y -= Font->Size;
 }
@@ -35,7 +35,7 @@ internal void
 LayoutString(layout *Layout, font *Font, color Color, const char *Format, ...){
     va_list VarArgs;
     va_start(VarArgs, Format);
-    VRenderFormatString(Font, Color, Layout->CurrentP.X, Layout->CurrentP.Y, 
+    VRenderFormatString(Font, Color, Layout->CurrentP, 
                         -0.7f, Format, VarArgs);
     va_end(VarArgs);
     Layout->CurrentP.Y -= Font->Size;
@@ -49,468 +49,424 @@ LayoutFps(layout *Layout){
                  BLACK, "FPS: %f", 1.0f/OSInput.dTime);
 }
 
+//~ UI Elements
+
+internal inline b8
+CompareElements(ui_element *A, ui_element *B){
+    b8 Result = ((A->Type == B->Type) &&
+                 (A->ID == B->ID));
+    return(Result);
+}
+
+internal ui_element
+MakeElement(ui_element_type Type, u64 ID, u32 Priority=0){
+    ui_element Result = {};
+    Result.Type = Type;
+    Result.ID = ID;
+    Result.Priority = Priority;
+    return(Result);
+}
+
+//~ Easing
+
+internal inline f32
+EaseInSquared(f32 T){
+    T = Clamp(T, 0.0f, 1.0f);
+    f32 Result = Square(T);
+    return(Result);
+}
+
+internal inline f32
+EaseOutSquared(f32 T){
+    T = Clamp(T, 0.0f, 1.0f);
+    f32 Result = 1.0f-Square(1.0f-T);
+    return(Result);
+}
+
 
 //~ window
-button_behavior
-window::ButtonBehavior(f32 X, f32 Y, f32 Width, f32 Height){
-    b8 DoUpdate = !IsFaded;
-    if(Manager->Popup) DoUpdate = (Manager->Popup == this);
-    if(Manager->SelectedWidgetID != 0) DoUpdate = false;
-    button_behavior Result = ButtonBehavior_None;
-    if(DoUpdate &&
-       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
-       (Y < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y+Height)){
-        if(Manager->MouseButtonJustDown(MouseButton_Left)){
-            Result = ButtonBehavior_Clicked;
-            Manager->HandledInput = true;
-        }else{
-            Result = ButtonBehavior_Hovered;
-        }
+
+void
+ui_window::AdvanceAndVerify(f32 Amount, f32 Width){
+    theme *Theme = &Manager->Theme;
+    
+    DrawP.Y -= Amount+Theme->Padding;
+    if(DrawP.Y < Rect.Min.Y){
+        Rect.Min.Y = DrawP.Y - Manager->Theme.Padding;
     }
     
-    return(Result);
+    if(Width > ContentWidth){
+        f32 Difference = Width - ContentWidth;
+        ContentWidth = Width;
+        Rect.Max.X += Difference;
+    }
 }
 
 b8
-window::Button(const char *Text, u32 ButtonsOnRow){
+ui_window::Button(const char *Text, u64 ID){
     theme *Theme = &Manager->Theme;
-    
-    f32 Width = LastSize.X;
-    if(ButtonsOnRow > 1){
-        Width /= ButtonsOnRow;
-    }
-    f32 Height = Theme->ButtonHeight;
-    
-    if(TargetButtonsOnRow <= _ButtonsOnRow){ 
-        DrawP.Y -= Height+Theme->Padding;
-        DrawP.X = TopLeft.X;
-        _ButtonsOnRow = 0;
-    }
-    
-    color ButtonColor = Theme->ButtonBaseColor;
-    f32 X = DrawP.X;
-    f32 Y = DrawP.Y-Theme->Padding;
     b8 Result = false;
     
-    b8 DoUpdate = !IsFaded;
-    if(Manager->Popup) DoUpdate = (Manager->Popup == this);
-    if(Manager->SelectedWidgetID != 0) DoUpdate = false;
+    ui_button_state *State = FindOrCreateInHashTablePtr(&Manager->ButtonStates, ID);
     
-    {
-        f32 RelHeight = TopLeft.Y-DrawP.Y;
-        if(Size.Y < RelHeight+Height+2*Theme->Padding){
-            Size.Y = RelHeight+Height+2*Theme->Padding;
-        }
-    }
+    f32 Height = Theme->ButtonHeight;
+    f32 Width = ContentWidth;
+    AdvanceAndVerify(Height, Width);
     
-    if(ButtonsOnRow > 1){
-        DrawP.X += Width;
-        Flags |= WindowFlag_NextButtonIsSameRow;
-        TargetButtonsOnRow = ButtonsOnRow;
-        _ButtonsOnRow++;
-    }else{
-        Flags &= ~WindowFlag_NextButtonIsSameRow;
-        DrawP.X = TopLeft.X;
-        DrawP.Y -= Height+Theme->Padding;
-        _ButtonsOnRow = 0;
-    }
+    rect ButtonRect = MakeRect(V20, V2(Width,Height));
+    ButtonRect = OffsetRect(ButtonRect, DrawP);
     
-    if(DoUpdate &&
-       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
-       (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
-        b8 DoHovered = false;
-        if(Manager->MouseButtonJustDown(MouseButton_Left)){
-            ButtonColor = Theme->ButtonClickedColor;
+    f32 Speed = 0.0f;
+    switch(Manager->DoButtonElement(ID, ButtonRect)){
+        case ButtonBehavior_None:{
+            State->T -= 5.0f*OSInput.dTime;
+        }break;
+        case ButtonBehavior_Hovered: {
+            State->T += 7.0f*OSInput.dTime;
+        }break;
+        case ButtonBehavior_Activate: {
             Result = true;
-            DoHovered = true;
-        }else{
-            ButtonColor = Theme->ButtonHoveredColor;
-            DoHovered = true;
-        }
-        
-        if(DoHovered){
-            Height -= 10;
-            Width -= 10;
-            X += 5;
-            Y -= 5;
-        }
-        
-        if(Manager->MouseButtonIsDown(MouseButton_Left)){ Manager->HandledInput = true; }
+            State->ActiveT = 1.0f;
+        }break;
     }
     
-    RenderRect(Rect(V2(X, Y-Height), V2(X+Width, Y)), Z-0.1f, 
-               Alphiphy(ButtonColor, Fade));
-    f32 TextWidth = GetStringAdvance(Theme->NormalFont, Text);
-    f32 HeightOffset = (Theme->NormalFont->Ascent/2);
-    RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
-                 v2{X+(Width/2)-(TextWidth/2), Y-(Height/2)-HeightOffset}, 
-                 Z-0.11f, Text);
+    State->T = Clamp(State->T, 0.0f, 1.0f);
+    f32 T = EaseOutSquared(State->T);
+    
+    color ButtonColor = MixColor(Theme->HoverColor, Theme->BaseColor, T);
+    ButtonRect = GrowRect(ButtonRect, -5.0f*T);
+    
+    if(State->ActiveT > 0.0f){
+        f32 ActiveT = Sin(State->ActiveT*PI);
+        State->ActiveT -= 10*OSInput.dTime;
+        ButtonColor = MixColor(Theme->ActiveColor, ButtonColor, ActiveT);
+    }
+    
+    RenderRect(ButtonRect,
+               Z-0.1f, ButtonColor);
+    v2 StringP = DrawP;
+    StringP.X += 0.5f*Width;
+    StringP.Y += (Theme->NormalFont->Ascent/2);
+    RenderCenteredString(Theme->NormalFont, Theme->TextColorA, 
+                         StringP, Z-0.2f, Text);
     
     return(Result);
 }
 
-void 
-window::NotButtonSanityCheck(){
-    theme *Theme = &Manager->Theme;
-    if(Flags & WindowFlag_NextButtonIsSameRow){
-        DrawP.X = TopLeft.X;
-        DrawP.Y -= Theme->ButtonHeight+Theme->Padding;
-        Flags &= ~WindowFlag_NextButtonIsSameRow;
-        _ButtonsOnRow = 0;
-    }
-}
-
 void
-window::Text(const char *Text, ...){
+ui_window::Text(const char *Text, ...){
     theme *Theme = &Manager->Theme;
     
     va_list VarArgs;
     va_start(VarArgs, Text);
-    NotButtonSanityCheck();
     
     f32 Height = Theme->NormalFont->Ascent;
-    DrawP.Y -= Height+Theme->Padding;
     f32 Width = VGetFormatStringAdvance(Theme->NormalFont, Text, VarArgs);
+    AdvanceAndVerify(Height, Width);
     
-    {
-        if(Size.X < Width+2*Theme->Padding){
-            Size.X = Width+2*Theme->Padding;
-        }
-        f32 RelHeight = TopLeft.Y-DrawP.Y;
-        if(Size.Y < RelHeight+Height+2*Theme->Padding){
-            Size.Y = RelHeight+Height;
-        }
-    }
-    
-    VRenderFormatString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade),
-                        DrawP.X+Theme->Padding, DrawP.Y, Z-0.1f, Text, VarArgs);
+    VRenderFormatString(Theme->NormalFont, Theme->TextColorA, 
+                        DrawP, Z-0.2f, Text, VarArgs);
     
     va_end(VarArgs);
 }
 
 void 
-window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
+ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     theme *Theme = &Manager->Theme;
-    NotButtonSanityCheck();
     
-    f32 Width = LastSize.X;
+    ui_text_input_state *State = FindOrCreateInHashTablePtr(&Manager->TextInputStates, ID);
+    
+    f32 Width = ContentWidth;
     f32 Height = Theme->ButtonHeight;
-    
-    {
-        f32 RelHeight = TopLeft.Y-DrawP.Y;
-        if(Size.Y < RelHeight+Height+2*Theme->Padding){
-            Size.Y = RelHeight+Height+2*Theme->Padding;
-        }
-    }
+    AdvanceAndVerify(Height, Width);
+    rect TextBoxRect = MakeRect(V20, V2(Width, Height));
+    TextBoxRect = OffsetRect(TextBoxRect, DrawP);
     
     u32 BufferIndex = CStringLength(Buffer);
     
-    color Color;
-    color TextColor;
-    if(Manager->SelectedWidgetID == ID){
-        for(u32 I = 0; 
-            (I < Manager->BufferIndex) && (BufferIndex < BufferSize);
-            I++){
-            Buffer[BufferIndex++] = Manager->Buffer[I];
-        }
-        if(BufferIndex < Manager->BackSpaceCount){
-            BufferIndex = 0;
-        }else{
-            BufferIndex -= Manager->BackSpaceCount;
-        }
-        Manager->BackSpaceCount = 0;
-        Buffer[BufferIndex] = '\0';
-        Manager->BufferIndex = 0;
-        
-        Color = Theme->TextInputActiveBackColor;
-        TextColor = Theme->TextInputActiveTextColor;
-    }else{
-        Color = Theme->TextInputInactiveBackColor;
-        TextColor = Theme->TextInputInactiveTextColor;
+    b8 IsActive = false;
+    switch(Manager->DoTextInputElement(ID, TextBoxRect)){
+        case ButtonBehavior_None: {
+            State->T -= 5.0f*OSInput.dTime;
+            State->ActiveT -= 5.0f*OSInput.dTime;
+        }break;
+        case ButtonBehavior_Hovered: {
+            State->T += 7.0f*OSInput.dTime;
+            State->ActiveT -= 3.0f*OSInput.dTime;
+        }break;
+        case ButtonBehavior_Activate: {
+            for(u32 I = 0; 
+                (I < Manager->BufferIndex) && (BufferIndex < BufferSize);
+                I++){
+                Buffer[BufferIndex++] = Manager->Buffer[I];
+                State->CursorP++;
+            }
+            if(BufferIndex < Manager->BackSpaceCount){
+                BufferIndex = 0;
+            }else{
+                BufferIndex -= Manager->BackSpaceCount;
+            }
+            
+            //State->CursorP += Manager->CursorMove;
+            //State->CursorP = Clamp(State->CursorP, 0, BufferSize);
+            
+            Manager->CursorMove = 0;
+            Manager->BackSpaceCount = 0;
+            Manager->BufferIndex = 0;
+            Buffer[BufferIndex] = '\0';
+            
+            State->T += 1.0f*OSInput.dTime;
+            State->ActiveT += 5.0f*OSInput.dTime;
+            
+            IsActive = true;
+        }break;
     }
     
-    v2 Min = DrawP;
-    Min.Y -= Height+Theme->Padding;
-    v2 Max = Min + v2{Width, Height};
+    State->T = Clamp(State->T, 0.0f, 1.0f);
+    f32 T = EaseOutSquared(State->T);
+    State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
+    f32 ActiveT = EaseOutSquared(State->ActiveT);
     
-    DrawP.Y -= Height+Theme->Padding;
+    color TextColor  = MixColor(Theme->TextColorB, Theme->TextColorA, ActiveT);
+    color OtherColor = MixColor(Theme->ActiveColor, Theme->HoverColor, ActiveT);
+    color Color      = MixColor(OtherColor, Theme->BaseColor, T);
+    TextBoxRect      = GrowRect(TextBoxRect, -3*T);
     
-    b8 DoUpdate = !IsFaded;
-    if(Manager->Popup) DoUpdate = (Manager->Popup == this);
+    RenderRect(TextBoxRect, Z-0.1f, Color);
+    v2 StringP = DrawP;
+    StringP.X += Theme->Padding;
+    StringP.Y += (Theme->NormalFont->Ascent/2);
+    RenderString(Theme->NormalFont, TextColor, StringP, Z-0.2f, Buffer);
     
-    if(DoUpdate &&
-       (Min.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= Max.X) &&
-       (Min.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= Max.Y)){
-        b8 DoHovered = false;
-        if(Manager->MouseButtonJustDown(MouseButton_Left)){
-            Manager->SelectedWidgetID = ID;
-            DoHovered = true;
-        }else if(Manager->SelectedWidgetID != ID){
-            Color = Theme->TextInputHoveredBackColor;
-            DoHovered = true;
-        }
+    if(IsActive){
+        color CursorColor = MixColor(Theme->TextColorA, Theme->TextColorB, T);
         
-        if(DoHovered){
-            Height -= 10;
-            Width -= 10;
-            Min.X += 5;
-            Min.Y += 5;
-            Max = Min + v2{Width, Height};
-        }
-        
-        if(Manager->MouseButtonIsDown(MouseButton_Left)){
-            Manager->HandledInput = true;
-        }
-    }else if(Manager->MouseButtonJustDown(MouseButton_Left) && 
-             (Manager->SelectedWidgetID == ID)){
-        Manager->SelectedWidgetID = 0;
-        Manager->HandledInput = true;
-    }
-    
-    f32 Margin = 10;
-    v2 BorderSize = v2{3, 3};
-    
-    RenderRect(Rect(Min, Max), Z-0.11f, 
-               Alphiphy(Color, Fade));
-    v2 P = {Min.X+Margin, Min.Y + (Max.Y-Min.Y)/2 - Theme->NormalFont->Size/2};
-    RenderString(Theme->NormalFont, Alphiphy(TextColor, Fade), 
-                 v2{P.X, P.Y}, Z-0.12f, Buffer);
-    if(Manager->SelectedWidgetID == ID){
-        f32 Advance = GetStringAdvance(Theme->NormalFont, Buffer);
-        f32 CursorWidth = 10;
-        RenderRect(Rect(V2(P.X+Advance, P.Y-2),  V2(P.X+Advance+CursorWidth, P.Y)), 
-                   Z-0.12f, TextColor);
+        f32 Advance = GetStringAdvanceByCount(Theme->NormalFont, Buffer, State->CursorP, true);
+        f32 CursorWidth = 2;
+        f32 TextHeight = Theme->NormalFont->Ascent;
+        rect CursorRect = MakeRect(V20, V2(CursorWidth, TextHeight));
+        CursorRect = OffsetRect(CursorRect, StringP+V2(Advance, 0.0f));
+        RenderRect(CursorRect, Z-0.2f, CursorColor);
     }
 }
 
 inline void
-window::ToggleButton(const char *TrueText, 
-                     const char *FalseText, b8 *Value, u32 ButtonsOnRow){
-    if(*Value){
-        if(Button(TrueText, ButtonsOnRow)) *Value = !*Value;
-    }else{
-        if(Button(FalseText, ButtonsOnRow)) *Value = !*Value;
-    }
+ui_window::ToggleButton(const char *TrueText, const char *FalseText, 
+                        b8 *Value, u64 ID){
+    const char *Text = *Value ? TrueText : FalseText;
+    if(Button(Text, ID)){ *Value = !*Value; }
 }
 
 b8
-window::ToggleBox(const char *Text, b8 Value){
+ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
     theme *Theme = &Manager->Theme;
-    NotButtonSanityCheck();
+    
+    ui_button_state *State = FindOrCreateInHashTablePtr(&Manager->ButtonStates, ID);
+    
     b8 Result = Value;
     
-    f32 TextWidth = GetStringAdvance(Theme->NormalFont, "X");
-    f32 ButtonWidth = TextWidth + 2*Theme->Padding;
-    f32 Width = GetStringAdvance(Theme->NormalFont, Text) + ButtonWidth + Theme->Padding;
-    //f32 Height = Theme->NormalFont->Ascent+2*Theme->Padding;
-    f32 Height = ButtonWidth;
-    {
-        if(Size.X < Width+2*Theme->Padding){
-            Size.X = Width+2*Theme->Padding;
-        }
-        f32 RelHeight = TopLeft.Y-DrawP.Y;
-        if(Size.Y < RelHeight+Height+2*Theme->Padding){
-            Size.Y = RelHeight+Height+2*Theme->Padding;
-        }
+    f32 Height = Theme->ButtonHeight;
+    AdvanceAndVerify(Height, ContentWidth);
+    rect ActivateRect = MakeRect(V20, V2(ContentWidth, Height));
+    ActivateRect = OffsetRect(ActivateRect, DrawP);
+    rect BoxRect = MakeRect(V20, V2(Height));
+    BoxRect = OffsetRect(BoxRect, DrawP);
+    
+    switch(Manager->DoButtonElement(ID, ActivateRect)){
+        case ButtonBehavior_None:{
+            State->T -= 5.0f*OSInput.dTime;
+        }break;
+        case ButtonBehavior_Hovered: {
+            State->T += 7.0f*OSInput.dTime;
+        }break;
+        case ButtonBehavior_Activate: {
+            Result = !Result;
+            State->ActiveT = 1.0f;
+        }break;
     }
     
-    b8 DoUpdate = !IsFaded;
-    if(Manager->Popup) DoUpdate = (Manager->Popup == this);
-    if(Manager->SelectedWidgetID != 0) DoUpdate = false;
+    State->T = Clamp(State->T, 0.0f, 1.0f);
+    f32 T = EaseOutSquared(State->T);
     
-    f32 X = DrawP.X+Theme->Padding;
-    f32 Y = DrawP.Y-Theme->Padding;
-    DrawP.Y -= Height+Theme->Padding;
+    color ButtonColor = MixColor(Theme->HoverColor, Theme->BaseColor, T);
+    BoxRect = GrowRect(BoxRect, -3.0f*T);
     
-    color ButtonColor = Theme->ButtonBaseColor;
-    if(DoUpdate &&
-       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
-       (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y)){
-        b8 DoHovered = false;
-        if(Manager->MouseButtonJustDown(MouseButton_Left)){
-            ButtonColor = Theme->ButtonClickedColor;
-            Result = !Value;
-            DoHovered = true;
-        }else{
-            ButtonColor = Theme->ButtonHoveredColor;
-            DoHovered = true;
-        }
-        
-        if(DoHovered){
-            Height -= 8;
-            ButtonWidth -= 8;
-            X += 4;
-            Y -= 4;
-        }
-        
-        if(Manager->MouseButtonIsDown(MouseButton_Left)){
-            Manager->HandledInput = true;
-        }
+    if(State->ActiveT > 0.0f){
+        f32 ActiveT = EaseInSquared(State->ActiveT);
+        State->ActiveT -= 5*OSInput.dTime;
+        ButtonColor = MixColor(Theme->ActiveColor, ButtonColor, ActiveT);
     }
     
-    RenderRect(Rect(V2(X, Y-Height), V2(X+ButtonWidth, Y)), Z-0.1f, 
-               Alphiphy(ButtonColor, Fade));
-    f32 HeightOffset = (Theme->NormalFont->Ascent/2);
+    RenderRect(BoxRect, Z-0.1f, ButtonColor);
+    
     if(Value){
-        RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
-                     v2{X+(ButtonWidth/2)-(TextWidth/2), Y-(Height/2)-HeightOffset}, 
-                     Z-0.11f, "X");
+        RenderRect(GrowRect(BoxRect, -5.0f), Z-0.2f, Theme->ActiveColor);
     }
     
-    RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
-                 V2(X+ButtonWidth+Theme->Padding, Y-(Height/2)-HeightOffset), 
-                 Z-0.11f, Text);
+    v2 StringP = DrawP;
+    StringP.X += Height+Theme->Padding;
+    StringP.Y += (Theme->NormalFont->Ascent/2);
+    
+    RenderString(Theme->NormalFont, Theme->TextColorA, StringP, Z-0.1f, Text);
     
     return(Result);
 }
 
 #define TOGGLE_FLAG(Window, Text, FlagVar, Flag)   \
-if(Window->ToggleBox(Text, (FlagVar & Flag))){ \
+if(Window->ToggleBox(Text, (FlagVar & Flag), WIDGET_ID)){ \
 FlagVar |= Flag;                                        \
 }else{                                                      \
 FlagVar &= ~Flag;                                       \
 }
 
 #define ANTI_TOGGLE_FLAG(Window, Text, FlagVar, Flag) \
-if(!Window->ToggleBox(Text, !(FlagVar & Flag))){  \
+if(!Window->ToggleBox(Text, !(FlagVar & Flag)), WIDGET_ID){  \
 FlagVar |= Flag;                                           \
 }else{                                                         \
 FlagVar &= ~Flag;                                          \
 }
 
-#define TOGGLE_FLAG_BUTTON(Window, TrueText, FalseText, FlagVar, Flag) 
-
 void
-window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
+ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
     theme *Theme = &Manager->Theme;
-    NotButtonSanityCheck();
     
-    f32 Width = LastSize.X;
+    ui_drop_down_state *State = FindOrCreateInHashTablePtr(&Manager->DropDownStates, ID);
     
-    f32 TextHeight = Theme->NormalFont->Ascent;
-    f32 Height;
-    if(Manager->SelectedWidgetID == ID) Height = ((TextCount-1)*(TextHeight+2*Theme->Padding))+TextHeight; 
-    else Height = TextHeight;
-    Height += 2*Theme->Padding;
+    f32 Width = ContentWidth;
+    f32 TextHeight = Theme->NormalFont->Size;
+    f32 Height = TextHeight+Theme->Padding;
+    AdvanceAndVerify(Height, Width);
     
-    f32 X = DrawP.X;
-    f32 Y = DrawP.Y-Theme->Padding;
-    DrawP.Y -= TextHeight+2*Theme->Padding+Theme->Padding;
+    rect MenuRect = MakeRect(V20, V2(Width, Height));
+    MenuRect = OffsetRect(MenuRect, DrawP);
     
-    {
-        f32 RelHeight = TopLeft.Y-DrawP.Y;
-        if(Size.Y < RelHeight+TextHeight){
-            Size.Y = RelHeight+TextHeight;
-        }
-    }
+    ui_element Element = MakeElement(UIElementType_DropDown, ID, 1);
     
-    b8 DoUpdate = !IsFaded;
-    if(Manager->Popup) DoUpdate = (Manager->Popup == this);
+    rect ActionRect = MenuRect;
+    b8 IsActive = (State->IsOpen &&  
+                   !(Manager->HoveredElement.Priority > Element.Priority));
     
-    if(DoUpdate &&
-       (X < OSInput.MouseP.X) && (OSInput.MouseP.X < X+Width) &&
-       (Y-Height < OSInput.MouseP.Y) && (OSInput.MouseP.Y < Y) &&
-       ((Manager->SelectedWidgetID == 0) || (Manager->SelectedWidgetID == ID))){
-        Manager->SelectedWidgetID = ID;
+    if(IsActive || (State->OpenT > 0.0f)){
         
-        if(Manager->MouseButtonIsDown(MouseButton_Left)){ Manager->HandledInput = true; }
-    }else if(Manager->SelectedWidgetID == ID){
-        Manager->SelectedWidgetID = 0;
-    }
-    
-    f32 TextY = Y-TextHeight-Theme->Padding;
-    f32 RectY = Y;
-    f32 YAdvance = (TextHeight+2*Theme->Padding);
-    if(Manager->SelectedWidgetID == ID){
-        for(u32 I = 0; I < TextCount; I++){
-            const char *ItemText = Texts[I];
-            RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
-                         V2(X+Theme->Padding, TextY), Z-0.51f, ItemText);
-            TextY -= YAdvance;
-            f32 NewRectY = RectY-YAdvance;
+        if(IsActive) State->OpenT += 7*OSInput.dTime; 
+        else         State->OpenT -= 5*OSInput.dTime; 
+        State->OpenT = Clamp(State->OpenT, 0.0f, 1.0f);
+        f32 OpenT = EaseOutSquared(State->OpenT)*EaseOutSquared(State->OpenT);
+        
+        ActionRect.Min.Y -= OpenT*(TextCount-1)*Height;
+        rect ClipRect = ActionRect;
+        ClipRect.Min -= V2(Theme->Padding);
+        ClipRect.Max.X += Theme->Padding;
+        Renderer.BeginClipRegion(ClipRect.Min, ClipRect.Max);
+        
+        v2 P = DrawP;
+        for(u32 I=0; I < TextCount; I++){
+            const char *Text = Texts[I];
             
-            color Color = Theme->ButtonBaseColor;
-            if((NewRectY <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= RectY)){
-                Color = Theme->ButtonHoveredColor;
+            color Color = MixColor(Theme->HoverColor, Theme->BaseColor, OpenT);
+            color TextColor = Theme->TextColorA;
+            
+            rect ItemRect = MakeRect(V20, V2(Width, Height));
+            ItemRect = OffsetRect(ItemRect, P);
+            f32 ItemZ = Z-0.36f;
+            
+            if(IsPointInRect(OSInput.MouseP, ItemRect) && IsActive){
                 if(Manager->MouseButtonJustDown(MouseButton_Left)){
                     *Selected = I;
-                    Color = Theme->ButtonClickedColor;
                 }
-            }else if(I == *Selected){
-                Color = Theme->ButtonClickedColor;
+                if(I != State->Selected){
+                    State->T = 0.0f;
+                }
+                State->T += 7.0f*OSInput.dTime;
+                
+                State->T = Clamp(State->T, 0.0f, 1.0f);
+                State->Selected = I;
+                
+                f32 T = EaseOutSquared(State->T);
+                Color = MixColor(Theme->ActiveColor, Theme->HoverColor, T);
+                ItemRect = GrowRect(ItemRect, -3.0f*T);
+                ItemZ -= 0.01f;
             }
-            RenderRect(Rect(V2(X, NewRectY), V2(X+Width, RectY)), Z-0.5f, 
-                       Alphiphy(Color, Fade));
-            RectY = NewRectY;
+            
+            if(*Selected == I){
+                Color = Theme->ActiveColor;
+            }
+            
+            if(!IsActive){
+                ItemZ = Z-0.25f;
+            }
+            
+            RenderRect(ItemRect, ItemZ, Color);
+            
+            v2 StringP = P;
+            StringP.X += Theme->Padding;
+            StringP.Y += -Theme->NormalFont->Descent + 0.5f*Theme->Padding;
+            RenderString(Theme->NormalFont, TextColor, StringP, ItemZ-0.1f, Text);
+            P.Y -= Height;
         }
+        
+        Renderer.EndClipRegion();
     }else{
-        RenderRect(Rect(V2(X, Y-Height), V2(X+Width, Y)), Z-0.1f, 
-                   Alphiphy(Theme->ButtonBaseColor, Fade));
-        RenderString(Theme->NormalFont, Alphiphy(Theme->NormalColor, Fade), 
-                     V2(X+Theme->Padding, TextY), Z-0.11f, Texts[*Selected]);
+        color Color = Theme->BaseColor;
+        color TextColor = Theme->TextColorA;
+        RenderRect(MenuRect, Z-0.1f, Color);
+        v2 StringP = DrawP;
+        StringP.X += Theme->Padding;
+        StringP.Y += -Theme->NormalFont->Descent + 0.5f*Theme->Padding;
+        RenderString(Theme->NormalFont, TextColor, StringP, Z-0.2f, Texts[*Selected]);
     }
     
-    RenderRect(Rect(V2(X, Y-Height), V2(X+0.5f*Theme->Padding, Y)), Z-0.51f, 
-               Alphiphy(Theme->NormalColor, Fade));
+    if(IsPointInRect(OSInput.MouseP, ActionRect)){
+        if(Manager->HoveredElement.Priority > Element.Priority) return;
+        Manager->HoveredElement = Element;
+        State->IsOpen = true;
+    }else{
+        State->T = 0.0f;
+        State->IsOpen = false;
+    }
 }
 
 void
-window::DropDownMenu(array<const char *> Texts, u32 *Selected, u64 ID){
+ui_window::DropDownMenu(array<const char *> Texts, u32 *Selected, u64 ID){
     DropDownMenu(Texts.Items, Texts.Count, Selected, ID);
 }
 
 void
-window::End(){
+ui_window::End(){
     theme *Theme = &Manager->Theme;
-    if(Size.Width < MinSize.Width) Size.Width = MinSize.Width;
-    if(Size.Height < MinSize.Height) Size.Height = MinSize.Height;
+    v2 Size = RectSize(Rect);
     
     f32 TitleWidth = GetStringAdvance(Theme->TitleFont, Name);
     if(Size.Width < TitleWidth+2*Theme->Padding){
         Size.Width = TitleWidth+2*Theme->Padding;
     }
     
-    if((TopLeft.X <= OSInput.MouseP.X) && (OSInput.MouseP.X <= TopLeft.X+Size.X) &&
-       (TopLeft.Y-Size.Y <= OSInput.MouseP.Y) && (OSInput.MouseP.Y <= TopLeft.Y+TitleBarHeight)){
+    if(Rect.Max.X > OSInput.WindowSize.X){
+        v2 Fix = V2(OSInput.WindowSize.X-Rect.Max.X, 0.0f);
+        Rect = OffsetRect(Rect, Fix);
+    }else if(Rect.Min.X < 0.0f){
+        v2 Fix = V2(-Rect.Min.X, 0.0f);
+        Rect = OffsetRect(Rect, Fix);
+    }
+    
+    rect TitleBarRect = Rect;
+    TitleBarRect.Min.Y = TitleBarRect.Max.Y - TitleBarHeight;
+    if(IsPointInRect(OSInput.MouseP, TitleBarRect)){
         Manager->MouseOverWindow = !IsFaded;
         if(Manager->Popup) Manager->MouseOverWindow = (Manager->Popup == this);
     }
     
-    //~ Rendering
+    // Title bar
+    v2 P = TitleBarRect.Min;
+    P.X += Theme->Padding;
+    P.Y += (TitleBarHeight/2)-(Theme->TitleFont->Ascent/2);
+    RenderString(Theme->TitleFont, Theme->TitleColor, P, Z-0.1f, Name);
+    RenderRect(TitleBarRect, Z, Theme->TitleBarColor);
     
-    // Title bar rendering
-    RenderString(Theme->TitleFont, Alphiphy(Theme->TitleColor, Fade),
-                 TopLeft.X+Theme->Padding, 
-                 TopLeft.Y+(TitleBarHeight/2)-(Theme->TitleFont->Ascent/2), 
-                 Z-0.1f, Name);
-    {
-        v2 Min = TopLeft;
-        v2 Max = TopLeft;
-        Max.X += Size.X;
-        Max.Y += TitleBarHeight;
-        RenderRect(Rect(Min, Max), Z, Alphiphy(Theme->TitleBarColor, Fade));
-        if(Max.Y > OSInput.WindowSize.Y){
-            TopLeft.Y = OSInput.WindowSize.Y - TitleBarHeight;
-        }
-    }
-    
-    // Background rendering
-    {
-        v2 Min = TopLeft;
-        Min.Y -= Size.Y;
-        v2 Max = TopLeft;
-        Max.X += Size.X;
-        RenderRect(Rect(Min, Max), Z, Alphiphy(Theme->BackgroundColor, Fade));
-        if(Max.X > OSInput.WindowSize.X){
-            TopLeft.X = OSInput.WindowSize.X - Size.X;
-        }else if(Min.X < 0){
-            TopLeft.X = 0;
-        }
-        
-        if(Min.Y < 0){
-            TopLeft.Y = Size.Y;
-        }
-    }
+    // Body
+    rect BodyRect = Rect;
+    BodyRect.Max.Y -= TitleBarHeight;
+    RenderRect(BodyRect, Z, Theme->BackgroundColor);
 }
 
 //~ ui_manager
@@ -521,54 +477,98 @@ SetupDefaultTheme(theme *Theme){
     Theme->NormalFont = &DebugFont;
     
     Theme->TitleColor = BLACK;
-    Theme->TitleBarColor = Color(0.39f, 0.46f, 0.4f, 0.8f);
-    Theme->NormalColor = Color(0.8f, 0.8f, 0.8f, 1.0f);
-    Theme->BackgroundColor = Color(0.2f, 0.4f, 0.3f, 0.8f);
+    //Theme->TitleBarColor = Color(0.39f, 0.46f, 0.4f, 0.9f);
+    Theme->TitleBarColor = Color(0.4f, 0.5f, 0.5f, 0.9f);
+    Theme->BackgroundColor = Color(0.1f, 0.4f, 0.4f, 0.7f);
     
-    Theme->ButtonBaseColor = Color(0.1f, 0.3f, 0.2f, 0.8f);
-    Theme->ButtonHoveredColor = Color(0.4f, 0.6f, 0.5f, 0.9f);
-    Theme->ButtonClickedColor = Color(0.5f, 0.7f, 0.6f, 0.9f);
+    Theme->BaseColor   = Color(0.3f, 0.5f, 0.5f, 0.8f);
+    Theme->HoverColor  = Color(0.5f, 0.4f, 0.5f, 0.9f);
+    Theme->ActiveColor = Color(0.6f, 0.6f, 0.9f, 0.9f);
+    Theme->TextColorA  = Color(0.9f, 0.9f, 0.9f, 1.0f);
+    Theme->TextColorB  = Color(0.0f, 0.0f, 0.0f, 1.0f);
     
-    Theme->TextInputInactiveTextColor = Theme->NormalColor;
-    Theme->TextInputActiveTextColor = Color(0.0f, 0.0f, 0.0f, Theme->NormalColor.A);
-    //Theme->TextInputInactiveBackColor = Color(0.1f, 0.3f, 0.2f, 0.8f);
-    Theme->TextInputInactiveBackColor = Color(0.1f, 0.3f, 0.2f, 0.8f);
-    //Theme->TextInputActiveBackColor = Color(0.5f, 0.8f, 0.6f, 0.9f);
-    Theme->TextInputHoveredBackColor = Color(0.4f, 0.6f, 0.5f, 0.9f);
-    Theme->TextInputActiveBackColor = Color(0.5f, 0.7f, 0.6f, 0.9f);
-    
-    Theme->ButtonHeight = 40;
+    Theme->ButtonHeight = 30;
     Theme->Padding = 10;
 }
 
-window *
-ui_manager::BeginWindow(const char *Name, v2 StartTopLeft, v2 MinSize){
-    window *Window = FindOrCreateInHashTablePtr(&WindowTable, Name);
+ui_window *
+ui_manager::BeginWindow(const char *Name, v2 TopLeft, v2 MinSize){
+    ui_window *Window = FindOrCreateInHashTablePtr(&WindowTable, Name);
     if(!Window->Name){
+        Window->Rect = FixRect(Rect(TopLeft, TopLeft+V2(300, -50)));
         Window->Name = Name;
-        Window->TopLeft = StartTopLeft;
-        Window->MinSize = MinSize;
         Window->Z = -5.0f;
-        Window->Fade = 1.0f;
-        Window->LastSize = MinSize;
     }
     
     Window->TitleBarHeight = Maximum(Theme.TitleFont->Size+Theme.Padding,60);
     
     Window->Flags = 0;
-    Window->TargetButtonsOnRow = 1;
-    Window->_ButtonsOnRow = 0;
-    Window->DrawP = Window->TopLeft;
-    Window->LastSize = Window->Size;
-    Window->Size = Window->MinSize;
     Window->Manager = this;
+    Window->ContentWidth = RectSize(Window->Rect).X - 2*Theme.Padding;
+    Window->DrawP.Y = Window->Rect.Max.Y-Window->TitleBarHeight;
+    Window->DrawP.X = Window->Rect.Min.X+Theme.Padding;
     
     return(Window);
 }
 
-window *
+void
+ui_manager::SetValidElement(ui_element *Element){
+    if(ValidElement.Priority > Element->Priority) return;
+    ValidElement = *Element;
+}
+
+ui_button_behavior
+ui_manager::DoButtonElement(u64 ID, rect ActionRect, u32 Priority){
+    ui_button_behavior Result = ButtonBehavior_None;
+    
+    ui_element Element = MakeElement(UIElementType_Button, ID, Priority);
+    
+    if(CompareElements(&Element, &ActiveElement)){
+        HoveredElement = Element;
+        Result = ButtonBehavior_Activate;
+        ActiveElement = {};
+    }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
+        if(HoveredElement.Priority > Priority) return(Result);
+        
+        HoveredElement = Element;
+        Result = ButtonBehavior_Hovered;
+        if(MouseButtonJustDown(MouseButton_Left)){
+            SetValidElement(&Element);
+        }
+    }
+    
+    return(Result);
+}
+
+ui_button_behavior
+ui_manager::DoTextInputElement(u64 ID, rect ActionRect, u32 Priority){
+    ui_button_behavior Result = ButtonBehavior_None;
+    
+    ui_element Element = MakeElement(UIElementType_TextInput, ID, Priority);
+    
+    if(CompareElements(&Element, &ActiveElement)){
+        HoveredElement = Element;
+        if(!IsPointInRect(OSInput.MouseP, ActionRect) &&
+           MouseButtonIsDown(MouseButton_Left)){
+            ActiveElement = {};
+        }else{
+            Result = ButtonBehavior_Activate;
+        }
+    }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
+        if(HoveredElement.Priority > Priority) return(Result);
+        
+        Result = ButtonBehavior_Hovered;
+        if(MouseButtonJustUp(MouseButton_Left)){
+            SetValidElement(&Element);
+        }
+    }
+    
+    return(Result);
+}
+
+ui_window *
 ui_manager::BeginPopup(const char *Name, v2 StartTopLeft, v2 MinSize){
-    window *Result = BeginWindow(Name, StartTopLeft, MinSize);
+    ui_window *Result = BeginWindow(Name, StartTopLeft, MinSize);
     Popup = Result;
     return(Result);
 }
@@ -580,15 +580,27 @@ ui_manager::EndPopup(){
 
 void 
 ui_manager::Initialize(memory_arena *Arena){
-    WindowTable = PushHashTable<const char *, window>(Arena, 256);
+    WindowTable = PushHashTable<const char *, ui_window>(Arena, 256);
     SetupDefaultTheme(&Theme);
+    TextInputStates = PushHashTable<u64, ui_text_input_state>(Arena, 128);
+    ButtonStates    = PushHashTable<u64, ui_button_state>(Arena, 128);
+    DropDownStates  = PushHashTable<u64, ui_drop_down_state>(Arena, 128);
 }
 
 void
-ui_manager::NewFrame(){
+ui_manager::BeginFrame(){
     MouseOverWindow = false;
     HandledInput    = false;
+    HoveredElement  = {};
     for(u32 I = 0; I < MouseButton_TOTAL; I++) PreviousMouseState[I] = MouseState[I];
+}
+
+void
+ui_manager::EndFrame(){
+    if(ActiveElement.Type != UIElementType_TextInput){
+        ActiveElement = ValidElement;
+    }
+    ValidElement = {};
 }
 
 b8
@@ -615,7 +627,7 @@ ui_manager::ProcessEvent(os_event *Event){
     
     switch(Event->Kind){
         case OSEventKind_KeyDown: {
-            if(SelectedWidgetID != 0){
+            if(ActiveElement.Type == UIElementType_TextInput){
                 if(Event->Key < U8_MAX){
                     char Char = (char)Event->Key;
                     if(IsShiftDown){
@@ -632,18 +644,22 @@ ui_manager::ProcessEvent(os_event *Event){
                     IsShiftDown = true;
                 }else if(Event->Key == KeyCode_BackSpace){
                     BackSpaceCount++;
+                }else if(Event->Key == KeyCode_Left){
+                    CursorMove--;
+                }else if(Event->Key == KeyCode_Right){
+                    CursorMove++;
                 }
                 
                 Result = true;
             }
         }break;
         case OSEventKind_KeyUp: {
-            if(SelectedWidgetID != 0){
+            if(ActiveElement.Type == UIElementType_TextInput){
                 if(Event->Key == KeyCode_Shift){
                     IsShiftDown = false;
                 }else if(Event->Key == KeyCode_Escape){
                     HandledInput = true;
-                    SelectedWidgetID = 0;
+                    ActiveElement = {};
                 }
                 Result = true;
             }

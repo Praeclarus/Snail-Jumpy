@@ -52,7 +52,7 @@ struct entity_editor {
     f32 SelectorOffset;
     v2 EntityP;
     u32          CurrentFrame;
-    entity_state CurrentState     = State_None;
+    entity_state CurrentState     = State_Moving;
     direction    CurrentDirection = Direction_Left;
     
     u32 SelectedInfoID;

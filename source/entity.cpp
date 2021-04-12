@@ -256,8 +256,9 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
             }else{
                 TurnEnemy(Enemy, Direction_Left);
             }
-        }else if(Collision->Normal.Y > 0.0f){ // Hits floor
-            GameCamera.Shake(0.1f, 0.05f, 200);
+        }else if((Collision->Normal.Y > 0.0f) &&
+                 (ObjectA->State & PhysicsObjectState_Falling)){ // Hits floor
+            GameCamera.Shake(0.1f, 0.05f, 500);
         }
     }
     return(false);
@@ -547,8 +548,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                     StringP.Y += 0.5f;
                     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
                     StringP.X -= Advance/2/Camera->MetersToPixels;
-                    RenderString(&MainFont, GREEN,
-                                 StringP.X, StringP.Y, -1.0f, Teleporter->Level, Camera);
+                    RenderString(&MainFont, GREEN, StringP, -1.0f, Teleporter->Level, Camera);
                 }
 #if 0
                 if(IsKeyJustPressed(KeyCode_Space)){

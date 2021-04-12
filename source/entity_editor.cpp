@@ -251,14 +251,14 @@ void
 entity_editor::DoUI(){
     //~ Basic editing functions
     {
-        window *Window = UIManager.BeginWindow("Entity Editor", OSInput.WindowSize, V2(400, 0));
+        ui_window *Window = UIManager.BeginWindow("Entity Editor", OSInput.WindowSize, V2(400, 0));
         
-        if(Window->Button("Switch to world editor")){
+        if(Window->Button("Switch to world editor", WIDGET_ID)){
             ChangeState(GameMode_WorldEditor, 0);
             WorldEditor.World = CurrentWorld;
         }
         
-        if(Window->Button("Save all", 1)){
+        if(Window->Button("Save all", WIDGET_ID)){
             WriteEntityInfos("entities.sje");
         }
         
@@ -274,10 +274,10 @@ entity_editor::DoUI(){
         Window->DropDownMenu(ENTITY_STATE_TABLE, State_TOTAL, (u32 *)&CurrentState, WIDGET_ID);
         Window->DropDownMenu(SIMPLE_DIRECTION_TABLE, Direction_TOTAL, (u32 *)&CurrentDirection, WIDGET_ID);
         Window->Text("Current frame: %u", CurrentFrame);
-        if(Window->Button("<<< Frame", 2)){
+        if(Window->Button("<<< Frame", WIDGET_ID)){
             if(CurrentFrame > 0) CurrentFrame--;
         }
-        if(Window->Button("Frame >>>", 2)){
+        if(Window->Button("Frame >>>", WIDGET_ID)){
             CurrentFrame++;
             // Upper bounds checking is done elsewhere
         }
@@ -287,17 +287,17 @@ entity_editor::DoUI(){
     
     //~ Boundary editing
     {
-        window *Window = UIManager.BeginWindow("Edit Collision Boundaries", 
-                                               V2(0, OSInput.WindowSize.Y), v2{400, 0});
+        ui_window *Window = UIManager.BeginWindow("Edit Collision Boundaries", 
+                                                  V2(0, OSInput.WindowSize.Y), v2{400, 0});
         
         
-        Window->ToggleButton("Don't add boundary", "Add Boundary", &AddBoundary);
+        Window->ToggleButton("Don't add boundary", "Add Boundary", &AddBoundary, WIDGET_ID);
         
         const char *BoundaryTable[] = {
             "None", "Rectangle", "Circle", "Pill"
         };
         Window->Text("Current boundary type: %s", BoundaryTable[BoundaryType]);
-        if(Window->Button("<<< Mode", 2)){
+        if(Window->Button("<<< Mode", WIDGET_ID)){
             if(BoundaryType == EntityInfoBoundaryType_Rect){
                 BoundaryType = EntityInfoBoundaryType_Pill;
             }else if(BoundaryType == EntityInfoBoundaryType_Circle){
@@ -305,7 +305,7 @@ entity_editor::DoUI(){
             }else if(BoundaryType == EntityInfoBoundaryType_Pill){
                 BoundaryType = EntityInfoBoundaryType_Circle;
             }
-        } if(Window->Button("Mode >>>", 2)){
+        } if(Window->Button("Mode >>>", WIDGET_ID)){
             if(BoundaryType == EntityInfoBoundaryType_Rect){
                 BoundaryType = EntityInfoBoundaryType_Circle;
             }else if(BoundaryType == EntityInfoBoundaryType_Circle){
@@ -318,7 +318,7 @@ entity_editor::DoUI(){
         //~ Boundary set management
         u32 BoundarySetIndex = ((u32)(BoundarySet - SelectedInfo->EditingBoundaries) / SelectedInfo->BoundaryCount) + 1;
         Window->Text("Boundary set: %u/%u", BoundarySetIndex, SelectedInfo->BoundarySets);
-        if(Window->Button("<<< Boundary set", 2)){
+        if(Window->Button("<<< Boundary set", WIDGET_ID)){
             BoundarySet -= SelectedInfo->BoundaryCount;
             if(BoundarySet < SelectedInfo->EditingBoundaries){
                 BoundarySet = (SelectedInfo->EditingBoundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)));
@@ -326,7 +326,7 @@ entity_editor::DoUI(){
             AddingBoundary = BoundarySet;
         }
         
-        if(Window->Button("Boundary set >>>", 2)){
+        if(Window->Button("Boundary set >>>", WIDGET_ID)){
             BoundarySet += SelectedInfo->BoundaryCount;
             if(BoundarySet > (SelectedInfo->EditingBoundaries + (SelectedInfo->BoundaryCount*(SelectedInfo->BoundarySets-1)))){
                 BoundarySet = SelectedInfo->EditingBoundaries;

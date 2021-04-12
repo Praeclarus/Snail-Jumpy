@@ -88,7 +88,8 @@ LoadWorldCallback(world_editor *Editor, const char *Name){
 
 //~ 
 void
-world_editor::MaybeFadeWindow(window *Window){
+world_editor::MaybeFadeWindow(ui_window *Window){
+#if 0
     if((Action != WorldEditorAction_DraggingThing) && 
        (Action != WorldEditorAction_AddDragging) &&
        (Action != WorldEditorAction_RemoveDragging)) { 
@@ -112,6 +113,8 @@ world_editor::MaybeFadeWindow(window *Window){
         Window->Fade = 1.0f;
         Window->IsFaded = false;
     }
+#endif
+    //NOT_IMPLEMENTED_YET;
 }
 
 void
@@ -462,6 +465,7 @@ world_editor::ProcessAction(){
 
 b8
 world_editor::DoPopup(){
+#if 0
     b8 Result = false;
     switch(Popup){
         case EditorPopup_TextInput: {
@@ -515,7 +519,12 @@ world_editor::DoPopup(){
         }break;
     }
     
+    
     return(Result);
+#endif
+    
+    //NOT_IMPLEMENTED_YET;
+    return(false);
 }
 
 inline entity_type
@@ -529,60 +538,59 @@ void
 world_editor::DoSelectedThingUI(){
     TIMED_FUNCTION();
     
-    window *Window = 0;
     v2 WindowP = V2(0, OSInput.WindowSize.Y);
     switch(GetSelectedThingType()){
         case EntityType_Enemy:{
-            Window = UIManager.BeginWindow("Edit Snail", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Snail", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             
             Window->Text("Direction: ");
             
-            if(Window->Button("<<<", 2)){
+            if(Window->Button("<<<", WIDGET_ID)){
                 SelectedThing->Direction = Direction_Left;
             }
-            if(Window->Button(">>>", 2)){
+            if(Window->Button(">>>", WIDGET_ID)){
                 SelectedThing->Direction = Direction_Right;
             }
+            
+            if(Window->Button("Change info", WIDGET_ID)){
+                Popup = EditorPopup_InfoSelector;
+                InfoSelectorCallback = ChangeSelectedEntityInfoCallback;
+            }
+            Window->End();
         }break;
         case EntityType_Teleporter: {
-            Window = UIManager.BeginWindow("Edit Teleporter", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Teleporter", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             Window->Text("Level:");
             Window->TextInput(SelectedThing->Level, DEFAULT_BUFFER_SIZE, WIDGET_ID);
             Window->Text("Required level to unlock:", SelectedThing->TRequiredLevel);
             Window->TextInput(SelectedThing->TRequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+            Window->End();Window->End();
         }break;
         case EntityType_Door: {
-            Window = UIManager.BeginWindow("Edit Door", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Door", WindowP, v2{400, 0});
             MaybeFadeWindow(Window);
             Window->Text("Required level to unlock:", 
                          SelectedThing->DRequiredLevel);
             Window->TextInput(SelectedThing->DRequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+            Window->End();
         }break;
         case EntityType_Art: {
-            Window = UIManager.BeginWindow("Edit Art", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Art", WindowP, v2{400, 0});
             SelectedThing->Asset = AssetNameDropDown(Window, SelectedThing->Asset, AssetType_Art, WIDGET_ID);
             
             Window->Text("Z: %.1f", SelectedThing->Z);
-            if(Window->Button("-", 2)){
+            if(Window->Button("-", WIDGET_ID)){
                 SelectedThing->Z -= 0.1f;
             }
-            if(Window->Button("+", 2)){
+            if(Window->Button("+", WIDGET_ID)){
                 SelectedThing->Z += 0.1f;
             }
+            Window->End();
         }break;
     }
-    if(Window){
-        if(SelectedThing->Type == EntityType_Enemy){
-            if(Window->Button("Change info")){
-                Popup = EditorPopup_InfoSelector;
-                InfoSelectorCallback = ChangeSelectedEntityInfoCallback;
-            }
-        }
-        
-        Window->End();
-    }
+    
 }
 
 void
@@ -638,10 +646,10 @@ void
 world_editor::DoUI(){
     TIMED_FUNCTION();
     
-    window *Window = 
+    ui_window *Window = 
         UIManager.BeginWindow("World Editor", OSInput.WindowSize);
     MaybeFadeWindow(Window);
-    if(Window->Button("Switch to entity editor")){
+    if(Window->Button("Switch to entity editor", WIDGET_ID)){
         ChangeState(GameMode_EntityEditor, 0);
     }
     
@@ -650,16 +658,16 @@ world_editor::DoUI(){
     Window->Text("Use left and right arrows to change edit mode");
     Window->Text("Use 'e' to toggle editor");
     Window->Text("Current mode: %s", WORLD_EDITOR_EDIT_MODE_NAME_TABLE[Mode]);
-    if(Window->Button("Save", 3)){
+    if(Window->Button("Save", WIDGET_ID)){
         WorldManager.WriteWorldsToFiles();
     }
     
-    if(Window->Button("Load world", 3)){
+    if(Window->Button("Load world", WIDGET_ID)){
         Popup = EditorPopup_TextInput;
         TextInputCallback = LoadWorldCallback;
     }
     
-    if(Window->Button("Rename world", 3)){
+    if(Window->Button("Rename world", WIDGET_ID)){
         Popup = EditorPopup_TextInput;
         TextInputCallback = RenameWorldCallback;
     }
@@ -668,7 +676,7 @@ world_editor::DoUI(){
     
     //~ Map Resizing
     
-    if(Window->Button("- >>> -", 2)){
+    if(Window->Button("- >>> -", WIDGET_ID)){
         if(World->Width > 32){
             u32 NewMapSize = (World->Width*World->Height) - World->Height;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
@@ -685,7 +693,7 @@ world_editor::DoUI(){
             World->Width--;
         }
     }
-    if(Window->Button("+ >>> +", 2)){
+    if(Window->Button("+ >>> +", WIDGET_ID)){
         u32 NewMapSize = (World->Width*World->Height) + World->Height;
         u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
         u32 NewXTiles = World->Width+1;
@@ -701,7 +709,7 @@ world_editor::DoUI(){
         World->Width++;
     }
     
-    if(Window->Button("- ^^^ -", 2)){
+    if(Window->Button("- ^^^ -", WIDGET_ID)){
         if(World->Height > 18){
             u32 NewMapSize = (World->Width*World->Height) - World->Width;
             u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
@@ -718,7 +726,7 @@ world_editor::DoUI(){
             World->Height--;
         }
     }
-    if(Window->Button("+ ^^^ +", 2)){
+    if(Window->Button("+ ^^^ +", WIDGET_ID)){
         u32 NewMapSize = (World->Width*World->Height) + World->Width;
         u8 *NewMap = (u8 *)DefaultAlloc(NewMapSize);
         u32 NewYTiles = World->Height+1;
@@ -741,32 +749,32 @@ world_editor::DoUI(){
                 WorldFlag_IsTopDown);
     
     Window->Text("Coin required: %u", World->CoinsRequired);
-    if(Window->Button("-", 2)){
+    if(Window->Button("-", WIDGET_ID)){
         if(World->CoinsRequired > 0){
             World->CoinsRequired -= 1;
         }
     }
-    if(Window->Button("+", 2)){
+    if(Window->Button("+", WIDGET_ID)){
         World->CoinsRequired += 1;
     }
     
     Window->Text("Coin spawned: %u", World->CoinsToSpawn);
-    if(Window->Button("-", 2)){
+    if(Window->Button("-", WIDGET_ID)){
         if(World->CoinsToSpawn > 0){
             World->CoinsToSpawn -= 1;
         }
     }
-    if(Window->Button("+", 2)){
+    if(Window->Button("+", WIDGET_ID)){
         World->CoinsToSpawn += 1;
     }
     
-    if(Window->Button("Camera shake!")){
+    if(Window->Button("Camera shake!", WIDGET_ID)){
         Camera.Shake(0.1f);
     }
     
     switch(Mode){
         case EditMode_AddEnemy: {
-            if(Window->Button("Select info")){
+            if(Window->Button("Select info", WIDGET_ID)){
                 Popup = EditorPopup_InfoSelector;
                 InfoSelectorCallback = SelectInfoForEntityToAddCallback;
                 Action = WorldEditorAction_None;
@@ -781,6 +789,7 @@ world_editor::DoUI(){
     Window->End();
     
     DoSelectedThingUI();
+    
 }
 
 void
@@ -807,8 +816,8 @@ world_editor::UpdateAndRender(){
     
     if(!HideUI) DoUI(); 
     
-    RenderString(&DebugFont, color{0.9f, 0.9f, 0.9f, 1.0f}, 
-                 100, OSInput.WindowSize.Y-100, -1.0f,
+    RenderString(&DebugFont, Color(0.9f, 0.9f, 0.9f, 1.0f), 
+                 V2(100, OSInput.WindowSize.Y-100), -1.0f,
                  "Press tab to toggle UI");
     
     
@@ -848,8 +857,8 @@ world_editor::UpdateAndRender(){
                 
                 v2 Size = Asset->SizeInMeters*Asset->Scale;
                 v2 P = Entity->P;
-                v2 Min = v2{P.X, P.Y}-Size/2;
-                v2 Max = v2{P.X, P.Y}+Size/2;
+                v2 Min = V2(P.X, P.Y)-Size/2;
+                v2 Max = V2(P.X, P.Y)+Size/2;
                 
                 // TODO(Tyler): FIX, this doesn't work for all assets, so use the state table?
                 if(Entity->Direction == Direction_Right){ 
@@ -899,7 +908,7 @@ world_editor::UpdateAndRender(){
                 RenderRect(CenterRect(Entity->P, TILE_SIZE), 0.0f, GREEN, &Camera);
             }break;
             case EntityType_Door: {
-                v2 Margin = v2{0.05f, 0.05f};
+                v2 Margin = V2(0.05f);
                 color OutlineColor = {};
                 if(SelectedThing == Entity){
                     OutlineColor = EDITOR_SELECTED_COLOR;

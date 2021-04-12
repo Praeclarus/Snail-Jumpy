@@ -24,7 +24,7 @@ enum editor_popup {
 enum world_editor_action {
     WorldEditorAction_None,
     
-    WorldEditorAction_BeginAddDrag = EditorAction_TOTAL,
+    WorldEditorAction_BeginAddDrag,
     WorldEditorAction_AddDragging,
     WorldEditorAction_EndAddDrag,
     
@@ -90,7 +90,7 @@ struct world_editor {
     void AddNormalTile(u32 Tile);
     void AddTeleporterTile();
     
-    void MaybeFadeWindow(window *Window); 
+    void MaybeFadeWindow(ui_window *Window); 
     b8   HandleClick(b8 ShouldRemove);
     void ProcessAction();
 };

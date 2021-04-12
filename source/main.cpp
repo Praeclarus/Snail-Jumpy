@@ -29,7 +29,7 @@ global ui_manager UIManager;
 global state_change_data StateChangeData;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_MainGame;
+global game_mode GameMode = GameMode_WorldEditor;
 
 global world_editor WorldEditor;
 global entity_editor EntityEditor;
@@ -158,7 +158,7 @@ GameUpdateAndRender(){
     //~ Prepare for next frame
     ProfileData.CurrentBlockIndex = 0;
     ClearArena(&TransientStorageArena);
-    UIManager.NewFrame();
+    UIManager.BeginFrame();
     
     //~ Do next frame
     TIMED_FUNCTION();
@@ -178,6 +178,7 @@ GameUpdateAndRender(){
             EntityEditor.UpdateAndRender();
         }break;
     }
+    UIManager.EndFrame();
     
     OSInput.LastMouseP = OSInput.MouseP;
     Counter += OSInput.dTime;

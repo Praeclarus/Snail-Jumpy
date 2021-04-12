@@ -171,9 +171,20 @@ SafeRatio0(u64 Numerator, u64 Denominator){
     return(Result);
 }
 
+internal inline s32
+Clamp(s32 Value, s32 Min, s32 Max){
+    s32 Result = Value;
+    if(Result < Min){
+        Result = Min;
+    }else if(Result > Max){
+        Result = Max;
+    }
+    return(Result);
+}
+
 //~ V2s
 
-#define V20 V2(0, 0)
+#define V20 V2(0)
 union v2
 {
     struct
@@ -201,6 +212,7 @@ V2(f32 XY){
 }
 
 // TODO(Tyler): Possibly implement operations for this?
+#define V2S0 V2S(0)
 typedef union v2s v2s;
 union v2s
 {
@@ -423,19 +435,30 @@ MaximumV2S(v2s A, v2s B){
 }
 
 //~ Colors
-union v4 {
-    struct {
-        f32 X, Y, Z, W;
-    };
-    struct {
-        f32 R, G, B, A;
-    };
+struct color {
+    f32 R, G, B, A;
 };
 
-typedef v4 color;
 internal inline color
 Color(f32 R, f32 G, f32 B, f32 A){
     color Result = color{R, G, B, A};
+    return(Result);
+}
+
+internal inline color
+MakeColor(f32 R, f32 G, f32 B, f32 A){
+    color Result = color{R, G, B, A};
+    return(Result);
+}
+
+internal inline color
+MixColor(color A, color B, f32 Value){
+    Value = Clamp(Value, 0.0f, 1.0f);
+    color Result;
+    Result.R = Value*A.R + (1.0f-Value)*B.R;
+    Result.G = Value*A.G + (1.0f-Value)*B.G;
+    Result.B = Value*A.B + (1.0f-Value)*B.B;
+    Result.A = Value*A.A + (1.0f-Value)*B.A;
     return(Result);
 }
 
@@ -457,6 +480,14 @@ struct rect_s32 {
 
 internal inline rect
 Rect(v2 Min, v2 Max){
+    rect Result;
+    Result.Min = Min;
+    Result.Max = Max;
+    return(Result);
+}
+
+internal inline rect
+MakeRect(v2 Min, v2 Max){
     rect Result;
     Result.Min = Min;
     Result.Max = Max;
