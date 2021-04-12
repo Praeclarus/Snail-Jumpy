@@ -24,6 +24,7 @@ struct theme {
     
     color TitleColor;
     color TitleBarColor;
+    color TitleBarHoverColor;
     color BackgroundColor;
     
     color BaseColor;
@@ -34,17 +35,14 @@ struct theme {
     
     f32 ButtonHeight;
     f32 Padding;
+    f32 TitleBarHeight;
 };
 
-typedef u32 window_flags;
-enum _window_flags {
-    WindowFlag_None,
-};
 
 #define WIDGET_ID (HashKey(__FILE__) * __LINE__)
-
 #define WIDGET_ID_CHILD(Parent, Value) (HashKey(__FILE__) * __LINE__*Parent / 413*(Value))
 
+//~ States
 struct ui_text_input_state {
     f32 T;
     f32 ActiveT;
@@ -63,6 +61,7 @@ struct ui_drop_down_state {
     b8 IsOpen;
 };
 
+//~ Elements
 enum ui_element_type {
     UIElementType_None,
     UIElementType_Button,
@@ -77,34 +76,43 @@ struct ui_element {
     u32 Priority;
     
     union {
-        u32 Placeholder;
+        // Draggable
+        struct {
+            v2 Offset;
+        };
     };
 };
 
+//~ Enums
 enum ui_button_behavior {
     ButtonBehavior_None,
     ButtonBehavior_Hovered,
     ButtonBehavior_Activate,
 };
 
+//~ Window
+
+enum ui_window_fade_mode {
+    UIWindowFadeMode_None,
+    UIWindowFadeMode_Faded,
+};
+
 struct ui_manager;
 struct ui_window {
     const char *Name;
-    window_flags Flags;
     
-    f32 TitleBarHeight;
-    f32 Z;
+    f32  Z;
+    v2   WindowP;
     rect Rect;
-    f32 ContentWidth;
-    v2 DrawP;
-    b8 IsFaded;
+    f32  ContentWidth;
+    v2   DrawP;
+    f32  FadeT;
+    ui_window_fade_mode FadeMode;
     
     ui_manager *Manager;
     
     void AdvanceAndVerify(f32 Amount, f32 Width);
     
-    // TODO(Tyler): Pehaps instead of using a const char *ID for the ID, use macros like
-    // __FILE__ and __LINE__ possibly even __FUNCTION__.
     void Text(const char *Text, ...);
     void TextInput(char *Buffer, u32 BufferSize, u64 ID);
     b8 Button(const char *Text, u64 ID);
@@ -113,8 +121,13 @@ struct ui_window {
     void DropDownMenu(const char **Texts, u32 TextCounts, u32 *Selected, u64 ID);
     void DropDownMenu(array<const char *>, u32 *Selected, u64 ID);
     
+    void DrawRect(rect R, f32 Z_, color C);
+    void VDrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, va_list VarArgs);
+    void DrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, ...);
+    
     void End();
 };
+
 
 struct ui_manager {
     b8 HandledInput;
@@ -128,7 +141,6 @@ struct ui_manager {
     ui_element ValidElement;
     ui_element HoveredElement;
     
-    b8 MouseOverWindow;
     ui_window *Popup;
     
     // Text Input
@@ -145,9 +157,11 @@ struct ui_manager {
     b8 PreviousMouseState[MouseButton_TOTAL];
     b8 MouseState[MouseButton_TOTAL];
     
+    void               SetValidElement(ui_element *Element);
+    b8                 DoHoverElement(ui_element *Element);
     ui_button_behavior DoButtonElement(u64 ID, rect ActionRect, u32 Priority=0);
     ui_button_behavior DoTextInputElement(u64 ID, rect ActionRect, u32 Priority=0);
-    void               SetValidElement(ui_element *Element);
+    ui_button_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, u32 Priority=0);
     
     b8 MouseButtonJustDown(os_mouse_button Button);
     b8 MouseButtonJustUp(os_mouse_button Button);
@@ -157,8 +171,8 @@ struct ui_manager {
     void EndPopup();
     void Initialize(memory_arena *Arena);
     b8 ProcessEvent(os_event *Event);
-    ui_window *BeginWindow(const char *Name, v2 StartTopLeft=V2(500,500), v2 MinSize=V2(400, 0));
-    ui_window *BeginPopup(const char *Name, v2 StartTopLeft=v2{0, 0}, v2 MinSize=v2{0, 0});
+    ui_window *BeginWindow(const char *Name, v2 StartTopLeft=V2(500,500));
+    ui_window *BeginPopup(const char *Name, v2 StartTopLeft=V20);
 };
 
 

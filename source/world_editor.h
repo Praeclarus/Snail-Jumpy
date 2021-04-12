@@ -74,7 +74,6 @@ struct world_editor {
     world_data *World;
     
     edit_mode Mode;
-    b8 HideUI;
     
     inline entity_type GetSelectedThingType();
     void UpdateAndRender();

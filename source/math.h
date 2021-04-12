@@ -522,6 +522,25 @@ CenterRect(v2 P, v2 Size){
 }
 
 internal inline rect
+FixRect(rect Rect){
+    rect Result = {};
+    Result.Min.X = Minimum(Rect.Min.X, Rect.Max.X);
+    Result.Min.Y = Minimum(Rect.Min.Y, Rect.Max.Y);
+    Result.Max.X = Maximum(Rect.Min.X, Rect.Max.X);
+    Result.Max.Y = Maximum(Rect.Min.Y, Rect.Max.Y);
+    
+    return(Result);
+}
+
+internal inline rect
+TopLeftRect(v2 TopLeft, v2 Size){
+    rect Result;
+    Result.Min = V2(TopLeft.X,        TopLeft.Y-Size.Y);
+    Result.Max = V2(TopLeft.X+Size.X, TopLeft.Y);
+    return(Result);
+}
+
+internal inline rect
 OffsetRect(rect Rect, v2 Offset){
     rect Result = Rect;
     Result.Min += Offset;
@@ -564,20 +583,6 @@ GetRectCenter(rect Rect){
     v2 Result = {};
     v2 Size = RectSize(Rect);
     Result = Rect.Min + 0.5f*Size;
-    
-    return(Result);
-}
-
-internal void
-LogMessage(char *Format, ...);
-
-internal inline rect
-FixRect(rect Rect){
-    rect Result = {};
-    Result.Min.X = Minimum(Rect.Min.X, Rect.Max.X);
-    Result.Min.Y = Minimum(Rect.Min.Y, Rect.Max.Y);
-    Result.Max.X = Maximum(Rect.Min.X, Rect.Max.X);
-    Result.Max.Y = Maximum(Rect.Min.Y, Rect.Max.Y);
     
     return(Result);
 }

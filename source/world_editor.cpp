@@ -132,7 +132,6 @@ world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
             Popup = EditorPopup_InfoSelector;
             InfoSelectorCallback = SelectInfoForEntityToAddCallback;
         }
-        case KeyCode_Tab: HideUI = !HideUI; break;
         case KeyCode_Left: {
             Mode = WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[Mode];
             Assert(Mode != EditMode_TOTAL);
@@ -284,7 +283,6 @@ world_editor::ProcessAction(){
     
     if(Popup != EditorPopup_None) return;
     
-    if(UIManager.MouseOverWindow) { return; }
     switch(Action){
         //~ Adding
         case WorldEditorAction_BeginAddDrag: {
@@ -541,7 +539,7 @@ world_editor::DoSelectedThingUI(){
     v2 WindowP = V2(0, OSInput.WindowSize.Y);
     switch(GetSelectedThingType()){
         case EntityType_Enemy:{
-            ui_window *Window = UIManager.BeginWindow("Edit Snail", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Snail", WindowP);
             MaybeFadeWindow(Window);
             
             Window->Text("Direction: ");
@@ -560,7 +558,7 @@ world_editor::DoSelectedThingUI(){
             Window->End();
         }break;
         case EntityType_Teleporter: {
-            ui_window *Window = UIManager.BeginWindow("Edit Teleporter", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Teleporter", WindowP);
             MaybeFadeWindow(Window);
             Window->Text("Level:");
             Window->TextInput(SelectedThing->Level, DEFAULT_BUFFER_SIZE, WIDGET_ID);
@@ -569,7 +567,7 @@ world_editor::DoSelectedThingUI(){
             Window->End();Window->End();
         }break;
         case EntityType_Door: {
-            ui_window *Window = UIManager.BeginWindow("Edit Door", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Door", WindowP);
             MaybeFadeWindow(Window);
             Window->Text("Required level to unlock:", 
                          SelectedThing->DRequiredLevel);
@@ -577,7 +575,7 @@ world_editor::DoSelectedThingUI(){
             Window->End();
         }break;
         case EntityType_Art: {
-            ui_window *Window = UIManager.BeginWindow("Edit Art", WindowP, v2{400, 0});
+            ui_window *Window = UIManager.BeginWindow("Edit Art", WindowP);
             SelectedThing->Asset = AssetNameDropDown(Window, SelectedThing->Asset, AssetType_Art, WIDGET_ID);
             
             Window->Text("Z: %.1f", SelectedThing->Z);
@@ -814,16 +812,13 @@ world_editor::UpdateAndRender(){
         Camera.Move(CameradP, World);
     }
     
-    if(!HideUI) DoUI(); 
+    ProcessAction();
+    
+    DoUI(); 
     
     RenderString(&DebugFont, Color(0.9f, 0.9f, 0.9f, 1.0f), 
                  V2(100, OSInput.WindowSize.Y-100), -1.0f,
                  "Press tab to toggle UI");
-    
-    
-    // This is put after UI is done, so that it doesn't handle input that was processed by,
-    // the UI
-    ProcessAction();
     
     BEGIN_TIMED_BLOCK(RenderWorldEditor);
     // Walls and coins
@@ -848,6 +843,7 @@ world_editor::UpdateAndRender(){
     
     for(u32 I = 0; I < World->Entities.Count; I++){
         entity_data *Entity = &World->Entities[I];
+        rect EntityRect = {};;
         
         switch(Entity->Type){
             case EntityType_Enemy: {
@@ -857,8 +853,7 @@ world_editor::UpdateAndRender(){
                 
                 v2 Size = Asset->SizeInMeters*Asset->Scale;
                 v2 P = Entity->P;
-                v2 Min = V2(P.X, P.Y)-Size/2;
-                v2 Max = V2(P.X, P.Y)+Size/2;
+                EntityRect = CenterRect(P, Size);
                 
                 // TODO(Tyler): FIX, this doesn't work for all assets, so use the state table?
                 if(Entity->Direction == Direction_Right){ 
@@ -868,7 +863,6 @@ world_editor::UpdateAndRender(){
                 }else{ INVALID_CODE_PATH; }
                 
                 if(SelectedThing == Entity){
-                    RenderRectOutline(CenterRect(P, Size), -0.1f, EDITOR_SELECTED_COLOR, &Camera);
                     local_constant color BASE_COLOR     = Color(0.0f, 0.0f, 0.5f, 1.0f);
                     {
                         color Color = BASE_COLOR;
@@ -887,64 +881,34 @@ world_editor::UpdateAndRender(){
                         }
                         RenderRect(CenterRect(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE), -1.0f, Color, &Camera);
                     }
-                }else if(IsPointInRect(MouseP, CenterRect(Entity->P, Asset->SizeInMeters*Asset->Scale)) &&
-                         (!UIManager.MouseOverWindow)){
-                    local_constant color COLOR = color{0.0f, 0.0f, 0.7f, 1.0f};
-                    RenderRectOutline(CenterRect(P, Size), -0.1f, COLOR, &Camera);
                 }
             }break;
             case EntityType_Teleporter: {
-                v2 Margin = v2{0.05f, 0.05f};
-                color OutlineColor = {};
-                if(SelectedThing == Entity){
-                    OutlineColor = EDITOR_SELECTED_COLOR;
-                }else if(IsPointInRect(MouseP, CenterRect(Entity->P, TILE_SIZE)) &&
-                         (!UIManager.MouseOverWindow)){
-                    OutlineColor = EDITOR_HOVERED_COLOR;
-                }
-                
-                RenderRectOutline(CenterRect(Entity->P, TILE_SIZE), -0.1f, 
-                                  OutlineColor, &Camera);
-                RenderRect(CenterRect(Entity->P, TILE_SIZE), 0.0f, GREEN, &Camera);
+                EntityRect = CenterRect(Entity->P, TILE_SIZE);
+                RenderRect(EntityRect, 0.0f, GREEN, &Camera);
             }break;
             case EntityType_Door: {
-                v2 Margin = V2(0.05f);
-                color OutlineColor = {};
-                if(SelectedThing == Entity){
-                    OutlineColor = EDITOR_SELECTED_COLOR;
-                }else if(IsPointInRect(MouseP, CenterRect(Entity->P, Entity->Size)) &&
-                         (!UIManager.MouseOverWindow)){
-                    OutlineColor = EDITOR_HOVERED_COLOR;
-                }
-                
-                RenderRectOutline(CenterRect(Entity->P, Entity->Size), -0.1f, 
-                                  OutlineColor, &Camera);
-                RenderRect(CenterRect(Entity->P, Entity->Size), 0.0f, BROWN, &Camera);
+                EntityRect = CenterRect(Entity->P, Entity->Size);
+                RenderRect(EntityRect, 0.0f, BROWN, &Camera);
             }break;
             case EntityType_Art: {
                 asset *Asset = GetArt(Entity->Asset);
-                v2 Size = TILE_SIZE;
-                if(Asset &&
-                   (Asset->Type == AssetType_Art)){
-                    Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera.MetersToPixels;
-                    RenderCenteredTexture(Entity->P, Size, Entity->Z, 
-                                          Asset->Texture, V2(0,0), V2(1,1), false, &Camera);
-                }else{
-                    RenderRect(CenterRect(Entity->P, TILE_SIZE), 0.0f, PINK, &Camera);
-                }
+                v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera.MetersToPixels;
+                RenderCenteredTexture(Entity->P, Size, Entity->Z, 
+                                      Asset->Texture, V2(0,0), V2(1,1), false, &Camera);
                 
-                color OutlineColor = {};
-                OutlineColor.A = 0.0f;
-                if(SelectedThing == Entity){
-                    OutlineColor = EDITOR_SELECTED_COLOR; 
-                }else if(IsPointInRect(MouseP, CenterRect(Entity->P, Size)) &&
-                         (!UIManager.MouseOverWindow)){
-                    OutlineColor = EDITOR_HOVERED_COLOR;
-                }
-                
-                RenderRectOutline(CenterRect(Entity->P, Size), Entity->Z-0.1f, OutlineColor, &Camera);
+                EntityRect = CenterRect(Entity->P, Size);
             }break;
         }
+        
+        color OutlineColor = {};
+        if(SelectedThing == Entity){
+            OutlineColor = EDITOR_SELECTED_COLOR;
+        }else if(IsPointInRect(MouseP, EntityRect)){
+            OutlineColor = EDITOR_HOVERED_COLOR;
+        }
+        
+        RenderRectOutline(EntityRect, Entity->Z-0.1f, OutlineColor, &Camera);
     }
     
     END_TIMED_BLOCK();

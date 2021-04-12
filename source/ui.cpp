@@ -83,6 +83,44 @@ EaseOutSquared(f32 T){
     return(Result);
 }
 
+//~ Other
+
+internal inline v2
+DefaultStringP(theme *Theme, font *Font, v2 P){
+    v2 Result = P;
+    Result.Y += -Theme->NormalFont->Descent;
+    return(Result);
+}
+
+internal inline v2
+HigherStringP(theme *Theme, font *Font, v2 P){
+    v2 Result = P;
+    Result.Y += Theme->NormalFont->Ascent/2;
+    return(Result);
+}
+
+internal inline v2
+HCenterStringP(theme *Theme, font *Font, v2 P, const char *String, f32 Width){
+    v2 Result = P;
+    Result.X += Theme->Padding;
+    f32 Advance = GetStringAdvance(Font, String);
+    Result.X += 0.5f*Width - 0.5f*Advance;
+    return(Result);
+}
+
+internal inline v2
+VCenterStringP(theme *Theme, font *Font, v2 P, f32 Height){
+    v2 Result = P;
+    Result.Y += 0.5f*(Height - Font->Ascent - Font->Descent);
+    return(Result);
+}
+
+internal inline v2
+PadLeftStringP(theme *Theme, font *Font, v2 P){
+    v2 Result = P;
+    Result.X += Theme->Padding;
+    return(Result);
+}
 
 //~ window
 
@@ -100,6 +138,32 @@ ui_window::AdvanceAndVerify(f32 Amount, f32 Width){
         ContentWidth = Width;
         Rect.Max.X += Difference;
     }
+}
+
+void
+ui_window::DrawRect(rect R, f32 Z_, color C){
+    f32 T = FadeT;
+    C = Alphiphy(C, 1.0f-T);
+    RenderRect(R, Z_, C);
+}
+
+void 
+ui_window::VDrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, va_list VarArgs){
+    theme *Theme = &Manager->Theme;
+    
+    f32 T = FadeT;
+    C = Alphiphy(C, 1.0f-T);
+    
+    VRenderFormatString(Font, C, P, Z_, Format, VarArgs);
+    
+}
+
+void 
+ui_window::DrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    VDrawString(Font, C, P, Z_, Format, VarArgs);
+    va_end(VarArgs);
 }
 
 b8
@@ -142,13 +206,10 @@ ui_window::Button(const char *Text, u64 ID){
         ButtonColor = MixColor(Theme->ActiveColor, ButtonColor, ActiveT);
     }
     
-    RenderRect(ButtonRect,
-               Z-0.1f, ButtonColor);
-    v2 StringP = DrawP;
-    StringP.X += 0.5f*Width;
-    StringP.Y += (Theme->NormalFont->Ascent/2);
-    RenderCenteredString(Theme->NormalFont, Theme->TextColorA, 
-                         StringP, Z-0.2f, Text);
+    DrawRect(ButtonRect, Z-0.1f, ButtonColor);
+    v2 StringP = HCenterStringP(Theme, Theme->NormalFont, DrawP, Text, Width);
+    StringP = VCenterStringP(Theme, Theme->NormalFont, StringP, Height);
+    DrawString(Theme->NormalFont, Theme->TextColorA, StringP, Z-0.2f, Text);
     
     return(Result);
 }
@@ -163,9 +224,8 @@ ui_window::Text(const char *Text, ...){
     f32 Height = Theme->NormalFont->Ascent;
     f32 Width = VGetFormatStringAdvance(Theme->NormalFont, Text, VarArgs);
     AdvanceAndVerify(Height, Width);
-    
-    VRenderFormatString(Theme->NormalFont, Theme->TextColorA, 
-                        DrawP, Z-0.2f, Text, VarArgs);
+    VDrawString(Theme->NormalFont, Theme->TextColorA, 
+                DrawP, Z-0.2f, Text, VarArgs);
     
     va_end(VarArgs);
 }
@@ -232,11 +292,9 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     color Color      = MixColor(OtherColor, Theme->BaseColor, T);
     TextBoxRect      = GrowRect(TextBoxRect, -3*T);
     
-    RenderRect(TextBoxRect, Z-0.1f, Color);
-    v2 StringP = DrawP;
-    StringP.X += Theme->Padding;
-    StringP.Y += (Theme->NormalFont->Ascent/2);
-    RenderString(Theme->NormalFont, TextColor, StringP, Z-0.2f, Buffer);
+    DrawRect(TextBoxRect, Z-0.1f, Color);
+    v2 StringP = DefaultStringP(Theme, Theme->NormalFont, DrawP);
+    DrawString(Theme->NormalFont, TextColor, StringP, Z-0.2f, "%s", Buffer);
     
     if(IsActive){
         color CursorColor = MixColor(Theme->TextColorA, Theme->TextColorB, T);
@@ -246,7 +304,7 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
         f32 TextHeight = Theme->NormalFont->Ascent;
         rect CursorRect = MakeRect(V20, V2(CursorWidth, TextHeight));
         CursorRect = OffsetRect(CursorRect, StringP+V2(Advance, 0.0f));
-        RenderRect(CursorRect, Z-0.2f, CursorColor);
+        DrawRect(CursorRect, Z-0.2f, CursorColor);
     }
 }
 
@@ -297,17 +355,16 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
         ButtonColor = MixColor(Theme->ActiveColor, ButtonColor, ActiveT);
     }
     
-    RenderRect(BoxRect, Z-0.1f, ButtonColor);
+    DrawRect(BoxRect, Z-0.1f, ButtonColor);
     
     if(Value){
-        RenderRect(GrowRect(BoxRect, -5.0f), Z-0.2f, Theme->ActiveColor);
+        DrawRect(GrowRect(BoxRect, -5.0f), Z-0.2f, Theme->ActiveColor);
     }
     
     v2 StringP = DrawP;
     StringP.X += Height+Theme->Padding;
-    StringP.Y += (Theme->NormalFont->Ascent/2);
-    
-    RenderString(Theme->NormalFont, Theme->TextColorA, StringP, Z-0.1f, Text);
+    StringP = HigherStringP(Theme, Theme->NormalFont, StringP);
+    DrawString(Theme->NormalFont, Theme->TextColorA, StringP, Z-0.1f, Text);
     
     return(Result);
 }
@@ -396,12 +453,11 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
                 ItemZ = Z-0.25f;
             }
             
-            RenderRect(ItemRect, ItemZ, Color);
+            DrawRect(ItemRect, ItemZ, Color);
             
-            v2 StringP = P;
-            StringP.X += Theme->Padding;
-            StringP.Y += -Theme->NormalFont->Descent + 0.5f*Theme->Padding;
-            RenderString(Theme->NormalFont, TextColor, StringP, ItemZ-0.1f, Text);
+            v2 StringP = VCenterStringP(Theme, Theme->NormalFont, P, Height);
+            StringP = PadLeftStringP(Theme, Theme->NormalFont, StringP);
+            DrawString(Theme->NormalFont, TextColor, StringP, ItemZ-0.1f, Text);
             P.Y -= Height;
         }
         
@@ -409,11 +465,10 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
     }else{
         color Color = Theme->BaseColor;
         color TextColor = Theme->TextColorA;
-        RenderRect(MenuRect, Z-0.1f, Color);
-        v2 StringP = DrawP;
-        StringP.X += Theme->Padding;
-        StringP.Y += -Theme->NormalFont->Descent + 0.5f*Theme->Padding;
-        RenderString(Theme->NormalFont, TextColor, StringP, Z-0.2f, Texts[*Selected]);
+        DrawRect(MenuRect, Z-0.1f, Color);
+        v2 StringP = VCenterStringP(Theme, Theme->NormalFont, DrawP, Height);
+        StringP = PadLeftStringP(Theme, Theme->NormalFont, StringP);;
+        DrawString(Theme->NormalFont, TextColor, StringP, Z-0.2f, Texts[*Selected]);
     }
     
     if(IsPointInRect(OSInput.MouseP, ActionRect)){
@@ -434,39 +489,11 @@ ui_window::DropDownMenu(array<const char *> Texts, u32 *Selected, u64 ID){
 void
 ui_window::End(){
     theme *Theme = &Manager->Theme;
-    v2 Size = RectSize(Rect);
-    
-    f32 TitleWidth = GetStringAdvance(Theme->TitleFont, Name);
-    if(Size.Width < TitleWidth+2*Theme->Padding){
-        Size.Width = TitleWidth+2*Theme->Padding;
-    }
-    
-    if(Rect.Max.X > OSInput.WindowSize.X){
-        v2 Fix = V2(OSInput.WindowSize.X-Rect.Max.X, 0.0f);
-        Rect = OffsetRect(Rect, Fix);
-    }else if(Rect.Min.X < 0.0f){
-        v2 Fix = V2(-Rect.Min.X, 0.0f);
-        Rect = OffsetRect(Rect, Fix);
-    }
-    
-    rect TitleBarRect = Rect;
-    TitleBarRect.Min.Y = TitleBarRect.Max.Y - TitleBarHeight;
-    if(IsPointInRect(OSInput.MouseP, TitleBarRect)){
-        Manager->MouseOverWindow = !IsFaded;
-        if(Manager->Popup) Manager->MouseOverWindow = (Manager->Popup == this);
-    }
-    
-    // Title bar
-    v2 P = TitleBarRect.Min;
-    P.X += Theme->Padding;
-    P.Y += (TitleBarHeight/2)-(Theme->TitleFont->Ascent/2);
-    RenderString(Theme->TitleFont, Theme->TitleColor, P, Z-0.1f, Name);
-    RenderRect(TitleBarRect, Z, Theme->TitleBarColor);
     
     // Body
     rect BodyRect = Rect;
-    BodyRect.Max.Y -= TitleBarHeight;
-    RenderRect(BodyRect, Z, Theme->BackgroundColor);
+    BodyRect.Max.Y -= Theme->TitleBarHeight;
+    DrawRect(BodyRect, Z, Theme->BackgroundColor);
 }
 
 //~ ui_manager
@@ -476,10 +503,10 @@ SetupDefaultTheme(theme *Theme){
     Theme->TitleFont = &TitleFont;
     Theme->NormalFont = &DebugFont;
     
-    Theme->TitleColor = BLACK;
-    //Theme->TitleBarColor = Color(0.39f, 0.46f, 0.4f, 0.9f);
-    Theme->TitleBarColor = Color(0.4f, 0.5f, 0.5f, 0.9f);
-    Theme->BackgroundColor = Color(0.1f, 0.4f, 0.4f, 0.7f);
+    Theme->TitleColor         = Color(0.8f, 0.8f, 0.8f, 1.0f);
+    Theme->TitleBarColor      = Color(0.1f, 0.3f, 0.3f, 0.8f);
+    Theme->TitleBarHoverColor = Color(0.4f, 0.2f, 0.3f, 0.9f);
+    Theme->BackgroundColor    = Color(0.1f, 0.4f, 0.4f, 0.7f);
     
     Theme->BaseColor   = Color(0.3f, 0.5f, 0.5f, 0.8f);
     Theme->HoverColor  = Color(0.5f, 0.4f, 0.5f, 0.9f);
@@ -489,24 +516,85 @@ SetupDefaultTheme(theme *Theme){
     
     Theme->ButtonHeight = 30;
     Theme->Padding = 10;
+    Theme->TitleBarHeight = Maximum(Theme->TitleFont->Size+Theme->Padding, 10);
 }
 
 ui_window *
-ui_manager::BeginWindow(const char *Name, v2 TopLeft, v2 MinSize){
+ui_manager::BeginWindow(const char *Name, v2 TopLeft){
     ui_window *Window = FindOrCreateInHashTablePtr(&WindowTable, Name);
     if(!Window->Name){
-        Window->Rect = FixRect(Rect(TopLeft, TopLeft+V2(300, -50)));
+        v2 Size = V2(400, 200);
+        Window->WindowP = TopLeft;
+        Window->Rect = TopLeftRect(TopLeft, Size);
         Window->Name = Name;
         Window->Z = -5.0f;
     }
-    
-    Window->TitleBarHeight = Maximum(Theme.TitleFont->Size+Theme.Padding,60);
-    
-    Window->Flags = 0;
     Window->Manager = this;
+    
+    f32 TitleBarHeight = Theme.TitleBarHeight;
+    
+    rect TitleBarRect = Window->Rect;
+    TitleBarRect.Min.Y = TitleBarRect.Max.Y - TitleBarHeight;
+    color C = Theme.TitleBarColor;
+    
+    switch(DoDraggableElement(WIDGET_ID_CHILD(WIDGET_ID, (u64)Window), TitleBarRect,  Window->WindowP, 3)){
+        case ButtonBehavior_Activate: {
+            Window->WindowP = OSInput.MouseP + ActiveElement.Offset;
+        }
+        case ButtonBehavior_Hovered: {
+            C = Theme.TitleBarHoverColor;
+        }break;
+        case ButtonBehavior_None: {
+            Window->FadeMode = UIWindowFadeMode_None;
+            if(ActiveElement.Type == UIElementType_Draggable){
+                if(IsPointInRect(OSInput.MouseP, Window->Rect)){
+                    Window->FadeMode = UIWindowFadeMode_Faded;
+                }
+            }
+        }break;
+    }
+    Window->Rect = TopLeftRect(Window->WindowP, RectSize(Window->Rect));
+    
+    switch(Window->FadeMode){
+        case UIWindowFadeMode_None: {
+            Window->FadeT -= 3.0f*OSInput.dTime;
+        }break;
+        case UIWindowFadeMode_Faded: {
+            Window->FadeT += 7.0f*OSInput.dTime;
+            // This could be different to get better results
+            if(Window->FadeT > 0.8f) Window->FadeT = 0.7f;
+        }break;
+    }
+    Window->FadeT = Clamp(Window->FadeT, 0.0f, 1.0f);
+    
+    v2 Fix = V20;
+    if(Window->Rect.Max.X > OSInput.WindowSize.X){
+        Fix += V2(OSInput.WindowSize.X-Window->Rect.Max.X, 0.0f);
+    }else if(Window->Rect.Min.X < 0.0f){
+        Fix += V2(-Window->Rect.Min.X, 0.0f);
+    }
+    if(Window->Rect.Max.Y > OSInput.WindowSize.Y){
+        Fix += V2(0.0f, OSInput.WindowSize.Y-Window->Rect.Max.Y);
+    }else if(Window->Rect.Min.Y < 0.0f){
+        Fix += V2(0.0f, -Window->Rect.Min.Y);
+    }
+    Window->Rect = OffsetRect(Window->Rect, Fix);
+    Window->WindowP += Fix;
+    
+    TitleBarRect = Window->Rect;
+    TitleBarRect.Min.Y = TitleBarRect.Max.Y - TitleBarHeight;
+    
+    // Title bar
+    v2 P = VCenterStringP(&Theme, Theme.TitleFont, TitleBarRect.Min, TitleBarHeight);
+    P = PadLeftStringP(&Theme, Theme.TitleFont, P);
+    
+    Window->DrawRect(TitleBarRect, Window->Z, C);
+    Window->DrawString(Theme.TitleFont, Theme.TitleColor, P, Window->Z-0.1f, Name);
+    
     Window->ContentWidth = RectSize(Window->Rect).X - 2*Theme.Padding;
-    Window->DrawP.Y = Window->Rect.Max.Y-Window->TitleBarHeight;
+    Window->DrawP.Y = Window->Rect.Max.Y-TitleBarHeight;
     Window->DrawP.X = Window->Rect.Min.X+Theme.Padding;
+    
     
     return(Window);
 }
@@ -514,7 +602,18 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft, v2 MinSize){
 void
 ui_manager::SetValidElement(ui_element *Element){
     if(ValidElement.Priority > Element->Priority) return;
+    if(ActiveElement.Type == UIElementType_Draggable) return;
     ValidElement = *Element;
+}
+
+b8
+ui_manager::DoHoverElement(ui_element *Element){
+    b8 Result = true;
+    
+    if(HoveredElement.Priority > Element->Priority) Result = false;
+    if(ActiveElement.Type == UIElementType_Draggable) Result = false;
+    
+    return(Result);
 }
 
 ui_button_behavior
@@ -528,7 +627,7 @@ ui_manager::DoButtonElement(u64 ID, rect ActionRect, u32 Priority){
         Result = ButtonBehavior_Activate;
         ActiveElement = {};
     }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
-        if(HoveredElement.Priority > Priority) return(Result);
+        if(!DoHoverElement(&Element)) return(Result);
         
         HoveredElement = Element;
         Result = ButtonBehavior_Hovered;
@@ -555,7 +654,7 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, u32 Priority){
             Result = ButtonBehavior_Activate;
         }
     }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
-        if(HoveredElement.Priority > Priority) return(Result);
+        if(!DoHoverElement(&Element)) return(Result);
         
         Result = ButtonBehavior_Hovered;
         if(MouseButtonJustUp(MouseButton_Left)){
@@ -566,9 +665,36 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, u32 Priority){
     return(Result);
 }
 
+ui_button_behavior
+ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, u32 Priority){
+    ui_button_behavior Result = ButtonBehavior_None;
+    
+    ui_element Element = MakeElement(UIElementType_Draggable, ID, Priority);
+    Element.Offset = P - OSInput.MouseP;
+    
+    if(CompareElements(&Element, &ActiveElement)){
+        HoveredElement = Element;
+        Result = ButtonBehavior_Activate;
+        if(!MouseButtonIsDown(MouseButton_Left)){
+            ActiveElement = {};
+            Result = ButtonBehavior_Hovered;
+        }
+    }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
+        if(!DoHoverElement(&Element)) return(Result);
+        
+        HoveredElement = Element;
+        Result = ButtonBehavior_Hovered;
+        if(MouseButtonJustDown(MouseButton_Left)){
+            SetValidElement(&Element);
+        }
+    }
+    
+    return(Result);
+}
+
 ui_window *
-ui_manager::BeginPopup(const char *Name, v2 StartTopLeft, v2 MinSize){
-    ui_window *Result = BeginWindow(Name, StartTopLeft, MinSize);
+ui_manager::BeginPopup(const char *Name, v2 StartTopLeft){
+    ui_window *Result = BeginWindow(Name, StartTopLeft);
     Popup = Result;
     return(Result);
 }
@@ -589,7 +715,6 @@ ui_manager::Initialize(memory_arena *Arena){
 
 void
 ui_manager::BeginFrame(){
-    MouseOverWindow = false;
     HandledInput    = false;
     HoveredElement  = {};
     for(u32 I = 0; I < MouseButton_TOTAL; I++) PreviousMouseState[I] = MouseState[I];
@@ -597,7 +722,8 @@ ui_manager::BeginFrame(){
 
 void
 ui_manager::EndFrame(){
-    if(ActiveElement.Type != UIElementType_TextInput){
+    if((ActiveElement.Type != UIElementType_TextInput) &&
+       (ActiveElement.Type != UIElementType_Draggable)){
         ActiveElement = ValidElement;
     }
     ValidElement = {};

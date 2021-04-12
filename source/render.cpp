@@ -417,6 +417,7 @@ RenderRectOutline(rect Rect_, f32 Z,
 
 internal inline color
 Alphiphy(color Color, f32 Alpha){
+    Alpha = Clamp(Alpha, 0.0f, 1.0f);
     color Result = Color;
     Result.A *= Alpha;
     return(Result);

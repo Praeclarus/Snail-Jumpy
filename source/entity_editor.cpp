@@ -251,7 +251,7 @@ void
 entity_editor::DoUI(){
     //~ Basic editing functions
     {
-        ui_window *Window = UIManager.BeginWindow("Entity Editor", OSInput.WindowSize, V2(400, 0));
+        ui_window *Window = UIManager.BeginWindow("Entity Editor", OSInput.WindowSize);
         
         if(Window->Button("Switch to world editor", WIDGET_ID)){
             ChangeState(GameMode_WorldEditor, 0);
@@ -287,8 +287,7 @@ entity_editor::DoUI(){
     
     //~ Boundary editing
     {
-        ui_window *Window = UIManager.BeginWindow("Edit Collision Boundaries", 
-                                                  V2(0, OSInput.WindowSize.Y), v2{400, 0});
+        ui_window *Window = UIManager.BeginWindow("Edit Collision Boundaries", V2(0, OSInput.WindowSize.Y));
         
         
         Window->ToggleButton("Don't add boundary", "Add Boundary", &AddBoundary, WIDGET_ID);
