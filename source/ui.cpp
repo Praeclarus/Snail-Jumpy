@@ -58,12 +58,19 @@ CompareElements(ui_element *A, ui_element *B){
     return(Result);
 }
 
-internal ui_element
-MakeElement(ui_element_type Type, u64 ID, u32 Priority=0){
+internal inline ui_element
+MakeElement(ui_element_type Type, u64 ID, s32 Priority=0){
     ui_element Result = {};
     Result.Type = Type;
     Result.ID = ID;
     Result.Priority = Priority;
+    return(Result);
+}
+
+internal inline ui_element
+DefaultElement(){
+    ui_element Result = {};
+    Result.Priority = S32_MIN;
     return(Result);
 }
 
@@ -88,7 +95,7 @@ EaseOutSquared(f32 T){
 internal inline v2
 DefaultStringP(theme *Theme, font *Font, v2 P){
     v2 Result = P;
-    Result.Y += -Theme->NormalFont->Descent;
+    Result.Y += -Font->Descent;
     return(Result);
 }
 
@@ -221,11 +228,12 @@ ui_window::Text(const char *Text, ...){
     va_list VarArgs;
     va_start(VarArgs, Text);
     
-    f32 Height = Theme->NormalFont->Ascent;
+    f32 Height = Theme->NormalFont->Size;
     f32 Width = VGetFormatStringAdvance(Theme->NormalFont, Text, VarArgs);
     AdvanceAndVerify(Height, Width);
+    v2 P = DefaultStringP(Theme, Theme->NormalFont, DrawP);
     VDrawString(Theme->NormalFont, Theme->TextColorA, 
-                DrawP, Z-0.2f, Text, VarArgs);
+                P, Z-0.2f, Text, VarArgs);
     
     va_end(VarArgs);
 }
@@ -293,7 +301,8 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     TextBoxRect      = GrowRect(TextBoxRect, -3*T);
     
     DrawRect(TextBoxRect, Z-0.1f, Color);
-    v2 StringP = DefaultStringP(Theme, Theme->NormalFont, DrawP);
+    v2 StringP = VCenterStringP(Theme, Theme->NormalFont, DrawP, Height);
+    StringP = PadLeftStringP(Theme, Theme->NormalFont, StringP);
     DrawString(Theme->NormalFont, TextColor, StringP, Z-0.2f, "%s", Buffer);
     
     if(IsActive){
@@ -401,7 +410,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
     
     rect ActionRect = MenuRect;
     b8 IsActive = (State->IsOpen &&  
-                   !(Manager->HoveredElement.Priority > Element.Priority));
+                   Manager->DoHoverElement(&Element));
     
     if(IsActive || (State->OpenT > 0.0f)){
         
@@ -472,7 +481,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
     }
     
     if(IsPointInRect(OSInput.MouseP, ActionRect)){
-        if(Manager->HoveredElement.Priority > Element.Priority) return;
+        if(!Manager->DoHoverElement(&Element)) return;
         Manager->HoveredElement = Element;
         State->IsOpen = true;
     }else{
@@ -515,7 +524,7 @@ SetupDefaultTheme(theme *Theme){
     Theme->TextColorB  = Color(0.0f, 0.0f, 0.0f, 1.0f);
     
     Theme->ButtonHeight = 30;
-    Theme->Padding = 10;
+    Theme->Padding = 4;
     Theme->TitleBarHeight = Maximum(Theme->TitleFont->Size+Theme->Padding, 10);
 }
 
@@ -546,7 +555,8 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
         }break;
         case ButtonBehavior_None: {
             Window->FadeMode = UIWindowFadeMode_None;
-            if(ActiveElement.Type == UIElementType_Draggable){
+            if((ActiveElement.Type == UIElementType_Draggable) ||
+               (ActiveElement.Type == UIElementType_MouseButton)){
                 if(IsPointInRect(OSInput.MouseP, Window->Rect)){
                     Window->FadeMode = UIWindowFadeMode_Faded;
                 }
@@ -600,6 +610,11 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
 }
 
 void
+ui_manager::ResetActiveElement(){
+    ActiveElement = {};
+}
+
+void
 ui_manager::SetValidElement(ui_element *Element){
     if(ValidElement.Priority > Element->Priority) return;
     if(ActiveElement.Type == UIElementType_Draggable) return;
@@ -610,14 +625,16 @@ b8
 ui_manager::DoHoverElement(ui_element *Element){
     b8 Result = true;
     
-    if(HoveredElement.Priority > Element->Priority) Result = false;
-    if(ActiveElement.Type == UIElementType_Draggable) Result = false;
+    if(HoveredElement.Priority > Element->Priority)     Result = false;
+    if(HoveredElement.Type == UIElementType_DropDown)   Result = false;
+    if(ActiveElement.Type == UIElementType_Draggable)   Result = false;
+    if(ActiveElement.Type == UIElementType_MouseButton) Result = false;
     
     return(Result);
 }
 
 ui_button_behavior
-ui_manager::DoButtonElement(u64 ID, rect ActionRect, u32 Priority){
+ui_manager::DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button, s32 Priority){
     ui_button_behavior Result = ButtonBehavior_None;
     
     ui_element Element = MakeElement(UIElementType_Button, ID, Priority);
@@ -625,13 +642,13 @@ ui_manager::DoButtonElement(u64 ID, rect ActionRect, u32 Priority){
     if(CompareElements(&Element, &ActiveElement)){
         HoveredElement = Element;
         Result = ButtonBehavior_Activate;
-        ActiveElement = {};
+        ResetActiveElement();
     }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
         if(!DoHoverElement(&Element)) return(Result);
         
         HoveredElement = Element;
         Result = ButtonBehavior_Hovered;
-        if(MouseButtonJustDown(MouseButton_Left)){
+        if(MouseButtonJustDown(Button)){
             SetValidElement(&Element);
         }
     }
@@ -640,7 +657,7 @@ ui_manager::DoButtonElement(u64 ID, rect ActionRect, u32 Priority){
 }
 
 ui_button_behavior
-ui_manager::DoTextInputElement(u64 ID, rect ActionRect, u32 Priority){
+ui_manager::DoTextInputElement(u64 ID, rect ActionRect, s32 Priority){
     ui_button_behavior Result = ButtonBehavior_None;
     
     ui_element Element = MakeElement(UIElementType_TextInput, ID, Priority);
@@ -649,7 +666,7 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, u32 Priority){
         HoveredElement = Element;
         if(!IsPointInRect(OSInput.MouseP, ActionRect) &&
            MouseButtonIsDown(MouseButton_Left)){
-            ActiveElement = {};
+            ResetActiveElement();
         }else{
             Result = ButtonBehavior_Activate;
         }
@@ -666,7 +683,7 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, u32 Priority){
 }
 
 ui_button_behavior
-ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, u32 Priority){
+ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
     ui_button_behavior Result = ButtonBehavior_None;
     
     ui_element Element = MakeElement(UIElementType_Draggable, ID, Priority);
@@ -676,7 +693,7 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, u32 Priority){
         HoveredElement = Element;
         Result = ButtonBehavior_Activate;
         if(!MouseButtonIsDown(MouseButton_Left)){
-            ActiveElement = {};
+            ResetActiveElement();
             Result = ButtonBehavior_Hovered;
         }
     }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
@@ -692,41 +709,49 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, u32 Priority){
     return(Result);
 }
 
-ui_window *
-ui_manager::BeginPopup(const char *Name, v2 StartTopLeft){
-    ui_window *Result = BeginWindow(Name, StartTopLeft);
-    Popup = Result;
+b8
+ui_manager::EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce, s32 Priority){
+    b8 Result = false;
+    
+    ui_element Element = MakeElement(UIElementType_MouseButton, ID, Priority);
+    
+    if(CompareElements(&Element, &ActiveElement)){
+        Result = true;
+        HoveredElement = Element;
+        if(OnlyOnce || !MouseButtonIsDown(Button)) ResetActiveElement();
+    }else if(MouseButtonJustDown(Button)){
+        if(!DoHoverElement(&Element)) return(Result);
+        HoveredElement = Element;
+        SetValidElement(&Element);
+    }
+    
     return(Result);
-}
-
-void 
-ui_manager::EndPopup(){
-    Popup = 0;
 }
 
 void 
 ui_manager::Initialize(memory_arena *Arena){
     WindowTable = PushHashTable<const char *, ui_window>(Arena, 256);
     SetupDefaultTheme(&Theme);
-    TextInputStates = PushHashTable<u64, ui_text_input_state>(Arena, 128);
-    ButtonStates    = PushHashTable<u64, ui_button_state>(Arena, 128);
-    DropDownStates  = PushHashTable<u64, ui_drop_down_state>(Arena, 128);
+    TextInputStates = PushHashTable<u64, ui_text_input_state>(Arena, 256);
+    ButtonStates    = PushHashTable<u64, ui_button_state>(Arena, 256);
+    DropDownStates  = PushHashTable<u64, ui_drop_down_state>(Arena, 256);
 }
 
 void
 ui_manager::BeginFrame(){
     HandledInput    = false;
-    HoveredElement  = {};
+    HoveredElement  = DefaultElement();
     for(u32 I = 0; I < MouseButton_TOTAL; I++) PreviousMouseState[I] = MouseState[I];
 }
 
 void
 ui_manager::EndFrame(){
     if((ActiveElement.Type != UIElementType_TextInput) &&
-       (ActiveElement.Type != UIElementType_Draggable)){
+       (ActiveElement.Type != UIElementType_Draggable) &&
+       (ActiveElement.Type != UIElementType_MouseButton)){
         ActiveElement = ValidElement;
     }
-    ValidElement = {};
+    ValidElement = DefaultElement();
 }
 
 b8
@@ -749,7 +774,7 @@ ui_manager::MouseButtonIsDown(os_mouse_button Button){
 
 b8
 ui_manager::ProcessEvent(os_event *Event){
-    b8 Result = (Popup) ? true : false;
+    b8 Result = false;
     
     switch(Event->Kind){
         case OSEventKind_KeyDown: {
@@ -785,7 +810,7 @@ ui_manager::ProcessEvent(os_event *Event){
                     IsShiftDown = false;
                 }else if(Event->Key == KeyCode_Escape){
                     HandledInput = true;
-                    ActiveElement = {};
+                    ResetActiveElement();
                 }
                 Result = true;
             }
@@ -803,3 +828,23 @@ ui_manager::ProcessEvent(os_event *Event){
     
     return(Result);
 }
+
+//~ Editor stuff
+
+internal inline ui_button_behavior
+EditorDraggableElement(ui_manager *Manager, camera *Camera, 
+                       u64 ID, rect R, v2 P, s32 Priority){
+    R = Camera->ToScreenRect(R);
+    P = Camera->ToScreenP(P);
+    ui_button_behavior Result = Manager->DoDraggableElement(ID, R, P, Priority);
+    return(Result);
+}
+
+internal inline ui_button_behavior
+EditorButtonElement(ui_manager *Manager, camera *Camera, 
+                    u64 ID, rect R, os_mouse_button Button, s32 Priority){
+    R = Camera->ToScreenRect(R);
+    ui_button_behavior Result = Manager->DoButtonElement(ID, R, Button, Priority);
+    return(Result);
+}
+

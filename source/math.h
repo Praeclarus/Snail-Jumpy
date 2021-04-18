@@ -541,6 +541,14 @@ TopLeftRect(v2 TopLeft, v2 Size){
 }
 
 internal inline rect
+SizeRect(v2 Min, v2 Size){
+    rect Result;
+    Result.Min = Min;
+    Result.Max = Min+Size;
+    return(Result);
+}
+
+internal inline rect
 OffsetRect(rect Rect, v2 Offset){
     rect Result = Rect;
     Result.Min += Offset;

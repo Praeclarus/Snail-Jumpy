@@ -3,7 +3,7 @@
 
 // TODO(Tyler): Do this in build.bat
 #define SNAIL_JUMPY_DEBUG_BUILD
-#define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
+//#define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
 
 #include "primitive_types.h"
 #include "math.h"
@@ -21,6 +21,11 @@ global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant u32 DEFAULT_BUFFER_SIZE = 512;
 global_constant char *STARTUP_LEVEL = "Debug";
 global_constant f32 WALKABLE_STEEPNESS = 0.2f;
+
+global_constant color EDITOR_BASE_COLOR     = Color(0.5f, 0.8f, 0.6f, 0.9f);
+global_constant color EDITOR_HOVERED_COLOR  = Color(0.8f, 0.5f, 0.7f, 0.9f);
+global_constant color EDITOR_SELECTED_COLOR = Color(0.6f, 0.8f, 0.9f, 0.9f);
+
 
 //~ TODO(Tyler): Things that need a better place to go
 enum entity_state {

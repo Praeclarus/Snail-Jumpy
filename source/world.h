@@ -10,7 +10,10 @@ struct entity_data {
         // Enemy
         struct {
             direction Direction;
-            v2 PathStart, PathEnd;
+            union{
+                struct { v2 PathStart, PathEnd; };
+                v2 Path[2];
+            };
         };
         
         // Teleporter

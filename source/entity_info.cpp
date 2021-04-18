@@ -73,14 +73,13 @@ MakeInfoBoundaries(){
 }
 
 internal entity_info *
-RegisterInfo(u8 BoundaryCount, u8 BoundarySets, 
-             f32 Mass,
-             entity_flags EntityFlags=EntityFlag_None,
+RegisterInfo(const char *Asset, u8 BoundaryCount, u8 BoundarySets, f32 Mass, entity_flags EntityFlags=EntityFlag_None,
              collision_response_function *Response=CollisionResponseStub){
     // TODO HACK(Tyler):  Terrible solution until a better means of doing different boundaries for entity infos is chosen
     if(EntityFlags & EntityFlag_FlipBoundaries) Assert(BoundarySets == 2);
     
     entity_info *Info = PushNewArrayItem(&EntityInfos);
+    Info->Asset = Asset;
     Info->Flags = EntityFlags;
     u32 TotalCount = BoundarySets*BoundaryCount;
     Info->Boundaries = PhysicsSystem.AllocPermanentBoundaries(TotalCount);
@@ -93,11 +92,11 @@ RegisterInfo(u8 BoundaryCount, u8 BoundarySets,
 }
 
 internal entity_info *
-RegisterEnemyInfo(u8 BoundaryCount, u8 BoundarySets,
-                  f32 Mass, f32 Speed, u32 Damage,
+RegisterEnemyInfo(const char *Asset, u8 BoundaryCount, u8 BoundarySets, f32 Mass, f32 Speed, u32 Damage,
                   entity_flags EntityFlags=EntityFlag_None, 
                   collision_response_function *Response=EnemyCollisionResponse){
-    entity_info *Info = RegisterInfo(BoundaryCount, BoundarySets, Mass, EntityFlags, Response);
+    entity_info *Info = RegisterInfo(Asset, BoundaryCount, BoundarySets, Mass, EntityFlags, Response);
+    Info->Asset = Asset;
     Info->Type = EntityType_Enemy;
     Info->Speed = Speed;
     Info->Damage = Damage;
@@ -108,18 +107,18 @@ internal void
 RegisterEntityInfos(){
     PushNewArrayItem(&EntityInfos); // Reserve 0th index
     
-    entity_info *Player    = RegisterInfo(1, 1, 1.0f, EntityFlag_None, PlayerCollisionResponse);
+    entity_info *Player    = RegisterInfo("Player", 1, 1, 1.0f, EntityFlag_None, PlayerCollisionResponse);
     
-    entity_info *Snail     = RegisterEnemyInfo(1, 1, 1.0f, 1.0f, 2, EntityFlag_CanBeStunned);
+    entity_info *Snail     = RegisterEnemyInfo("Snail", 1, 1, 1.0f, 1.0f, 2, EntityFlag_CanBeStunned);
     
-    entity_info *Sally     = RegisterEnemyInfo(1, 2, 2.0f, 0.8f, 3, EntityFlag_CanBeStunned);
+    entity_info *Sally     = RegisterEnemyInfo("Sally", 1, 2, 2.0f, 0.8f, 3, EntityFlag_CanBeStunned);
     Sally->BoundaryTable[State_Retreating] = 2;
     Sally->BoundaryTable[State_Stunned]    = 2;
     Sally->BoundaryTable[State_Returning]  = 2;
     
-    entity_info *Speedy    = RegisterEnemyInfo(1, 1, 0.7f, 10.0f, 1, EntityFlag_CanBeStunned);
+    entity_info *Speedy    = RegisterEnemyInfo("Speedy", 1, 1, 0.7f, 10.0f, 1, EntityFlag_CanBeStunned);
     
-    entity_info *Dragonfly = RegisterEnemyInfo(2, 2, 1.5f, 1.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
+    entity_info *Dragonfly = RegisterEnemyInfo("Dragonfly", 2, 2, 1.5f, 1.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
 }
 
 //~ File loading

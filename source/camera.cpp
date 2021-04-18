@@ -51,14 +51,20 @@ camera::SetCenter(v2 Center, world_data *World){
 }
 
 inline v2
-camera::ScreenPToWorldP(v2 ScreenP){
+camera::ToWorldP(v2 ScreenP){
     v2 Result = ScreenP / MetersToPixels + P;
     return(Result);
 }
 
 inline v2
-camera::WorldPToScreenP(v2 WorldP){
+camera::ToScreenP(v2 WorldP){
     v2 Result = (WorldP - P) * MetersToPixels;
+    return(Result);
+}
+
+inline rect
+camera::ToScreenRect(rect WorldRect){
+    rect Result = ScaleRect(OffsetRect(WorldRect, -P), MetersToPixels);
     return(Result);
 }
 

@@ -147,10 +147,6 @@ InitializeGame(){
     // Load things
     InitializeAndLoadEntityInfos(&PermanentStorageArena, "entities.sje");
     WorldManager.LoadWorld(STARTUP_LEVEL);
-    if(GameMode == GameMode_WorldEditor){
-        WorldEditor.World = CurrentWorld;
-    }
-    
 }
 
 internal void

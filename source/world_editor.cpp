@@ -24,46 +24,105 @@ GetSizeFromInfoID(u32 InfoID){
     return(Result);
 }
 
+internal inline v2
+SnapToTileGrid(v2 P){
+    v2 Result = TILE_SIDE*V2(Floor(P.X/TILE_SIDE), Floor(P.Y/TILE_SIDE));
+    
+    return(Result);
+}
+
+internal inline rect
+SnapToTileGrid(rect R){
+    rect Result;
+    if(R.Min.X < R.Max.X){
+        Result.Min.X = Floor(R.Min.X/TILE_SIDE);
+        Result.Max.X =  Ceil(R.Max.X/TILE_SIDE);
+    }else{
+        Result.Min.X =  Ceil(R.Min.X/TILE_SIDE);
+        Result.Max.X = Floor(R.Max.X/TILE_SIDE);
+    }
+    if(R.Min.Y < R.Max.Y){
+        Result.Min.Y = Floor(R.Min.Y/TILE_SIDE);
+        Result.Max.Y =  Ceil(R.Max.Y/TILE_SIDE);
+    }else{
+        Result.Min.Y =  Ceil(R.Min.Y/TILE_SIDE);
+        Result.Max.Y = Floor(R.Max.Y/TILE_SIDE);
+    }
+    Result = ScaleRect(Result, TILE_SIDE);
+    
+    // TODO(Tyler): Maybe fix rect?
+    Result = FixRect(Result);
+    
+    return(Result);
+}
+
+//~ Selector
+
+internal const char *
+DoArtSelector(v2 StartP, camera *ParentCamera, const char *Selected){
+    // TODO(Tyler): This is a failing of Camera, we don't want it to be 
+    // offset by it's position
+    camera Camera = {}; Camera.MetersToPixels = ParentCamera->MetersToPixels;
+    
+    const char *Result = Selected;
+    local_constant f32 Thickness = 0.03f;
+    local_constant f32 Spacer    = 0.0f;
+    
+    v2 P = StartP;
+    array<const char *> Arts = GetAssetNameListByType(AssetType_Art);
+    if(!Result) Result = Arts[0];
+    
+    for(u32 I=0; I<Arts.Count; I++){
+        asset *Art = GetArt(Arts[I]);
+        v2 Size = Camera.ToWorldP(V2(Art->SizeInPixels)*Art->Scale);
+        
+        Size *= 0.5f;
+        rect R = SizeRect(P, Size);
+        RenderTexture(R, -2.0f, Art->Texture, 
+                      V2(0,0), V2(1,1), false, &Camera);
+        
+        u64 ID = WIDGET_ID_CHILD(WIDGET_ID, I);
+        ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+        
+        switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Left, -1)){
+            case ButtonBehavior_None: {
+                State->T -= 5*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Hovered: {
+                State->T += 7*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Activate: {
+                Result = Arts[I];
+            }break;
+        }
+        
+        color C = EDITOR_HOVERED_COLOR; C.A = 0.0f;
+        State->T = Clamp(State->T, 0.0f, 1.0f);
+        f32 T = 1.0f-Square(1.0f-State->T);
+        C = MixColor(EDITOR_HOVERED_COLOR, C,  T);
+        
+        if(Result == Arts[I]) State->ActiveT += 3*OSInput.dTime; 
+        else                        State->ActiveT -= 5*OSInput.dTime; 
+        State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
+        
+        f32 ActiveT = 1.0f - Square(1.0f-State->ActiveT);
+        C = MixColor(EDITOR_SELECTED_COLOR, C,  ActiveT);
+        RenderRectOutline(R, -2.1f, C, &Camera, Thickness);
+        
+        f32 XAdvance = Spacer+Size.X;
+        P.X += XAdvance;
+        
+        if(P.X > 10.0f){
+            P.X = StartP.X;
+            P.Y -= 1.5f;
+        }
+    }
+    
+    return(Result);
+}
 
 //~ Popup callbacks
-internal void
-SelectInfoForEntityToAddCallback(world_editor *Editor, u32 InfoID){
-    Editor->EntityToAddInfoID = InfoID;
-}
-
-internal void
-ChangeSelectedEntityInfoCallback(world_editor *Editor, u32 InfoID){
-    entity_data *Enemy = Editor->SelectedThing;
-    f32 Bottom = Enemy->P.Y-0.5f*GetSizeFromInfoID(Enemy->InfoID).Y;
-    
-    Enemy->InfoID = InfoID;
-    Enemy->P.Y = Bottom+0.5f*GetSizeFromInfoID(Enemy->InfoID).Y;
-}
-
-internal void
-AddEnemyCallback(world_editor *Editor, u32 InfoID){
-    Editor->EntityToAddInfoID = InfoID;
-    entity_data *NewEnemy = PushNewArrayItem(&Editor->World->Entities);
-    *NewEnemy = {0};
-    
-    v2 ViewTileP = TILE_SIDE*Editor->CursorP;
-    v2 Center = ViewTileP+(0.5f*TILE_SIZE);
-    
-    v2 P = v2{Center.X, ViewTileP.Y};
-    v2 AssetSize = GetSizeFromInfoID(InfoID);
-    P.Y += 0.5f*AssetSize.X;
-    NewEnemy->Type = EntityType_Enemy;
-    NewEnemy->P = P;
-    NewEnemy->InfoID = InfoID;
-    NewEnemy->Direction = Direction_Left;
-    NewEnemy->PathStart = {Center.X - AssetSize.X/2, Center.Y};
-    NewEnemy->PathStart.X = Floor(NewEnemy->PathStart.X/TILE_SIDE)*TILE_SIDE;
-    NewEnemy->PathEnd = {Center.X + AssetSize.X/2, Center.Y};
-    NewEnemy->PathEnd.X = Ceil(NewEnemy->PathEnd.X/TILE_SIDE)*TILE_SIDE;
-    
-    Editor->InfoialThing = EditorInfoialThing_None;
-    Editor->SelectedThing = NewEnemy;
-}
+// TODO(Tyler): REMOVE
 
 internal void 
 RenameWorldCallback(world_editor *Editor, const char *Name){
@@ -87,124 +146,92 @@ LoadWorldCallback(world_editor *Editor, const char *Name){
 }
 
 //~ 
-void
-world_editor::MaybeFadeWindow(ui_window *Window){
-#if 0
-    if((Action != WorldEditorAction_DraggingThing) && 
-       (Action != WorldEditorAction_AddDragging) &&
-       (Action != WorldEditorAction_RemoveDragging)) { 
-        Window->Fade = 1.0f; 
-        Window->IsFaded = false;
-        return; 
-    }
-    
-    v2 FullSize = V2(Window->LastSize.X, Window->LastSize.Y+Window->TitleBarHeight);
-    v2 P = Window->TopLeft; 
-    P.X += 0.5f*Window->LastSize.X; 
-    P.Y -= 0.5f*Window->LastSize.Y + 0.5f*Window->TitleBarHeight;
-    FullSize = Camera.ScreenPToWorldP(FullSize);
-    P = Camera.ScreenPToWorldP(P);
-    P += Camera.P; 
-    if(IsPointInRect(MouseP, CenterRect(P, FullSize))){ 
-        Window->Fade = 0.3f; 
-        Window->IsFaded = true;
-    }
-    else{ 
-        Window->Fade = 1.0f;
-        Window->IsFaded = false;
-    }
-#endif
-    //NOT_IMPLEMENTED_YET;
+
+u8 *
+world_editor::GetCursorTile(){
+    v2s TileMapCursorP = V2S(CursorP/TILE_SIDE);
+    u8 *Result = &World->Map[(TileMapCursorP.Y*World->Width)+TileMapCursorP.X];
+    return(Result);
 }
 
 void
 world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
-    if(Action != WorldEditorAction_None) return;
-    
     switch((u32)KeyCode){
         case 'E': ToggleWorldEditor(); break;
-        case 'L': { Popup = EditorPopup_TextInput; TextInputCallback = LoadWorldCallback; } break;
-        case 'W': if(JustDown) CameraUp    = true; break;
-        case 'A': if(JustDown) CameraLeft  = true; break;
-        case 'S': if(JustDown) CameraDown  = true; break;
-        case 'D': if(JustDown) CameraRight = true; break;
-        case 'Q': if(JustDown && Mode == EditMode_AddEnemy){
-            Popup = EditorPopup_InfoSelector;
-            InfoSelectorCallback = SelectInfoForEntityToAddCallback;
-        }
-        case KeyCode_Left: {
-            Mode = WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[Mode];
-            Assert(Mode != EditMode_TOTAL);
-        }break;
-        case KeyCode_Right: {
-            Mode = WORLD_EDITOR_FORWARD_EDIT_MODE_TABLE[Mode];
-            Assert(Mode != EditMode_TOTAL);
-        }break;
+        case 'T': ChangeState(GameMode_EntityEditor, 0); break;
+        
+        case '1': Mode = EditMode_AddWall;       break;
+        case '2': Mode = EditMode_AddCoinP;      break;
+        case '3': Mode = EditMode_AddEnemy;      break;
+        case '4': Mode = EditMode_AddArt;        break;
+        case '5': Mode = EditMode_AddTeleporter; break;
+        case '6': Mode = EditMode_AddDoor;       break;
     }
 }
 
 
 b8
-world_editor::HandleClick(b8 ShouldRemove){
-    TIMED_FUNCTION();
-    u8 *TileId = &World->Map[((u32)CursorP.Y*World->Width)+(u32)CursorP.X];
+world_editor::AddWorldEntity(){
+    v2 Center = CursorP+(0.5f*TILE_SIZE);
     
-    {
-        if(GetSelectedThingType() == EntityType_Enemy){
-            if(IsPointInRect(MouseP, CenterRect(SelectedThing->PathStart, V2(0.2f, 0.2f))) &&
-               !ShouldRemove){
-                InfoialThing = EditorInfoialThing_PathStart;
-                Action = WorldEditorAction_DraggingThing;
-                return(true);
-            }else if(IsPointInRect(MouseP, CenterRect(SelectedThing->PathEnd, V2(0.2f, 0.2f))) &&
-                     !ShouldRemove){
-                InfoialThing = EditorInfoialThing_PathEnd;
-                Action = WorldEditorAction_DraggingThing;
-                return(true);
-            }
+    b8 Result = false;
+    switch(Mode){
+        case EditMode_AddWall: 
+        case EditMode_AddCoinP: {
+            u8 *TileID = GetCursorTile();
+            *TileID = (u8)Mode;
+            Result = true;
+        }break;
+        case EditMode_AddTeleporter: {
+            entity_data *Entity = PushNewArrayItem(&World->Entities);
             
-        }
-        
+            Entity->Level          = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+            Entity->TRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+            Entity->Type = EntityType_Teleporter;
+            Entity->P = Center;
+            
+            SelectedThing = Entity;
+        }break;
+        case EditMode_AddDoor: {
+            DragRect.Min = MouseP;
+            Action = WorldEditorAction_AddRectEntity;
+            Result = true;
+        }break;
+        case EditMode_AddEnemy: {
+            entity_info *Info = &EntityInfos[EntityToAddInfoID];
+            entity_data *NewEnemy = PushNewArrayItem(&World->Entities);
+            *NewEnemy = {0};
+            
+            v2 EntitySize = GetSizeFromInfoID(EntityToAddInfoID);
+            v2 Min = SnapToTileGrid(Center);
+            v2 P = Min + 0.5f*EntitySize;
+            
+            NewEnemy->Type = EntityType_Enemy;
+            NewEnemy->P = P;
+            NewEnemy->InfoID = EntityToAddInfoID;
+            NewEnemy->Direction = Direction_Left;
+            
+            NewEnemy->PathStart = SnapToTileGrid(P + V2(-EntitySize.X, -0.5f*TILE_SIDE)) + 0.5f*TILE_SIZE;
+            NewEnemy->PathEnd   = SnapToTileGrid(P + V2(EntitySize.X, -0.5f*TILE_SIDE)) + 0.5f*TILE_SIZE;
+            
+            SelectedThing = NewEnemy;
+        }break;
+        case EditMode_AddArt: {
+            asset *Asset = GetArt(AssetForArtEntity);
+            entity_data *Art = PushNewArrayItem(&World->Entities);
+            // TODO(Tyler): This is a failing of Camera
+            Art->P = MouseP + Camera.P;
+            Art->Type = EntityType_Art;
+            Art->InfoID = 0;
+            Art->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+            Art->Asset = AssetForArtEntity;
+            //CopyCString(Art->Asset, AssetForArtEntity, DEFAULT_BUFFER_SIZE);
+            
+            SelectedThing = Art;
+        }break;
     }
     
-    for(u32 I = 0; I < World->Entities.Count; I++){
-        entity_data *Entity  = &World->Entities[I];
-        v2 Size = TILE_SIZE;
-        f32 Offset = 0;
-        switch(Entity->Type){
-            case EntityType_Enemy: {
-                Size = GetSizeFromInfoID(Entity->InfoID);
-                Offset = 0.5f*TILE_SIDE;
-            }break;
-            case EntityType_Door: {
-                Size = Entity->Size;
-            }break;
-            case EntityType_Art: {
-                asset *Asset = GetArt(Entity->Asset);
-                Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera.MetersToPixels;
-            }break;
-        }
-        
-        if(IsPointInRect(MouseP, CenterRect(Entity->P, Size))){
-            if((Entity->Type == EntityType_Art) &&
-               ((Mode == EditMode_AddWall) || 
-                (Mode == EditMode_AddCoinP))) continue;
-            if(ShouldRemove){
-                if(Entity == SelectedThing){ SelectedThing = 0; }
-                UnorderedRemoveArrayItemAtIndex(&World->Entities, I);
-                Action = WorldEditorAction_None;
-            }else{
-                SelectedThing = Entity;
-                DraggingOffset = MouseP - Entity->P;
-                DraggingOffset.Y += Offset;
-                Action = WorldEditorAction_DraggingThing;
-            }
-            
-            return(true);
-        }
-    }
-    
-    return(false);
+    return(Result);
 }
 
 void
@@ -217,41 +244,15 @@ world_editor::ProcessInput(){
             case OSEventKind_KeyDown: {
                 ProcessKeyDown(Event.Key, Event.JustDown);
             }break;
-            case OSEventKind_KeyUp: {
-                switch((char)Event.Key ){
-                    case 'W': CameraUp    = false; break;
-                    case 'A': CameraLeft  = false; break;
-                    case 'S': CameraDown  = false; break;
-                    case 'D': CameraRight = false; break;
+            case OSEventKind_MouseWheelMove: {
+                s32 Range = 100;
+                if(Event.WheelMovement > Range){
+                    Mode = WORLD_EDITOR_FORWARD_EDIT_MODE_TABLE[Mode];
+                    Assert(Mode != EditMode_TOTAL);
+                }else if(Event.WheelMovement < -Range){
+                    Mode = WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[Mode];
+                    Assert(Mode != EditMode_TOTAL);
                 }
-            }break;
-            case OSEventKind_MouseDown: {
-                if(Action == WorldEditorAction_DraggingThing) continue;
-                
-                if(Event.Button == MouseButton_Left){
-                    Action = WorldEditorAction_BeginAddDrag;
-                }else if(Event.Button == MouseButton_Right){
-                    Action = WorldEditorAction_BeginRemoveDrag;
-                }
-            }break;
-            case OSEventKind_MouseUp: {
-                if(Event.Button == MouseButton_Left){
-                    if((Action == WorldEditorAction_AddDragging) ||
-                       (Action == WorldEditorAction_BeginAddDrag)){
-                        Action = WorldEditorAction_EndAddDrag;
-                    }else{
-                        if(InfoialThing != EditorInfoialThing_None) InfoialThing = EditorInfoialThing_None;
-                        Action = WorldEditorAction_None;
-                    }
-                }else if((Event.Button == MouseButton_Right)  &&
-                         (Action == WorldEditorAction_RemoveDragging ||
-                          Action == WorldEditorAction_BeginRemoveDrag)){
-                    Action = WorldEditorAction_None;
-                }
-            }break;
-            case OSEventKind_MouseMove: {
-                MouseP = Camera.ScreenPToWorldP(Event.MouseP);
-                CursorP = v2{Floor(MouseP.X/TILE_SIDE), Floor(MouseP.Y/TILE_SIDE)};
             }break;
         }
         ProcessDefaultEvent(&Event);
@@ -259,269 +260,44 @@ world_editor::ProcessInput(){
 }
 
 void
-world_editor::UpdateSelectionRectangle(){
-    if(MouseP.X < MouseP2.X){
-        CursorP2.X = Ceil(MouseP2.X/TILE_SIZE.X);
-        CursorP.X = Floor(MouseP.X/TILE_SIZE.X);
-    }else{
-        CursorP2.X = Floor(MouseP2.X/TILE_SIZE.X);
-        CursorP.X = Ceil(MouseP.X/TILE_SIZE.X);
-    }
-    if(MouseP.Y < MouseP2.Y){
-        CursorP2.Y = Ceil(MouseP2.Y/TILE_SIZE.Y);
-        CursorP.Y = Floor(MouseP.Y/TILE_SIZE.Y);
-    }else{
-        CursorP2.Y = Floor(MouseP2.Y/TILE_SIZE.Y);
-        CursorP.Y = Ceil(MouseP.Y/TILE_SIZE.Y);
-    }
-    
-}
-
-void
 world_editor::ProcessAction(){
     TIMED_FUNCTION();
     
-    if(Popup != EditorPopup_None) return;
-    
     switch(Action){
-        //~ Adding
-        case WorldEditorAction_BeginAddDrag: {
-            if(UIManager.HandledInput) { Action = WorldEditorAction_None; return; }
-            if(HandleClick(false)){
-                return;
-            }
+        case WorldEditorAction_AddRectEntity: {
+            DragRect.Max = MouseP;
             
-            if(Mode == EditMode_AddDoor){
-                MouseP2 = MouseP;
-            }
-            
-            Action = WorldEditorAction_AddDragging;
-            
-            //~ WorldEditorAction_AddDragging
-            case WorldEditorAction_AddDragging: 
-            
-            v2 ViewTileP = TILE_SIDE*CursorP;
-            v2 Center = ViewTileP+(0.5f*TILE_SIZE);
-            
-            switch(Mode){
-                case EditMode_AddWall: 
-                case EditMode_AddCoinP: {
-                    u8 *TileId = &World->Map[((u32)CursorP.Y*World->Width)+(u32)CursorP.X];
-                    *TileId = (u8)Mode;
-                }break;
-                case EditMode_AddTeleporter: {
-                    entity_data *Entity = PushNewArrayItem(&World->Entities);
-                    
-                    Entity->Level          = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                    Entity->TRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                    Entity->Type = EntityType_Teleporter;
-                    Entity->P = Center;
-                    Action = WorldEditorAction_None;
-                    
-                    InfoialThing = EditorInfoialThing_None;
-                    SelectedThing = Entity;
-                }break;
-                case EditMode_AddDoor: {
-                    UpdateSelectionRectangle();
-                }break;
-                case EditMode_AddEnemy: {
-                    if(EntityToAddInfoID == 0){
-                        Popup = EditorPopup_InfoSelector;
-                        InfoSelectorCallback = AddEnemyCallback;
-                    }else{
-                        AddEnemyCallback(this, EntityToAddInfoID);
-                    }
-                    
-                    Action = WorldEditorAction_None;
-                }break;
-                case EditMode_AddArt: {
-                    asset *Asset = GetArt(AssetForArtEntity);
-                    entity_data *Art = PushNewArrayItem(&World->Entities);
-                    Art->P = MouseP;
-                    Art->Type = EntityType_Art;
-                    Art->InfoID = 0;
-                    Art->Asset = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                    Art->Asset = AssetForArtEntity;
-                    //CopyCString(Art->Asset, AssetForArtEntity, DEFAULT_BUFFER_SIZE);
-                    
-                    InfoialThing = EditorInfoialThing_None;
-                    SelectedThing = Art;
-                    
-                    Action = WorldEditorAction_None;
-                }break;
-            }
+            Action = WorldEditorAction_EndRectEntity;
         }break;
-        case WorldEditorAction_EndAddDrag: {
-            switch(Mode){
-                case EditMode_AddDoor: {
-                    UpdateSelectionRectangle();
-                    
-                    v2 Size = CursorP - CursorP2;
-                    Size.X *= TILE_SIZE.X;
-                    Size.Y *= TILE_SIZE.Y;
-                    Size.X = AbsoluteValue(Size.X);
-                    Size.Y = AbsoluteValue(Size.Y);
-                    
-                    Assert((Size.X != 0.0f) && (Size.Y != 0.0f));
-                    
-                    v2 P = (CursorP+CursorP2)/2.0f * TILE_SIDE;
-                    
-                    entity_data *Entity = PushNewArrayItem(&World->Entities);
-                    Entity->Type = EntityType_Door;
-                    Entity->P = P;
-                    Entity->Size = Size;
-                    Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                    InfoialThing = EditorInfoialThing_None;
-                    SelectedThing = Entity;
-                }break;
-                default: break;
+        case WorldEditorAction_EndRectEntity: {
+            if(Mode == EditMode_AddDoor){
+                entity_data *Entity = PushNewArrayItem(&World->Entities);
+                rect R = SnapToTileGrid(DragRect);
+                Entity->Type = EntityType_Door;
+                Entity->P = GetRectCenter(R);
+                Entity->Size = RectSize(R);
+                Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                SelectedThing = Entity;
             }
             
             Action = WorldEditorAction_None;
         }break;
-        
-        //~ Removing
-        case WorldEditorAction_BeginRemoveDrag: {
-            if(UIManager.HandledInput) { Action = WorldEditorAction_None; return; }
-            if(HandleClick(true)){ return; }
-            
-            if((Mode == EditMode_AddWall) ||
-               (Mode == EditMode_AddCoinP)){
-                Action = WorldEditorAction_RemoveDragging;
-            }else{
-                Action = WorldEditorAction_None;
-            }
-            
-        }break;
-        case WorldEditorAction_RemoveDragging: {
-            if((Mode == EditMode_AddWall) ||
-               (Mode == EditMode_AddCoinP)){
-            }else{
-                Action = WorldEditorAction_None;
-            }
-            
-            u8 *TileId = &World->Map[((u32)CursorP.Y*World->Width)+(u32)CursorP.X];
-            *TileId = 0;
-        }break;
-        
-        //~ Dragging things
-        case WorldEditorAction_DraggingThing: {
-            
-            v2 DraggingP = MouseP - DraggingOffset;
-            v2 DraggingCursorP = v2{Floor(DraggingP.X/TILE_SIDE), Floor(DraggingP.Y/TILE_SIDE)};
-            v2 ViewTileP = TILE_SIDE*DraggingCursorP;
-            v2 Center = ViewTileP+(0.5f*TILE_SIZE);
-            
-            switch(InfoialThing){
-                case EditorInfoialThing_PathStart: {
-                    SelectedThing->PathStart.X = Round(MouseP.X/TILE_SIDE)*TILE_SIDE;
-                    return;
-                }break;
-                case EditorInfoialThing_PathEnd: {
-                    SelectedThing->PathEnd.X = Round(MouseP.X/TILE_SIDE)*TILE_SIDE;
-                    return;
-                }break;
-            }
-            
-            switch(GetSelectedThingType()){
-                case EntityType_Enemy: {
-                    v2 LastP = SelectedThing->P;
-                    v2 P = v2{Center.X, ViewTileP.Y};
-                    P.Y += 0.5f*GetSizeFromInfoID(SelectedThing->InfoID).Y;
-                    SelectedThing->P = P;
-                    SelectedThing->PathStart.X += SelectedThing->P.X - LastP.X;
-                    SelectedThing->PathStart.Y = Center.Y;
-                    SelectedThing->PathEnd.X += SelectedThing->P.X - LastP.X;
-                    SelectedThing->PathEnd.Y = Center.Y;
-                }break;
-                case EntityType_Teleporter: {
-                    SelectedThing->P = Center;
-                }break;
-                case EntityType_Door: {
-                    v2 BottomLeft = Center - 0.5f*SelectedThing->Size;
-                    BottomLeft /= TILE_SIDE;
-                    if(BottomLeft.X != Truncate(BottomLeft.X)){
-                        BottomLeft.X -= 0.5f;
-                    }
-                    if(BottomLeft.Y != Truncate(BottomLeft.Y)){
-                        BottomLeft.Y -= 0.5f;
-                    }
-                    
-                    SelectedThing->P = TILE_SIDE*BottomLeft + 0.5f*SelectedThing->Size;
-                }break;
-                case EntityType_Art: {
-                    SelectedThing->P = DraggingP;
-                }break;
-                default: INVALID_CODE_PATH; break;
-            }
-        }break;
-        
-        case WorldEditorAction_None: break;
-        default: INVALID_CODE_PATH; break;
     }
 }
 
 b8
-world_editor::DoPopup(){
-#if 0
-    b8 Result = false;
-    switch(Popup){
-        case EditorPopup_TextInput: {
-            window *Window = UIManager.BeginPopup("World", V2(500, 500), V2(500, 0));
-            MaybeFadeWindow(Window);
-            Window->TextInput(PopupBuffer, sizeof(PopupBuffer), WIDGET_ID);
-            if(Window->Button("Submit", 2)){
-                TextInputCallback(this, PopupBuffer);
-                UIManager.EndPopup();
-                Popup = EditorPopup_None;
-                PopupBuffer[0] = '\0';
-            }
-            if(Window->Button("Abort", 2)){
-                UIManager.EndPopup();
-                Popup = EditorPopup_None;
-                PopupBuffer[0] = '\0';
-            }
-            
-            Window->End();
+world_editor::DoSelectorOverlay(){
+    v2 P = V2(0.5f, 7.0f);
+    switch(Mode){
+        case EditMode_AddEnemy: {
+            EntityToAddInfoID = DoInfoSelector(P, &Camera, EntityToAddInfoID);
         }break;
-        case EditorPopup_InfoSelector: {
-            b8 AttemptSelect = false;
-            os_event Event;
-            while(PollEvents(&Event)){
-                switch(Event.Kind){
-                    case OSEventKind_MouseDown: {
-                        if(Event.Button == MouseButton_Left){
-                            AttemptSelect = true;
-                        }
-                    }break;
-                    case OSEventKind_MouseMove: {
-                        MouseP = Event.MouseP / Camera.MetersToPixels;
-                    }break;
-                }
-            }
-            
-            v2 P = V2(0.5f, 2.0f);
-            u32 SelectedInfo = UpdateAndRenderInfoSelector(P, MouseP, &Camera, EntityToAddInfoID);
-            
-            v2 StringP = 0.5f*OSInput.WindowSize;
-            RenderCenteredString(&TitleFont, WHITE, StringP, 0.0f, "Please select a info to add:");
-            
-            if(AttemptSelect && (SelectedInfo != 0)){
-                AttemptSelect = false;
-                InfoSelectorCallback(this, SelectedInfo);
-                Popup = EditorPopup_None;
-            }else{
-                Renderer.RenderToScreen();
-                Result = true;
-            }
+        case EditMode_AddArt: {
+            AssetForArtEntity = DoArtSelector(P, &Camera, AssetForArtEntity);
+            //AssetForArtEntity = AssetNameDropDown(Window, AssetForArtEntity, AssetType_Art, WIDGET_ID);
         }break;
     }
     
-    
-    return(Result);
-#endif
-    
-    //NOT_IMPLEMENTED_YET;
     return(false);
 }
 
@@ -538,28 +314,8 @@ world_editor::DoSelectedThingUI(){
     
     v2 WindowP = V2(0, OSInput.WindowSize.Y);
     switch(GetSelectedThingType()){
-        case EntityType_Enemy:{
-            ui_window *Window = UIManager.BeginWindow("Edit Snail", WindowP);
-            MaybeFadeWindow(Window);
-            
-            Window->Text("Direction: ");
-            
-            if(Window->Button("<<<", WIDGET_ID)){
-                SelectedThing->Direction = Direction_Left;
-            }
-            if(Window->Button(">>>", WIDGET_ID)){
-                SelectedThing->Direction = Direction_Right;
-            }
-            
-            if(Window->Button("Change info", WIDGET_ID)){
-                Popup = EditorPopup_InfoSelector;
-                InfoSelectorCallback = ChangeSelectedEntityInfoCallback;
-            }
-            Window->End();
-        }break;
         case EntityType_Teleporter: {
             ui_window *Window = UIManager.BeginWindow("Edit Teleporter", WindowP);
-            MaybeFadeWindow(Window);
             Window->Text("Level:");
             Window->TextInput(SelectedThing->Level, DEFAULT_BUFFER_SIZE, WIDGET_ID);
             Window->Text("Required level to unlock:", SelectedThing->TRequiredLevel);
@@ -568,7 +324,6 @@ world_editor::DoSelectedThingUI(){
         }break;
         case EntityType_Door: {
             ui_window *Window = UIManager.BeginWindow("Edit Door", WindowP);
-            MaybeFadeWindow(Window);
             Window->Text("Required level to unlock:", 
                          SelectedThing->DRequiredLevel);
             Window->TextInput(SelectedThing->DRequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
@@ -576,7 +331,6 @@ world_editor::DoSelectedThingUI(){
         }break;
         case EntityType_Art: {
             ui_window *Window = UIManager.BeginWindow("Edit Art", WindowP);
-            SelectedThing->Asset = AssetNameDropDown(Window, SelectedThing->Asset, AssetType_Art, WIDGET_ID);
             
             Window->Text("Z: %.1f", SelectedThing->Z);
             if(Window->Button("-", WIDGET_ID)){
@@ -595,48 +349,163 @@ void
 world_editor::RenderCursor(){
     TIMED_FUNCTION();
     
-    v2 ViewTileP = TILE_SIDE*CursorP;
-    v2 Center = ViewTileP+(0.5f*TILE_SIZE);
-    v2 Margin = {0.03f, 0.03f};
+    v2 Center = CursorP+(0.5f*TILE_SIZE);
+    v2 Margin = V2(0.03f);
     
     switch(Mode){
         case EditMode_AddWall: {
-            RenderRect(CenterRect(Center, TILE_SIZE), -0.1f, BLACK, &Camera);
-            RenderRect(CenterRect(Center, (TILE_SIZE-2*Margin)),-0.11f, WHITE, &Camera);
+            rect R = CenterRect(Center, TILE_SIZE);
+            RenderRect(R, -0.1f, WHITE, &Camera);
+            RenderRectOutline(R, -0.11f, BLACK, &Camera);
         }break;
         case EditMode_AddTeleporter: {
-            RenderRect(CenterRect(Center, TILE_SIZE), -0.1f, BLACK, &Camera);
-            RenderRect(CenterRect(Center, (TILE_SIZE-2*Margin)), -0.11f, GREEN, &Camera);
+            rect R = CenterRect(Center, TILE_SIZE);
+            RenderRect(R, -0.1f, GREEN, &Camera);
+            RenderRectOutline(R, -0.11f, BLACK, &Camera);
         }break;
         case EditMode_AddDoor: {
-            if(Action == WorldEditorAction_AddDragging){
-                v2 ViewTileP2 = TILE_SIDE*CursorP2;
-                RenderRect(Rect(ViewTileP, ViewTileP2), -0.5f, BROWN, &Camera);
+            if((Action == WorldEditorAction_AddRectEntity) ||
+               (Action == WorldEditorAction_EndRectEntity)){
+                rect R = SnapToTileGrid(DragRect);
+                RenderRect(R, -0.5f, BROWN, &Camera);
             }else{
-                RenderRect(Rect(ViewTileP, ViewTileP+TILE_SIZE), -0.5f, BROWN, &Camera);
+                RenderRect(CenterRect(Center, TILE_SIZE), -0.5f, BROWN, &Camera);
             }
+            
         }break;
         case EditMode_AddCoinP: {
-            v2 Size = {0.3f, 0.3f};
-            RenderRect(CenterRect(Center, Size), 0.0f, BLACK, &Camera);
-            RenderRect(CenterRect(Center, (Size-2*Margin)), -0.1f, YELLOW, &Camera);
+            v2 Size = V2(0.3f, 0.3f);
+            rect R = CenterRect(Center, Size);
+            RenderRect(R, -0.1f, YELLOW, &Camera);
+            RenderRectOutline(R, -0.11f, BLACK, &Camera);
         }break;
         case EditMode_AddEnemy: {
             if(EntityToAddInfoID == 0){
                 RenderRect(CenterRect(Center, TILE_SIZE), -0.11f, PINK, &Camera);
             }else{ 
                 entity_info *Info = &EntityInfos[EntityToAddInfoID];
-                v2 P = v2{Center.X, ViewTileP.Y};
+                v2 P = V2(Center.X, CursorP.Y);
                 P.Y += 0.5f*GetSizeFromInfoID(EntityToAddInfoID).Y;
                 RenderFrameOfSpriteSheet(&Camera, Info->Asset, 0, P, -0.5f);
             }
         }break;
         case EditMode_AddArt: {
             asset *Asset = GetArt(AssetForArtEntity);
-            v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera.MetersToPixels;
-            RenderCenteredTexture(MouseP, Size, 0.0f,
-                                  Asset->Texture, V2(0,0), V2(1,1), false, &Camera);
+            v2 Size = V2(Asset->SizeInPixels)*Asset->Scale;
+            // TODO(Tyler): This is a failing of Camera
+            RenderTexture(CenterRect(OSInput.MouseP, Size), 0.0f,
+                          Asset->Texture, V2(0,0), V2(1,1), false);
         }break;
+    }
+    
+    if(Mode != EditMode_None){
+        if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, false, -2)){
+            if(Action == WorldEditorAction_EndRectEntity){
+                Action = WorldEditorAction_AddRectEntity;
+            }else{
+                if(AddWorldEntity()){
+                }else{
+                    UIManager.ResetActiveElement();
+                }
+            }
+        }
+        
+        if((Mode == EditMode_AddWall) || (Mode == EditMode_AddCoinP)){
+            if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Right, false, -2)){
+                u8 *TileID = GetCursorTile();
+                *TileID = 0;
+            }
+        }
+    }
+}
+
+void
+world_editor::DoEnemyOverlay(entity_data *Entity){
+    
+    //~ Enemy path
+    for(u32 I=0; I<2; I++){
+        v2 *Point = &Entity->Path[I];
+        
+        rect PathPoint = CenterRect(*Point, V2(0.3f));
+        u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)Entity+I);
+        ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+        
+        switch(EditorDraggableElement(&UIManager, &Camera, ID, PathPoint, *Point, -1)){
+            case ButtonBehavior_None: {
+                State->T -= 5.0f*OSInput.dTime;
+                State->ActiveT -= 3.0f*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Hovered: {
+                State->T += 7.0f*OSInput.dTime;
+                State->ActiveT -= 3.0f*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Activate: {
+                v2 Offset = Camera.ToWorldP(UIManager.ActiveElement.Offset);
+                *Point = MouseP + Offset;
+                *Point = SnapToTileGrid(*Point) + 0.5f*TILE_SIZE;
+                
+                State->ActiveT += 5.0f*OSInput.dTime;
+            }break;
+        }
+        
+        State->T = Clamp(State->T, 0.0f, 1.0f);
+        f32 T = 1.0f-Square(1.0f-State->T);
+        color C = MixColor(EDITOR_HOVERED_COLOR, EDITOR_BASE_COLOR, T);
+        
+        State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
+        f32 ActiveT = 1.0f-Square(1.0f-State->ActiveT);
+        C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
+        
+        RenderRect(PathPoint, -0.2f, C, &Camera); 
+    }
+    
+    v2 Temp = Entity->PathStart;
+    Entity->PathStart.X = Minimum(Entity->PathStart.X, Entity->PathEnd.X);
+    Entity->PathEnd.X   = Maximum(Temp.X,              Entity->PathEnd.X);
+    
+    //~ Enemy facing direction
+    v2 EntitySize = GetSizeFromInfoID(Entity->InfoID);
+    v2 Size = V2(0.3f*EntitySize.X, EntitySize.Y);
+    v2 Offset = V2(0.5f*EntitySize.X - 0.5f*Size.X, 0.0f);
+    
+    for(u32 I=0; I<2; I++){
+        
+        rect R;
+        if(I == 0) R = CenterRect(Entity->P-Offset, Size);
+        else       R = CenterRect(Entity->P+Offset, Size);
+        
+        u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)Entity+I);
+        ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+        
+        switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Left, -1)){
+            case ButtonBehavior_None: {
+                State->T -= 5*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Hovered: {
+                State->T += 7*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Activate: {
+                State->ActiveT = 1.0f;
+                direction Directions[] = {Direction_Left, Direction_Right};
+                Entity->Direction = Directions[I];
+            }break;
+        }
+        
+        State->T = Clamp(State->T, 0.0f, 1.0f);
+        f32 T = 1.0f-Square(1.0f-State->T);
+        color C = MixColor(EDITOR_HOVERED_COLOR, EDITOR_BASE_COLOR, T);
+        
+        if(State->ActiveT > 0.0f){
+            f32 ActiveT = Sin(State->ActiveT*PI);
+            State->ActiveT -= 7*OSInput.dTime;
+            C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
+        }
+        
+        State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
+        f32 ActiveT = 1.0f-Square(1.0f-State->ActiveT);
+        C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
+        
+        RenderRect(R, -0.2f, C, &Camera);
     }
 }
 
@@ -646,28 +515,23 @@ world_editor::DoUI(){
     
     ui_window *Window = 
         UIManager.BeginWindow("World Editor", OSInput.WindowSize);
-    MaybeFadeWindow(Window);
     if(Window->Button("Switch to entity editor", WIDGET_ID)){
         ChangeState(GameMode_EntityEditor, 0);
     }
     
     Window->Text("Current world: %s", World->Name);
     
-    Window->Text("Use left and right arrows to change edit mode");
     Window->Text("Use 'e' to toggle editor");
-    Window->Text("Current mode: %s", WORLD_EDITOR_EDIT_MODE_NAME_TABLE[Mode]);
     if(Window->Button("Save", WIDGET_ID)){
         WorldManager.WriteWorldsToFiles();
     }
     
     if(Window->Button("Load world", WIDGET_ID)){
-        Popup = EditorPopup_TextInput;
-        TextInputCallback = LoadWorldCallback;
+        NOT_IMPLEMENTED_YET;
     }
     
     if(Window->Button("Rename world", WIDGET_ID)){
-        Popup = EditorPopup_TextInput;
-        TextInputCallback = RenameWorldCallback;
+        NOT_IMPLEMENTED_YET;
     }
     Window->Text("Map size: %u %u", 
                  World->Width, World->Height);
@@ -741,11 +605,6 @@ world_editor::DoUI(){
     }
     
     //~ World attributes
-    Window->Text("World style is: %s", 
-                 ((World->Flags & WorldFlag_IsTopDown) ? "Top down" : "Platformer"));
-    TOGGLE_FLAG(Window, "Toggle top down mode", World->Flags, 
-                WorldFlag_IsTopDown);
-    
     Window->Text("Coin required: %u", World->CoinsRequired);
     if(Window->Button("-", WIDGET_ID)){
         if(World->CoinsRequired > 0){
@@ -770,50 +629,38 @@ world_editor::DoUI(){
         Camera.Shake(0.1f);
     }
     
-    switch(Mode){
-        case EditMode_AddEnemy: {
-            if(Window->Button("Select info", WIDGET_ID)){
-                Popup = EditorPopup_InfoSelector;
-                InfoSelectorCallback = SelectInfoForEntityToAddCallback;
-                Action = WorldEditorAction_None;
-            }
-        }break;
-        case EditMode_AddArt: {
-            AssetForArtEntity = AssetNameDropDown(Window, AssetForArtEntity, AssetType_Art, WIDGET_ID);
-        }break;
-    }
-    
-    
     Window->End();
     
     DoSelectedThingUI();
-    
+    DoSelectorOverlay();
 }
 
 void
 world_editor::UpdateAndRender(){
-    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
-    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
-    Camera.MoveFactor = 0.2f;
-    Camera.Update();
-    
-    if(Popup != EditorPopup_InfoSelector) ProcessInput();
-    
-    if(DoPopup()) return;
-    
-    {
-        v2 CameradP = V2(0, 0);
-        if(CameraRight && !CameraLeft) CameradP.X = 1.0f; 
-        else if(CameraLeft && !CameraRight) CameradP.X = -1.0f; 
-        if(CameraUp && !CameraDown) CameradP.Y = 1.0f;
-        else if(CameraDown && !CameraUp) CameradP.Y = -1.0f;
-        
-        CameradP *= WORLD_EDITOR_CAMERA_MOVE_SPEED;
-        Camera.Move(CameradP, World);
+    if(!World){
+        World = CurrentWorld;
+        EntityToAddInfoID = 2;
     }
     
-    ProcessAction();
+    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
+    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
+    Camera.MoveFactor = 0.4f;
+    Camera.Update();
     
+    LastMouseP = MouseP;
+    MouseP = Camera.ToWorldP(OSInput.MouseP);
+    CursorP = SnapToTileGrid(MouseP);
+    MouseP -= Camera.P;
+    
+    ProcessInput();
+    
+    v2 Movement = V20;
+    if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Middle, false, -2)){
+        Movement = -1.0f * (MouseP-LastMouseP);
+    }
+    Camera.Move(Movement, World);
+    
+    ProcessAction();
     DoUI(); 
     
     RenderString(&DebugFont, Color(0.9f, 0.9f, 0.9f, 1.0f), 
@@ -822,7 +669,6 @@ world_editor::UpdateAndRender(){
     
     BEGIN_TIMED_BLOCK(RenderWorldEditor);
     // Walls and coins
-    // TODO(Tyler): Bounds checking
     u32 CameraX = (u32)(Camera.P.X/TILE_SIZE.X);
     u32 CameraY = (u32)(Camera.P.Y/TILE_SIZE.Y);
     for(u32 Y = CameraY; Y < CameraY+18+1; Y++)
@@ -843,8 +689,9 @@ world_editor::UpdateAndRender(){
     
     for(u32 I = 0; I < World->Entities.Count; I++){
         entity_data *Entity = &World->Entities[I];
-        rect EntityRect = {};;
+        rect EntityRect = {};
         
+        b8 DoSnap = true;
         switch(Entity->Type){
             case EntityType_Enemy: {
                 Assert(Entity->InfoID != 0);
@@ -855,60 +702,105 @@ world_editor::UpdateAndRender(){
                 v2 P = Entity->P;
                 EntityRect = CenterRect(P, Size);
                 
-                // TODO(Tyler): FIX, this doesn't work for all assets, so use the state table?
-                if(Entity->Direction == Direction_Right){ 
-                    RenderFrameOfSpriteSheet(&Camera, Info->Asset, 4, P, -0.5f);
-                }else if(Entity->Direction == Direction_Left){
-                    RenderFrameOfSpriteSheet(&Camera, Info->Asset, 0, P, -0.5f);
-                }else{ INVALID_CODE_PATH; }
+                u32 AnimationIndex = Asset->StateTable[State_Moving][Entity->Direction];
+                Assert(AnimationIndex);
+                AnimationIndex--;
+                u32 Frame = 0 ;
+                for(u32 Index = 0; Index < AnimationIndex; Index++){
+                    Frame += Asset->FrameCounts[Index];
+                }
+                
+                RenderFrameOfSpriteSheet(&Camera, Info->Asset, Frame, P, -0.1f);
                 
                 if(SelectedThing == Entity){
-                    local_constant color BASE_COLOR     = Color(0.0f, 0.0f, 0.5f, 1.0f);
-                    {
-                        color Color = BASE_COLOR;
-                        if(InfoialThing == EditorInfoialThing_PathStart){
-                            Color = EDITOR_SELECTED_COLOR;
-                        }else if(IsPointInRect(MouseP, CenterRect(Entity->PathStart, ENEMY_PATH_HANDLE_SIZE))){
-                            Color = EDITOR_HOVERED_COLOR; 
-                        }
-                        RenderRect(CenterRect(Entity->PathStart, ENEMY_PATH_HANDLE_SIZE), -1.0f, Color, &Camera);
-                    }{
-                        color Color = BASE_COLOR;
-                        if(InfoialThing == EditorInfoialThing_PathEnd){
-                            Color = EDITOR_SELECTED_COLOR;
-                        }else if(IsPointInRect(MouseP, CenterRect(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE))){
-                            Color = EDITOR_HOVERED_COLOR; 
-                        }
-                        RenderRect(CenterRect(Entity->PathEnd, ENEMY_PATH_HANDLE_SIZE), -1.0f, Color, &Camera);
-                    }
+                    DoEnemyOverlay(SelectedThing);
                 }
             }break;
             case EntityType_Teleporter: {
                 EntityRect = CenterRect(Entity->P, TILE_SIZE);
-                RenderRect(EntityRect, 0.0f, GREEN, &Camera);
+                RenderRect(EntityRect, -0.1f, GREEN, &Camera);
             }break;
             case EntityType_Door: {
                 EntityRect = CenterRect(Entity->P, Entity->Size);
-                RenderRect(EntityRect, 0.0f, BROWN, &Camera);
+                RenderRect(EntityRect, -0.1f, BROWN, &Camera);
             }break;
             case EntityType_Art: {
                 asset *Asset = GetArt(Entity->Asset);
-                v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera.MetersToPixels;
-                RenderCenteredTexture(Entity->P, Size, Entity->Z, 
-                                      Asset->Texture, V2(0,0), V2(1,1), false, &Camera);
+                // TODO(Tyler): This is a failing of Camera, we don't want it to be 
+                // offset by it's position
+                v2 Size = V2(Asset->SizeInPixels)*Asset->Scale / Camera.MetersToPixels;
+                RenderTexture(CenterRect(Entity->P, Size), Entity->Z, 
+                              Asset->Texture, V2(0,0), V2(1,1), false, &Camera);
                 
                 EntityRect = CenterRect(Entity->P, Size);
+                
+                DoSnap = false;
             }break;
         }
         
-        color OutlineColor = {};
-        if(SelectedThing == Entity){
-            OutlineColor = EDITOR_SELECTED_COLOR;
-        }else if(IsPointInRect(MouseP, EntityRect)){
-            OutlineColor = EDITOR_HOVERED_COLOR;
+        u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)Entity);
+        ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+        
+        switch(EditorDraggableElement(&UIManager, &Camera, ID, EntityRect, Entity->P, -2)){
+            case ButtonBehavior_None: {
+                State->T -= 5*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Hovered: {
+                State->T += 7*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Activate: {
+                v2 Offset = Camera.ToWorldP(UIManager.ActiveElement.Offset);
+                
+                v2 NewP = Entity->P;
+                if(DoSnap){
+                    NewP = MouseP + 0.5f*TILE_SIZE + Offset;
+                    
+                    v2 EntitySize = RectSize(EntityRect);
+                    v2 Min = NewP - 0.5f*EntitySize;
+                    
+                    v2 NewMin = SnapToTileGrid(Min);
+                    v2 Difference = NewMin - Min;
+                    NewP += Difference;
+                    
+                }else{
+                    NewP = MouseP + Offset;
+                }
+                
+                v2 Difference = NewP - Entity->P;
+                if(Entity->Type == EntityType_Enemy){
+                    Entity->PathStart += Difference;
+                    Entity->PathEnd   += Difference;
+                }
+                Entity->P = NewP;
+                
+                SelectedThing = Entity;
+            }break;
         }
         
-        RenderRectOutline(EntityRect, Entity->Z-0.1f, OutlineColor, &Camera);
+        color OutlineColor = EDITOR_HOVERED_COLOR; OutlineColor.A = 0.0f;
+        State->T = Clamp(State->T, 0.0f, 1.0f);
+        f32 T = 1.0f-Square(1.0f-State->T);
+        //f32 T = Square(State->T);
+        OutlineColor = MixColor(EDITOR_HOVERED_COLOR, OutlineColor,  T);
+        
+        if(SelectedThing == Entity) State->ActiveT += 3*OSInput.dTime; 
+        else                        State->ActiveT -= 5*OSInput.dTime; 
+        State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
+        
+        f32 ActiveT = 1.0f - Square(1.0f-State->ActiveT);
+        OutlineColor = MixColor(EDITOR_SELECTED_COLOR, OutlineColor,  ActiveT);
+        RenderRectOutline(EntityRect, -0.3f, OutlineColor, &Camera);
+        
+        switch(EditorButtonElement(&UIManager, &Camera, ID, EntityRect, MouseButton_Right, -1)){
+            case ButtonBehavior_Activate: {
+                SelectedThing = 0;
+                UnorderedRemoveArrayItemAtIndex(&World->Entities, I);
+                I--; // Repeat the last iteration because an item was removed
+                State->T = 0.0f;
+                State->ActiveT = 0.0f;
+            }break;
+        }
+        
     }
     
     END_TIMED_BLOCK();

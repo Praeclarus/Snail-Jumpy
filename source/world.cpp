@@ -36,8 +36,7 @@ AddPlayer(v2 P){
     Physics->Entity = Player;
     Physics->P = P;
     
-    
-    Player->ZLayer = -5.0f;
+    Player->ZLayer = -0.2f;
     Player->YOffset = 0.5f / 2.0f;
     
     Player->Direction = Direction_Left;
@@ -108,6 +107,7 @@ world_manager::LoadWorld(const char *LevelName){
                 for(u32 I = 0; I < N; I++){
                     coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
                     Coin->Type = EntityType_Coin;
+                    Coin->ZLayer = -0.2f;
                     Coin->Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
                     Coin->Physics->TriggerResponse = CoinResponse;
                     Coin->Physics->Entity = Coin;
@@ -139,7 +139,7 @@ world_manager::LoadWorld(const char *LevelName){
                         Enemy->Damage = Info->Damage;
                         
                         Enemy->State = State_Moving;
-                        Enemy->ZLayer = -0.7f;
+                        Enemy->ZLayer = -0.2f;
                         Enemy->Asset = Info->Asset;
                         
                         Enemy->Direction = Entity->Direction;
@@ -205,6 +205,10 @@ world_manager::LoadWorld(const char *LevelName){
                         Art->P = Entity->P;
                         Art->Z = Entity->Z;
                         Art->Asset = Entity->Asset;
+                    }break;
+                    
+                    default: {
+                        INVALID_CODE_PATH;
                     }break;
                 }
                 

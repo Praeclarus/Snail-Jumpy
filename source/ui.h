@@ -68,12 +68,13 @@ enum ui_element_type {
     UIElementType_TextInput,
     UIElementType_DropDown,
     UIElementType_Draggable,
+    UIElementType_MouseButton,
 };
 
 struct ui_element {
     ui_element_type Type;
     u64 ID;
-    u32 Priority;
+    s32 Priority;
     
     union {
         // Draggable
@@ -133,7 +134,6 @@ struct ui_manager {
     b8 HandledInput;
     
     theme Theme;
-    hash_table<const char *, ui_window> WindowTable;
     // TODO(Tyler): With the way this is done, there is frame of latency between a button 
     // pressed and the UI action, this might be bad but shouldn't be noticeable. I do not 
     // believe this delay would be good for game input though. 
@@ -141,9 +141,10 @@ struct ui_manager {
     ui_element ValidElement;
     ui_element HoveredElement;
     
-    ui_window *Popup;
+    //~ Window stuff
+    hash_table<const char *, ui_window> WindowTable;
     
-    // Text Input
+    //~ Text Input
     b8 IsShiftDown;
     char Buffer[256];
     u32 BufferIndex;
@@ -153,26 +154,26 @@ struct ui_manager {
     hash_table<u64, ui_button_state> ButtonStates;
     hash_table<u64, ui_drop_down_state> DropDownStates;
     
-    // Mouse input
+    //~ Mouse input
     b8 PreviousMouseState[MouseButton_TOTAL];
     b8 MouseState[MouseButton_TOTAL];
     
+    void               ResetActiveElement();
     void               SetValidElement(ui_element *Element);
     b8                 DoHoverElement(ui_element *Element);
-    ui_button_behavior DoButtonElement(u64 ID, rect ActionRect, u32 Priority=0);
-    ui_button_behavior DoTextInputElement(u64 ID, rect ActionRect, u32 Priority=0);
-    ui_button_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, u32 Priority=0);
+    ui_button_behavior DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button=MouseButton_Left, s32 Priority=0);
+    ui_button_behavior DoTextInputElement(u64 ID, rect ActionRect, s32 Priority=0);
+    ui_button_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0);
+    b8                 EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce=false, s32 Priority=0);
     
     b8 MouseButtonJustDown(os_mouse_button Button);
     b8 MouseButtonJustUp(os_mouse_button Button);
     b8 MouseButtonIsDown(os_mouse_button Button);
     void BeginFrame();
     void EndFrame();
-    void EndPopup();
     void Initialize(memory_arena *Arena);
     b8 ProcessEvent(os_event *Event);
     ui_window *BeginWindow(const char *Name, v2 StartTopLeft=V2(500,500));
-    ui_window *BeginPopup(const char *Name, v2 StartTopLeft=V20);
 };
 
 

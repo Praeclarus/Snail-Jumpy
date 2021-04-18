@@ -624,6 +624,10 @@ PollEvents(os_event *Event){
                 Event->Kind = OSEventKind_MouseMove;
                 Event->MouseP = Win32GetMouseP();
             }break;
+            case WM_MOUSEWHEEL: {
+                Event->Kind = OSEventKind_MouseWheelMove;
+                Event->WheelMovement = GET_WHEEL_DELTA_WPARAM(Message.wParam);
+            }break;
             default: {
                 DefWindowProcA(Message.hwnd, Message.message, 
                                Message.wParam, Message.lParam);

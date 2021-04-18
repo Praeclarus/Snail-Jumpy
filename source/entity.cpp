@@ -384,6 +384,9 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             Jump += JumpPower;
             Player->JumpTime -= OSInput.dTime;
             Physics->State |= PhysicsObjectState_Falling;
+            
+            if(Physics->TargetdP.Y < 0.0f){ Physics->TargetdP.Y = 0.0f; }
+            if(Physics->dP.Y < 0.0f){ Physics->dP.Y = 0.0f; }
             Physics->TargetdP += V2(0, Jump);
             Physics->ddP.Y = 0.0f;
             
@@ -480,7 +483,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             Coin->Cooldown -= OSInput.dTime;
         }else{
             Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
-            RenderRect(OffsetRect(Coin->Bounds, Coin->Physics->P), 0.0f, 
+            RenderRect(OffsetRect(Coin->Bounds, Coin->Physics->P), Coin->ZLayer, 
                        YELLOW, Camera);
         }
     }
@@ -489,7 +492,6 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     FOR_BUCKET_ARRAY(It, &Enemies){
         enemy_entity *Enemy = It.Item;
         dynamic_physics_object *Physics = Enemy->DynamicPhysics;
-        //Physics->DebugInfo.DebugThisOne = true;
         
         f32 Movement = 0.0f;
         f32 Gravity = 11.0f;
@@ -523,8 +525,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         art_entity *Art = It.Item;
         asset *Asset = GetArt(Art->Asset);
         v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
-        RenderCenteredTexture(Art->P, Size, Art->Z, Asset->Texture, 
-                              V2(0,0), V2(1,1), false, Camera);
+        RenderTexture(CenterRect(Art->P, Size), Art->Z, Asset->Texture, 
+                      V2(0,0), V2(1,1), false, Camera);
     }
     
     //~ Player

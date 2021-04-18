@@ -90,7 +90,7 @@
 : spritesheet boxing_dragonfly
     path boxing_spritesheet.png
     size 33
-    frames_per_row 7
+    frames_per_row 6
     frame_counts 10 10 3 3
     base_fps 8
 	: states
@@ -173,5 +173,3 @@
 : art grass_platform_e
 	path grass_platform_e.png
 	
-: art test_background
-	path test_background.bmp

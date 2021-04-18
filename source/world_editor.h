@@ -6,7 +6,7 @@ enum edit_mode {
     // NOTE(Tyler): These correspond to the actual numbers used in the map
     EditMode_AddWall       = EntityType_Wall,       // 1
     EditMode_AddCoinP      = EntityType_Coin,       // 2
-    EditMode_AddEnemy         = EntityType_Enemy,      // 3
+    EditMode_AddEnemy      = EntityType_Enemy,      // 3
     EditMode_AddArt        = EntityType_Art,        // 4
     
     EditMode_AddTeleporter = EntityType_Teleporter, // 8
@@ -15,89 +15,55 @@ enum edit_mode {
     EditMode_TOTAL
 };
 
-enum editor_popup {
-    EditorPopup_None,
-    EditorPopup_TextInput,
-    EditorPopup_InfoSelector,
-};
-
 enum world_editor_action {
-    WorldEditorAction_None,
+    WorldEditorAction_None, 
     
-    WorldEditorAction_BeginAddDrag,
-    WorldEditorAction_AddDragging,
-    WorldEditorAction_EndAddDrag,
-    
-    WorldEditorAction_BeginRemoveDrag,
-    WorldEditorAction_RemoveDragging,
-    
-    WorldEditorAction_DraggingThing,
-};
-
-enum editor_special_thing_type {
-    EditorInfoialThing_None,
-    EditorInfoialThing_PathStart,
-    EditorInfoialThing_PathEnd,
+    WorldEditorAction_AddRectEntity, 
+    WorldEditorAction_EndRectEntity, 
 };
 
 struct world_editor;
-typedef void(*world_editor_text_input_callback)(world_editor *, const char *);
-typedef void(*world_editor_spec_selector_callback)(world_editor *, u32 InfoID);
 
 struct world_editor {
-    editor_popup Popup;
-    union {
-        world_editor_text_input_callback    TextInputCallback;
-        world_editor_spec_selector_callback InfoSelectorCallback;
-    };
     
     char PopupBuffer[512];
     const char *AssetForArtEntity;
     u32 EntityToAddInfoID;
     
     camera Camera;
-    b8 CameraUp;
-    b8 CameraDown;
-    b8 CameraLeft;
-    b8 CameraRight;
-    world_editor_action Action;
     
+    v2 LastMouseP;
     v2 MouseP;
-    v2 MouseP2;
     v2 CursorP;
-    v2 CursorP2;
+    rect DragRect;
+    
     v2 DraggingOffset;
     
-    editor_special_thing_type InfoialThing;
     entity_data *SelectedThing;
     
     world_data *World;
     
+    world_editor_action Action;
     edit_mode Mode;
     
     inline entity_type GetSelectedThingType();
     void UpdateAndRender();
     void DoUI();
-    void UpdateSelectionRectangle();
-    b8   DoPopup();
+    b8   DoSelectorOverlay();
     void DoSelectedThingUI();
     void RenderCursor();
     
     void ProcessKeyDown(os_key_code KeyCode, b8 JustDown);
     void ProcessInput();
     
-    void AddNormalTile(u32 Tile);
-    void AddTeleporterTile();
-    
-    void MaybeFadeWindow(ui_window *Window); 
-    b8   HandleClick(b8 ShouldRemove);
     void ProcessAction();
+    b8   AddWorldEntity();
+    void DoEnemyOverlay(entity_data *Entity);
+    
+    u8 *GetCursorTile();
 };
 
 //~ Constants
-global_constant v2 ENEMY_PATH_HANDLE_SIZE = V2(0.1f, 0.3f);
-global_constant color EDITOR_HOVERED_COLOR = Color(0.0f, 0.0f, 0.7f, 1.0f);
-global_constant color EDITOR_SELECTED_COLOR = Color(0.0f, 0.0f, 1.0f, 1.0f);
 global_constant f32 WORLD_EDITOR_CAMERA_MOVE_SPEED = 0.1f;
 global_constant edit_mode WORLD_EDITOR_FORWARD_EDIT_MODE_TABLE[EditMode_TOTAL] = {
     EditMode_AddWall,       // 0

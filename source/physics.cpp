@@ -88,7 +88,7 @@ physics_debugger::DrawStringAtP(v2 P, const char *Format, ...){
     va_start(VarArgs, Format);
     
     P.Y += 0.1f;
-    v2 StringP = GameCamera.WorldPToScreenP(P);
+    v2 StringP = GameCamera.ToScreenP(P);
     VRenderFormatString(&DebugFont, BLACK, StringP, -10.0f, Format, VarArgs);
     
     va_end(VarArgs);
@@ -104,7 +104,7 @@ physics_debugger::DrawPolygon(v2 *Points, u32 PointCount){
         
         v2 P = Origin + (Scale * Points[I]);
         P.Y += 0.1f;
-        v2 NameP = GameCamera.WorldPToScreenP(P);
+        v2 NameP = GameCamera.ToScreenP(P);
         RenderFormatString(&DebugFont, BLACK, NameP, -10.0f, "%u", I);
     }
 }
@@ -384,8 +384,7 @@ physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
 trigger_physics_object *
 physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
     trigger_physics_object *Result = BucketArrayAlloc(&TriggerObjects);
-    Result->Boundaries = Boundaries;
-    Result->BoundaryCount = Count;
+    SetObjectBoundaries(Result, Boundaries, Count);
     Result->Mass = F32_POSITIVE_INFINITY;
     Result->Response = CollisionResponseStub;
     Result->State &= ~PhysicsObjectState_Inactive;
@@ -1224,6 +1223,8 @@ physics_system::DoPhysics(){
             v2_x4 StartdP = V2X4(System->StartdP);
             
             u32 Seed = (u32)(u64)Particle;
+            // TODO(Tyler): The random number generation is awful 
+            // and could be a good place to speed up!
             f32_x4 RandomPX = StartP.X + RepeatExpr(GetRandomFloat(Seed+=(u32)__rdtsc()>>3, 12, 0.1f));
             f32_x4 RandomPY = StartP.Y + RepeatExpr(GetRandomFloat(Seed+=(u32)__rdtsc()>>3, 13, 0.1f));
             f32_x4 RandomdPX = StartdP.X + RepeatExpr(GetRandomFloat(Seed+=(u32)__rdtsc()>>3, 19, 0.2f));

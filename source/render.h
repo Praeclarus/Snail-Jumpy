@@ -21,8 +21,9 @@ struct camera {
     inline void SetCenter(v2 P, world_data *World);
     inline void Move(v2 dP, world_data *World);
     inline void DirectMove(v2 dP, world_data *World);
-    inline v2   ScreenPToWorldP(v2 ScreenP);
-    inline v2   WorldPToScreenP(v2 WorldP);
+    inline v2   ToWorldP(v2 ScreenP);
+    inline v2   ToScreenP(v2 WorldP);
+    inline rect ToScreenRect(rect WorldRect);
     inline void Update();
     inline void Shake(f32 Time, f32 Strength=0.02f, f32 Frequency=100);
 };

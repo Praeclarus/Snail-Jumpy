@@ -1,26 +1,4 @@
-TODOS:
+BUGS:
 -----------------------------------------------
-
- - Hotloading
-     - Variables file a la Jonathan Blow's games
-
- - Editor
-     - Able to set PLAYER and GATE position!!!
-     - Undo/Redo - Maybe!!!
-
- - Collision system
-     - Use GJK
-     - Triangle wedges
-     - Support steps for like stairs
-
-NOTES FOR RELEASE:
------------------------------------------------
- - Rendering backends
-     - Modern OpenGL(Linux + Windows)  DONE
-     - Legacy OpenGL(OLD)
-     - DirectX(Windows)
-     - Metal(Apple)
-
- - Custom asset format
- - Bake fonts
- - Use Tags instead of strings for assets
+	- Dragonfly changing boundary bug
+    -

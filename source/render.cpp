@@ -179,20 +179,20 @@ RenderRect(rect Rect, f32 Z, color Color, camera *Camera=0){
 }
 
 internal void
-RenderTexture(v2 MinCorner, v2 MaxCorner, f32 Z, 
-              render_texture_handle Texture, v2 MinTexCoord=V2(0,0), v2 MaxTexCoord=V2(1,1), 
-              b8 IsTranslucent=false, camera *Camera=0){
+RenderTexture(rect R, f32 Z, render_texture_handle Texture, 
+              v2 MinTexCoord=V2(0,0), v2 MaxTexCoord=V2(1,1), b8 IsTranslucent=false, 
+              camera *Camera=0){
     Assert(Texture);
     if(Camera){
-        MinCorner -= Camera->P;
-        MaxCorner -= Camera->P;
-        MinCorner *= Camera->MetersToPixels;
-        MaxCorner *= Camera->MetersToPixels;
+        R.Min -= Camera->P;
+        R.Max -= Camera->P;
+        R.Min *= Camera->MetersToPixels;
+        R.Max *= Camera->MetersToPixels;
         
-        if(Renderer.OutputSize.X < MinCorner.X) return;
-        if(Renderer.OutputSize.Y < MinCorner.Y) return;
-        if(MaxCorner.X < 0.0f) return;
-        if(MaxCorner.Y < 0.0f) return;
+        if(Renderer.OutputSize.X < R.Min.X) return;
+        if(Renderer.OutputSize.Y < R.Min.Y) return;
+        if(R.Max.X < 0.0f) return;
+        if(R.Max.Y < 0.0f) return;
     }
     
     auto RenderItem = Renderer.PushRenderItem(Z, IsTranslucent);
@@ -200,10 +200,10 @@ RenderTexture(v2 MinCorner, v2 MaxCorner, f32 Z,
     RenderItem->Texture = Texture;
     
     vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
-    Vertices[0] = {MinCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
-    Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
-    Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
-    Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
+    Vertices[0] = {R.Min.X, R.Min.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
+    Vertices[1] = {R.Min.X, R.Max.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
+    Vertices[2] = {R.Max.X, R.Max.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
+    Vertices[3] = {R.Max.X, R.Min.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
     
     u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
     Indices[0] = 0;
@@ -212,45 +212,6 @@ RenderTexture(v2 MinCorner, v2 MaxCorner, f32 Z,
     Indices[3] = 0;
     Indices[4] = 2;
     Indices[5] = 3;
-}
-
-internal void
-RenderTextureWithColor(v2 MinCorner, v2 MaxCorner, f32 Z,
-                       render_texture_handle Texture, v2 MinTexCoord, v2 MaxTexCoord, 
-                       b8 IsTranslucent, color Color, camera *Camera=0){
-    Assert(Texture);
-    if(Camera){
-        MinCorner -= Camera->P;
-        MaxCorner -= Camera->P;
-        MinCorner *= Camera->MetersToPixels;
-        MaxCorner *= Camera->MetersToPixels;
-    }
-    
-    auto RenderItem = Renderer.PushRenderItem(Z, (IsTranslucent || (Color.A < 1.0f)));
-    RenderItem->IndexCount = 6;
-    RenderItem->Texture = Texture;
-    
-    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
-    Vertices[0] = {MinCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MinTexCoord.X, MinTexCoord.Y};
-    Vertices[1] = {MinCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MinTexCoord.X, MaxTexCoord.Y};
-    Vertices[2] = {MaxCorner.X, MaxCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MaxTexCoord.X, MaxTexCoord.Y};
-    Vertices[3] = {MaxCorner.X, MinCorner.Y, Z, Color.R, Color.G, Color.B, Color.A, MaxTexCoord.X, MinTexCoord.Y};
-    
-    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
-    Indices[0] = 0;
-    Indices[1] = 1;
-    Indices[2] = 2;
-    Indices[3] = 0;
-    Indices[4] = 2;
-    Indices[5] = 3;
-}
-
-internal inline void
-RenderCenteredTexture(v2 Center, v2 Size, f32 Z, 
-                      render_texture_handle Texture, v2 MinTexCoord=V2(0,0), 
-                      v2 MaxTexCoord=V2(1,1), b8 IsTranslucent=false, camera *Camera=0){
-    RenderTexture(Center-Size/2, Center+Size/2, Z, Texture, MinTexCoord,
-                  MaxTexCoord, IsTranslucent, Camera);
 }
 
 internal void

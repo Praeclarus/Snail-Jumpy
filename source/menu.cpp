@@ -71,6 +71,7 @@ UpdateAndRenderMenu(){
             "Starfruit",
         };
         Window->DropDownMenu(Texts, ArrayCount(Texts), &Selected, WIDGET_ID);
+        Window->DropDownMenu(Texts, ArrayCount(Texts), &Selected, WIDGET_ID);
         Window->Text("Selected: %u %s", Selected, Texts[Selected]);
         
         local_persist char Buffer[512];

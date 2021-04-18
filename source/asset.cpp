@@ -350,7 +350,7 @@ InitializeAssetSystem(memory_arena *Arena){
     DummyArtAsset.Type = AssetType_Art;
     DummyArtAsset.SizeInPixels = V2S(128, 128);
     DummyArtAsset.Scale = 1.0f;
-    DummyArtAsset.Texture = DefaultTexture;
+    DummyArtAsset.Texture = InvalidTexture;
 }
 
 internal asset *
@@ -374,14 +374,11 @@ GetArt(const char *Name){
 }
 
 internal array<const char *>
-GetAssetNameListByType(const char *_CurrentAsset, asset_type Type, u32 *OutSelected){
+GetAssetNameListByType(asset_type Type){
     array<const char *> AssetNames = CreateNewArray<const char *>(&TransientStorageArena, 256);
     for(u32 I = 0; I < AssetTable.MaxBuckets; I++){
         const char *Key = AssetTable.Keys[I];
         if(Key){
-            if(Key == _CurrentAsset){
-                if(OutSelected) *OutSelected = AssetNames.Count;
-            }
             asset *Asset = &AssetTable.Values[I];
             if(Asset->Type == Type){
                 PushItemOntoArray(&AssetNames, Key);
@@ -390,18 +387,6 @@ GetAssetNameListByType(const char *_CurrentAsset, asset_type Type, u32 *OutSelec
     }
     
     return(AssetNames);
-}
-
-internal const char *
-AssetNameDropDown(ui_window *Window, const char *SelectedAsset, 
-                  asset_type AssetType, u64 WidgetID){
-    TIMED_FUNCTION();
-    
-    u32 Selected = 0;
-    array<const char *> AssetNames = GetAssetNameListByType(SelectedAsset, AssetType, &Selected);
-    Window->DropDownMenu(AssetNames, &Selected, WidgetID);
-    const char *Result = AssetNames[Selected];
-    return(Result);
 }
 
 internal void
@@ -422,9 +407,8 @@ RenderFrameOfSpriteSheet(camera *Camera, const char *AssetName,
     MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
     v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
     
-    RenderTexture(Center-0.5f*Asset->Scale*Asset->SizeInMeters, 
-                  Center+0.5f*Asset->Scale*Asset->SizeInMeters, Z, Asset->Texture, 
-                  MinTexCoord, MaxTexCoord, Asset->IsTranslucent, Camera);
+    RenderTexture(CenterRect(Center, Asset->Scale*Asset->SizeInMeters), 
+                  Z, Asset->Texture, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, Camera);
 }
 
 internal void
@@ -486,17 +470,8 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
         MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
         v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
         
-        RenderTexture(P, P+Asset->Scale*Asset->SizeInMeters, Entity->ZLayer,
+        RenderTexture(SizeRect(P, Asset->Scale*Asset->SizeInMeters), Entity->ZLayer,
                       Asset->Texture, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
                       Camera);
-        
-#if 0
-        //#ifdef SNAIL_JUMPY_DEBUG_BUILD
-        if(DebugConfig.Overlay & DebugOverlay_Boundaries)
-            for(u32 I = 0; I < Entity->BoundaryCount; I++){
-            collision_boundary *Boundary = &Entity->Boundaries[I]; 
-            RenderBoundary(Camera, Boundary, Entity->ZLayer-0.1f);
-        }
-#endif
     }
 }

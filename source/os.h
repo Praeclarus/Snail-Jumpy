@@ -77,19 +77,29 @@ enum os_event_kind {
     OSEventKind_MouseDown,
     OSEventKind_MouseUp,
     OSEventKind_MouseMove,
+    OSEventKind_MouseWheelMove,
 };
 
 struct os_event {
     os_event_kind Kind;
     union {
+        // Key up
+        // Key down
         struct {
             os_key_code Key;
             b8 JustDown;
         };
         
+        // Mouse down/up
+        // Mouse move
         struct {
             os_mouse_button Button;
-            v2  MouseP;
+            v2              MouseP;
+        };
+        
+        // Mouse wheel move
+        struct {
+            s32 WheelMovement;
         };
     };
 };

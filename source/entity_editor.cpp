@@ -3,51 +3,60 @@
 
 // TODO(Tyler): This function should be modified to use the UI system once its improved
 internal u32
-UpdateAndRenderInfoSelector(v2 P, v2 MouseP, camera *ParentCamera, u32 SelectedInfo){
+
+DoInfoSelector(v2 StartP, camera *ParentCamera, u32 SelectedInfo){
+    // TODO(Tyler): This is a failing of Camera, we don't want it to be 
+    // offset by it's position
     camera Camera = {}; Camera.MetersToPixels = ParentCamera->MetersToPixels;
     
-    u32 Result = 0;
+    u32 Result = SelectedInfo;
     local_constant f32 Thickness = 0.03f;
-    local_constant f32 Margin    = 0.5f;
-    local_constant f32 Spacer    = 0.1f;
-    f32 YMin = F32_POSITIVE_INFINITY;
-    f32 YMax = F32_NEGATIVE_INFINITY;
+    local_constant f32 Spacer    = 0.0f;
     
-    v2 FoundMin = {};
-    v2 FoundMax = {};
+    v2 P = StartP;
     for(u32 I = 1; I < EntityInfos.Count; I++){
         entity_info *Info = &EntityInfos[I];
         asset *Asset = GetSpriteSheet(Info->Asset);
         v2 Size = Asset->SizeInMeters*Asset->Scale;
-        v2 Center = P;
-        Center.X += 0.5f*Size.X;
-        RenderFrameOfSpriteSheet(&Camera, Info->Asset, 0, Center, 0.0f);
+        v2 Center = P + 0.5f*Size;
+        RenderFrameOfSpriteSheet(&Camera, Info->Asset, 0, Center, -2.0f);
         
-        v2 Min = V2(P.X, P.Y-0.5f*Size.Y);
-        v2 Max = Min + Size;
-        YMin = Minimum(Min.Y, YMin);
-        YMax = Maximum(Max.Y, YMax);
-        if(I == SelectedInfo){
-            f32 Thickness = 0.06f;
-            f32 Offset = 0.2f;
-            RenderRect(Rect(V2(Min.X, Min.Y-Offset), V2(Max.X, Min.Y-Offset+Thickness)), -0.1f, BLUE, &Camera);
+        rect R = SizeRect(V2(P.X, P.Y), Size);
+        
+        u64 ID = WIDGET_ID_CHILD(WIDGET_ID, I);
+        ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+        
+        switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Left, -1)){
+            case ButtonBehavior_None: {
+                State->T -= 5*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Hovered: {
+                State->T += 7*OSInput.dTime;
+            }break;
+            case ButtonBehavior_Activate: {
+                Result = I;
+            }break;
         }
         
-        if((P.X <= MouseP.X) && (MouseP.X <= P.X+Size.X)){
-            Result = I;
-            FoundMin = Min;
-            FoundMax = Max;
-        }
+        color C = EDITOR_HOVERED_COLOR; C.A = 0.0f;
+        State->T = Clamp(State->T, 0.0f, 1.0f);
+        f32 T = 1.0f-Square(1.0f-State->T);
+        C = MixColor(EDITOR_HOVERED_COLOR, C,  T);
+        
+        if(Result == I) State->ActiveT += 3*OSInput.dTime; 
+        else                        State->ActiveT -= 5*OSInput.dTime; 
+        State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
+        
+        f32 ActiveT = 1.0f - Square(1.0f-State->ActiveT);
+        C = MixColor(EDITOR_SELECTED_COLOR, C,  ActiveT);
+        RenderRectOutline(R, -2.1f, C, &Camera, Thickness);
         
         f32 XAdvance = Spacer+Size.X;
         P.X += XAdvance;
-    }
-    
-    if(Result){
-        if((YMin <= MouseP.Y) && (MouseP.Y <= YMax)){
-            RenderRectOutline(Rect(FoundMin, FoundMax), -0.1f, WHITE, &Camera, Thickness);
-        }else{
-            Result = 0;
+        
+        if(P.X > 10.0f){
+            P.X = StartP.X;
+            P.Y -= 1.5f;
         }
     }
     
@@ -101,6 +110,9 @@ entity_editor::SnapPoint(v2 Point, f32 Fraction){
 
 void 
 entity_editor::ProcessKeyDown(os_key_code KeyCode){
+    switch((u32)KeyCode){
+        case 'T': ChangeState(GameMode_WorldEditor, 0); break;
+    }
 }
 
 void 
@@ -165,7 +177,7 @@ entity_editor::ProcessInput(){
                 }
             }break;
             case OSEventKind_MouseMove: {
-                CursorP = Camera.ScreenPToWorldP(Event.MouseP);
+                CursorP = Camera.ToWorldP(Event.MouseP);
             }break;
         }
         
@@ -174,13 +186,13 @@ entity_editor::ProcessInput(){
 }
 
 void
-entity_editor::ProcessAction(){
+entity_editor::
+ProcessAction(){
     switch(Action.Type){
         case EntityEditorAction_Making: {
             Action.Boundary.Bounds.Max = CursorP;
             Action.Boundary.Bounds.Min.Y = Maximum(FloorY, Action.Boundary.Bounds.Min.Y);
             Action.Boundary.Bounds.Max.Y = Maximum(FloorY, Action.Boundary.Bounds.Max.Y);
-            
             
             asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
             f32 GridSize = Asset->Scale/(Camera.MetersToPixels);
@@ -255,18 +267,10 @@ entity_editor::DoUI(){
         
         if(Window->Button("Switch to world editor", WIDGET_ID)){
             ChangeState(GameMode_WorldEditor, 0);
-            WorldEditor.World = CurrentWorld;
         }
         
         if(Window->Button("Save all", WIDGET_ID)){
             WriteEntityInfos("entities.sje");
-        }
-        
-        {
-            u32 Selected = 0;
-            array<const char *> AssetNames = GetAssetNameListByType(SelectedInfo->Asset, AssetType_SpriteSheet, &Selected);
-            Window->DropDownMenu(AssetNames, &Selected, WIDGET_ID);
-            SelectedInfo->Asset = AssetNames[Selected];
         }
         
         //~ Animation stuff
@@ -425,7 +429,7 @@ entity_editor::UpdateAndRender(){
     }
     
     {
-        u32 InfoToSelect = UpdateAndRenderInfoSelector(V2(0.5f, FloorY-SelectorOffset-1.0f), CursorP, &Camera, SelectedInfoID);
+        u32 InfoToSelect = DoInfoSelector(V2(0.5f, FloorY-SelectorOffset-1.0f), &Camera, SelectedInfoID);
         
         if(Action.Type == EntityEditorAction_SelectInfo){
             Action.Type = EntityEditorAction_None;
