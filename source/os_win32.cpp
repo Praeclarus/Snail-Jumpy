@@ -236,8 +236,11 @@ Win32DefaultHandlerRoutine(DWORD ControlSignal){
             // TODO(Tyler): I don't know if this is correct, but this is the only way I can
             // get it to close without crashing.
             
+#if defined(SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT)
             WorldManager.WriteWorldsToFiles();
             WriteEntityInfos("entities.sje");
+#endif
+            
             ExitProcess(0);
         }break;
         default: {

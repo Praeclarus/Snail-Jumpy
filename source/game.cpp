@@ -38,6 +38,7 @@ UpdateAndRenderMainGame(){
     
     Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
     Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
+    GameCamera.MoveFactor = 0.03f;
     GameCamera.Update();
     
     EntityManager.UpdateAndRenderEntities(&GameCamera);

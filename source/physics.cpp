@@ -145,26 +145,39 @@ IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
 internal inline void
 RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset){
     Offset += Boundary->Offset;
-    color Color_ = Color(0.0f, 0.8f, 0.8f, 0.3f);
+    color Color_ = Color(0.0f, 0.8f, 0.8f, 1.0f);
     switch(Boundary->Type){
         case BoundaryType_None: break;
         case BoundaryType_Rect: {
-            RenderRect(OffsetRect(Boundary->Bounds, Offset), Z, 
-                       Color_, Camera);
+            v2 Points[4] = {
+                V2(Boundary->Bounds.Min.X, Boundary->Bounds.Min.Y),
+                V2(Boundary->Bounds.Max.X, Boundary->Bounds.Min.Y),
+                V2(Boundary->Bounds.Max.X, Boundary->Bounds.Max.Y),
+                V2(Boundary->Bounds.Min.X, Boundary->Bounds.Max.Y),
+            };
+            
+            for(u32 I=0; I < 4; I++){
+                v2 PointA = Points[I] + Offset;
+                v2 PointB = Points[(I+1)%4] + Offset;
+                RenderLine(PointA, PointB, Z-0.15f, 0.02f, Color_, Camera);
+            }
+            
         }break;
         case BoundaryType_FreeForm: {
             u32 Count = Boundary->FreeFormPointCount;
             for(u32 I=0; I < Count; I++){
                 v2 PointA = Boundary->FreeFormPoints[I] + Offset;
                 v2 PointB = Boundary->FreeFormPoints[(I+1)%Count] + Offset;
-                RenderLine(PointA, PointB, Z-0.15f, 0.02f, BLUE, Camera);
+                RenderLine(PointA, PointB, Z-0.15f, 0.02f, Color_, Camera);
             }
             
         }break;
         default: INVALID_CODE_PATH;
     }
+#if 0
     RenderRectOutline(OffsetRect(Boundary->Bounds, Offset), Z-0.1f,
                       RED, Camera, 0.015f);
+#endif
 }
 
 internal inline collision_boundary
@@ -1150,7 +1163,8 @@ physics_system::DoPhysics(){
                         ObjectA->Delta    -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
                     }
                     
-                    f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
+                    //f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
+                    f32 CorrectionPercent = 0.0f;
                     if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
                     ObjectA->P += CorrectionPercent*Collision->Correction;
                     

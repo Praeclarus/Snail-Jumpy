@@ -189,13 +189,13 @@ ui_window::Button(const char *Text, u64 ID){
     
     f32 Speed = 0.0f;
     switch(Manager->DoButtonElement(ID, ButtonRect)){
-        case ButtonBehavior_None:{
+        case UIBehavior_None:{
             State->T -= 5.0f*OSInput.dTime;
         }break;
-        case ButtonBehavior_Hovered: {
+        case UIBehavior_Hovered: {
             State->T += 7.0f*OSInput.dTime;
         }break;
-        case ButtonBehavior_Activate: {
+        case UIBehavior_Activate: {
             Result = true;
             State->ActiveT = 1.0f;
         }break;
@@ -254,15 +254,15 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     
     b8 IsActive = false;
     switch(Manager->DoTextInputElement(ID, TextBoxRect)){
-        case ButtonBehavior_None: {
+        case UIBehavior_None: {
             State->T -= 5.0f*OSInput.dTime;
             State->ActiveT -= 5.0f*OSInput.dTime;
         }break;
-        case ButtonBehavior_Hovered: {
+        case UIBehavior_Hovered: {
             State->T += 7.0f*OSInput.dTime;
             State->ActiveT -= 3.0f*OSInput.dTime;
         }break;
-        case ButtonBehavior_Activate: {
+        case UIBehavior_Activate: {
             for(u32 I = 0; 
                 (I < Manager->BufferIndex) && (BufferIndex < BufferSize);
                 I++){
@@ -340,13 +340,13 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
     BoxRect = OffsetRect(BoxRect, DrawP);
     
     switch(Manager->DoButtonElement(ID, ActivateRect)){
-        case ButtonBehavior_None:{
+        case UIBehavior_None:{
             State->T -= 5.0f*OSInput.dTime;
         }break;
-        case ButtonBehavior_Hovered: {
+        case UIBehavior_Hovered: {
             State->T += 7.0f*OSInput.dTime;
         }break;
-        case ButtonBehavior_Activate: {
+        case UIBehavior_Activate: {
             Result = !Result;
             State->ActiveT = 1.0f;
         }break;
@@ -547,13 +547,13 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
     color C = Theme.TitleBarColor;
     
     switch(DoDraggableElement(WIDGET_ID_CHILD(WIDGET_ID, (u64)Window), TitleBarRect,  Window->WindowP, 3)){
-        case ButtonBehavior_Activate: {
+        case UIBehavior_Activate: {
             Window->WindowP = OSInput.MouseP + ActiveElement.Offset;
         }
-        case ButtonBehavior_Hovered: {
+        case UIBehavior_Hovered: {
             C = Theme.TitleBarHoverColor;
         }break;
-        case ButtonBehavior_None: {
+        case UIBehavior_None: {
             Window->FadeMode = UIWindowFadeMode_None;
             if((ActiveElement.Type == UIElementType_Draggable) ||
                (ActiveElement.Type == UIElementType_MouseButton)){
@@ -633,21 +633,21 @@ ui_manager::DoHoverElement(ui_element *Element){
     return(Result);
 }
 
-ui_button_behavior
+ui_behavior
 ui_manager::DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button, s32 Priority){
-    ui_button_behavior Result = ButtonBehavior_None;
+    ui_behavior Result = UIBehavior_None;
     
     ui_element Element = MakeElement(UIElementType_Button, ID, Priority);
     
     if(CompareElements(&Element, &ActiveElement)){
         HoveredElement = Element;
-        Result = ButtonBehavior_Activate;
+        Result = UIBehavior_Activate;
         ResetActiveElement();
     }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
         if(!DoHoverElement(&Element)) return(Result);
         
         HoveredElement = Element;
-        Result = ButtonBehavior_Hovered;
+        Result = UIBehavior_Hovered;
         if(MouseButtonJustDown(Button)){
             SetValidElement(&Element);
         }
@@ -656,9 +656,9 @@ ui_manager::DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button, s32
     return(Result);
 }
 
-ui_button_behavior
+ui_behavior
 ui_manager::DoTextInputElement(u64 ID, rect ActionRect, s32 Priority){
-    ui_button_behavior Result = ButtonBehavior_None;
+    ui_behavior Result = UIBehavior_None;
     
     ui_element Element = MakeElement(UIElementType_TextInput, ID, Priority);
     
@@ -668,12 +668,12 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, s32 Priority){
            MouseButtonIsDown(MouseButton_Left)){
             ResetActiveElement();
         }else{
-            Result = ButtonBehavior_Activate;
+            Result = UIBehavior_Activate;
         }
     }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
         if(!DoHoverElement(&Element)) return(Result);
         
-        Result = ButtonBehavior_Hovered;
+        Result = UIBehavior_Hovered;
         if(MouseButtonJustUp(MouseButton_Left)){
             SetValidElement(&Element);
         }
@@ -682,25 +682,25 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, s32 Priority){
     return(Result);
 }
 
-ui_button_behavior
+ui_behavior
 ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
-    ui_button_behavior Result = ButtonBehavior_None;
+    ui_behavior Result = UIBehavior_None;
     
     ui_element Element = MakeElement(UIElementType_Draggable, ID, Priority);
     Element.Offset = P - OSInput.MouseP;
     
     if(CompareElements(&Element, &ActiveElement)){
         HoveredElement = Element;
-        Result = ButtonBehavior_Activate;
+        Result = UIBehavior_Activate;
         if(!MouseButtonIsDown(MouseButton_Left)){
             ResetActiveElement();
-            Result = ButtonBehavior_Hovered;
+            Result = UIBehavior_Hovered;
         }
     }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
         if(!DoHoverElement(&Element)) return(Result);
         
         HoveredElement = Element;
-        Result = ButtonBehavior_Hovered;
+        Result = UIBehavior_Hovered;
         if(MouseButtonJustDown(MouseButton_Left)){
             SetValidElement(&Element);
         }
@@ -709,22 +709,26 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
     return(Result);
 }
 
-b8
+ui_behavior
 ui_manager::EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce, s32 Priority){
-    b8 Result = false;
+    ui_behavior Result = UIBehavior_None;
     
     ui_element Element = MakeElement(UIElementType_MouseButton, ID, Priority);
     
     if(CompareElements(&Element, &ActiveElement)){
-        Result = true;
+        Result = UIBehavior_Activate;
         HoveredElement = Element;
-        if(OnlyOnce || !MouseButtonIsDown(Button)) ResetActiveElement();
+        if(OnlyOnce) ResetActiveElement();
+        if(ElementJustActive) Result = UIBehavior_JustActivate;
+        if(MouseButtonJustUp(Button)){
+            Result = UIBehavior_Deactivate;
+            ResetActiveElement();
+        }
     }else if(MouseButtonJustDown(Button)){
         if(!DoHoverElement(&Element)) return(Result);
         HoveredElement = Element;
         SetValidElement(&Element);
     }
-    
     return(Result);
 }
 
@@ -739,17 +743,18 @@ ui_manager::Initialize(memory_arena *Arena){
 
 void
 ui_manager::BeginFrame(){
-    HandledInput    = false;
     HoveredElement  = DefaultElement();
     for(u32 I = 0; I < MouseButton_TOTAL; I++) PreviousMouseState[I] = MouseState[I];
 }
 
 void
 ui_manager::EndFrame(){
+    ElementJustActive = false;
     if((ActiveElement.Type != UIElementType_TextInput) &&
        (ActiveElement.Type != UIElementType_Draggable) &&
        (ActiveElement.Type != UIElementType_MouseButton)){
         ActiveElement = ValidElement;
+        ElementJustActive = true;;
     }
     ValidElement = DefaultElement();
 }
@@ -809,7 +814,6 @@ ui_manager::ProcessEvent(os_event *Event){
                 if(Event->Key == KeyCode_Shift){
                     IsShiftDown = false;
                 }else if(Event->Key == KeyCode_Escape){
-                    HandledInput = true;
                     ResetActiveElement();
                 }
                 Result = true;
@@ -831,20 +835,20 @@ ui_manager::ProcessEvent(os_event *Event){
 
 //~ Editor stuff
 
-internal inline ui_button_behavior
+internal inline ui_behavior
 EditorDraggableElement(ui_manager *Manager, camera *Camera, 
                        u64 ID, rect R, v2 P, s32 Priority){
     R = Camera->ToScreenRect(R);
     P = Camera->ToScreenP(P);
-    ui_button_behavior Result = Manager->DoDraggableElement(ID, R, P, Priority);
+    ui_behavior Result = Manager->DoDraggableElement(ID, R, P, Priority);
     return(Result);
 }
 
-internal inline ui_button_behavior
+internal inline ui_behavior
 EditorButtonElement(ui_manager *Manager, camera *Camera, 
                     u64 ID, rect R, os_mouse_button Button, s32 Priority){
     R = Camera->ToScreenRect(R);
-    ui_button_behavior Result = Manager->DoButtonElement(ID, R, Button, Priority);
+    ui_behavior Result = Manager->DoButtonElement(ID, R, Button, Priority);
     return(Result);
 }
 

@@ -6,10 +6,10 @@ MenuDoDraggableRect(rect Rect, v2 P, u32 Priority, u64 ID){
     rect TestRect = CenterRect(V20, V2(300));
     TestRect = OffsetRect(TestRect, Result);
     switch(UIManager.DoDraggableElement(ID, TestRect, P, Priority)){
-        case ButtonBehavior_Hovered: {
+        case UIBehavior_Hovered: {
             C = PINK;
         }break;
-        case ButtonBehavior_Activate: {
+        case UIBehavior_Activate: {
             Result = OSInput.MouseP + UIManager.ActiveElement.Offset;
             C = BLUE;
         }break;

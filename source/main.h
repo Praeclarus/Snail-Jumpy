@@ -19,7 +19,7 @@ global_constant f32 TILE_SIDE = 0.5f;
 global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
 global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant u32 DEFAULT_BUFFER_SIZE = 512;
-global_constant char *STARTUP_LEVEL = "Debug";
+global_constant char *STARTUP_LEVEL = "Testing";
 global_constant f32 WALKABLE_STEEPNESS = 0.2f;
 
 global_constant color EDITOR_BASE_COLOR     = Color(0.5f, 0.8f, 0.6f, 0.9f);

@@ -280,8 +280,8 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
             f32 XRange = 0.2f;
             if((Collision->Normal.Y > 0.0f) &&
                (-XRange <= Collision->Normal.X) && (Collision->Normal.X <= XRange)){
-                EntityManager.DamagePlayer(Enemy->Damage);
-                return(true);
+                //EntityManager.DamagePlayer(Enemy->Damage);
+                //return(true);
             }
         }
         if(Collision->Normal.Y < 0.0f){
@@ -372,7 +372,7 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             Player->Direction = Direction_Left;
             Movement -= MovementSpeed;
         }
-        MovePlatformer(Physics, Movement);
+        MovePlatformer(Physics, Movement, 20);
         
         
         // TODO(Tyler): Load from file ('JumpTime', 'JumpPower')

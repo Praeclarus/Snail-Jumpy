@@ -434,6 +434,23 @@ MaximumV2S(v2s A, v2s B){
     return(Result);
 }
 
+internal inline v2
+SquareV2(v2 V){
+    v2 Result;
+    Result.X = V.X*V.X;
+    Result.Y = V.Y*V.Y;
+    return(Result);
+}
+
+internal inline v2
+SnapToGrid(v2 P, f32 UnitSize){
+    P /= UnitSize;
+    v2 Result = V2(Floor(P.X), Floor(P.Y));
+    Result *= UnitSize;
+    
+    return(Result);
+}
+
 //~ Colors
 struct color {
     f32 R, G, B, A;
@@ -610,6 +627,31 @@ ScaleRect(rect Rect, f32 Scale){
     rect Result = Rect;
     Result.Min *= Scale;
     Result.Max *= Scale;
+    return(Result);
+}
+
+internal inline rect
+SnapToGrid(rect R, f32 UnitSize){
+    rect Result;
+    if(R.Min.X < R.Max.X){
+        Result.Min.X = Floor(R.Min.X/UnitSize);
+        Result.Max.X =  Ceil(R.Max.X/UnitSize);
+    }else{
+        Result.Min.X =  Ceil(R.Min.X/UnitSize);
+        Result.Max.X = Floor(R.Max.X/UnitSize);
+    }
+    if(R.Min.Y < R.Max.Y){
+        Result.Min.Y = Floor(R.Min.Y/UnitSize);
+        Result.Max.Y =  Ceil(R.Max.Y/UnitSize);
+    }else{
+        Result.Min.Y =  Ceil(R.Min.Y/UnitSize);
+        Result.Max.Y = Floor(R.Max.Y/UnitSize);
+    }
+    Result = ScaleRect(Result, UnitSize);
+    
+    // TODO(Tyler): Maybe fix rect?
+    Result = FixRect(Result);
+    
     return(Result);
 }
 

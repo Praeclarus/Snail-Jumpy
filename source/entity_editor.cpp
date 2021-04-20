@@ -1,9 +1,7 @@
 
 //~ Entity info selector
 
-// TODO(Tyler): This function should be modified to use the UI system once its improved
 internal u32
-
 DoInfoSelector(v2 StartP, camera *ParentCamera, u32 SelectedInfo){
     // TODO(Tyler): This is a failing of Camera, we don't want it to be 
     // offset by it's position
@@ -27,13 +25,13 @@ DoInfoSelector(v2 StartP, camera *ParentCamera, u32 SelectedInfo){
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
         
         switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Left, -1)){
-            case ButtonBehavior_None: {
+            case UIBehavior_None: {
                 State->T -= 5*OSInput.dTime;
             }break;
-            case ButtonBehavior_Hovered: {
+            case UIBehavior_Hovered: {
                 State->T += 7*OSInput.dTime;
             }break;
-            case ButtonBehavior_Activate: {
+            case UIBehavior_Activate: {
                 Result = I;
             }break;
         }
@@ -63,33 +61,49 @@ DoInfoSelector(v2 StartP, camera *ParentCamera, u32 SelectedInfo){
     return(Result);
 }
 
-//~ Entity editor Actions
-internal inline entity_editor_action
-BeginMakingAction(v2 StartP, entity_info_boundary_type Type){
-    entity_editor_action Result = {};
-    Result.Type = EntityEditorAction_Making;
-    Result.Boundary.Type = Type;
-    Result.Boundary.Bounds.Min = StartP;
-    Result.Boundary.Bounds.Max = StartP;
-    
+//~ Helpers
+internal inline rect
+GetInfoBoundaryBounds(entity_info_boundary *Boundary, v2 P){
+    rect Result = FixRect(Boundary->Bounds);
+    Result = OffsetRect(Result, Boundary->Offset+P);
     return(Result);
 }
 
-//~ Entity editor
-entity_info_boundary *
-entity_editor::GetBoundaryThatCursorIsOver(){
-    entity_info_boundary *Result = 0;
-    for(u32 I = 0; I < SelectedInfo->BoundaryCount; I++){
-        entity_info_boundary *Boundary = &BoundarySet[I];
-        rect RectA = FixRect(Boundary->Bounds);
-        rect RectB = OffsetRect(RectA, Boundary->Offset+EntityP);
-        if(IsPointInRect(CursorP, RectB)){
-            Result = Boundary;
-        }
-    }
+internal void
+FixInfoBoundary(entity_info_boundary *Boundary, v2 BaseP=V2(0)){
     
-    return(Result);
+    if(Boundary->Type == EntityInfoBoundaryType_Circle){
+        rect Bounds = Boundary->Bounds;
+        v2 Size = RectSize(Bounds);
+        f32 MinSide = Minimum(AbsoluteValue(Size.X), AbsoluteValue(Size.Y));
+        v2 CircleSize = V2(SignOf(Size.X)*MinSide, SignOf(Size.Y)*MinSide);
+        Boundary->Bounds.Max = Boundary->Bounds.Min + CircleSize;
+        
+        v2 ToCenter = 0.5f*V2(SignOf(Size.X)*MinSide, SignOf(Size.Y)*MinSide);
+        Boundary->Offset = Bounds.Min + ToCenter - BaseP;
+    }else if(Boundary->Type == EntityInfoBoundaryType_Pill){
+        rect Bounds = Boundary->Bounds;
+        v2 AbsSize = RectSize(FixRect(Bounds));
+        v2 Size = RectSize(Bounds);
+        
+        if(AbsSize.X > AbsSize.Y){
+            AbsSize.X = AbsSize.Y;
+            Size.X = SignOf(Size.X)*AbsSize.Y;
+            Boundary->Bounds.Max.X = Bounds.Min.X+Size.X;
+        }
+        
+        f32 YToMiddle = 0.5f*AbsSize.X;
+        if(Size.Y < 0.0f){
+            YToMiddle += Size.Y;
+        }
+        v2 ToCenter = V2(0.5f*Size.X, YToMiddle);
+        Boundary->Offset = Bounds.Min + ToCenter - BaseP;
+    }else{
+        Boundary->Offset = GetRectCenter(Boundary->Bounds) - BaseP;
+    }
 }
+
+//~ Entity editor
 
 inline void 
 entity_editor::RemoveInfoBoundary(entity_info_boundary *Boundary){
@@ -99,19 +113,22 @@ entity_editor::RemoveInfoBoundary(entity_info_boundary *Boundary){
     AddingBoundary = &BoundarySet[SelectedInfo->BoundaryCount-1];
 }
 
-inline  v2
-entity_editor::SnapPoint(v2 Point, f32 Fraction){
-    v2 Result = Point/Fraction;
-    Result.X = Round(Result.X);
-    Result.Y = Round(Result.Y);
-    Result *= Fraction;
-    return(Result);
-}
-
 void 
 entity_editor::ProcessKeyDown(os_key_code KeyCode){
     switch((u32)KeyCode){
         case 'T': ChangeState(GameMode_WorldEditor, 0); break;
+        // Upper bounds checking is done elsewhere
+        case 'J': if(CurrentFrame > 0) CurrentFrame--; break;
+        case 'K': CurrentFrame++;                      break; 
+        case 'L': DoPlayAnimation = !DoPlayAnimation;  break; 
+        case 'S': WriteEntityInfos("entities.sje");    break;
+        case 'A': AddBoundary = !AddBoundary;          break; 
+        
+        case KeyCode_Left:  CurrentDirection = Direction_Left;  break;
+        case KeyCode_Right: CurrentDirection = Direction_Right; break;
+        
+        case KeyCode_Up: CurrentState = FORWARD_STATE_TABLE[CurrentState];   break;
+        case KeyCode_Down: CurrentState = REVERSE_STATE_TABLE[CurrentState]; break;
     }
 }
 
@@ -125,143 +142,16 @@ entity_editor::ProcessInput(){
             case OSEventKind_KeyDown: {
                 ProcessKeyDown(Event.Key);
             }break;
-            case OSEventKind_MouseDown: {
-                if(Event.Button == MouseButton_Left){
-                    if(CursorP.Y < (FloorY-SelectorOffset)){
-                        Action.Type = EntityEditorAction_SelectInfo;
-                    }else if(AddBoundary){
-                        Action = BeginMakingAction(CursorP, BoundaryType);
-                        AddBoundary = false;
-                    }else{
-                        entity_info_boundary *Boundary = GetBoundaryThatCursorIsOver();
-                        if(Boundary){
-                            Action.Type = EntityEditorAction_Dragging;
-                            Action.DraggingBoundary = Boundary;
-                            Action.DraggingOffset = Boundary->Offset - (CursorP-EntityP);
-                            EditingBoundary = Boundary;
-                        }
-                    }
-                }else if(Event.Button == MouseButton_Right){
-                    entity_info_boundary *Boundary = GetBoundaryThatCursorIsOver();
-                    if(Boundary){
-                        Action.Type = EntityEditorAction_Remove;
-                        Action.RemoveBoundary = Boundary;
-                    }
-                }
-            }break;
-            case OSEventKind_MouseUp: {
-                if(Event.Button == MouseButton_Left){
-                    // Finalize Making action
-                    if(Action.Type == EntityEditorAction_Making){
-                        *AddingBoundary = Action.Boundary;
-                        
-                        rect Bounds = FixRect(AddingBoundary->Bounds);
-                        AddingBoundary->Bounds.Min = Bounds.Min - AddingBoundary->Offset - EntityP;
-                        AddingBoundary->Bounds.Max = Bounds.Max - AddingBoundary->Offset - EntityP;
-                        EditingBoundary = AddingBoundary;
-                        
-                        entity_info_boundary *End = BoundarySet + (SelectedInfo->BoundaryCount-1);
-                        AddingBoundary++;
-                        if(AddingBoundary > End){
-                            AddingBoundary = BoundarySet;
-                        }
-                        
-                        Action = {};
-                    }else if(Action.Type == EntityEditorAction_Dragging){
-                        Action = {};
-                    }
-                }else if(Event.Button == MouseButton_Right){
-                    if(Action.Type == EntityEditorAction_Remove){
-                        Action = {};
-                    }
-                }
-            }break;
-            case OSEventKind_MouseMove: {
-                CursorP = Camera.ToWorldP(Event.MouseP);
-            }break;
         }
         
         ProcessDefaultEvent(&Event);
     }
 }
 
-void
-entity_editor::
-ProcessAction(){
-    switch(Action.Type){
-        case EntityEditorAction_Making: {
-            Action.Boundary.Bounds.Max = CursorP;
-            Action.Boundary.Bounds.Min.Y = Maximum(FloorY, Action.Boundary.Bounds.Min.Y);
-            Action.Boundary.Bounds.Max.Y = Maximum(FloorY, Action.Boundary.Bounds.Max.Y);
-            
-            asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
-            f32 GridSize = Asset->Scale/(Camera.MetersToPixels);
-            Action.Boundary.Bounds.Min = SnapPoint(Action.Boundary.Bounds.Min, GridSize);
-            Action.Boundary.Bounds.Max = SnapPoint(Action.Boundary.Bounds.Max, GridSize);
-            
-            if(Action.Boundary.Type == EntityInfoBoundaryType_Circle){
-                rect Bounds = Action.Boundary.Bounds;
-                v2 Size = RectSize(Bounds);
-                f32 MinSide = Minimum(AbsoluteValue(Size.X), AbsoluteValue(Size.Y));
-                v2 CircleSize = V2(SignOf(Size.X)*MinSide, SignOf(Size.Y)*MinSide);
-                Action.Boundary.Bounds.Max = Action.Boundary.Bounds.Min + CircleSize;
-                
-                v2 ToCenter = 0.5f*V2(SignOf(Size.X)*MinSide, SignOf(Size.Y)*MinSide);
-                Action.Boundary.Offset = Bounds.Min + ToCenter - EntityP;
-            }else if(Action.Boundary.Type == EntityInfoBoundaryType_Pill){
-                rect Bounds = Action.Boundary.Bounds;
-                v2 AbsSize = RectSize(FixRect(Bounds));
-                v2 Size = RectSize(Bounds);
-                
-                if(AbsSize.X > AbsSize.Y){
-                    AbsSize.X = AbsSize.Y;
-                    Size.X = SignOf(Size.X)*AbsSize.Y;
-                    Action.Boundary.Bounds.Max.X = Bounds.Min.X+Size.X;
-                }
-                
-                f32 YToMiddle = 0.5f*AbsSize.X;
-                if(Size.Y < 0.0f){
-                    YToMiddle += Size.Y;
-                }
-                v2 ToCenter = V2(0.5f*Size.X, YToMiddle);
-                Action.Boundary.Offset = Bounds.Min + ToCenter - EntityP;
-            }else{
-                Action.Boundary.Offset = GetRectCenter(Action.Boundary.Bounds) - EntityP;
-            }
-            
-            v2 PointSize = V2(0.03f);
-            RenderRect(CenterRect(Action.Boundary.Bounds.Min, PointSize), -10.0f, YELLOW, &Camera);
-            RenderRect(CenterRect(Action.Boundary.Bounds.Max, PointSize), -10.0f, YELLOW, &Camera);
-            
-            collision_boundary Boundary = ConvertToCollisionBoundary(&Action.Boundary, &TransientStorageArena);
-            RenderBoundary(&Camera, &Boundary, -2.0f, EntityP);
-        }break;
-        
-        case EntityEditorAction_Dragging: {
-            Action.DraggingBoundary->Offset = CursorP + Action.DraggingOffset - EntityP;
-            asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
-            f32 GridSize = Asset->Scale/(Camera.MetersToPixels);
-            Action.DraggingBoundary->Offset = SnapPoint(Action.DraggingBoundary->Offset, GridSize);
-            
-            v2 Offset = Action.DraggingBoundary->Offset + EntityP;
-            rect Bounds = Action.DraggingBoundary->Bounds;
-            Bounds = OffsetRect(Bounds, Offset);
-            if(Bounds.Min.Y < FloorY){
-                Action.DraggingBoundary->Offset.Y += FloorY-Bounds.Min.Y;
-            }
-        }break;
-        
-        case EntityEditorAction_Remove: {
-            RemoveInfoBoundary(Action.RemoveBoundary);
-        }break;
-        
-    }
-}
-
 //~ UI
 void
 entity_editor::DoUI(){
-    //~ Basic editing functions
+    //~ View
     {
         ui_window *Window = UIManager.BeginWindow("Entity Editor", OSInput.WindowSize);
         
@@ -277,14 +167,8 @@ entity_editor::DoUI(){
         Window->Text("Sprite view:");
         Window->DropDownMenu(ENTITY_STATE_TABLE, State_TOTAL, (u32 *)&CurrentState, WIDGET_ID);
         Window->DropDownMenu(SIMPLE_DIRECTION_TABLE, Direction_TOTAL, (u32 *)&CurrentDirection, WIDGET_ID);
-        Window->Text("Current frame: %u", CurrentFrame);
-        if(Window->Button("<<< Frame", WIDGET_ID)){
-            if(CurrentFrame > 0) CurrentFrame--;
-        }
-        if(Window->Button("Frame >>>", WIDGET_ID)){
-            CurrentFrame++;
-            // Upper bounds checking is done elsewhere
-        }
+        Window->Text("Current frame: %u (Use 'j' and 'k')", CurrentFrame);
+        DoPlayAnimation = Window->ToggleBox("Loop animation", DoPlayAnimation, WIDGET_ID);
         
         Window->End();
     }
@@ -293,28 +177,27 @@ entity_editor::DoUI(){
     {
         ui_window *Window = UIManager.BeginWindow("Edit Collision Boundaries", V2(0, OSInput.WindowSize.Y));
         
-        
         Window->ToggleButton("Don't add boundary", "Add Boundary", &AddBoundary, WIDGET_ID);
         
         const char *BoundaryTable[] = {
             "None", "Rectangle", "Circle", "Pill"
         };
-        Window->Text("Current boundary type: %s", BoundaryTable[BoundaryType]);
+        Window->Text("Current boundary type: %s", BoundaryTable[MakingBoundary.Type]);
         if(Window->Button("<<< Mode", WIDGET_ID)){
-            if(BoundaryType == EntityInfoBoundaryType_Rect){
-                BoundaryType = EntityInfoBoundaryType_Pill;
-            }else if(BoundaryType == EntityInfoBoundaryType_Circle){
-                BoundaryType = EntityInfoBoundaryType_Rect;
-            }else if(BoundaryType == EntityInfoBoundaryType_Pill){
-                BoundaryType = EntityInfoBoundaryType_Circle;
+            if(MakingBoundary.Type == EntityInfoBoundaryType_Rect){
+                MakingBoundary.Type = EntityInfoBoundaryType_Pill;
+            }else if(MakingBoundary.Type == EntityInfoBoundaryType_Circle){
+                MakingBoundary.Type = EntityInfoBoundaryType_Rect;
+            }else if(MakingBoundary.Type == EntityInfoBoundaryType_Pill){
+                MakingBoundary.Type = EntityInfoBoundaryType_Circle;
             }
         } if(Window->Button("Mode >>>", WIDGET_ID)){
-            if(BoundaryType == EntityInfoBoundaryType_Rect){
-                BoundaryType = EntityInfoBoundaryType_Circle;
-            }else if(BoundaryType == EntityInfoBoundaryType_Circle){
-                BoundaryType = EntityInfoBoundaryType_Pill;
-            }else if(BoundaryType == EntityInfoBoundaryType_Pill){
-                BoundaryType = EntityInfoBoundaryType_Rect;
+            if(MakingBoundary.Type == EntityInfoBoundaryType_Rect){
+                MakingBoundary.Type = EntityInfoBoundaryType_Circle;
+            }else if(MakingBoundary.Type == EntityInfoBoundaryType_Circle){
+                MakingBoundary.Type = EntityInfoBoundaryType_Pill;
+            }else if(MakingBoundary.Type == EntityInfoBoundaryType_Pill){
+                MakingBoundary.Type = EntityInfoBoundaryType_Rect;
             }
         }
         
@@ -340,36 +223,19 @@ entity_editor::DoUI(){
         Window->Text("Boundary count: %u", SelectedInfo->BoundaryCount);
         Window->Text("Current boundary: %llu", ((u64)AddingBoundary - (u64)SelectedInfo->EditingBoundaries)/sizeof(entity_info_boundary));
         
-#if 0
-        entity_info_boundary *Boundary = &BoundarySet[0];
-        if(Boundary){
-            v2 Offset = Boundary->Offset + EntityP;
-            rect Bounds = Boundary->Bounds;
-            Bounds = OffsetRect(Bounds, Offset);
-            v2 PointSize = V2(0.05f);
-            RenderCenteredRectangle(Offset, PointSize, -10.0f, YELLOW, &Camera);
-            RenderCenteredRectangle(Bounds.Min, PointSize, -10.0f, GREEN, &Camera);
-            RenderCenteredRectangle(Bounds.Max, PointSize, -10.0f, PURPLE, &Camera);
-            
-            Window->Text("BoundsMin: (%f, %f)", Bounds.Min.X, Bounds.Min.Y);
-            Window->Text("BoundsMax: (%f, %f)", Bounds.Max.X, Bounds.Max.Y);
-        }
-#endif
-        
         Window->End();
     }
     
-    if(UIManager.HandledInput){
-        Action.Type = EntityEditorAction_None;
-    }
 }
 
 //~
 void 
 entity_editor::UpdateAndRender(){
+    //~ Startup
     EntityP        = V2(5, 5);
     FloorY         = 4.0f;
     SelectorOffset = 1.0f;
+    MouseP = Camera.ToWorldP(OSInput.MouseP);
     
     if(!SelectedInfo){
         SelectedInfoID = 1;
@@ -382,6 +248,19 @@ entity_editor::UpdateAndRender(){
     Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
     Camera.Update();
     
+    asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
+    GridSize = Asset->Scale/(Camera.MetersToPixels);
+    EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
+    {
+        rect R = CenterRect(EntityP, Asset->SizeInMeters*Asset->Scale);
+        v2 NewMin = SnapToGrid(R.Min, GridSize);
+        v2 Difference = NewMin - R.Min;
+        R = OffsetRect(R, Difference);
+        EntityP += Difference;
+        FloorY = SnapToGrid(V2(0, FloorY), GridSize).Y;
+    }
+    //EntityP = SnapToGrid(EntityP, GridSize);
+    
     { // Draw floor
         v2 Min;
         Min.Y = FloorY - 0.05f;
@@ -389,23 +268,79 @@ entity_editor::UpdateAndRender(){
         v2 Max;
         Max.Y = FloorY;
         Max.X = (OSInput.WindowSize.X/Camera.MetersToPixels) - 1.0f;
-        RenderRect(Rect(Min, Max), 0.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
+        RenderRect(Rect(Min, Max), 1.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
     }
     
-    asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
-    EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
-    
     ProcessInput();
-    
     DoUI();
     
-    ProcessAction();
+    //~ Making boundaries
+    if(AddBoundary){
+        switch(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, false, -2)){
+            case UIBehavior_None: {
+            }break;
+            case UIBehavior_JustActivate: {
+                MakingBoundary.Bounds.Min = MouseP;
+            }
+            case UIBehavior_Activate: {
+                MakingBoundary.Bounds.Max = MouseP;
+                
+                MakingBoundary.Bounds.Min.Y = Maximum(FloorY, MakingBoundary.Bounds.Min.Y);
+                MakingBoundary.Bounds.Max.Y = Maximum(FloorY, MakingBoundary.Bounds.Max.Y);
+                
+                asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
+                MakingBoundary.Bounds.Min = SnapToGrid(MakingBoundary.Bounds.Min, GridSize);
+                MakingBoundary.Bounds.Max = SnapToGrid(MakingBoundary.Bounds.Max, GridSize);
+                
+                v2 PointSize = V2(0.03f);
+                RenderRect(CenterRect(MakingBoundary.Bounds.Min, PointSize), -10.0f, YELLOW, &Camera);
+                RenderRect(CenterRect(MakingBoundary.Bounds.Max, PointSize), -10.0f, YELLOW, &Camera);
+                
+                FixInfoBoundary(&MakingBoundary, EntityP);
+                
+                collision_boundary Boundary = ConvertToCollisionBoundary(&MakingBoundary, &TransientStorageArena);
+                RenderBoundary(&Camera, &Boundary, -2.0f, EntityP);
+            }break;
+            case UIBehavior_Deactivate: {
+                *AddingBoundary = MakingBoundary;
+                
+                rect Bounds = FixRect(AddingBoundary->Bounds);
+                AddingBoundary->Bounds.Min = Bounds.Min - AddingBoundary->Offset - EntityP;
+                AddingBoundary->Bounds.Max = Bounds.Max - AddingBoundary->Offset - EntityP;
+                EditingBoundary = AddingBoundary;
+                
+                // Advance
+                entity_info_boundary *End = BoundarySet + (SelectedInfo->BoundaryCount-1);
+                AddingBoundary++;
+                if(AddingBoundary > End){
+                    AddingBoundary = BoundarySet;
+                }
+                
+                AddBoundary = false;
+                UIManager.ResetActiveElement();
+            }break;
+        }
+    }
     
+    //~ Render entity asset
     u32 AnimationIndex = Asset->StateTable[CurrentState][CurrentDirection];
     if(AnimationIndex){
         AnimationIndex -= 1;
+        if(DoPlayAnimation){
+            if(FrameCooldown > 0.0f){
+                FrameCooldown -= Asset->FPSArray[AnimationIndex]*OSInput.dTime;
+            }else{
+                CurrentFrame++;
+                FrameCooldown = 1.0f;
+            }
+        }
         if(CurrentFrame > Asset->FrameCounts[AnimationIndex]-1){
-            CurrentFrame = Asset->FrameCounts[AnimationIndex]-1;
+            if(DoPlayAnimation){
+                CurrentFrame = 0;
+                FrameCooldown = 2.0f;
+            }else{
+                CurrentFrame = Asset->FrameCounts[AnimationIndex]-1;
+            }
         }
         
         {
@@ -421,26 +356,78 @@ entity_editor::UpdateAndRender(){
                                  0, EntityP, 0.0f);
     }
     
+    //~ Render and remove boundaries 
     f32 Z = -1.0f;
-    
     for(u32 I = 0; I < SelectedInfo->BoundaryCount; I++){
+        entity_info_boundary *InfoBoundary = &BoundarySet[I];
+        
+        v2 P   = InfoBoundary->Offset+EntityP;
+        rect R = GetInfoBoundaryBounds(InfoBoundary, EntityP);
+        u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)InfoBoundary);
+        ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+        
+        switch(EditorDraggableElement(&UIManager, &Camera, ID, R, P, -2)){
+            case UIBehavior_None: {
+                State->T -= 5.0f*OSInput.dTime;
+                State->ActiveT -= 3.0f*OSInput.dTime;
+            }break;
+            case UIBehavior_Hovered: {
+                State->T += 7.0f*OSInput.dTime;
+                State->ActiveT -= 3.0f*OSInput.dTime;
+            }break;
+            case UIBehavior_Activate: {
+                v2 Offset = Camera.ToWorldP(UIManager.ActiveElement.Offset);
+                
+                InfoBoundary->Offset = MouseP + Offset - EntityP;
+                rect R = GetInfoBoundaryBounds(InfoBoundary, EntityP);
+                v2 NewMin = SnapToGrid(R.Min, GridSize);
+                v2 Difference = NewMin - R.Min;
+                
+                R = SnapToGrid(R, GridSize);
+                //R = OffsetRect(R, Difference);
+                InfoBoundary->Offset += Difference;
+                
+                if(R.Min.Y < FloorY){
+                    InfoBoundary->Offset.Y += FloorY-R.Min.Y;
+                }
+                
+                State->ActiveT += 5.0f*OSInput.dTime;
+            }break;
+        }
+        
         collision_boundary Boundary = ConvertToCollisionBoundary(&BoundarySet[I], &TransientStorageArena);
         RenderBoundary(&Camera, &Boundary, Z, EntityP);
+        
+        color C = EDITOR_HOVERED_COLOR; C.A = 0.0f;
+        State->T = Clamp(State->T, 0.0f, 1.0f);
+        f32 T = 1.0f-Square(1.0f-State->T);
+        C = MixColor(EDITOR_HOVERED_COLOR, C, T);
+        
+        State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
+        f32 ActiveT = 1.0f-Square(1.0f-State->ActiveT);
+        C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
+        
+        R = GetInfoBoundaryBounds(InfoBoundary, EntityP);
+        RenderRect(R, Z-0.1f, C, &Camera);
+        
+        Z -= 0.2f;
+        
+        switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Right, -1)){
+            case UIBehavior_Activate: {
+                RemoveInfoBoundary(InfoBoundary);
+                I--; // Repeat the last iteration because an item was removed
+                State->T = 0.0f;
+                State->ActiveT = 0.0f;
+            }break;
+        }
     }
     
-    {
-        u32 InfoToSelect = DoInfoSelector(V2(0.5f, FloorY-SelectorOffset-1.0f), &Camera, SelectedInfoID);
-        
-        if(Action.Type == EntityEditorAction_SelectInfo){
-            Action.Type = EntityEditorAction_None;
-            
-            if(InfoToSelect > 0){
-                SelectedInfoID = InfoToSelect;
-                SelectedInfo = &EntityInfos[InfoToSelect];
-                BoundarySet = SelectedInfo->EditingBoundaries;
-                AddingBoundary = BoundarySet;
-            }
-        }
+    u32 OldInfoID = SelectedInfoID;
+    SelectedInfoID = DoInfoSelector(V2(0.5f, FloorY-SelectorOffset-1.0f), &Camera, SelectedInfoID);
+    if(SelectedInfoID != OldInfoID){
+        SelectedInfo = &EntityInfos[SelectedInfoID];
+        BoundarySet = SelectedInfo->EditingBoundaries;
+        AddingBoundary = BoundarySet;
     }
     
     DEBUGRenderOverlay();

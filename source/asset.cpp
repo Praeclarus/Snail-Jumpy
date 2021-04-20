@@ -412,14 +412,13 @@ RenderFrameOfSpriteSheet(camera *Camera, const char *AssetName,
 }
 
 internal void
-UpdateAndRenderAnimation(camera *Camera, entity *Entity, 
-                         f32 dTimeForFrame){
+UpdateAndRenderAnimation(camera *Camera, entity *Entity, f32 dTimeForFrame){
     asset *Asset = GetSpriteSheet(Entity->Asset);
     
     u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
     if(AnimationIndex == 0) { 
         // TODO(Tyler): MAKE THIS MORE ROBUST
-        Assert(0);
+        //Assert(0);
     }else{
         AnimationIndex--;
         
@@ -465,7 +464,7 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity,
             FrameInSpriteSheet %= Asset->FramesPerRow;
         }
         
-        v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
+        v2 MinTexCoord = V2((f32)FrameInSpriteSheet, (f32)RowInSpriteSheet);
         MinTexCoord.X *= Asset->SizeInTexCoords.X;
         MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
         v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;

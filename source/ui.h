@@ -85,10 +85,14 @@ struct ui_element {
 };
 
 //~ Enums
-enum ui_button_behavior {
-    ButtonBehavior_None,
-    ButtonBehavior_Hovered,
-    ButtonBehavior_Activate,
+enum ui_behavior {
+    UIBehavior_None,
+    UIBehavior_Hovered,
+    UIBehavior_Activate,
+    
+    // Right now only use for mouse button
+    UIBehavior_JustActivate,
+    UIBehavior_Deactivate,
 };
 
 //~ Window
@@ -131,8 +135,6 @@ struct ui_window {
 
 
 struct ui_manager {
-    b8 HandledInput;
-    
     theme Theme;
     // TODO(Tyler): With the way this is done, there is frame of latency between a button 
     // pressed and the UI action, this might be bad but shouldn't be noticeable. I do not 
@@ -140,6 +142,7 @@ struct ui_manager {
     ui_element ActiveElement;
     ui_element ValidElement;
     ui_element HoveredElement;
+    b8 ElementJustActive;
     
     //~ Window stuff
     hash_table<const char *, ui_window> WindowTable;
@@ -161,10 +164,10 @@ struct ui_manager {
     void               ResetActiveElement();
     void               SetValidElement(ui_element *Element);
     b8                 DoHoverElement(ui_element *Element);
-    ui_button_behavior DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button=MouseButton_Left, s32 Priority=0);
-    ui_button_behavior DoTextInputElement(u64 ID, rect ActionRect, s32 Priority=0);
-    ui_button_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0);
-    b8                 EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce=false, s32 Priority=0);
+    ui_behavior DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button=MouseButton_Left, s32 Priority=0);
+    ui_behavior DoTextInputElement(u64 ID, rect ActionRect, s32 Priority=0);
+    ui_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0);
+    ui_behavior EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce=false, s32 Priority=0);
     
     b8 MouseButtonJustDown(os_mouse_button Button);
     b8 MouseButtonJustUp(os_mouse_button Button);

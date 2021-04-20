@@ -47,6 +47,8 @@ global_constant char *DefaultFragmentShader = BEGIN_STRING
  uniform mat4 Projection;
  
  void main(){
+     
+     
      vec4 Color = texture(Texture, FragmentUV)*FragmentColor;
      if(Color.a == 0.0){
          discard;
@@ -86,7 +88,8 @@ global_constant char *ScreenFragmentShader = BEGIN_STRING
  uniform mat4 Projection;
  
  vec3 CalculateLight(vec2 LightP, vec3 LightColor, float Radius){
-     float Distance = distance(LightP, (inverse(Projection)*vec4(FragmentP, 0.0, 1.0)).xy);
+     //float Distance = distance(LightP, (inverse(Projection)*vec4(FragmentP, 0.0, 1.0)).xy);
+     float Distance = distance(LightP, FragmentP.xy);
      float Attenuation = clamp(1.0 - (Distance*Distance)/(Radius*Radius), 0.0, 1.0);
      Attenuation *= Attenuation;
      vec3 Result = Attenuation*LightColor;
@@ -95,46 +98,49 @@ global_constant char *ScreenFragmentShader = BEGIN_STRING
  
  void main(){
      /*
-          int PixelSize = 4;
-          
-          float X = int(gl_FragCoord.x) % PixelSize;
-          float Y = int(gl_FragCoord.y) % PixelSize;
-          
-          X = floor(PixelSize / 2.0) - X;
-          Y = floor(PixelSize / 2.0) - Y;
-          
-          X = gl_FragCoord.x + X;
-          Y = gl_FragCoord.y + Y;
-          
-          vec2 TextureSize = textureSize(Texture, 0).xy;
-          vec2 UV = vec2(X, Y) / TextureSize;
-         */
+     int PixelSize = 4;
+     
+     float X = int(gl_FragCoord.x) % PixelSize;
+     float Y = int(gl_FragCoord.y) % PixelSize;
+     
+     X = floor(PixelSize / 2.0) - X;
+     Y = floor(PixelSize / 2.0) - Y;
+     
+     X = gl_FragCoord.x + X;
+     Y = gl_FragCoord.y + Y;
+     
+     vec2 TextureSize = textureSize(Texture, 0).xy;
+     vec2 UV = vec2(X, Y) / TextureSize;
+     */
      
      vec4 Color = texture(Texture, FragmentUV);
+     //vec4 Color = texture(Texture, UV);
      if(Color.a == 0.0){
          discard;
      }
      
      /*
-          vec2 LightPs[] = vec2[](vec2(200.0, 100.0),
-                                  vec2(200.0, 600.0),
-                                  vec2(700.0, 100.0),
-                                  vec2(700.0, 600.0),
-                                  vec2(1200.0, 100.0),
-                                  vec2(1200.0, 600.0));
-          
-          vec3 Lighting = vec3(0.0);
-          for(int I = 0; I < LightPs.length(); I++){
-              Lighting += CalculateLight(LightPs[I], vec3(0.6, 0.5, 0.1), 300);
-          }
-          Color *= vec4(0.4+Lighting, 1.0);
-          
-          float Exposure = 1.0;
-          vec4 Vec4HDRColor = Color;
-          vec3 HDRColor = Vec4HDRColor.rgb;
-          vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
-          //FragColor = vec4(MappedColor, Vec4HDRColor.a);
-         */
+      
+      vec2 LightPs[] = vec2[](vec2(200.0, 100.0),
+                              vec2(200.0, 600.0),
+                              vec2(700.0, 100.0),
+                              vec2(700.0, 600.0),
+                              vec2(1200.0, 100.0),
+                              vec2(1200.0, 600.0));
+      
+      
+      vec3 Lighting = vec3(0.0);
+      for(int I = 0; I < LightPs.length(); I++){
+          Lighting += CalculateLight(LightPs[I], vec3(1.0, 1.0, 1.0), 1000);
+      }
+      Color *= vec4(0.4+Lighting, 1.0);
+      
+      float Exposure = 1.0;
+      vec4 Vec4HDRColor = Color;
+      vec3 HDRColor = Vec4HDRColor.rgb;
+      vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
+      //FragColor = vec4(MappedColor, Vec4HDRColor.a);
+ */
      
      FragColor = Color;
  }

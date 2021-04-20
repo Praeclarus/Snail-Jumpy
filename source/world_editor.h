@@ -15,20 +15,18 @@ enum edit_mode {
     EditMode_TOTAL
 };
 
-enum world_editor_action {
-    WorldEditorAction_None, 
-    
-    WorldEditorAction_AddRectEntity, 
-    WorldEditorAction_EndRectEntity, 
+typedef u32 world_editor_flags;
+enum _world_editor_flags {
+    WorldEditorFlags_None       = 0,
+    WorldEditorFlags_HideArt    = (1 << 0),
+    WorldEditorFlags_MakingRectEntity = (1 << 1),
 };
 
-struct world_editor;
-
 struct world_editor {
-    
-    char PopupBuffer[512];
     const char *AssetForArtEntity;
     u32 EntityToAddInfoID;
+    
+    world_editor_flags Flags;
     
     camera Camera;
     
@@ -43,7 +41,6 @@ struct world_editor {
     
     world_data *World;
     
-    world_editor_action Action;
     edit_mode Mode;
     
     inline entity_type GetSelectedThingType();
@@ -56,7 +53,6 @@ struct world_editor {
     void ProcessKeyDown(os_key_code KeyCode, b8 JustDown);
     void ProcessInput();
     
-    void ProcessAction();
     b8   AddWorldEntity();
     void DoEnemyOverlay(entity_data *Entity);
     

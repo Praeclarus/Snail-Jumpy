@@ -24,38 +24,6 @@ GetSizeFromInfoID(u32 InfoID){
     return(Result);
 }
 
-internal inline v2
-SnapToTileGrid(v2 P){
-    v2 Result = TILE_SIDE*V2(Floor(P.X/TILE_SIDE), Floor(P.Y/TILE_SIDE));
-    
-    return(Result);
-}
-
-internal inline rect
-SnapToTileGrid(rect R){
-    rect Result;
-    if(R.Min.X < R.Max.X){
-        Result.Min.X = Floor(R.Min.X/TILE_SIDE);
-        Result.Max.X =  Ceil(R.Max.X/TILE_SIDE);
-    }else{
-        Result.Min.X =  Ceil(R.Min.X/TILE_SIDE);
-        Result.Max.X = Floor(R.Max.X/TILE_SIDE);
-    }
-    if(R.Min.Y < R.Max.Y){
-        Result.Min.Y = Floor(R.Min.Y/TILE_SIDE);
-        Result.Max.Y =  Ceil(R.Max.Y/TILE_SIDE);
-    }else{
-        Result.Min.Y =  Ceil(R.Min.Y/TILE_SIDE);
-        Result.Max.Y = Floor(R.Max.Y/TILE_SIDE);
-    }
-    Result = ScaleRect(Result, TILE_SIDE);
-    
-    // TODO(Tyler): Maybe fix rect?
-    Result = FixRect(Result);
-    
-    return(Result);
-}
-
 //~ Selector
 
 internal const char *
@@ -85,13 +53,13 @@ DoArtSelector(v2 StartP, camera *ParentCamera, const char *Selected){
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
         
         switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Left, -1)){
-            case ButtonBehavior_None: {
+            case UIBehavior_None: {
                 State->T -= 5*OSInput.dTime;
             }break;
-            case ButtonBehavior_Hovered: {
+            case UIBehavior_Hovered: {
                 State->T += 7*OSInput.dTime;
             }break;
-            case ButtonBehavior_Activate: {
+            case UIBehavior_Activate: {
                 Result = Arts[I];
             }break;
         }
@@ -159,13 +127,22 @@ world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
     switch((u32)KeyCode){
         case 'E': ToggleWorldEditor(); break;
         case 'T': ChangeState(GameMode_EntityEditor, 0); break;
+        case 'A': {
+            if(Flags & WorldEditorFlags_HideArt){
+                Flags &= ~WorldEditorFlags_HideArt;
+            }else{
+                Flags |= WorldEditorFlags_HideArt;
+            }
+        }break;
+        case 'S': WorldManager.WriteWorldsToFiles(); break;
         
-        case '1': Mode = EditMode_AddWall;       break;
-        case '2': Mode = EditMode_AddCoinP;      break;
-        case '3': Mode = EditMode_AddEnemy;      break;
-        case '4': Mode = EditMode_AddArt;        break;
-        case '5': Mode = EditMode_AddTeleporter; break;
-        case '6': Mode = EditMode_AddDoor;       break;
+        case '1': Mode = EditMode_None;          break;
+        case '2': Mode = EditMode_AddWall;       break;
+        case '3': Mode = EditMode_AddCoinP;      break;
+        case '4': Mode = EditMode_AddEnemy;      break;
+        case '5': Mode = EditMode_AddArt;        break;
+        case '6': Mode = EditMode_AddTeleporter; break;
+        case '7': Mode = EditMode_AddDoor;       break;
     }
 }
 
@@ -193,8 +170,7 @@ world_editor::AddWorldEntity(){
             SelectedThing = Entity;
         }break;
         case EditMode_AddDoor: {
-            DragRect.Min = MouseP;
-            Action = WorldEditorAction_AddRectEntity;
+            INVALID_CODE_PATH;
             Result = true;
         }break;
         case EditMode_AddEnemy: {
@@ -203,7 +179,7 @@ world_editor::AddWorldEntity(){
             *NewEnemy = {0};
             
             v2 EntitySize = GetSizeFromInfoID(EntityToAddInfoID);
-            v2 Min = SnapToTileGrid(Center);
+            v2 Min = SnapToGrid(Center, TILE_SIDE);
             v2 P = Min + 0.5f*EntitySize;
             
             NewEnemy->Type = EntityType_Enemy;
@@ -211,8 +187,10 @@ world_editor::AddWorldEntity(){
             NewEnemy->InfoID = EntityToAddInfoID;
             NewEnemy->Direction = Direction_Left;
             
-            NewEnemy->PathStart = SnapToTileGrid(P + V2(-EntitySize.X, -0.5f*TILE_SIDE)) + 0.5f*TILE_SIZE;
-            NewEnemy->PathEnd   = SnapToTileGrid(P + V2(EntitySize.X, -0.5f*TILE_SIDE)) + 0.5f*TILE_SIZE;
+            NewEnemy->PathStart = P + V2(-EntitySize.X, -0.5f*TILE_SIDE);
+            NewEnemy->PathStart = SnapToGrid(NewEnemy->PathStart, TILE_SIDE) + 0.5f*TILE_SIZE;
+            NewEnemy->PathEnd   = P + V2(EntitySize.X, -0.5f*TILE_SIDE);
+            NewEnemy->PathEnd   = SnapToGrid(NewEnemy->PathEnd, TILE_SIDE) + 0.5f*TILE_SIZE;
             
             SelectedThing = NewEnemy;
         }break;
@@ -256,32 +234,6 @@ world_editor::ProcessInput(){
             }break;
         }
         ProcessDefaultEvent(&Event);
-    }
-}
-
-void
-world_editor::ProcessAction(){
-    TIMED_FUNCTION();
-    
-    switch(Action){
-        case WorldEditorAction_AddRectEntity: {
-            DragRect.Max = MouseP;
-            
-            Action = WorldEditorAction_EndRectEntity;
-        }break;
-        case WorldEditorAction_EndRectEntity: {
-            if(Mode == EditMode_AddDoor){
-                entity_data *Entity = PushNewArrayItem(&World->Entities);
-                rect R = SnapToTileGrid(DragRect);
-                Entity->Type = EntityType_Door;
-                Entity->P = GetRectCenter(R);
-                Entity->Size = RectSize(R);
-                Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
-                SelectedThing = Entity;
-            }
-            
-            Action = WorldEditorAction_None;
-        }break;
     }
 }
 
@@ -364,9 +316,8 @@ world_editor::RenderCursor(){
             RenderRectOutline(R, -0.11f, BLACK, &Camera);
         }break;
         case EditMode_AddDoor: {
-            if((Action == WorldEditorAction_AddRectEntity) ||
-               (Action == WorldEditorAction_EndRectEntity)){
-                rect R = SnapToTileGrid(DragRect);
+            if(Flags & WorldEditorFlags_MakingRectEntity){
+                rect R = SnapToGrid(DragRect, TILE_SIDE);
                 RenderRect(R, -0.5f, BROWN, &Camera);
             }else{
                 RenderRect(CenterRect(Center, TILE_SIZE), -0.5f, BROWN, &Camera);
@@ -399,15 +350,32 @@ world_editor::RenderCursor(){
     }
     
     if(Mode != EditMode_None){
-        if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, false, -2)){
-            if(Action == WorldEditorAction_EndRectEntity){
-                Action = WorldEditorAction_AddRectEntity;
-            }else{
-                if(AddWorldEntity()){
-                }else{
-                    UIManager.ResetActiveElement();
+        switch(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, false, -2)){
+            case UIBehavior_None: {
+                Flags &= ~WorldEditorFlags_MakingRectEntity;
+            }break;
+            case UIBehavior_JustActivate: {
+                DragRect.Min = MouseP;
+            }case UIBehavior_Activate: {
+                DragRect.Max = MouseP;
+                Flags |= WorldEditorFlags_MakingRectEntity;
+                
+                if(Mode == EditMode_AddDoor) break;
+                
+                if(!AddWorldEntity()){ UIManager.ResetActiveElement(); }
+                
+            }break;
+            case UIBehavior_Deactivate: {
+                if(Mode == EditMode_AddDoor){
+                    entity_data *Entity = PushNewArrayItem(&World->Entities);
+                    rect R = SnapToGrid(DragRect, TILE_SIDE);
+                    Entity->Type = EntityType_Door;
+                    Entity->P = GetRectCenter(R);
+                    Entity->Size = RectSize(R);
+                    Entity->DRequiredLevel = PushArray(&StringMemory, char, DEFAULT_BUFFER_SIZE);
+                    SelectedThing = Entity;
                 }
-            }
+            }break;
         }
         
         if((Mode == EditMode_AddWall) || (Mode == EditMode_AddCoinP)){
@@ -431,18 +399,18 @@ world_editor::DoEnemyOverlay(entity_data *Entity){
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
         
         switch(EditorDraggableElement(&UIManager, &Camera, ID, PathPoint, *Point, -1)){
-            case ButtonBehavior_None: {
+            case UIBehavior_None: {
                 State->T -= 5.0f*OSInput.dTime;
                 State->ActiveT -= 3.0f*OSInput.dTime;
             }break;
-            case ButtonBehavior_Hovered: {
+            case UIBehavior_Hovered: {
                 State->T += 7.0f*OSInput.dTime;
                 State->ActiveT -= 3.0f*OSInput.dTime;
             }break;
-            case ButtonBehavior_Activate: {
+            case UIBehavior_Activate: {
                 v2 Offset = Camera.ToWorldP(UIManager.ActiveElement.Offset);
                 *Point = MouseP + Offset;
-                *Point = SnapToTileGrid(*Point) + 0.5f*TILE_SIZE;
+                *Point = SnapToGrid(*Point, TILE_SIDE) + 0.5f*TILE_SIZE;
                 
                 State->ActiveT += 5.0f*OSInput.dTime;
             }break;
@@ -478,13 +446,13 @@ world_editor::DoEnemyOverlay(entity_data *Entity){
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
         
         switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Left, -1)){
-            case ButtonBehavior_None: {
+            case UIBehavior_None: {
                 State->T -= 5*OSInput.dTime;
             }break;
-            case ButtonBehavior_Hovered: {
+            case UIBehavior_Hovered: {
                 State->T += 7*OSInput.dTime;
             }break;
-            case ButtonBehavior_Activate: {
+            case UIBehavior_Activate: {
                 State->ActiveT = 1.0f;
                 direction Directions[] = {Direction_Left, Direction_Right};
                 Entity->Direction = Directions[I];
@@ -625,9 +593,7 @@ world_editor::DoUI(){
         World->CoinsToSpawn += 1;
     }
     
-    if(Window->Button("Camera shake!", WIDGET_ID)){
-        Camera.Shake(0.1f);
-    }
+    TOGGLE_FLAG(Window, "Hide art", Flags, WorldEditorFlags_HideArt);
     
     Window->End();
     
@@ -649,7 +615,7 @@ world_editor::UpdateAndRender(){
     
     LastMouseP = MouseP;
     MouseP = Camera.ToWorldP(OSInput.MouseP);
-    CursorP = SnapToTileGrid(MouseP);
+    CursorP = SnapToGrid(MouseP, TILE_SIDE);
     MouseP -= Camera.P;
     
     ProcessInput();
@@ -660,7 +626,6 @@ world_editor::UpdateAndRender(){
     }
     Camera.Move(Movement, World);
     
-    ProcessAction();
     DoUI(); 
     
     RenderString(&DebugFont, Color(0.9f, 0.9f, 0.9f, 1.0f), 
@@ -725,6 +690,8 @@ world_editor::UpdateAndRender(){
                 RenderRect(EntityRect, -0.1f, BROWN, &Camera);
             }break;
             case EntityType_Art: {
+                if(Flags & WorldEditorFlags_HideArt) break;
+                
                 asset *Asset = GetArt(Entity->Asset);
                 // TODO(Tyler): This is a failing of Camera, we don't want it to be 
                 // offset by it's position
@@ -742,13 +709,13 @@ world_editor::UpdateAndRender(){
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
         
         switch(EditorDraggableElement(&UIManager, &Camera, ID, EntityRect, Entity->P, -2)){
-            case ButtonBehavior_None: {
+            case UIBehavior_None: {
                 State->T -= 5*OSInput.dTime;
             }break;
-            case ButtonBehavior_Hovered: {
+            case UIBehavior_Hovered: {
                 State->T += 7*OSInput.dTime;
             }break;
-            case ButtonBehavior_Activate: {
+            case UIBehavior_Activate: {
                 v2 Offset = Camera.ToWorldP(UIManager.ActiveElement.Offset);
                 
                 v2 NewP = Entity->P;
@@ -758,7 +725,7 @@ world_editor::UpdateAndRender(){
                     v2 EntitySize = RectSize(EntityRect);
                     v2 Min = NewP - 0.5f*EntitySize;
                     
-                    v2 NewMin = SnapToTileGrid(Min);
+                    v2 NewMin = SnapToGrid(Min, TILE_SIDE);
                     v2 Difference = NewMin - Min;
                     NewP += Difference;
                     
@@ -792,7 +759,7 @@ world_editor::UpdateAndRender(){
         RenderRectOutline(EntityRect, -0.3f, OutlineColor, &Camera);
         
         switch(EditorButtonElement(&UIManager, &Camera, ID, EntityRect, MouseButton_Right, -1)){
-            case ButtonBehavior_Activate: {
+            case UIBehavior_Activate: {
                 SelectedThing = 0;
                 UnorderedRemoveArrayItemAtIndex(&World->Entities, I);
                 I--; // Repeat the last iteration because an item was removed

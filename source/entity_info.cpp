@@ -107,18 +107,18 @@ internal void
 RegisterEntityInfos(){
     PushNewArrayItem(&EntityInfos); // Reserve 0th index
     
-    entity_info *Player    = RegisterInfo("Player", 1, 1, 1.0f, EntityFlag_None, PlayerCollisionResponse);
+    entity_info *Player    = RegisterInfo("player", 1, 1, 1.0f, EntityFlag_None, PlayerCollisionResponse);
     
-    entity_info *Snail     = RegisterEnemyInfo("Snail", 1, 1, 1.0f, 1.0f, 2, EntityFlag_CanBeStunned);
+    entity_info *Snail     = RegisterEnemyInfo("snail", 1, 1, 1.0f, 1.0f, 2, EntityFlag_CanBeStunned);
     
-    entity_info *Sally     = RegisterEnemyInfo("Sally", 1, 2, 2.0f, 0.8f, 3, EntityFlag_CanBeStunned);
+    entity_info *Sally     = RegisterEnemyInfo("sally", 1, 2, 2.0f, 0.8f, 3, EntityFlag_CanBeStunned);
     Sally->BoundaryTable[State_Retreating] = 2;
     Sally->BoundaryTable[State_Stunned]    = 2;
     Sally->BoundaryTable[State_Returning]  = 2;
     
-    entity_info *Speedy    = RegisterEnemyInfo("Speedy", 1, 1, 0.7f, 10.0f, 1, EntityFlag_CanBeStunned);
+    entity_info *Speedy    = RegisterEnemyInfo("speedy", 1, 1, 0.7f, 10.0f, 1, EntityFlag_CanBeStunned);
     
-    entity_info *Dragonfly = RegisterEnemyInfo("Dragonfly", 2, 2, 1.5f, 1.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
+    entity_info *Dragonfly = RegisterEnemyInfo("dragonfly", 2, 2, 1.5f, 1.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
 }
 
 //~ File loading
@@ -146,8 +146,8 @@ InitializeAndLoadEntityInfos(memory_arena *Arena, const char *Path){
             
             {
                 char *AssetInFile = ConsumeString(&Stream);
-                Info->Asset = GetHashTableKey(&AssetTable, (const char *)AssetInFile);
-                if(!Info->Asset) Info->Asset = PushCString(&StringMemory, AssetInFile); 
+                //Info->Asset = GetHashTableKey(&AssetTable, (const char *)AssetInFile);
+                //if(!Info->Asset) Info->Asset = PushCString(&StringMemory, AssetInFile); 
             }
             
             u32 BoundarySets = *ConsumeType(&Stream, u8); 
