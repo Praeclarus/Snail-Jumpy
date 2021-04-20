@@ -89,30 +89,6 @@ DoArtSelector(v2 StartP, camera *ParentCamera, const char *Selected){
     return(Result);
 }
 
-//~ Popup callbacks
-// TODO(Tyler): REMOVE
-
-internal void 
-RenameWorldCallback(world_editor *Editor, const char *Name){
-    world_data *NewWorld = WorldManager.GetWorld(Name);
-    if(!NewWorld){
-        const char *WorldName = PushCString(&StringMemory, Name);
-        NewWorld = WorldManager.CreateNewWorld(WorldName);
-        *NewWorld = *Editor->World;
-        WorldManager.RemoveWorld(Editor->World->Name);
-        NewWorld->Name = WorldName;
-        Editor->World = NewWorld;
-    }
-}
-
-internal void
-LoadWorldCallback(world_editor *Editor, const char *Name){
-    world_data *NewWorld = WorldManager.GetOrCreateWorld(Name);
-    if(NewWorld){
-        Editor->World = NewWorld;
-    }
-}
-
 //~ 
 
 u8 *
@@ -246,7 +222,6 @@ world_editor::DoSelectorOverlay(){
         }break;
         case EditMode_AddArt: {
             AssetForArtEntity = DoArtSelector(P, &Camera, AssetForArtEntity);
-            //AssetForArtEntity = AssetNameDropDown(Window, AssetForArtEntity, AssetType_Art, WIDGET_ID);
         }break;
     }
     
@@ -494,12 +469,26 @@ world_editor::DoUI(){
         WorldManager.WriteWorldsToFiles();
     }
     
-    if(Window->Button("Load world", WIDGET_ID)){
-        NOT_IMPLEMENTED_YET;
+    Window->TextInput(NameBuffer, ArrayCount(NameBuffer), WIDGET_ID);
+    
+    if(Window->Button("Load or create world", WIDGET_ID)){
+        World = WorldManager.GetOrCreateWorld(NameBuffer);
+        
+        ZeroMemory(NameBuffer, ArrayCount(NameBuffer));
     }
     
     if(Window->Button("Rename world", WIDGET_ID)){
-        NOT_IMPLEMENTED_YET;
+        world_data *NewWorld = WorldManager.GetWorld(NameBuffer);
+        if(!NewWorld){
+            const char *WorldName = PushCString(&StringMemory, NameBuffer);
+            NewWorld = WorldManager.CreateNewWorld(WorldName);
+            *NewWorld = *World;
+            WorldManager.RemoveWorld(World->Name);
+            NewWorld->Name = WorldName;
+            World = NewWorld;
+        }
+        
+        ZeroMemory(NameBuffer, ArrayCount(NameBuffer));
     }
     Window->Text("Map size: %u %u", 
                  World->Width, World->Height);

@@ -27,6 +27,7 @@ struct world_editor {
     u32 EntityToAddInfoID;
     
     world_editor_flags Flags;
+    char NameBuffer[512];
     
     camera Camera;
     
