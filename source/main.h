@@ -164,7 +164,7 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 //~ Miscallaneous
 enum game_mode {
     GameMode_None,
-    GameMode_Menu,
+    GameMode_Debug,
     GameMode_MainGame,
     GameMode_WorldEditor,
     GameMode_EntityEditor,

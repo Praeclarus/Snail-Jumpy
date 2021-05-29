@@ -510,7 +510,9 @@ DeleteRenderTexture(render_texture Texture){
 
 // TODO(Tyler): This might be able to be modified to merge sort each node 
 // and then merge sort the nodes together, but right now this works just
-// fine.
+// fine. I am also unsure of whether all node trees should be sorted together
+// and then rendered in order, such would only work for RenderType_UI and RenderType_Scaled.
+// I think it is fine that each tree is rendered separately.
 internal inline void
 GLRenderNodes(game_renderer *Renderer, render_node *StartNode,
               render_item_z *ZsA, render_item_z *ZsB, u32 ZItemCount){

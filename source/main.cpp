@@ -67,7 +67,7 @@ global f32 CompletionCooldown;
 #include "debug_ui.cpp"
 #include "world.cpp"
 
-#include "menu.cpp"
+#include "debug_game_mode.cpp"
 #include "entity_editor.cpp"
 #include "world_editor.cpp"
 #include "game.cpp"
@@ -161,8 +161,8 @@ GameUpdateAndRender(){
         case GameMode_MainGame: {
             UpdateAndRenderMainGame();
         }break;
-        case GameMode_Menu: {
-            UpdateAndRenderMenu();
+        case GameMode_Debug: {
+            UpdateAndRenderDebug();
         }break;
         case GameMode_WorldEditor: {
             WorldEditor.UpdateAndRender();
