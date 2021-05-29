@@ -394,15 +394,19 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     ClearColor = ClearColor_;
     CurrentClipRect = SizeRect(V2(0), OutputSize);
     
-    for(u32 I=0; I<RenderType_TOTAL; I++){
-        Nodes[I] = PushStruct(Arena, render_node);
-    }
-    
+    //~ Reset render items
     RenderItemCount = 0;
     DynamicArrayClear(&Vertices);
     DynamicArrayClear(&Indices);
     
+    for(u32 I=0; I<RenderType_TOTAL; I++){
+        Nodes[I] = PushStruct(Arena, render_node);
+    }
+    
     //~ Camera
+    CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
+    CameraTargetP.Y = Clamp(CameraTargetP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
+    
     // TODO(Tyler): This does allow for an the camera not to move when it might make sense
     // for it to. For instance when there is one pixel when the camera should be fully
     // to the right.
@@ -411,8 +415,11 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     Delta.Y = Round(Delta.Y);
     CameraFinalP += Delta;
     
-    //ChangeScale(2*(Sin(0.5f*Counter)) + 6.0f);
-    ChangeScale(5.0f);
+    v2 BoundsSize = RectSize(CameraBounds);
+    f32 Factor = 215.0f;
+    f32 NewScale = Minimum(OutputSize.X/Factor, OutputSize.Y/Factor);
+    NewScale = Clamp(NewScale, 4.0f, 6.0f);
+    ChangeScale(NewScale);
 }
 
 render_item *
@@ -506,17 +513,11 @@ void
 game_renderer::SetCameraTarget(v2 Center){
     v2 ScreenSize = OutputSize/CameraScale;
     CameraTargetP = Center - 0.5f*ScreenSize;
-    
-    CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
-    CameraTargetP.Y = Clamp(CameraTargetP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
 }
 
 void
 game_renderer::MoveCamera(v2 Delta){
     CameraTargetP += Delta;
-    
-    CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
-    CameraTargetP.Y = Clamp(CameraTargetP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
 }
 
 void
