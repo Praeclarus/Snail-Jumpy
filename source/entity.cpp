@@ -175,7 +175,7 @@ TurnEnemy(enemy_entity *Enemy, direction Direction){
 //~ Physics stuff
 
 internal void
-MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=20.0f){
+MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=200.0f){
     v2 ddP = {};
     if(Physics->State & PhysicsObjectState_Falling){
         ddP.Y -= Gravity;
@@ -258,7 +258,8 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
             }
         }else if((Collision->Normal.Y > 0.0f) &&
                  (ObjectA->State & PhysicsObjectState_Falling)){ // Hits floor
-            GameCamera.Shake(0.1f, 0.05f, 500);
+            //GameCamera.Shake(0.1f, 0.05f, 500);
+            //NOT_IMPLEMENTED_YET;
         }
     }
     return(false);
@@ -356,14 +357,12 @@ entity_manager::ProcessEvent(os_event *Event){
     }
 }
 
-// TODO(Tyler): The functions for the platformer player and the overworld player could
-// probably be tranformed into one function, do this!!!
 internal void
-UpdateAndRenderPlatformerPlayer(camera *Camera){
+UpdateAndRenderPlatformerPlayer(){
     player_entity *Player = EntityManager.Player;
     dynamic_physics_object *Physics = Player->DynamicPhysics;
     if(ShouldEntityUpdate(Player)){
-        f32 MovementSpeed = 6; // TODO(Tyler): Load this from a variables file
+        f32 MovementSpeed = 100; // TODO(Tyler): Load this from a variables file
         f32 Movement = 0.0f;
         if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
             Player->Direction = Direction_Right;
@@ -372,12 +371,12 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             Player->Direction = Direction_Left;
             Movement -= MovementSpeed;
         }
-        MovePlatformer(Physics, Movement, 20);
+        MovePlatformer(Physics, Movement);
         
         
         // TODO(Tyler): Load from file ('JumpTime', 'JumpPower')
-        if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.075f;
-        local_constant f32 JumpPower = 2.0f;
+        if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.1f;
+        local_constant f32 JumpPower = 100.0f;
         f32 Jump = 0.0f;
         if(EntityManager.PlayerInput.Jump &&
            (Player->JumpTime > 0.0f)){
@@ -444,15 +443,14 @@ UpdateAndRenderPlatformerPlayer(camera *Camera){
             EntityManager.DamagePlayer(2);
         }
         
-        Camera->SetCenter(Player->Physics->P, CurrentWorld);
+        GameRenderer.SetCameraTarget(Player->Physics->P);
     }
     
-    UpdateAndRenderAnimation(Camera, Player, OSInput.dTime);
+    UpdateAndRenderAnimation(Player, OSInput.dTime);
 }
 
 void 
-entity_manager::UpdateAndRenderEntities(camera *Camera){
-    
+entity_manager::UpdateAndRenderEntities(){
     TIMED_FUNCTION();
     
     //~ Walls
@@ -468,9 +466,9 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                     TileP += V2(0.5f);
                     TileP.X *= Tilemap->TileSize.X;
                     TileP.Y *= Tilemap->TileSize.Y;
-                    rect TileBounds = CenterRect(V20, Tilemap->TileSize);
+                    rect TileR = CenterRect(TileP, Tilemap->TileSize);
                     
-                    RenderRect(OffsetRect(TileBounds, TileP), Tilemap->ZLayer, WHITE, Camera);
+                    RenderRect(TileR, Tilemap->ZLayer, WHITE, PixelItem(1));
                 }
             }
         }
@@ -483,8 +481,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             Coin->Cooldown -= OSInput.dTime;
         }else{
             Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
-            RenderRect(OffsetRect(Coin->Bounds, Coin->Physics->P), Coin->ZLayer, 
-                       YELLOW, Camera);
+            RenderRect(Coin->Bounds+Coin->Physics->P, Coin->ZLayer, YELLOW, PixelItem(1));
         }
     }
     
@@ -494,7 +491,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         dynamic_physics_object *Physics = Enemy->DynamicPhysics;
         
         f32 Movement = 0.0f;
-        f32 Gravity = 11.0f;
+        f32 Gravity = 100.0f;
         if(ShouldEntityUpdate(Enemy)){
             if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
                (Enemy->Direction == Direction_Left)){
@@ -516,7 +513,7 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         }
         
         MovePlatformer(Physics, Movement, Gravity);
-        UpdateAndRenderAnimation(Camera, Enemy, OSInput.dTime);
+        UpdateAndRenderAnimation(Enemy, OSInput.dTime);
         UpdateEnemyBoundary(Enemy);
     }
     
@@ -524,24 +521,23 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
     FOR_BUCKET_ARRAY(It, &Arts){
         art_entity *Art = It.Item;
         asset *Asset = GetArt(Art->Asset);
-        v2 Size = V2(Asset->SizeInPixels)*Asset->Scale/Camera->MetersToPixels;
-        RenderTexture(CenterRect(Art->P, Size), Art->Z, Asset->Texture, 
-                      V2(0,0), V2(1,1), false, Camera);
+        v2 Size = V2(Asset->SizeInPixels);
+        RenderTexture(CenterRect(Art->P, Size), Art->Z, Asset->Texture, PixelItem(2), 
+                      MakeRect(V2(0), V2(1)), true);
     }
     
     //~ Player
     if(CurrentWorld->Flags & WorldFlag_IsTopDown){
         NOT_IMPLEMENTED_YET;
     }else{
-        UpdateAndRenderPlatformerPlayer(Camera);
+        UpdateAndRenderPlatformerPlayer();
     }
     
     //~ Teleporters
     FOR_BUCKET_ARRAY(It, &Teleporters){
         teleporter_entity *Teleporter = It.Item;
         if(!Teleporter->IsLocked){
-            RenderRect(OffsetRect(Teleporter->Bounds, Teleporter->Physics->P), 0.0f, 
-                       GREEN, Camera);
+            RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, GREEN, PixelItem(1));
             
             if(Teleporter->IsSelected){
                 world_data *World = WorldManager.GetOrCreateWorld(Teleporter->Level);
@@ -549,8 +545,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                     v2 StringP = Teleporter->Physics->P;
                     StringP.Y += 0.5f;
                     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
-                    StringP.X -= Advance/2/Camera->MetersToPixels;
-                    RenderString(&MainFont, GREEN, StringP, -1.0f, Teleporter->Level, Camera);
+                    StringP.X -= Advance/2;
+                    RenderString(&MainFont, GREEN, StringP, -1.0f, Teleporter->Level);
                 }
 #if 0
                 if(IsKeyJustPressed(KeyCode_Space)){
@@ -561,8 +557,8 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
                 Teleporter->IsSelected = false;
             }
         }else{
-            RenderRect(OffsetRect(Teleporter->Bounds, Teleporter->Physics->P), 0.0f, 
-                       Color(0.0f, 0.0f, 1.0f, 0.5f), Camera);
+            RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, 
+                       Color(0.0f, 0.0f, 1.0f, 0.5f), PixelItem(1));
         }
     }
     
@@ -572,14 +568,14 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
         Door->Cooldown -= OSInput.dTime;
         
         if(!Door->IsOpen){
-            RenderRect(OffsetRect(Door->Bounds, Door->Physics->P), 0.0f, BROWN, Camera);
+            RenderRect(Door->Bounds+Door->Physics->P, 0.0f, BROWN, PixelItem(1));
         }else{
             color Color = BROWN;
             Color.A = Door->Cooldown;
             if(Color.A < 0.3f){
                 Color.A = 0.3f;
             }
-            RenderRect(OffsetRect(Door->Bounds, Door->Physics->P), 0.0f, Color, Camera);
+            RenderRect(Door->Bounds+Door->Physics->P, 0.0f, Color, PixelItem(1));
         }
     }
     
@@ -599,12 +595,35 @@ entity_manager::UpdateAndRenderEntities(camera *Camera){
             Physics->P += dTime*Projectile->dP;
             Projectile->dP += dTime*ddP;
             
-            RenderRect(OffsetRect(Projectile->Bounds, Projectile->Physics->P),
-                       -10.0f, WHITE, Camera);
+            RenderRect(Projectile->Bounds+Projectile->Physics->P,
+                       -10.0f, WHITE, PixelItem(1));
         }else{
             Physics->State |= PhysicsObjectState_Inactive;
         }
     }
+    
+#if 0    
+    //~ Gate
+    {
+        v2 P = V2(136.0f, 40.0f);
+        rect R = CenterRect(P, TILE_SIZE);
+        RenderRect(RenderGroup, CenterRect(P, TILE_SIZE), 0.0f, ORANGE, 0);
+        rect PlayerRect = OffsetRect(Player->Bounds, Player->Physics->P);
+        RenderRectOutline(RenderGroup, CenterRect(P, TILE_SIZE), -10.0f, ORANGE, 0, 1.0f);
+        if(DoRectsOverlap(PlayerRect, R)){
+            u32 RequiredCoins = CurrentWorld->CoinsRequired;
+            if((u32)Score >= RequiredCoins){
+                if(CompletionCooldown == 0.0f){
+                    CompletionCooldown = 3.0f;
+                }
+            }else{
+                v2 TopCenter = 0.5f*OSInput.WindowSize;
+                RenderCenteredString(RenderGroup, &MainFont, GREEN, TopCenter, -0.9f,
+                                     "You need: %u more coins!", RequiredCoins-Score);
+            }
+        }
+    }
+#endif
     
     DoPhysics();
 }

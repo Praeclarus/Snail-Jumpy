@@ -40,7 +40,7 @@ LoadImageFromPath(const char *Path){
                                                     (int)File.Size,
                                                     &Result->Width, &Result->Height,
                                                     &Components, 4);
-            Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height);
+            Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height, false);
             stbi_image_free(ImageData);
         }
     }else{
@@ -59,7 +59,7 @@ LoadImageFromPath(const char *Path){
                                                 (int)File.Size,
                                                 &Result->Width, &Result->Height,
                                                 &Components, 4);
-        Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height);
+        Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height, false);
         
         stbi_image_free(ImageData);
     }

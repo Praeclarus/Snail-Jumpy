@@ -182,6 +182,14 @@ Clamp(s32 Value, s32 Min, s32 Max){
     return(Result);
 }
 
+internal inline f32
+Lerp(f32 A, f32 B, f32 T){
+    T = Clamp(T, 0.0f, 1.0f);
+    f32 Result = T*A + (1.0f-T)*B;
+    return(Result);
+}
+
+
 //~ V2s
 
 #define V20 V2(0)
@@ -352,6 +360,14 @@ Dot(v2 A, v2 B) {
 }
 
 internal inline v2
+Hadamard(v2 A, v2 B){
+    v2 Result;
+    Result.X = A.X*B.X;
+    Result.Y = A.Y*B.Y;
+    return(Result);
+}
+
+internal inline v2
 Clockwise90(v2 A, v2 Origin=V2(0,0)){
     A -= Origin;
     v2 Result = V2(A.Y, -A.X);
@@ -451,6 +467,13 @@ SnapToGrid(v2 P, f32 UnitSize){
     return(Result);
 }
 
+internal inline v2
+Lerp(v2 A, v2 B, f32 T){
+    T = Clamp(T, 0.0f, 1.0f);
+    v2 Result = T*A + (1.0f-T)*B;
+    return(Result);
+}
+
 //~ Colors
 struct color {
     f32 R, G, B, A;
@@ -479,6 +502,14 @@ MixColor(color A, color B, f32 Value){
     return(Result);
 }
 
+internal inline color
+Alphiphy(color Color, f32 Alpha){
+    Alpha = Clamp(Alpha, 0.0f, 1.0f);
+    color Result = Color;
+    Result.A *= Alpha;
+    return(Result);
+}
+
 //~ Rectangles
 union rect {
     struct {
@@ -494,6 +525,66 @@ struct rect_s32 {
     v2s Min;
     v2s Max;
 };
+
+internal inline rect
+operator+(rect A, v2 B){
+    rect Result;
+    Result.Min = A.Min + B;
+    Result.Max = A.Max + B;
+    return(Result);
+}
+
+internal inline rect
+operator-(rect A, v2 B){
+    rect Result;
+    Result.Min = A.Min - B;
+    Result.Max = A.Max - B;
+    return(Result);
+}
+
+internal inline rect
+operator*(rect A, f32 B){
+    rect Result;
+    Result.Min = A.Min * B;
+    Result.Max = A.Max * B;
+    return(Result);
+}
+
+internal inline rect
+operator/(rect A, f32 B){
+    rect Result;
+    Result.Min = A.Min / B;
+    Result.Max = A.Max / B;
+    return(Result);
+}
+
+internal inline rect
+operator+=(rect &A, v2 B){
+    A.Min += B;
+    A.Max += B;
+    return(A);
+}
+
+internal inline rect
+operator-=(rect &A, v2 B){
+    A.Min -= B;
+    A.Max -= B;
+    return(A);
+}
+
+internal inline rect
+operator*=(rect &A, f32 B){
+    A.Min *= B;
+    A.Max *= B;
+    return(A);
+}
+
+internal inline rect
+operator/=(rect &A, f32 B){
+    A.Min /= B;
+    A.Max /= B;
+    return(A);
+}
 
 internal inline rect
 Rect(v2 Min, v2 Max){
@@ -565,14 +656,6 @@ SizeRect(v2 Min, v2 Size){
     return(Result);
 }
 
-internal inline rect
-OffsetRect(rect Rect, v2 Offset){
-    rect Result = Rect;
-    Result.Min += Offset;
-    Result.Max += Offset;
-    return(Result);
-}
-
 internal inline v2
 RectSize(rect Rect){
     v2 Result = Rect.Max - Rect.Min;
@@ -614,19 +697,11 @@ GetRectCenter(rect Rect){
 
 internal inline rect
 SweepRect(rect RectA, v2 Delta){
-    rect RectB = OffsetRect(RectA, Delta);
+    rect RectB = RectA + Delta;
     rect Result;
     Result.Min = MinimumV2(RectA.Min, RectB.Min);
     Result.Max = MaximumV2(RectA.Max, RectB.Max);
     
-    return(Result);
-}
-
-internal inline rect
-ScaleRect(rect Rect, f32 Scale){
-    rect Result = Rect;
-    Result.Min *= Scale;
-    Result.Max *= Scale;
     return(Result);
 }
 
@@ -647,7 +722,7 @@ SnapToGrid(rect R, f32 UnitSize){
         Result.Min.Y =  Ceil(R.Min.Y/UnitSize);
         Result.Max.Y = Floor(R.Max.Y/UnitSize);
     }
-    Result = ScaleRect(Result, UnitSize);
+    Result *= UnitSize;
     
     // TODO(Tyler): Maybe fix rect?
     Result = FixRect(Result);

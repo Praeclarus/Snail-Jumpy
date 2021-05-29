@@ -1,20 +1,16 @@
 
-
-global f32 CompletionCooldown;
-
 internal void
 GameProcessKeyDown(os_event *Event){
     switch((u32)Event->Key){
-        //case KeyCode_Escape: ChangeState(GameMode_MainGame, "Overworld"); break;
         case 'E':            ToggleWorldEditor(); break;
+#if 0
+        case KeyCode_Escape: ChangeState(GameMode_MainGame, "Overworld"); break;
         case 'P': {
             CurrentWorld->Flags |= WorldFlag_IsCompleted;
             ChangeState(GameMode_MainGame, "Overworld");
         }break;
-#ifdef SNAIL_JUMPY_DEBUG_BUILD
-        case '=': GameCamera.MoveFactor += 0.05f; break;
-        case '-': GameCamera.MoveFactor -= 0.05f; break;
 #endif
+        
     }
 }
 
@@ -36,42 +32,13 @@ UpdateAndRenderMainGame(){
     
     GameProcessInput();
     
-    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
-    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
-    GameCamera.MoveFactor = 0.03f;
-    GameCamera.Update();
+    GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
+    GameRenderer.CalculateCameraBounds(CurrentWorld);
+    GameRenderer.SetCameraSettings(0.02f);
     
-    EntityManager.UpdateAndRenderEntities(&GameCamera);
+    EntityManager.UpdateAndRenderEntities();
     
     player_entity *Player = EntityManager.Player;
-    //~ Gate
-    {
-        v2 P = v2{15.25f, 3.25f};
-        v2 DrawP = P;
-        v2 Radius = 0.5f*TILE_SIZE;
-        RenderRect(CenterRect(DrawP, TILE_SIZE), 0.0f, ORANGE, &GameCamera);
-        v2 PlayerMin = Player->Physics->P-(RectSize(Player->Bounds)/2);
-        v2 PlayerMax = Player->Physics->P+(RectSize(Player->Bounds)/2);
-        if((P.X-Radius.X <= PlayerMax.X)  &&
-           (PlayerMin.X  <= P.X+Radius.X) &&
-           (P.Y-Radius.Y <= PlayerMax.Y)  &&
-           (PlayerMin.Y  <= P.Y+Radius.Y)){
-            u32 RequiredCoins = CurrentWorld->CoinsRequired;
-            if((u32)Score >= RequiredCoins){
-                if(CompletionCooldown == 0.0f){
-                    CompletionCooldown = 3.0f;
-                }
-            }else{
-                v2 TopCenter = v2{
-                    OSInput.WindowSize.Width/2, OSInput.WindowSize.Height/2
-                };
-                RenderCenteredString(&MainFont, GREEN, TopCenter, -0.9f,
-                                     "You need: %u more coins!", 
-                                     RequiredCoins-Score);
-            }
-        }
-    }
-    
     if(CompletionCooldown > 0.0f){
         f32 Advance =
             GetFormatStringAdvance(&MainFont, 
@@ -97,23 +64,21 @@ UpdateAndRenderMainGame(){
         }
     }
     
-    camera DummyCamera = {}; DummyCamera.MetersToPixels = GameCamera.MetersToPixels;
-    // Weapon charge bar
+    //~ Weapon charge bar
     {
-        v2 Min = v2{0.1f, 0.1f};
+        v2 Min = V2(0.1f, 0.1f);
         v2 Max = Min;
         f32 Percent = 0.0f;
         Percent = EntityManager.Player->WeaponChargeTime;
         Max.X += 4.0f*Percent;
         Max.Y += 0.2f;
-        RenderRect(Rect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f),
-                   &DummyCamera);
+        RenderRect(Rect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f), UIItem(1));
     }
     
-    // Health display
+    //~ Health display
     {
-        v2 P = v2{0.2f, 0.8f};
-        f32 XAdvance = 0.3f;
+        v2 P = V2(10.0f, 10.0f);
+        f32 XAdvance = 10.0f;
         
         u32 FullHearts = Player->Health / 3;
         u32 Remainder = Player->Health % 3;
@@ -121,33 +86,38 @@ UpdateAndRenderMainGame(){
         Assert(FullHearts <= 3);
         u32 I;
         for(I = 0; I < FullHearts; I++){
-            RenderFrameOfSpriteSheet( &DummyCamera, "heart", 0, P, -0.9f);
+            RenderFrameOfSpriteSheet("heart", 0, P, -0.9f);
             P.X += XAdvance;
         }
         
         if(Remainder > 0){
             Remainder = 3 - Remainder;
-            RenderFrameOfSpriteSheet( &DummyCamera, "heart", Remainder, P, -0.9f);
+            RenderFrameOfSpriteSheet("heart", Remainder, P, -0.9f);
             P.X += XAdvance;
             I++;
         }
         
         if(I < 3){
             for(u32 J = 0; J < 3-I; J++){
-                RenderFrameOfSpriteSheet(&DummyCamera, "heart", 3, P, -0.9f);
+                RenderFrameOfSpriteSheet("heart", 3, P, -0.9f);
                 P.X += XAdvance;
             }
         }
-        
-        RenderFormatString(&DebugFont, BLACK, 
-                           GameCamera.MetersToPixels*P,
-                           -2.0f, "Health: %d", Player->Health);
     }
     
-    //~ Debug UI
+    //~ Rope/vine thing
+    {
+        v2 BaseP = V2(100, 100);
+        
+        f32 FinalT = (0.5f*Sin(2*Counter))+0.5f;
+        f32 MinAngle = 0.4*PI;
+        f32 MaxAngle = 0.6f*PI;
+        f32 Angle = Lerp(MinAngle, MaxAngle, FinalT);
+        v2 Delta = 50.0f*V2(Cos(Angle), -Sin(Angle));
+        
+        RenderLineFrom(BaseP, Delta, -10.0f, 1.0f, GREEN, PixelItem(1));
+    }
+    
     RenderFormatString(&MainFont, GREEN, V2(100, OSInput.WindowSize.Height-100),
                        -0.9f, "Score: %u", Score);
-    
-    DEBUGRenderOverlay();
-    Renderer.RenderToScreen();
 }

@@ -22,6 +22,6 @@
             "verifyBufferAccess": false
         },
         "queuedFrameCap": 0,
-        "workingDir": "D:/Projects/Snail_Jumpy/data"
+        "workingDir": "D:\\Projects\\Snail_Jumpy\\data"
     }
 }

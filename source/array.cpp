@@ -59,7 +59,7 @@ PushNArrayItems(array<T> *Array, u32 N){
 }
 
 template<typename T> internal inline array<T>
-CreateNewArray(memory_arena *Arena, u32 MaxCount, umw Alignment=4){
+MakeNewArray(memory_arena *Arena, u32 MaxCount){
     array<T> Result = {0};
     Result.Items = PushArray(Arena, T, MaxCount);
     Result.MaxCount = MaxCount;
@@ -119,7 +119,8 @@ ClearArray(array<T> *Array){
 
 //~ Dynamic array
 template <typename T>
-struct dynamic_array {
+struct 
+dynamic_array {
     memory_arena *Arena;
     
     T *Items;

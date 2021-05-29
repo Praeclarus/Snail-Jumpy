@@ -12,8 +12,6 @@ struct entity_editor {
     b8   AddBoundary;
     entity_info_boundary MakingBoundary = { .Type = EntityInfoBoundaryType_Rect };
     
-    camera Camera;
-    
     v2 MouseP;
     
     f32 FloorY;

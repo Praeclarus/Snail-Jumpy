@@ -501,6 +501,7 @@ typedef f64 GLclampd;
 typedef void type_glGenBuffers(GLsizei n, GLuint * buffers);
 typedef void type_glBindBuffer(GLenum target, GLuint buffer);
 typedef void type_glBufferData(GLenum target, GLsizeiptr size, const void * data, GLenum usage);
+typedef void type_glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void * data);
 typedef GLuint type_glCreateShader(GLenum shaderType);
 typedef void type_glBindVertexArray(GLuint array);
 typedef void type_glUseProgram(GLuint program);
@@ -530,9 +531,13 @@ typedef void type_glUniform2fv(GLint location, GLsizei count, const GLfloat *val
 typedef void type_glUniform3fv(GLint location, GLsizei count, const GLfloat *value);
 typedef void type_glUniform4fv(GLint location, GLsizei count, const GLfloat *value);
 typedef void type_glUniform1i(GLint location, GLint value);
-typedef void type_glUniform2i(GLint location, GLint value);
-typedef void type_glUniform3i(GLint location, GLint value);
-typedef void type_glUniform4i(GLint location, GLint value);
+typedef void type_glUniform2i(GLint location, GLint v0, GLint v1);
+typedef void type_glUniform3i(GLint location, GLint v0, GLint v1, GLint v2);
+typedef void type_glUniform4i(GLint location, GLint v0, GLint v1, GLint v2, GLint v3);
+typedef void type_glUniform1f(GLint location, GLfloat value);
+typedef void type_glUniform2f(GLint location, GLfloat v0, GLfloat v1);
+typedef void type_glUniform3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
+typedef void type_glUniform4f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
 typedef void type_glUniformMatrix2fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef void type_glUniformMatrix3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef void type_glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
@@ -565,6 +570,7 @@ typedef void type_wglSwapIntervalEXT(GLint interval);
 X(glGenBuffers)       \
 X(glBindBuffer)       \
 X(glBufferData)       \
+X(glBufferSubData)       \
 X(glCreateShader)       \
 X(glGenVertexArrays)       \
 X(glBindVertexArray)       \
@@ -587,6 +593,10 @@ X(glUniform1fv)       \
 X(glUniform2fv)       \
 X(glUniform3fv)       \
 X(glUniform4fv)       \
+X(glUniform1f)       \
+X(glUniform2f)       \
+X(glUniform3f)       \
+X(glUniform4f)       \
 X(glUniform1i)       \
 X(glUniform2i)       \
 X(glUniform3i)       \
@@ -617,10 +627,16 @@ X(glDrawBuffers)       \
 X(glActiveTexture)
 
 //~
-
-struct basic_program {
-    GLuint Id;
-    GLint ProjectionLocation;
+struct opengl_backend {
+    GLuint VertexArray;
+    GLuint VertexBuffer;
+    GLuint InstanceBuffer;
+    
+    GLuint ScreenVertexArray;
+    
+    void NormalSetup();
+    void UploadRenderData(dynamic_array<basic_vertex> *Vertices, dynamic_array<u32> *Indices);
+    void RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, f32 Scale);
 };
 
 #endif //SNAIL_JUMPY_OPENGL_H

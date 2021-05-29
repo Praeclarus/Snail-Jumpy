@@ -147,7 +147,8 @@ ProcessSpriteSheet(stream *Stream, asset *NewAsset){
         LogMessage("ProcessSpriteSheet: the size cannot be 0!");
         return(false);
     }
-    f32 MetersToPixels = 60.0f / 0.5f; // TODO(Tyler): GET THIS FROM THE Commands
+    // TODO(Tyler): This is stupid!!! Fix ME!!!
+    f32 MetersToPixels = 60.0f / 0.5f;
     f32 WidthF32 = (f32)NewAsset->SizeInPixels.Width;
     f32 HeightF32 = (f32)NewAsset->SizeInPixels.Height;
     f32 SizeF32 = (f32)Size;
@@ -336,7 +337,7 @@ InitializeAssetSystem(memory_arena *Arena){
     }
     
     u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};
-    render_texture_handle InvalidTexture = CreateRenderTexture(InvalidColor, 1, 1);
+    render_texture InvalidTexture = CreateRenderTexture(InvalidColor, 1, 1, false);
     
     DummySpriteSheetAsset.Scale = 1.0f;
     DummySpriteSheetAsset.SizeInPixels = V2S(128, 128);
@@ -375,7 +376,7 @@ GetArt(const char *Name){
 
 internal array<const char *>
 GetAssetNameListByType(asset_type Type){
-    array<const char *> AssetNames = CreateNewArray<const char *>(&TransientStorageArena, 256);
+    array<const char *> AssetNames = MakeNewArray<const char *>(&TransientStorageArena, 256);
     for(u32 I = 0; I < AssetTable.MaxBuckets; I++){
         const char *Key = AssetTable.Keys[I];
         if(Key){
@@ -390,29 +391,43 @@ GetAssetNameListByType(asset_type Type){
 }
 
 internal void
-RenderFrameOfSpriteSheet(camera *Camera, const char *AssetName, 
-                         u32 Frame, v2 Center, f32 Z){
+RenderFrameOfSpriteSheet(const char *AssetName, u32 Frame, v2 Center, f32 Z, u32 Layer=1){
     asset *Asset = GetSpriteSheet(AssetName);
     Assert(Asset->Type == AssetType_SpriteSheet);
     
-    u32 FrameInSpriteSheet = Frame;
-    u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
-    if(FrameInSpriteSheet >= Asset->FramesPerRow){
-        RowInSpriteSheet -= (FrameInSpriteSheet / Asset->FramesPerRow);
-        FrameInSpriteSheet %= Asset->FramesPerRow;
+    // TODO(Tyler): This is awful, fix this! - Asset system rewrite
+    f32 Conversion = 60.0f / 0.5f;
+    v2 Size = Asset->SizeInMeters*Conversion;
+    //v2 RenderSize = Size-V2(1.0f, 0.0f);
+    
+    v2 RenderSize = Size;
+    
+    rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+    
+    u32 Column = Frame;
+    u32 Row = 0;
+    if(Column >= Asset->FramesPerRow){
+        Row = (Column / Asset->FramesPerRow);
+        Column %= Asset->FramesPerRow;
     }
     
-    v2 MinTexCoord = v2{(f32)FrameInSpriteSheet, (f32)RowInSpriteSheet};
-    MinTexCoord.X *= Asset->SizeInTexCoords.X;
-    MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
-    v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
+    u32 TotalRows = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Y);
+    Row = (TotalRows - 1) - Row;
+    Assert((0 <= Row) && (Row < TotalRows));
     
-    RenderTexture(CenterRect(Center, Asset->Scale*Asset->SizeInMeters), 
-                  Z, Asset->Texture, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, Camera);
+    TextureRect += V2(Column*Size.X, Row*Size.Y);
+    TextureRect.Min.X /= Asset->SizeInPixels.X;
+    TextureRect.Min.Y /= Asset->SizeInPixels.Y;
+    TextureRect.Max.X /= Asset->SizeInPixels.X;
+    TextureRect.Max.Y /= Asset->SizeInPixels.Y;
+    
+    rect R = CenterRect(Center, RenderSize);
+    
+    RenderTexture(R, Z, Asset->Texture, PixelItem(Layer), TextureRect, false);
 }
 
 internal void
-UpdateAndRenderAnimation(camera *Camera, entity *Entity, f32 dTimeForFrame){
+UpdateAndRenderAnimation(entity *Entity, f32 dTimeForFrame){
     asset *Asset = GetSpriteSheet(Entity->Asset);
     
     u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
@@ -430,6 +445,7 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity, f32 dTimeForFrame){
             Entity->NumberOfTimesAnimationHasPlayed++;
         }
         
+        // TODO(Tyler): This is awful, fix this! - Asset system rewrite
         if(ShouldEntityUpdate(Entity) &&
            (Entity->Type == EntityType_Enemy)){
             switch(Entity->State){
@@ -453,24 +469,13 @@ UpdateAndRenderAnimation(camera *Camera, entity *Entity, f32 dTimeForFrame){
         P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
         P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
         
-        u32 FrameInSpriteSheet = 0;
-        u32 RowInSpriteSheet = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Height)-1;
-        FrameInSpriteSheet += (u32)Entity->AnimationState;
+        u32 Frame = (u32)Entity->AnimationState;
         for(u32 Index = 0; Index < AnimationIndex; Index++){
-            FrameInSpriteSheet += Asset->FrameCounts[Index];
-        }
-        if(FrameInSpriteSheet >= Asset->FramesPerRow){
-            RowInSpriteSheet -= (FrameInSpriteSheet / Asset->FramesPerRow);
-            FrameInSpriteSheet %= Asset->FramesPerRow;
+            Frame += Asset->FrameCounts[Index];
         }
         
-        v2 MinTexCoord = V2((f32)FrameInSpriteSheet, (f32)RowInSpriteSheet);
-        MinTexCoord.X *= Asset->SizeInTexCoords.X;
-        MinTexCoord.Y *= Asset->SizeInTexCoords.Y;
-        v2 MaxTexCoord = MinTexCoord + Asset->SizeInTexCoords;
-        
-        RenderTexture(SizeRect(P, Asset->Scale*Asset->SizeInMeters), Entity->ZLayer,
-                      Asset->Texture, MinTexCoord, MaxTexCoord, Asset->IsTranslucent, 
-                      Camera);
+        // TODO(Tyler): This does some reduntant work. Such as retrieving the 
+        // asset again from the asset table.
+        RenderFrameOfSpriteSheet(Entity->Asset, Frame, P, Entity->ZLayer);
     }
 }

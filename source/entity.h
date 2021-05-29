@@ -129,7 +129,7 @@ struct entity_manager {
     void Initialize(memory_arena *Arena);
     void Reset();
     void ProcessEvent(os_event *Event);
-    void UpdateAndRenderEntities(camera *Camera);
+    void UpdateAndRenderEntities();
     inline void DoPhysics();
     inline void DamagePlayer(u32 Damage);
 };

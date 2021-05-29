@@ -2,29 +2,27 @@
 //~ Entity info selector
 
 internal u32
-DoInfoSelector(v2 StartP, camera *ParentCamera, u32 SelectedInfo){
-    // TODO(Tyler): This is a failing of Camera, we don't want it to be 
-    // offset by it's position
-    camera Camera = {}; Camera.MetersToPixels = ParentCamera->MetersToPixels;
-    
+DoInfoSelector(v2 StartP, u32 SelectedInfo){
     u32 Result = SelectedInfo;
-    local_constant f32 Thickness = 0.03f;
+    local_constant f32 Thickness = 1.0f;
     local_constant f32 Spacer    = 0.0f;
     
     v2 P = StartP;
     for(u32 I = 1; I < EntityInfos.Count; I++){
         entity_info *Info = &EntityInfos[I];
         asset *Asset = GetSpriteSheet(Info->Asset);
-        v2 Size = Asset->SizeInMeters*Asset->Scale;
+        // TODO(Tyler): This is awful, fix this! - Asset system rewrite
+        f32 Conversion = Minimum((OSInput.WindowSize.Width/32.0f), (OSInput.WindowSize.Height/18.0f)) / 0.5f;
+        v2 Size = Asset->SizeInMeters*Conversion;
         v2 Center = P + 0.5f*Size;
-        RenderFrameOfSpriteSheet(&Camera, Info->Asset, 0, Center, -2.0f);
+        RenderFrameOfSpriteSheet(Info->Asset, 0, Center, -2.0f, 0);
         
-        rect R = SizeRect(V2(P.X, P.Y), Size);
+        rect R = SizeRect(P, Size);
         
         u64 ID = WIDGET_ID_CHILD(WIDGET_ID, I);
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
         
-        switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Left, -1)){
+        switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Left, -1, UIItem(0))){
             case UIBehavior_None: {
                 State->T -= 5*OSInput.dTime;
             }break;
@@ -47,14 +45,14 @@ DoInfoSelector(v2 StartP, camera *ParentCamera, u32 SelectedInfo){
         
         f32 ActiveT = 1.0f - Square(1.0f-State->ActiveT);
         C = MixColor(EDITOR_SELECTED_COLOR, C,  ActiveT);
-        RenderRectOutline(R, -2.1f, C, &Camera, Thickness);
+        RenderRectOutline(R, -2.1f, C, ScaledItem(0), Thickness);
         
         f32 XAdvance = Spacer+Size.X;
         P.X += XAdvance;
         
-        if(P.X > 10.0f){
+        if(P.X > 300.0f){
             P.X = StartP.X;
-            P.Y -= 1.5f;
+            P.Y -= 50.0f;
         }
     }
     
@@ -65,7 +63,7 @@ DoInfoSelector(v2 StartP, camera *ParentCamera, u32 SelectedInfo){
 internal inline rect
 GetInfoBoundaryBounds(entity_info_boundary *Boundary, v2 P){
     rect Result = FixRect(Boundary->Bounds);
-    Result = OffsetRect(Result, Boundary->Offset+P);
+    Result += Boundary->Offset+P;
     return(Result);
 }
 
@@ -127,8 +125,8 @@ entity_editor::ProcessKeyDown(os_key_code KeyCode){
         case KeyCode_Left:  CurrentDirection = Direction_Left;  break;
         case KeyCode_Right: CurrentDirection = Direction_Right; break;
         
-        case KeyCode_Up: CurrentState = FORWARD_STATE_TABLE[CurrentState];   break;
-        case KeyCode_Down: CurrentState = REVERSE_STATE_TABLE[CurrentState]; break;
+        case KeyCode_Up:   CurrentState = REVERSE_STATE_TABLE[CurrentState]; break;
+        case KeyCode_Down: CurrentState = FORWARD_STATE_TABLE[CurrentState]; break;
     }
 }
 
@@ -232,10 +230,10 @@ entity_editor::DoUI(){
 void 
 entity_editor::UpdateAndRender(){
     //~ Startup
-    EntityP        = V2(5, 5);
-    FloorY         = 4.0f;
-    SelectorOffset = 1.0f;
-    MouseP = Camera.ToWorldP(OSInput.MouseP);
+    EntityP        = V2(100, 5);
+    FloorY         = 100.0f;
+    SelectorOffset = 50.0f;
+    MouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(0));
     
     if(!SelectedInfo){
         SelectedInfoID = 1;
@@ -244,31 +242,25 @@ entity_editor::UpdateAndRender(){
         AddingBoundary = BoundarySet;
     }
     
-    Renderer.NewFrame(&TransientStorageArena, V2S(OSInput.WindowSize));
-    Renderer.ClearScreen(Color(0.4f, 0.5f, 0.45f, 1.0f));
-    Camera.Update();
+    GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
+    
+    GridSize = 1;
+    FloorY = SnapToGrid(V2(0, FloorY), GridSize).Y;
     
     asset *Asset = GetSpriteSheet(SelectedInfo->Asset);
-    GridSize = Asset->Scale/(Camera.MetersToPixels);
-    EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Asset->Scale;
-    {
-        rect R = CenterRect(EntityP, Asset->SizeInMeters*Asset->Scale);
-        v2 NewMin = SnapToGrid(R.Min, GridSize);
-        v2 Difference = NewMin - R.Min;
-        R = OffsetRect(R, Difference);
-        EntityP += Difference;
-        FloorY = SnapToGrid(V2(0, FloorY), GridSize).Y;
-    }
-    //EntityP = SnapToGrid(EntityP, GridSize);
+    // TODO(Tyler): This is awful, fix this! - Asset system rewrite
+    f32 Conversion  = 60.0f / 0.5f;
+    EntityP.Y = FloorY + 0.5f*Asset->SizeInMeters.Y*Conversion;
+    EntityP.X = SnapToGrid(V2(EntityP.X, 0), GridSize).X;
     
     { // Draw floor
         v2 Min;
-        Min.Y = FloorY - 0.05f;
+        Min.Y = FloorY - 1.0f;
         Min.X = 1.0f;
         v2 Max;
         Max.Y = FloorY;
-        Max.X = (OSInput.WindowSize.X/Camera.MetersToPixels) - 1.0f;
-        RenderRect(Rect(Min, Max), 1.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), &Camera);
+        Max.X = (OSInput.WindowSize.X) - 1.0f;
+        RenderRect(Rect(Min, Max), 1.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), PixelItem(0));
     }
     
     ProcessInput();
@@ -293,13 +285,13 @@ entity_editor::UpdateAndRender(){
                 MakingBoundary.Bounds.Max = SnapToGrid(MakingBoundary.Bounds.Max, GridSize);
                 
                 v2 PointSize = V2(0.03f);
-                RenderRect(CenterRect(MakingBoundary.Bounds.Min, PointSize), -10.0f, YELLOW, &Camera);
-                RenderRect(CenterRect(MakingBoundary.Bounds.Max, PointSize), -10.0f, YELLOW, &Camera);
+                RenderRect(CenterRect(MakingBoundary.Bounds.Min, PointSize), -10.0f, YELLOW, UIItem(0));
+                RenderRect(CenterRect(MakingBoundary.Bounds.Max, PointSize), -10.0f, YELLOW, UIItem(0));
                 
                 FixInfoBoundary(&MakingBoundary, EntityP);
                 
                 collision_boundary Boundary = ConvertToCollisionBoundary(&MakingBoundary, &TransientStorageArena);
-                RenderBoundary(&Camera, &Boundary, -2.0f, EntityP);
+                RenderBoundary(&Boundary, -2.0f, EntityP);
             }break;
             case UIBehavior_Deactivate: {
                 *AddingBoundary = MakingBoundary;
@@ -348,11 +340,11 @@ entity_editor::UpdateAndRender(){
             for(u32 Index = 0; Index < AnimationIndex; Index++){
                 FrameInSpriteSheet += Asset->FrameCounts[Index];
             }
-            RenderFrameOfSpriteSheet(&Camera, SelectedInfo->Asset, 
+            RenderFrameOfSpriteSheet(SelectedInfo->Asset, 
                                      FrameInSpriteSheet, EntityP, 0.0f);
         }
     }else{
-        RenderFrameOfSpriteSheet(&Camera, SelectedInfo->Asset, 
+        RenderFrameOfSpriteSheet(SelectedInfo->Asset, 
                                  0, EntityP, 0.0f);
     }
     
@@ -366,7 +358,7 @@ entity_editor::UpdateAndRender(){
         u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)InfoBoundary);
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
         
-        switch(EditorDraggableElement(&UIManager, &Camera, ID, R, P, -2)){
+        switch(EditorDraggableElement(&UIManager, ID, R, P, -2, ScaledItem(0))){
             case UIBehavior_None: {
                 State->T -= 5.0f*OSInput.dTime;
                 State->ActiveT -= 3.0f*OSInput.dTime;
@@ -376,8 +368,7 @@ entity_editor::UpdateAndRender(){
                 State->ActiveT -= 3.0f*OSInput.dTime;
             }break;
             case UIBehavior_Activate: {
-                v2 Offset = Camera.ToWorldP(UIManager.ActiveElement.Offset);
-                
+                v2 Offset = GameRenderer.ScreenToWorld(UIManager.ActiveElement.Offset, ScaledItem(0));
                 InfoBoundary->Offset = MouseP + Offset - EntityP;
                 rect R = GetInfoBoundaryBounds(InfoBoundary, EntityP);
                 v2 NewMin = SnapToGrid(R.Min, GridSize);
@@ -396,7 +387,7 @@ entity_editor::UpdateAndRender(){
         }
         
         collision_boundary Boundary = ConvertToCollisionBoundary(&BoundarySet[I], &TransientStorageArena);
-        RenderBoundary(&Camera, &Boundary, Z, EntityP);
+        RenderBoundary(&Boundary, Z, EntityP);
         
         color C = EDITOR_HOVERED_COLOR; C.A = 0.0f;
         State->T = Clamp(State->T, 0.0f, 1.0f);
@@ -408,11 +399,11 @@ entity_editor::UpdateAndRender(){
         C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
         
         R = GetInfoBoundaryBounds(InfoBoundary, EntityP);
-        RenderRect(R, Z-0.1f, C, &Camera);
+        RenderRect(R, Z-0.1f, C, ScaledItem(0));
         
         Z -= 0.2f;
         
-        switch(EditorButtonElement(&UIManager, &Camera, ID, R, MouseButton_Right, -1)){
+        switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Right, -1, ScaledItem(0))){
             case UIBehavior_Activate: {
                 RemoveInfoBoundary(InfoBoundary);
                 I--; // Repeat the last iteration because an item was removed
@@ -423,13 +414,10 @@ entity_editor::UpdateAndRender(){
     }
     
     u32 OldInfoID = SelectedInfoID;
-    SelectedInfoID = DoInfoSelector(V2(0.5f, FloorY-SelectorOffset-1.0f), &Camera, SelectedInfoID);
+    SelectedInfoID = DoInfoSelector(V2(10.0f, FloorY-SelectorOffset-1.0f), SelectedInfoID);
     if(SelectedInfoID != OldInfoID){
         SelectedInfo = &EntityInfos[SelectedInfoID];
         BoundarySet = SelectedInfo->EditingBoundaries;
         AddingBoundary = BoundarySet;
     }
-    
-    DEBUGRenderOverlay();
-    Renderer.RenderToScreen();
 }

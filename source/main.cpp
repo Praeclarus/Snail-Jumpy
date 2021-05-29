@@ -14,8 +14,6 @@
 //~ Engine variables
 global debug_config DebugConfig;
 
-global renderer Renderer;
-
 // TODO(Tyler): Luckily nothing too crazy is happening with fonts like animating a 
 // change in size, because the current font system I don't would be too capable of that.
 // This system is awful, fonts should be done way better.
@@ -31,18 +29,13 @@ global state_change_data StateChangeData;
 // TODO(Tyler): Load this from a variables file at startup
 global game_mode GameMode = GameMode_WorldEditor;
 
-global world_editor WorldEditor;
+global world_editor  WorldEditor;
 global entity_editor EntityEditor;
-
-global camera GameCamera;
-global v2 LastOverworldPlayerP;
 
 // TODO(Tyler): This could be fancier, like checking for string duplications? and it 
 // needs to support resizing, and freeing maybe. A pool for allocating fixed length
 // strings might be good, and efficient?
 global memory_arena StringMemory; 
-// I am unsure about using strings in the game, but they are used for level names and 
-// assets(for now).
 
 global world_manager WorldManager;
 global world_data *CurrentWorld;
@@ -54,9 +47,12 @@ global hash_table<const char *, asset> AssetTable;
 
 global physics_system PhysicsSystem;
 
-//~ Gameplay variables
+global game_renderer GameRenderer;
 
+//~ Gameplay variables
 global s32 Score;
+global f32 CompletionCooldown;
+
 
 //~ Includes
 #include "logging.cpp"
@@ -70,7 +66,6 @@ global s32 Score;
 #include "entity.cpp"
 #include "debug_ui.cpp"
 #include "world.cpp"
-#include "camera.cpp"
 
 #include "menu.cpp"
 #include "entity_editor.cpp"
@@ -132,7 +127,9 @@ InitializeGame(){
     
     LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
     
-    Renderer.Initialize();
+    InitializeRendererBackend();
+    GameRenderer.Initialize(&PermanentStorageArena, OSInput.WindowSize);
+    
     StringMemory = PushNewArena(&PermanentStorageArena, Kilobytes(32));
     LoadFont(&TransientStorageArena, &DebugFont, "Roboto-Regular.ttf", 22);
     LoadFont(&TransientStorageArena, &TitleFont, "Roboto-Regular.ttf", 30);
@@ -174,16 +171,14 @@ GameUpdateAndRender(){
             EntityEditor.UpdateAndRender();
         }break;
     }
-    UIManager.EndFrame();
     
-    OSInput.LastMouseP = OSInput.MouseP;
+    DEBUGRenderOverlay();
+    UIManager.EndFrame();
+    RendererRenderAll(&GameRenderer);
+    
     Counter += OSInput.dTime;
     
     if(StateChangeData.DidChange){
-        if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-            LastOverworldPlayerP = EntityManager.Player->Physics->P;
-        }
-        
         if(StateChangeData.NewMode == GameMode_None){
             WorldManager.LoadWorld(StateChangeData.NewLevel);
         }else if(StateChangeData.NewMode == GameMode_MainGame){
@@ -192,9 +187,9 @@ GameUpdateAndRender(){
         }else if(StateChangeData.NewMode == GameMode_WorldEditor){
             GameMode = GameMode_WorldEditor;
         }else if(StateChangeData.NewMode == GameMode_EntityEditor){
+            GameRenderer.ResetCamera();
             GameMode = GameMode_EntityEditor;
         }
-        GameCamera.P = {0};
         
         StateChangeData = {0};
     }

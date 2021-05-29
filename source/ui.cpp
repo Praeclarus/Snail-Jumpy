@@ -151,7 +151,7 @@ void
 ui_window::DrawRect(rect R, f32 Z_, color C){
     f32 T = FadeT;
     C = Alphiphy(C, 1.0f-T);
-    RenderRect(R, Z_, C);
+    RenderRect(R, Z_, C, UIItem(0));
 }
 
 void 
@@ -162,7 +162,6 @@ ui_window::VDrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, va
     C = Alphiphy(C, 1.0f-T);
     
     VRenderFormatString(Font, C, P, Z_, Format, VarArgs);
-    
 }
 
 void 
@@ -185,7 +184,7 @@ ui_window::Button(const char *Text, u64 ID){
     AdvanceAndVerify(Height, Width);
     
     rect ButtonRect = MakeRect(V20, V2(Width,Height));
-    ButtonRect = OffsetRect(ButtonRect, DrawP);
+    ButtonRect += DrawP;
     
     f32 Speed = 0.0f;
     switch(Manager->DoButtonElement(ID, ButtonRect)){
@@ -248,7 +247,7 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     f32 Height = Theme->ButtonHeight;
     AdvanceAndVerify(Height, Width);
     rect TextBoxRect = MakeRect(V20, V2(Width, Height));
-    TextBoxRect = OffsetRect(TextBoxRect, DrawP);
+    TextBoxRect += DrawP;
     
     u32 BufferIndex = CStringLength(Buffer);
     
@@ -312,7 +311,7 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
         f32 CursorWidth = 2;
         f32 TextHeight = Theme->NormalFont->Ascent;
         rect CursorRect = MakeRect(V20, V2(CursorWidth, TextHeight));
-        CursorRect = OffsetRect(CursorRect, StringP+V2(Advance, 0.0f));
+        CursorRect += StringP+V2(Advance, 0.0f);
         DrawRect(CursorRect, Z-0.2f, CursorColor);
     }
 }
@@ -335,9 +334,9 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
     f32 Height = Theme->ButtonHeight;
     AdvanceAndVerify(Height, ContentWidth);
     rect ActivateRect = MakeRect(V20, V2(ContentWidth, Height));
-    ActivateRect = OffsetRect(ActivateRect, DrawP);
+    ActivateRect += DrawP;
     rect BoxRect = MakeRect(V20, V2(Height));
-    BoxRect = OffsetRect(BoxRect, DrawP);
+    BoxRect += DrawP;
     
     switch(Manager->DoButtonElement(ID, ActivateRect)){
         case UIBehavior_None:{
@@ -404,7 +403,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
     AdvanceAndVerify(Height, Width);
     
     rect MenuRect = MakeRect(V20, V2(Width, Height));
-    MenuRect = OffsetRect(MenuRect, DrawP);
+    MenuRect += DrawP;
     
     ui_element Element = MakeElement(UIElementType_DropDown, ID, 1);
     
@@ -423,7 +422,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
         rect ClipRect = ActionRect;
         ClipRect.Min -= V2(Theme->Padding);
         ClipRect.Max.X += Theme->Padding;
-        Renderer.BeginClipRegion(ClipRect.Min, ClipRect.Max);
+        GameRenderer.BeginClipRect(ClipRect);
         
         v2 P = DrawP;
         for(u32 I=0; I < TextCount; I++){
@@ -433,7 +432,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
             color TextColor = Theme->TextColorA;
             
             rect ItemRect = MakeRect(V20, V2(Width, Height));
-            ItemRect = OffsetRect(ItemRect, P);
+            ItemRect += P;
             f32 ItemZ = Z-0.36f;
             
             if(IsPointInRect(OSInput.MouseP, ItemRect) && IsActive){
@@ -470,13 +469,13 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
             P.Y -= Height;
         }
         
-        Renderer.EndClipRegion();
+        GameRenderer.EndClipRect();
     }else{
         color Color = Theme->BaseColor;
         color TextColor = Theme->TextColorA;
         DrawRect(MenuRect, Z-0.1f, Color);
         v2 StringP = VCenterStringP(Theme, Theme->NormalFont, DrawP, Height);
-        StringP = PadLeftStringP(Theme, Theme->NormalFont, StringP);;
+        StringP = PadLeftStringP(Theme, Theme->NormalFont, StringP);
         DrawString(Theme->NormalFont, TextColor, StringP, Z-0.2f, Texts[*Selected]);
     }
     
@@ -536,7 +535,7 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
         Window->WindowP = TopLeft;
         Window->Rect = TopLeftRect(TopLeft, Size);
         Window->Name = Name;
-        Window->Z = -5.0f;
+        Window->Z = -10.0f;
     }
     Window->Manager = this;
     
@@ -588,7 +587,7 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
     }else if(Window->Rect.Min.Y < 0.0f){
         Fix += V2(0.0f, -Window->Rect.Min.Y);
     }
-    Window->Rect = OffsetRect(Window->Rect, Fix);
+    Window->Rect += Fix;
     Window->WindowP += Fix;
     
     TitleBarRect = Window->Rect;
@@ -757,6 +756,7 @@ ui_manager::EndFrame(){
         ElementJustActive = true;;
     }
     ValidElement = DefaultElement();
+    //RenderUIRenderGroup(&UIShader, &RenderGroup);
 }
 
 b8
@@ -836,18 +836,16 @@ ui_manager::ProcessEvent(os_event *Event){
 //~ Editor stuff
 
 internal inline ui_behavior
-EditorDraggableElement(ui_manager *Manager, camera *Camera, 
-                       u64 ID, rect R, v2 P, s32 Priority){
-    R = Camera->ToScreenRect(R);
-    P = Camera->ToScreenP(P);
+EditorDraggableElement(ui_manager *Manager, u64 ID, rect R, v2 P, s32 Priority, render_options Options){
+    R = GameRenderer.WorldToScreen(R, Options);
+    P = GameRenderer.WorldToScreen(P, Options);
     ui_behavior Result = Manager->DoDraggableElement(ID, R, P, Priority);
     return(Result);
 }
 
 internal inline ui_behavior
-EditorButtonElement(ui_manager *Manager, camera *Camera, 
-                    u64 ID, rect R, os_mouse_button Button, s32 Priority){
-    R = Camera->ToScreenRect(R);
+EditorButtonElement(ui_manager *Manager, u64 ID, rect R, os_mouse_button Button, s32 Priority, render_options Options){
+    R = GameRenderer.WorldToScreen(R, Options);
     ui_behavior Result = Manager->DoButtonElement(ID, R, Button, Priority);
     return(Result);
 }

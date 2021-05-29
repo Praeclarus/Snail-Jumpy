@@ -54,7 +54,6 @@ enum os_mouse_button {
 };
 
 struct os_button {
-    //u8 HalfTransitionCount;
     b8 IsDown;
     b8 JustDown;
     b8 Repeat;
@@ -78,6 +77,7 @@ enum os_event_kind {
     OSEventKind_MouseUp,
     OSEventKind_MouseMove,
     OSEventKind_MouseWheelMove,
+    OSEventKind_Resize,
 };
 
 struct os_event {
@@ -112,43 +112,26 @@ enum _open_file_flags {
 };
 typedef u8 open_file_flags;
 
-internal os_file *
-OpenFile(const char *Path, open_file_flags Flags);
-internal void 
-CloseFile(os_file *File);
-internal b32 
-ReadFile(os_file *File, u64 FileOffset, void *Buffer, umw BufferSize);
-internal u64 
-WriteToFile(os_file *File, u64 FileOffset, const void *Buffer, umw BufferSize);
-internal u64 
-GetFileSize(os_file *File);
-internal u64
-GetLastFileWriteTime(os_file *File);
+internal os_file *OpenFile(const char *Path, open_file_flags Flags);
+internal void CloseFile(os_file *File);
+internal b32 ReadFile(os_file *File, u64 FileOffset, void *Buffer, umw BufferSize);
+internal u64 WriteToFile(os_file *File, u64 FileOffset, const void *Buffer, umw BufferSize);
+internal u64 GetFileSize(os_file *File);
+internal u64 GetLastFileWriteTime(os_file *File);
 // The AtPath part of this function is because Windows has an identical function called 
 // DeleteFile with the same signature
-internal b8
-DeleteFileAtPath(const char *Path);
+internal b8 DeleteFileAtPath(const char *Path);
 
-internal void *
-AllocateVirtualMemory(umw Size);
-internal void 
-FreeVirtualMemory(void *Pointer);
-internal void
-*DefaultAlloc(umw Size);
-internal void
-*DefaultRealloc(void *Memory, umw Size);
-internal void 
-DefaultFree(void *Pointer);
+internal void *AllocateVirtualMemory(umw Size);
+internal void FreeVirtualMemory(void *Pointer);
+internal void *DefaultAlloc(umw Size);
+internal void *DefaultRealloc(void *Memory, umw Size);
+internal void DefaultFree(void *Pointer);
 
-internal void
-GetProfileTime();
-internal b8
-PollEvents(os_event *Event);
+internal b8 PollEvents(os_event *Event);
 
-internal void
-VWriteToDebugConsole(os_file *Output, const char *Format, va_list VarArgs);
-internal void
-WriteToDebugConsole(os_file *Output, const char *Format, ...);
+internal void VWriteToDebugConsole(os_file *Output, const char *Format, va_list VarArgs);
+internal void WriteToDebugConsole(os_file *Output, const char *Format, ...);
 
 internal void
 OSSleep(u32 Milliseconds);
@@ -169,4 +152,4 @@ TestModifier(os_key_flags Flags){
 #define WriteVariableToFile(File, Offset, Number) { WriteToFile(File, Offset, &Number, sizeof(Number)); \
 Offset += sizeof(Number); }
 
-#endif
+#endif // SNAIL_JUMPY_PLATFORM_H

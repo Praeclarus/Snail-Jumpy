@@ -29,8 +29,6 @@ struct world_editor {
     world_editor_flags Flags;
     char NameBuffer[512];
     
-    camera Camera;
-    
     v2 LastMouseP;
     v2 MouseP;
     v2 CursorP;
@@ -49,7 +47,7 @@ struct world_editor {
     void DoUI();
     b8   DoSelectorOverlay();
     void DoSelectedThingUI();
-    void RenderCursor();
+    void DoCursor();
     
     void ProcessKeyDown(os_key_code KeyCode, b8 JustDown);
     void ProcessInput();

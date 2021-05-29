@@ -216,7 +216,8 @@ world_manager::LoadWorld(const char *LevelName){
             
             //~ Player
             // TODO(Tyler): Formalize player starting position
-            AddPlayer(V2(1.55f, 1.55f));
+            //AddPlayer(V2(300.0f, 30.0f));
+            AddPlayer(V2(30.0f, 30.0f));
             
 #if 0
             AddParticles(V2(3.0f, 3.0f));
@@ -231,7 +232,7 @@ world_manager::LoadWorld(const char *LevelName){
                 Projectile->Type = EntityType_Projectile;
                 Projectile->RemainingLife = 0.0f;
                 collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-                *Boundary = MakeCollisionRect(V20, V2(0.3f));
+                *Boundary = MakeCollisionRect(V20, V2(2.0f));
                 trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
                 
                 Physics->State |= PhysicsObjectState_DontFloorRaycast;
@@ -281,7 +282,7 @@ world_manager::LoadWorldFromFile(const char *Name){
         
         NewWorld->Width = Header->WidthInTiles;
         NewWorld->Height = Header->HeightInTiles;
-        NewWorld->Entities = CreateNewArray<entity_data>(&Memory, 256);
+        NewWorld->Entities = MakeNewArray<entity_data>(&Memory, 256);
         NewWorld->Entities.Count = Header->EntityCount;
         if(Header->IsTopDown){
             NewWorld->Flags |= WorldFlag_IsTopDown;
@@ -451,7 +452,7 @@ world_manager::GetOrCreateWorld(const char *Name){
         u32 MapSize = Result->Width*Result->Height;
         //NewData->MapData = PushArray(&MapDataMemory, u8, MapSize);
         Result->Map = (u8 *)DefaultAlloc(MapSize);
-        Result->Entities = CreateNewArray<entity_data>(&Memory, 64);
+        Result->Entities = MakeNewArray<entity_data>(&Memory, 64);
     }
     return(Result);
 }

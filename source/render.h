@@ -1,104 +1,172 @@
 #ifndef SNAIL_JUMPY_RENDER_H
 #define SNAIL_JUMPY_RENDER_H
 
+//~ Basic colors
 
-//~ Camera  This probably isn't the most appropriate place to have this, but it is best
-//          here for now
+global_constant color BLACK      = Color(0.0f,  0.0f,  0.0f, 1.0f);
+global_constant color WHITE      = Color(1.0f,  1.0f,  1.0f, 1.0f);
+global_constant color RED        = Color(1.0f,  0.0f,  0.0f, 1.0f);
+global_constant color YELLOW     = Color(1.0f,  1.0f,  0.0f, 1.0f);
+global_constant color BLUE       = Color(0.0f,  0.0f,  1.0f, 1.0f);
+global_constant color GREEN      = Color(0.0f,  1.0f,  0.0f, 1.0f);
+global_constant color DARK_GREEN = Color(0.0f,  0.5f,  0.0f, 1.0f);
+global_constant color BROWN      = Color(0.41f, 0.20f, 0.0f, 1.0f);
+global_constant color PINK       = Color(1.0f,  0.0f,  1.0f, 1.0f);
+global_constant color PURPLE     = Color(0.42f, 0.05f, 0.68f,1.0f);
+global_constant color ORANGE     = Color(1.0f,  0.5f,  0.0f, 1.0f);
 
-struct world_data;
-struct camera {
-    v2 ActualP;
+
+//~ Primitive types
+typedef u32 render_texture;
+typedef u32 vertex_array;
+typedef u32 vertex_buffer;
+
+struct basic_shader {
+    u32 ID;
+    s32 ProjectionLocation;
+};
+
+struct screen_shader {
+    u32 ID;
+    s32 ScaleLocation;
+};
+
+struct framebuffer {
+    u32 ID;
+    u32 RenderbufferID;
+    render_texture Texture;
+};
+
+struct basic_vertex {
     v2 P;
-    v2 TargetP;
-    f32 MetersToPixels;
-    
-    f32 ShakeTimeRemaining;
-    f32 ShakeFrequency;
-    f32 ShakeStrength;
-    
-    f32 MoveFactor = 1.0f;
-    
-    inline void SetCenter(v2 P, world_data *World);
-    inline void Move(v2 dP, world_data *World);
-    inline void DirectMove(v2 dP, world_data *World);
-    inline v2   ToWorldP(v2 ScreenP);
-    inline v2   ToScreenP(v2 WorldP);
-    inline rect ToScreenRect(rect WorldRect);
-    inline void Update();
-    inline void Shake(f32 Time, f32 Strength=0.02f, f32 Frequency=100);
-};
-
-//~
-typedef u32 render_texture_handle;
-struct vertex {
-    f32 P[3];
-    f32 Color[4];
-    f32 TexCoord[2];
-};
-
-enum render_command_type {
-    RenderCommand_None,
-    RenderCommand_BeginClipRegion,
-    RenderCommand_EndClipRegion,
-    RenderCommand_RenderItem,
-    RenderCommand_TranslucentRenderItem,
-    RenderCommand_ClearScreen,
-};
-
-struct render_command_header {
-    render_command_type Type;
-};
-
-struct render_command_item : public render_command_header {
-    u32 VertexOffset;
-    u32 IndexOffset;
-    u32 IndexCount;
-    f32 ZLayer;
-    render_texture_handle Texture;
-};
-
-struct render_command_begin_clip_region : public render_command_header {
-    v2s Min;
-    v2s Max;
-};
-
-struct render_command_clear_screen : public render_command_header {
+    f32 Z;
+    v2 PixelUV;
     color Color;
 };
 
-struct renderer {
-    dynamic_array<vertex> Vertices;
-    dynamic_array<u16>    Indices;
-    dynamic_array<u8>     CommandBuffer; // This is used as a growable memory arena
-    u32 CommandCount;
+//~ Renderer
+
+enum render_type {
+    RenderType_None,
     
-    v2s OutputSize;
+    RenderType_UI = RenderType_None, // Normal resolution
+    RenderType_Pixel,                // Low resolution for game
     
-    void NewFrame(memory_arena *Arena, v2s OutputSize_);
-    render_command_item *PushRenderItem(f32 ZLayer, b8 Translucent);
-    void BeginClipRegion(v2 Min, v2 Max, camera *Camera=0);
-    void EndClipRegion();
-    void ClearScreen(color Color);
+    RenderType_Scaled,               // Normal resolution for game
     
-    // Platform specific
-    void Initialize();
-    void RenderToScreen(); 
+    RenderType_TOTAL,
 };
 
-internal b8 InitializeRenderer();
-internal render_texture_handle CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
-internal void DeleteRenderTexture(render_texture_handle Texture);
+struct render_options {
+    render_type Type;
+    u32 Layer;
+};
 
-global_constant color BLACK  = color{0.0f,  0.0f,  0.0f, 1.0f};
-global_constant color WHITE  = color{1.0f,  1.0f,  1.0f, 1.0f};
-global_constant color RED    = color{1.0f,  0.0f,  0.0f, 1.0f};
-global_constant color YELLOW = color{1.0f,  1.0f,  0.0f, 1.0f};
-global_constant color BLUE   = color{0.0f,  0.0f,  1.0f, 1.0f};
-global_constant color GREEN  = color{0.0f,  1.0f,  0.0f, 1.0f};
-global_constant color DARK_GREEN = color{0.0f,  0.5f,  0.0f, 1.0f};
-global_constant color BROWN  = color{0.41f, 0.20f, 0.0f, 1.0f};
-global_constant color PINK   = color{1.0f,  0.0f,  1.0f, 1.0f};
-global_constant color PURPLE = color{0.42f, 0.05f, 0.68f,1.0f};
-global_constant color ORANGE = color{1.0f,  0.5f,  0.0f, 1.0f};
+struct render_item {
+    rect ClipRect;
+    u32 VertexOffset;
+    u32 IndexOffset;
+    u32 IndexCount;
+    
+    render_texture Texture;
+};
+
+struct render_item_z {
+    // NOTE(Tyler): I don't know whether it would be better to use a pointer or to copy 
+    // the item each time, but I think pointer would be most efficient assuming it will be
+    // copied several times.
+    //render_item *Item;
+    render_item *Item;
+    f32 Z;
+};
+
+global_constant u32 RENDER_NODE_ITEMS = 256;
+struct render_node {
+    render_node *Next;
+    u32 Count;
+    render_item Items[RENDER_NODE_ITEMS];
+    f32 ItemZs[RENDER_NODE_ITEMS];
+};
+
+struct world_data;
+struct game_renderer {
+    //~
+    render_texture WhiteTexture;
+    
+    basic_shader  GameShader;
+    screen_shader GameScreenShader;
+    basic_shader  DefaultShader;
+    framebuffer   GameScreenFramebuffer;
+    
+    v2    OutputSize;
+    color ClearColor;
+    rect  CurrentClipRect;
+    
+    //~ Rendering variables
+    u32 RenderItemCount;
+    dynamic_array<basic_vertex> Vertices;
+    dynamic_array<u32>          Indices;
+    
+    union{
+        struct{
+            render_node *DefaultNode;
+            render_node *PixelNode;
+            render_node *ScaledNode;
+        };
+        render_node *Nodes[RenderType_TOTAL];
+    };
+    
+    
+    //~ Render functions
+    void Initialize(memory_arena *Arena, v2 OutputSize_);
+    void NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_);
+    
+    render_item  *NewRenderItem(render_texture Texture, render_options Options, b8 HasAlpha, f32 Z);
+    basic_vertex *AddVertices(render_item *Item, u32 VertexCount);
+    u32          *AddIndices(render_item *Item, u32 IndexCount);
+    
+    v2   CalculateParallax(u32 Layer);
+    void DoParallax(render_item *Item, render_options Options, u32 VertexCount);
+    
+    void BeginClipRect(rect ClipRect);
+    void EndClipRect();
+    
+    //~ Camera stuff
+    rect CameraBounds;
+    f32 CameraScale;
+    f32 CameraSpeed;
+    v2  CameraTargetP;
+    v2  CameraFinalP;
+    
+    void SetCameraSettings(f32 Speed);
+    void SetCameraTarget(v2 P);
+    void MoveCamera(v2 Delta);
+    void ResetCamera();
+    void ChangeScale(f32 NewScale);
+    
+    void CalculateCameraBounds(world_data *World);
+    v2   WorldToScreen(v2 P, render_options Options);
+    v2   ScreenToWorld(v2 P, render_options Options);
+    rect WorldToScreen(rect R, render_options Options);
+    rect ScreenToWorld(rect R, render_options Options);
+};
+
+//~ Backend functions
+internal b8 InitializeRendererBackend();
+internal void RendererRenderAll(game_renderer *Renderer);
+
+internal render_texture CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
+internal void RemakeRenderTexture(render_texture Texture, u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
+internal void DeleteRenderTexture(render_texture Texture);
+
+// TODO(Tyler): Maybe move these into renderer backend initialization
+internal basic_shader  MakeGameShader();
+internal screen_shader MakeGameScreenShader();
+internal basic_shader  MakeDefaultShader();
+
+internal void InitializeFramebuffer(framebuffer *Framebuffer, v2 Size);
+internal void ResizeFramebuffer(framebuffer *Framebuffer, v2 NewSize);
+internal void UseFramebuffer(framebuffer *Framebuffer);
 
 #endif //SNAIL_JUMPY_RENDER_H
+

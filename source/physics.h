@@ -14,7 +14,6 @@ enum physics_debugger_flags_ {
 
 // The debugger currently only supports single moving objects
 struct physics_debugger {
-    camera Camera;
     physics_debugger_flags Flags;
     // Arbitrary numbers to keep track of position, do not work between physics frames
     u32 Current;

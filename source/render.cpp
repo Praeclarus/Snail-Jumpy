@@ -1,97 +1,36 @@
-global render_texture_handle DefaultTexture;
 
-void
-renderer::Initialize(){
-    local_constant u32 INITIAL_SIZE = Kilobytes(3);
-    // TODO HACK(Tyler): We want memory that can grow here!
-    DynamicArrayInitialize(&CommandBuffer, INITIAL_SIZE, 0);
-    DynamicArrayInitialize(&Vertices, INITIAL_SIZE, 0);
-    DynamicArrayInitialize(&Indices, INITIAL_SIZE, 0);
-    InitializeRenderer();
-}
+//~ Basic rendering primitives
 
-void
-renderer::NewFrame(memory_arena *Arena, v2s OutputSize_){
-    OutputSize = OutputSize_;
-    DynamicArrayClear(&CommandBuffer);
-    DynamicArrayClear(&Vertices);
-    DynamicArrayClear(&Indices);
-    CommandCount = 0;
-}
-
-render_command_item *
-renderer::PushRenderItem(f32 ZLayer, b8 Translucent){
-    render_command_item *Result = 0;
-    CommandCount++;
-    Result = PushStruct(&CommandBuffer, render_command_item);
-    Result->Type = (Translucent ? RenderCommand_TranslucentRenderItem : 
-                    RenderCommand_RenderItem);
-    Result->VertexOffset = Vertices.Count;
-    Result->IndexOffset = Indices.Count;
-    Result->ZLayer = ZLayer;
+internal inline b8
+ColorHasAlpha(color C){
+    b8 Result = (C.A != 0.0f) && (C.A < 1.0f);
     return(Result);
 }
 
-void
-renderer::BeginClipRegion(v2 Min, v2 Max, camera *Camera){
-    CommandCount++;
-    auto Command = PushStruct(&CommandBuffer, render_command_begin_clip_region);
-    Command->Type = RenderCommand_BeginClipRegion;
-    if(Camera){
-        Min *= Camera->MetersToPixels;
-        Max *= Camera->MetersToPixels;
-    }
-    Command->Min = MaximumV2S(V2S(Min), V2S0);
-    Command->Max = MinimumV2S(V2S(Max), OutputSize);
-}
-
-void
-renderer::EndClipRegion(){
-    CommandCount++;
-    auto Command = PushStruct(&CommandBuffer, render_command_header);
-    Command->Type = RenderCommand_EndClipRegion;
-}
-
-void 
-renderer::ClearScreen(color Color){
-    CommandCount++;
-    auto Command = PushStruct(&CommandBuffer, render_command_clear_screen);
-    Command->Type = RenderCommand_ClearScreen;
-    Command->Color = Color;
-}
-
-//~
-
 internal void
-RenderLine(v2 A, v2 B, f32 Z, f32 Thickness, color Color, camera *Camera=0){
-    if(Camera){
-        A -= Camera->P;
-        B -= Camera->P;
-        A *= Camera->MetersToPixels;
-        B *= Camera->MetersToPixels;
-        Thickness *= Camera->MetersToPixels;
-        
-        // TODO(Tyler): There is culling that can be done here
-    }
+RenderQuad(render_texture Texture, render_options Options, f32 Z,
+           v2 P0, v2 T0, color C0, 
+           v2 P1, v2 T1, color C1, 
+           v2 P2, v2 T2, color C2, 
+           v2 P3, v2 T3, color C3,
+           b8 HasAlpha_=false){
+    b8 HasAlpha = (ColorHasAlpha(C0) ||
+                   ColorHasAlpha(C1) ||
+                   ColorHasAlpha(C2) ||
+                   ColorHasAlpha(C3)||
+                   HasAlpha_);
     
-    v2 AB = B - A;
-    v2 AB90 = Normalize(Clockwise90(AB));
-    v2 Point1 = A - 0.5f*Thickness*AB90;
-    v2 Point2 = A + 0.5f*Thickness*AB90;
-    v2 Point4 = B - 0.5f*Thickness*AB90;
-    v2 Point3 = B + 0.5f*Thickness*AB90;
+    render_item *RenderItem = GameRenderer.NewRenderItem(Texture, Options, HasAlpha, Z);
     
-    auto RenderItem = Renderer.PushRenderItem(Z, (Color.A < 1.0f));
-    RenderItem->IndexCount = 6;
-    RenderItem->Texture = DefaultTexture;
+    basic_vertex *Vertices = GameRenderer.AddVertices(RenderItem, 4);
+    Vertices[0] = {P0, Z, T0, C0};
+    Vertices[1] = {P1, Z, T1, C1};
+    Vertices[2] = {P2, Z, T2, C2};
+    Vertices[3] = {P3, Z, T3, C3};
     
-    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
-    Vertices[0] = {Point1.X, Point1.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[1] = {Point2.X, Point2.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 1.0f};
-    Vertices[2] = {Point3.X, Point3.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 1.0f};
-    Vertices[3] = {Point4.X, Point4.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 0.0f};
+    GameRenderer.DoParallax(RenderItem, Options, 4);
     
-    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
+    u32 *Indices = GameRenderer.AddIndices(RenderItem, 6);
     Indices[0] = 0;
     Indices[1] = 1;
     Indices[2] = 2;
@@ -101,38 +40,44 @@ RenderLine(v2 A, v2 B, f32 Z, f32 Thickness, color Color, camera *Camera=0){
 }
 
 internal void
-RenderLineFrom(v2 A, v2 Delta, f32 Z, f32 Thickness, color Color, camera *Camera=0){
-    RenderLine(A, A+Delta, Z, Thickness, Color, Camera);
+RenderLine(v2 A, v2 B, f32 Z, f32 Thickness, color Color, render_options Options){
+    v2 AB = B - A;
+    v2 AB90 = Normalize(Clockwise90(AB));
+    v2 P0 = A - 0.5f*Thickness*AB90;
+    v2 P1 = A + 0.5f*Thickness*AB90;
+    v2 P3 = B - 0.5f*Thickness*AB90;
+    v2 P2 = B + 0.5f*Thickness*AB90;
+    
+    RenderQuad(GameRenderer.WhiteTexture, Options, Z,
+               P0, V2(0, 0), Color,
+               P1, V2(0, 1), Color,
+               P2, V2(1, 1), Color,
+               P3, V2(1, 0), Color);
 }
 
 internal void
-RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=30){
-    if(Camera){
-        P -= Camera->P;
-        P *= Camera->MetersToPixels;
-        Radius *= Camera->MetersToPixels;
-        
-        if(Renderer.OutputSize.X < P.X-Radius) return;
-        if(Renderer.OutputSize.Y < P.Y-Radius) return;
-        if(P.X+Radius < 0.0f) return;
-        if(P.Y+Radius < 0.0f) return;
-    }
+RenderLineFrom(v2 A, v2 Delta, f32 Z, f32 Thickness, color Color, render_options Options){
+    RenderLine(A, A+Delta, Z, Thickness, Color, Options);
+}
+
+internal void
+RenderCircle(v2 P, f32 Radius, f32 Z, color Color, render_options Options,
+             u32 Sides=30){
     
     f32 T = 0.0f;
     f32 Step = 1.0f/(f32)Sides;
     
-    auto RenderItem = Renderer.PushRenderItem(Z, (Color.A < 1.0f));
-    RenderItem->IndexCount = Sides*3;
-    RenderItem->Texture = DefaultTexture;
+    render_item *RenderItem = GameRenderer.NewRenderItem(GameRenderer.WhiteTexture, Options, ColorHasAlpha(Color), Z);
     
-    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, Sides+2);
+    basic_vertex *Vertices = GameRenderer.AddVertices(RenderItem, Sides+2);
     Vertices[0] = {P.X, P.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
     for(u32 I = 0; I <= Sides; I++){
-        Vertices[I+1] = {P.X+Radius*Cos(T*TAU), P.Y+Radius*Sin(T*TAU), Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+        v2 Offset = V2(Cos(T*TAU), Sin(T*TAU));
+        Vertices[I+1] = {P+Radius*Offset, Z, V2(0.0f, 0.0f), Color};
         T += Step;
     }
     
-    u16 *Indices = PushNArrayItems(&Renderer.Indices, Sides*3);
+    u32 *Indices = GameRenderer.AddIndices(RenderItem, Sides*3);
     u16 CurrentIndex = 1;
     for(u32 I = 0; I < Sides*3; I += 3){
         Indices[I] = 0;
@@ -143,111 +88,72 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, camera *Camera=0, u32 Sides=3
         }
         Indices[I+2] = CurrentIndex;
     }
+    
 }
 
 internal void
-RenderRect(rect Rect, f32 Z, color Color, camera *Camera=0){
-    if(Camera){
-        Rect.Min-= Camera->P;
-        Rect.Max-= Camera->P;
-        Rect.Min *= Camera->MetersToPixels;
-        Rect.Max *= Camera->MetersToPixels;
-        
-        if(Renderer.OutputSize.X < Rect.Min.X) return;
-        if(Renderer.OutputSize.Y < Rect.Min.Y) return;
-        if(Rect.Max.X < 0.0f) return;
-        if(Rect.Max.Y < 0.0f) return;
-    }
-    
-    auto RenderItem = Renderer.PushRenderItem(Z, (Color.A < 1.0f));
-    RenderItem->IndexCount = 6;
-    RenderItem->Texture = DefaultTexture;
-    
-    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
-    Vertices[0] = {Rect.Min.X, Rect.Min.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
-    Vertices[1] = {Rect.Min.X, Rect.Max.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 1.0f};
-    Vertices[2] = {Rect.Max.X, Rect.Max.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 1.0f};
-    Vertices[3] = {Rect.Max.X, Rect.Min.Y, Z, Color.R, Color.G, Color.B, Color.A, 1.0f, 0.0f};
-    
-    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
-    Indices[0] = 0;
-    Indices[1] = 1;
-    Indices[2] = 2;
-    Indices[3] = 0;
-    Indices[4] = 2;
-    Indices[5] = 3;
+RenderRect(rect R, f32 Z, color Color, render_options Options){
+    RenderQuad(GameRenderer.WhiteTexture, Options, Z,
+               V2(R.Min.X, R.Min.Y), V2(0, 0), Color,
+               V2(R.Min.X, R.Max.Y), V2(0, 1), Color,
+               V2(R.Max.X, R.Max.Y), V2(1, 1), Color,
+               V2(R.Max.X, R.Min.Y), V2(1, 0), Color);
+}
+
+internal inline void
+RenderRectOutline(rect R, f32 Z, color Color, render_options Options, f32 Thickness=1){
+    RenderRect(Rect(R.Min,                          V2(R.Max.X, R.Min.Y+Thickness)), Z, Color, Options);
+    RenderRect(Rect(V2(R.Max.X-Thickness, R.Min.Y), V2(R.Max.X, R.Max.Y)),           Z, Color, Options);
+    RenderRect(Rect(V2(R.Min.X, R.Max.Y),           V2(R.Max.X, R.Max.Y-Thickness)), Z, Color, Options);
+    RenderRect(Rect(V2(R.Min.X, R.Min.Y),           V2(R.Min.X+Thickness, R.Max.Y)), Z, Color, Options);
 }
 
 internal void
-RenderTexture(rect R, f32 Z, render_texture_handle Texture, 
-              v2 MinTexCoord=V2(0,0), v2 MaxTexCoord=V2(1,1), b8 IsTranslucent=false, 
-              camera *Camera=0){
+RenderTexture(rect R, f32 Z, render_texture Texture, render_options Options, 
+              rect TextureRect=MakeRect(V2(0,0), V2(1,1)), b8 HasAlpha=false){
     Assert(Texture);
-    if(Camera){
-        R.Min -= Camera->P;
-        R.Max -= Camera->P;
-        R.Min *= Camera->MetersToPixels;
-        R.Max *= Camera->MetersToPixels;
-        
-        if(Renderer.OutputSize.X < R.Min.X) return;
-        if(Renderer.OutputSize.Y < R.Min.Y) return;
-        if(R.Max.X < 0.0f) return;
-        if(R.Max.Y < 0.0f) return;
-    }
     
-    auto RenderItem = Renderer.PushRenderItem(Z, IsTranslucent);
-    RenderItem->IndexCount = 6;
-    RenderItem->Texture = Texture;
-    
-    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4);
-    Vertices[0] = {R.Min.X, R.Min.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MinTexCoord.Y};
-    Vertices[1] = {R.Min.X, R.Max.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MinTexCoord.X, MaxTexCoord.Y};
-    Vertices[2] = {R.Max.X, R.Max.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MaxTexCoord.Y};
-    Vertices[3] = {R.Max.X, R.Min.Y, Z, 1.0f, 1.0f, 1.0f, 1.0f, MaxTexCoord.X, MinTexCoord.Y};
-    
-    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6);
-    Indices[0] = 0;
-    Indices[1] = 1;
-    Indices[2] = 2;
-    Indices[3] = 0;
-    Indices[4] = 2;
-    Indices[5] = 3;
+    color Color = WHITE;
+    RenderQuad(Texture, Options, Z,
+               V2(R.Min.X, R.Min.Y), V2(TextureRect.Min.X, TextureRect.Min.Y), Color,
+               V2(R.Min.X, R.Max.Y), V2(TextureRect.Min.X, TextureRect.Max.Y), Color,
+               V2(R.Max.X, R.Max.Y), V2(TextureRect.Max.X, TextureRect.Max.Y), Color,
+               V2(R.Max.X, R.Min.Y), V2(TextureRect.Max.X, TextureRect.Min.Y), Color,
+               HasAlpha);
 }
 
+//~ String rendering
+
 internal void
-RenderString(font *Font, color Color, v2 P, f32 Z, const char *String, camera *Camera=0){
-    if(Camera){
-        P -= Camera->P;
-        P *= Camera->MetersToPixels;
-    }
+RenderString(font *Font, color Color, v2 P, f32 Z, const char *String){
     
-    P.Y = Renderer.OutputSize.Y - P.Y;
+    v2 OutputSize = GameRenderer.OutputSize;
+    
+    P.Y = OutputSize.Y - P.Y;
     
     u32 Length = CStringLength(String);
     
-    auto RenderItem = Renderer.PushRenderItem(Z, true);
-    RenderItem->IndexCount = 6*Length;
-    RenderItem->Texture = Font->Texture;
+    render_options Options = {};
+    render_item *RenderItem = GameRenderer.NewRenderItem(Font->Texture, Options, true, Z);
     
-    vertex *Vertices = PushNArrayItems(&Renderer.Vertices, 4*Length);
+    basic_vertex *Vertices = GameRenderer.AddVertices(RenderItem, 4*Length);
     u32 VertexOffset = 0;
-    float ActualY = Renderer.OutputSize.Y - P.Y;
     for(char C = *String; C; C = *(++String)){
         stbtt_aligned_quad Q;
         stbtt_GetBakedQuad(Font->CharData,
                            Font->TextureWidth, Font->TextureHeight,
                            C-32, &P.X, &P.Y, &Q, 1);
-        Q.y0 = Renderer.OutputSize.Y - Q.y0;
-        Q.y1 = Renderer.OutputSize.Y - Q.y1;
-        Vertices[VertexOffset]   = {Q.x0, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t0};
-        Vertices[VertexOffset+1] = {Q.x0, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s0, Q.t1};
-        Vertices[VertexOffset+2] = {Q.x1, Q.y1, Z, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t1};
-        Vertices[VertexOffset+3] = {Q.x1, Q.y0, Z, Color.R, Color.G, Color.B, Color.A, Q.s1, Q.t0};
+        Q.y0 = OutputSize.Y - Q.y0;
+        Q.y1 = OutputSize.Y - Q.y1;
+        Vertices[VertexOffset]   = {V2(Q.x0, Q.y0), Z, V2(Q.s0, Q.t0), Color};
+        Vertices[VertexOffset+1] = {V2(Q.x0, Q.y1), Z, V2(Q.s0, Q.t1), Color};
+        Vertices[VertexOffset+2] = {V2(Q.x1, Q.y1), Z, V2(Q.s1, Q.t1), Color};
+        Vertices[VertexOffset+3] = {V2(Q.x1, Q.y0), Z, V2(Q.s1, Q.t0), Color};
         
         VertexOffset += 4;
     }
     
-    u16 *Indices = PushNArrayItems(&Renderer.Indices, 6*Length);
+    u32 *Indices = GameRenderer.AddIndices(RenderItem, 6*Length);
     u16 FaceOffset = 0;
     for(u32 IndexOffset = 0; IndexOffset < 6*Length; IndexOffset += 6){
         Indices[IndexOffset]   = FaceOffset;
@@ -261,8 +167,8 @@ RenderString(font *Font, color Color, v2 P, f32 Z, const char *String, camera *C
 }
 
 internal inline void
-VRenderFormatString(font *Font, color Color, v2 P, f32 Z, const char *Format, 
-                    va_list VarArgs){
+VRenderFormatString(font *Font, color Color, 
+                    v2 P, f32 Z, const char *Format, va_list VarArgs){
     char Buffer[1024];
     stbsp_vsnprintf(Buffer, 1024, Format, VarArgs);
     RenderString(Font, Color, P, Z, Buffer);
@@ -367,19 +273,293 @@ RenderCenteredString(font *Font, color Color, v2 Center,
     va_end(VarArgs);
 }
 
-internal inline void
-RenderRectOutline(rect Rect_, f32 Z, 
-                  color Color, camera *Camera=0, f32 Thickness=0.03f){
-    RenderRect(Rect(Rect_.Min, V2(Rect_.Max.X, Rect_.Min.Y+Thickness)), Z, Color, Camera);
-    RenderRect(Rect(V2(Rect_.Max.X-Thickness, Rect_.Min.Y), V2(Rect_.Max.X, Rect_.Max.Y)), Z, Color, Camera);
-    RenderRect(Rect(V2(Rect_.Min.X, Rect_.Max.Y), V2(Rect_.Max.X, Rect_.Max.Y-Thickness)), Z, Color, Camera);
-    RenderRect(Rect(V2(Rect_.Min.X, Rect_.Min.Y), V2(Rect_.Min.X+Thickness, Rect_.Max.Y)), Z, Color, Camera);
+//~ Render options
+internal inline render_options
+PixelItem(u32 Layer){
+    render_options Result = {};
+    Result.Type = RenderType_Pixel;
+    Result.Layer = Layer;
+    return(Result);
 }
 
-internal inline color
-Alphiphy(color Color, f32 Alpha){
-    Alpha = Clamp(Alpha, 0.0f, 1.0f);
-    color Result = Color;
-    Result.A *= Alpha;
+internal inline render_options
+ScaledItem(u32 Layer){
+    render_options Result = {};
+    Result.Type = RenderType_Scaled;
+    Result.Layer = Layer;
+    return(Result);
+}
+
+internal inline render_options
+UIItem(u32 Layer){
+    render_options Result = {};
+    Result.Type = RenderType_UI;
+    Result.Layer = Layer;
+    return(Result);
+}
+
+//~ Z sorting
+// NOTE(Tyler): Bottom-up merge sort implementation
+// There is almost certainly a better sorting algorithm I could use, but this one will 
+// work just fine for now. Its not terribly slow like insetion sorting, and likely some
+// varient of this would be required for the current render_node scheme
+
+// NOTE(Tyler): 'OutZs' has '2*SubCount' elements
+internal void
+MergeSortZsMerge(render_item_z *LeftZs, render_item_z *RightZs, 
+                 u32 LeftCount, u32 RightCount,
+                 render_item_z *OutZs){
+    u32 LeftI  = 0;
+    u32 RightI = 0;
+    u32 TotalCount = LeftCount+RightCount;
+    
+    for(u32 I=0; I<TotalCount; I++){
+        if((LeftI < LeftCount) && 
+           ((RightI >= RightCount) || (LeftZs[LeftI].Z >= RightZs[RightI].Z))){
+            // If all of the right array has been copied, 
+            // or the left z is greater than or equal to the right z
+            OutZs[I] = LeftZs[LeftI];
+            LeftI++;
+        }else{
+            // If all of the left array has been copied, 
+            // or the right z is greater than the left z
+            OutZs[I] = RightZs[RightI];
+            RightI++;
+        }
+    }
+}
+
+internal render_item_z *
+MergeSortZs(render_item_z *ZsA, render_item_z *ZsB, u32 Count){
+    TIMED_FUNCTION();
+    
+    // Double the width every iteration, until it is the size of the array
+    for(u32 Width=1; Width<Count; Width = 2*Width){
+        
+        // Split the entire array into sub-arrays of 'Width' elements
+        // and merge two of them
+        for(u32 I=0; I<Count; I = I+2*Width){
+            
+            // Merge two sub-arrays of 'Width' elements
+            u32 LeftArray  = I;
+            u32 RightArray = Minimum(I+Width, Count);
+            u32 End        = Minimum(I+2*Width, Count);
+            
+            MergeSortZsMerge(&ZsA[LeftArray], &ZsA[RightArray], 
+                             RightArray-LeftArray, End-RightArray,
+                             &ZsB[LeftArray]);
+        }
+        
+        // Swap the two buffers
+        render_item_z *Temp = ZsA;
+        ZsA = ZsB;
+        ZsB = Temp;
+    }
+    
+    render_item_z *Result = ZsA;
+    return(Result);
+}
+
+//~ Renderer
+void
+game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
+    OutputSize = OutputSize_;
+    
+    //~ Camera
+    CameraScale = 5;
+    
+    //~ Other
+    u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
+    GameRenderer.WhiteTexture = CreateRenderTexture(TemplateColor, 1, 1);
+    
+    GameShader       = MakeGameShader();
+    GameScreenShader = MakeGameScreenShader();
+    InitializeFramebuffer(&GameScreenFramebuffer, OutputSize/CameraScale);
+    
+    DefaultShader = MakeDefaultShader();
+    
+    DynamicArrayInitialize(&Vertices, 2000);
+    DynamicArrayInitialize(&Indices,  2000);
+}
+
+void
+game_renderer::ChangeScale(f32 NewScale){
+    CameraScale = NewScale;
+    ResizeFramebuffer(&GameScreenFramebuffer, OutputSize/CameraScale);
+}
+
+void
+game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
+    OutputSize = OutputSize_;
+    ClearColor = ClearColor_;
+    CurrentClipRect = SizeRect(V2(0), OutputSize);
+    
+    for(u32 I=0; I<RenderType_TOTAL; I++){
+        Nodes[I] = PushStruct(Arena, render_node);
+    }
+    
+    RenderItemCount = 0;
+    DynamicArrayClear(&Vertices);
+    DynamicArrayClear(&Indices);
+    
+    //~ Camera
+    // TODO(Tyler): This does allow for an the camera not to move when it might make sense
+    // for it to. For instance when there is one pixel when the camera should be fully
+    // to the right.
+    v2 Delta = CameraSpeed*(CameraTargetP-CameraFinalP);
+    Delta.X = Round(Delta.X);
+    Delta.Y = Round(Delta.Y);
+    CameraFinalP += Delta;
+    
+    //ChangeScale(2*(Sin(0.5f*Counter)) + 6.0f);
+    ChangeScale(5.0f);
+}
+
+render_item *
+game_renderer::NewRenderItem(render_texture Texture, render_options Options, b8 HasAlpha, f32 Z){
+    Assert(Options.Type < RenderType_TOTAL);
+    
+    render_node *Node = Nodes[Options.Type];
+    if(Node->Count >= RENDER_NODE_ITEMS){
+        render_node *OldNode = Node;
+        Node = PushStruct(&TransientStorageArena, render_node);
+        Node->Next = OldNode;
+        Nodes[Options.Type] = Node;
+    }
+    
+    u32 Index = Node->Count++;
+    render_item *Result = &Node->Items[Index];
+    Result->ClipRect = CurrentClipRect;
+    Result->Texture = Texture;
+    if(HasAlpha){
+        Node->ItemZs[Index] = Z;
+    }else{
+        Node->ItemZs[Index] = F32_NEGATIVE_INFINITY;
+    }
+    RenderItemCount++;
+    
+    return(Result);
+}
+
+basic_vertex *
+game_renderer::AddVertices(render_item *Item, u32 VertexCount){
+    Item->VertexOffset = Vertices.Count;
+    basic_vertex *Result = PushNArrayItems(&Vertices, VertexCount);
+    return(Result);
+}
+
+u32 *
+game_renderer::AddIndices(render_item *Item, u32 IndexCount){
+    Item->IndexOffset  = Indices.Count;
+    Item->IndexCount   = IndexCount;
+    u32 *Result = PushNArrayItems(&Indices, IndexCount);
+    return(Result);
+}
+
+v2 
+game_renderer::CalculateParallax(u32 Layer){
+    v2 Result = V2(0);
+    if(Layer > 0){
+        f32 Factor = 1.0f / (f32)Layer;
+        Result = CameraFinalP * Factor;
+    }
+    
+    return(Result);
+}
+
+// TODO(Tyler): I don't like having to specify the vertex count for AddVertices and 
+// this function but I don't currently see a better and simpler way.
+void
+game_renderer::DoParallax(render_item *Item, render_options Options, u32 VertexCount){
+    if(Options.Type == RenderType_UI) return;
+    
+    v2 Offset = CalculateParallax(Options.Layer);
+    
+    for(u32 I=Item->VertexOffset; 
+        I<(Item->VertexOffset+VertexCount); 
+        I++){
+        basic_vertex *Vertex = &Vertices[I];
+        
+        Vertex->P -= Offset;
+    }
+    
+}
+
+void
+game_renderer::BeginClipRect(rect ClipRect){
+    CurrentClipRect = ClipRect;
+}
+
+void
+game_renderer::EndClipRect(){
+    CurrentClipRect = SizeRect(V2(0), OutputSize);
+}
+
+//~ Camera stuff
+
+void
+game_renderer::SetCameraSettings(f32 Speed){
+    CameraSpeed = Speed;
+}
+
+void 
+game_renderer::SetCameraTarget(v2 Center){
+    v2 ScreenSize = OutputSize/CameraScale;
+    CameraTargetP = Center - 0.5f*ScreenSize;
+    
+    CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
+    CameraTargetP.Y = Clamp(CameraTargetP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
+}
+
+void
+game_renderer::MoveCamera(v2 Delta){
+    CameraTargetP += Delta;
+    
+    CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
+    CameraTargetP.Y = Clamp(CameraTargetP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
+}
+
+void
+game_renderer::ResetCamera(){
+    CameraTargetP = {};
+    CameraFinalP  = {};
+}
+
+void 
+game_renderer::CalculateCameraBounds(world_data *World){
+    v2 MapSize = TILE_SIDE*V2((f32)World->Width, (f32)World->Height);
+    v2 ScreenSize = OutputSize/CameraScale;
+    CameraBounds.Min = V2(0);
+    CameraBounds.Max = MapSize-ScreenSize;
+}
+
+
+v2
+game_renderer::WorldToScreen(v2 P, render_options Options){
+    v2 Offset = CalculateParallax(Options.Layer);
+    v2 Result = (P - Offset) * CameraScale;
+    return(Result);
+}
+
+rect
+game_renderer::WorldToScreen(rect R, render_options Options){
+    rect Result;
+    Result.Min = WorldToScreen(R.Min, Options);
+    Result.Max = WorldToScreen(R.Max, Options);
+    return(Result);
+}
+
+v2
+game_renderer::ScreenToWorld(v2 P, render_options Options){
+    v2 Offset = CalculateParallax(Options.Layer);
+    v2 Result = P / CameraScale + Offset;
+    return(Result);
+}
+
+rect
+game_renderer::ScreenToWorld(rect R, render_options Options){
+    rect Result;
+    Result.Min = ScreenToWorld(R.Min, Options);
+    Result.Max = ScreenToWorld(R.Max, Options);
     return(Result);
 }

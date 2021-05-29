@@ -9,7 +9,7 @@ struct profiled_block {
 };
 
 struct profile_data {
-    profiled_block Blocks[10000000];
+    profiled_block Blocks[100000];
     u32 CurrentBlockIndex;
     u32 CurrentLevel;
 };
@@ -52,7 +52,7 @@ struct timed_scope {
 #define _TIMED_SCOPE(Id, Name) timed_scope TimedScope##Id(Name);
 #define TIMED_SCOPE(Id) timed_scope TimedScope##Id(#Id);
 #define TIMED_FUNCTION() _TIMED_SCOPE(FUNC, __FUNCTION__)
-#define BEGIN_TIMED_BLOCK(Id) { timed_scope TimedScope##ID(#Id);
+#define BEGIN_TIMED_BLOCK(Id) { timed_scope TimedScope##Id(#Id);
 #define END_TIMED_BLOCK() }
 
 #define GetCycles(Id) \

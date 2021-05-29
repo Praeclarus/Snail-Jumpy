@@ -304,6 +304,7 @@ WinMain(HINSTANCE Instance,
                     (f32)(ClientRect.right - ClientRect.left),
                     (f32)(ClientRect.bottom - ClientRect.top),
                 };
+                OSInput.LastMouseP = OSInput.MouseP;
                 OSInput.MouseP = Win32GetMouseP();
                 GameUpdateAndRender();
                 

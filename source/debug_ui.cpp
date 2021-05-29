@@ -27,8 +27,6 @@ DEBUGRenderOverlay(){
                      BLACK, "TransientMemory:  %'jd", TransientStorageArena.Used);
         LayoutString(&Layout, &DebugFont,
                      BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
-        LayoutString(&Layout, &DebugFont,
-                     BLACK, "GameCamera.MoveFactor: %.2f", GameCamera.MoveFactor);
         {
             dynamic_physics_object *PlayerPhysics = EntityManager.Player->DynamicPhysics;
             LayoutString(&Layout, &DebugFont, BLACK, "Player.P: (%f, %f)", 

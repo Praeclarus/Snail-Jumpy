@@ -2,157 +2,95 @@
 OPENGL_FUNCTIONS
 #undef X
 
-global basic_program DefaultShaderProgram;
-global GLuint DefaultVertexArray;
-global GLuint DefaultVertexBuffer;
+//~ OpenGL backend
+global opengl_backend OpenGL;
 
-global GLuint ScreenShaderProgram;
-global GLuint ScreenVertexArray;
-global GLuint ScreenFramebuffer;
-global GLuint ScreenTexture;
+internal b8
+InitializeRendererBackend(){
+    
+    //~ Setup default objects
+    {
+        glGenVertexArrays(1, &OpenGL.VertexArray);
+        glBindVertexArray(OpenGL.VertexArray);
+        
+        //GLuint VertexBuffer;
+        glGenBuffers(1, &OpenGL.VertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, OpenGL.VertexBuffer);
+        
+        GLuint ElementBuffer;
+        glGenBuffers(1, &ElementBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ElementBuffer);
+        
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(basic_vertex), (void*)offsetof(basic_vertex, P));
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(basic_vertex), (void*)offsetof(basic_vertex, PixelUV));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(basic_vertex), (void*)offsetof(basic_vertex, Color));
+        glEnableVertexAttribArray(2);
+    }
+    
+    //~ Setup screen objects
+    {
+        glGenVertexArrays(1, &OpenGL.ScreenVertexArray);
+        glBindVertexArray(OpenGL.ScreenVertexArray);
+        
+        local_constant float Vertices[] = {
+            -1.0f,  1.0f,  0.0f, 1.0f,
+            -1.0f, -1.0f,  0.0f, 0.0f,
+            1.0f,   1.0f,  1.0f, 1.0f, 
+            1.0f,  -1.0f,  1.0f, 0.0f,
+        };
+        
+        GLuint VertexBuffer;
+        glGenBuffers(1, &VertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(0));
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
+        glEnableVertexAttribArray(1);
+        
+        glBindVertexArray(0);
+    }
+    
+    b8 Result = true;
+    return(Result);
+}
 
-//~ Default shaders
-global_constant char *DefaultVertexShader = BEGIN_STRING
-(
-#version 330 core \n
- 
- layout (location = 0) in vec3 Position;
- layout (location = 1) in vec4 Color;
- layout (location = 2) in vec2 UV;
- 
- out vec2 FragmentUV;
- out vec4 FragmentColor;
- out vec3 FragmentP;
- uniform mat4 Projection;
- 
- void main(){
-     gl_Position = Projection * vec4(Position, 1.0);
-     //gl_Position = vec4(Position, 1.0);
-     FragmentUV = UV;
-     FragmentP = Position;
-     FragmentColor = Color;
- };
- );
+internal void
+GLClearOutput(color Color){
+    glClearColor(Color.R, Color.G, Color.B, Color.A);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
-global_constant char *DefaultFragmentShader = BEGIN_STRING
-(
-#version 330 core \n
- 
- out vec4 FragColor;
- 
- in vec2 FragmentUV;
- in vec4 FragmentColor;
- in vec3 FragmentP;
- uniform sampler2D Texture;
- uniform mat4 Projection;
- 
- void main(){
-     
-     
-     vec4 Color = texture(Texture, FragmentUV)*FragmentColor;
-     if(Color.a == 0.0){
-         discard;
-     }else{
-         FragColor = Color;
-     }
- }
- );
+void
+opengl_backend::NormalSetup(){
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_SCISSOR_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); 
+    
+    glBindVertexArray(VertexArray);
+}
 
-
-//~ Screen shaders
-global_constant char *ScreenVertexShader = BEGIN_STRING
-(
-#version 330 core \n
- 
- layout (location = 0) in vec2 Position;
- layout (location = 1) in vec2 UV;
- 
- out vec2 FragmentUV;
- out vec2 FragmentP;
- 
- void main(){
-     gl_Position = vec4(Position, 0.0, 1.0);
-     FragmentP = Position;
-     FragmentUV = UV;
- }
- );
-
-global_constant char *ScreenFragmentShader = BEGIN_STRING
-(
-#version 330 core \n
- 
- out vec4 FragColor;
- in vec2 FragmentUV;
- in vec2 FragmentP;
- uniform sampler2D Texture;
- uniform mat4 Projection;
- 
- vec3 CalculateLight(vec2 LightP, vec3 LightColor, float Radius){
-     //float Distance = distance(LightP, (inverse(Projection)*vec4(FragmentP, 0.0, 1.0)).xy);
-     float Distance = distance(LightP, FragmentP.xy);
-     float Attenuation = clamp(1.0 - (Distance*Distance)/(Radius*Radius), 0.0, 1.0);
-     Attenuation *= Attenuation;
-     vec3 Result = Attenuation*LightColor;
-     return(Result);
- }
- 
- void main(){
-     /*
-     int PixelSize = 4;
-     
-     float X = int(gl_FragCoord.x) % PixelSize;
-     float Y = int(gl_FragCoord.y) % PixelSize;
-     
-     X = floor(PixelSize / 2.0) - X;
-     Y = floor(PixelSize / 2.0) - Y;
-     
-     X = gl_FragCoord.x + X;
-     Y = gl_FragCoord.y + Y;
-     
-     vec2 TextureSize = textureSize(Texture, 0).xy;
-     vec2 UV = vec2(X, Y) / TextureSize;
-     */
-     
-     vec4 Color = texture(Texture, FragmentUV);
-     //vec4 Color = texture(Texture, UV);
-     if(Color.a == 0.0){
-         discard;
-     }
-     
-     /*
-      
-      vec2 LightPs[] = vec2[](vec2(200.0, 100.0),
-                              vec2(200.0, 600.0),
-                              vec2(700.0, 100.0),
-                              vec2(700.0, 600.0),
-                              vec2(1200.0, 100.0),
-                              vec2(1200.0, 600.0));
-      
-      
-      vec3 Lighting = vec3(0.0);
-      for(int I = 0; I < LightPs.length(); I++){
-          Lighting += CalculateLight(LightPs[I], vec3(1.0, 1.0, 1.0), 1000);
-      }
-      Color *= vec4(0.4+Lighting, 1.0);
-      
-      float Exposure = 1.0;
-      vec4 Vec4HDRColor = Color;
-      vec3 HDRColor = Vec4HDRColor.rgb;
-      vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
-      //FragColor = vec4(MappedColor, Vec4HDRColor.a);
- */
-     
-     FragColor = Color;
- }
- );
-
-
-
-//~ 
+void
+opengl_backend::UploadRenderData(dynamic_array<basic_vertex> *Vertices, 
+                                 dynamic_array<u32> *Indices){
+    glBindVertexArray(VertexArray);
+    glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, Vertices->Count*sizeof(basic_vertex), Vertices->Items,
+                 GL_STREAM_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, Indices->Count*sizeof(u32), Indices->Items,
+                 GL_STREAM_DRAW);
+}
 
 internal GLuint
-GLCompileBaseShaderProgram(const char *VertexShaderSource, 
-                           const char *FragmentShaderSource){
+GLCompileShaderProgram(const char *VertexShaderSource, 
+                       const char *FragmentShaderSource){
     
     GLuint VertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(VertexShader, 1, &VertexShaderSource, 0);
@@ -162,7 +100,7 @@ GLCompileBaseShaderProgram(const char *VertexShaderSource,
         char Buffer[512];
         glGetShaderiv(VertexShader, GL_COMPILE_STATUS, &Status);
         if(!Status){
-            glGetShaderInfoLog(VertexShader, 512, 0, Buffer);
+            glGetShaderInfoLog(VertexShader, 1024, 0, Buffer);
             LogMessage(Buffer);
             Assert(0);
         }
@@ -200,263 +138,329 @@ GLCompileBaseShaderProgram(const char *VertexShaderSource,
     return(Result);
 }
 
-internal basic_program
-GLCompileDefaultShaderProgram(const char *VertexShaderSource, 
-                              const char *FragmentShaderSource){
-    basic_program Result = {};
-    Result.Id = GLCompileBaseShaderProgram(VertexShaderSource, FragmentShaderSource);
+//~ Shader programs
+
+internal basic_shader
+MakeGameShader(){
+    const char *VertexShader = BEGIN_STRING
+        (
+#version 330 core \n
+         
+         layout (location = 0) in vec3 InPosition;
+         layout (location = 1) in vec2 InPixelUV;
+         layout (location = 2) in vec4 InColor;
+         
+         out vec4 FragmentColor;
+         out vec2 FragmentUV;
+         uniform mat4 InProjection;
+         
+         void main(){
+             gl_Position = InProjection * vec4(InPosition, 1.0);
+             FragmentColor = InColor;
+             FragmentUV = InPixelUV;
+         };
+         );
     
-    glUseProgram(Result.Id);
-    Result.ProjectionLocation = glGetUniformLocation(Result.Id, "Projection");
-    if(Result.ProjectionLocation == -1){
-        LogMessage("Couldn't find the location of the 'Projection' uniform");
-    }
-    //Assert(Result.ProjectionLocation != -1);
+    const char *FragmentShader = BEGIN_STRING
+        (
+#version 330 core \n
+         
+         out vec4 OutColor;
+         
+         in vec4 FragmentColor;
+         in vec2 FragmentUV;
+         uniform sampler2D InTexture;
+         
+         void main(){
+             vec2 UV = FragmentUV;
+             OutColor = texture(InTexture, UV)*FragmentColor;
+             if(OutColor.a == 0.0){ discard; }
+         }
+         
+         );
+    
+    GLuint Program = GLCompileShaderProgram(VertexShader, FragmentShader);
+    
+    basic_shader Result = {};
+    Result.ID = Program;
+    
+    glUseProgram(Program);
+    Result.ProjectionLocation = glGetUniformLocation(Program, "InProjection");
+    Assert(Result.ProjectionLocation != -1);
+    
     return(Result);
 }
 
-//~ Render API
 
-internal b8
-InitializeRenderer(){
-    //~ 
-    DefaultShaderProgram =
-        GLCompileDefaultShaderProgram(DefaultVertexShader, DefaultFragmentShader);
+internal basic_shader
+MakeDefaultShader(){
+    const char *VertexShader = BEGIN_STRING
+        (
+#version 330 core \n
+         
+         layout (location = 0) in vec3 InPosition;
+         layout (location = 1) in vec2 InUV;
+         layout (location = 2) in vec4 InColor;
+         
+         out vec4 FragmentColor;
+         out vec2 FragmentUV;
+         uniform mat4 InProjection;
+         
+         void main(){
+             gl_Position = InProjection * vec4(InPosition, 1.0);
+             FragmentColor = InColor;
+             FragmentUV = InUV;
+         };
+         );
     
-    ScreenShaderProgram =
-        GLCompileBaseShaderProgram(ScreenVertexShader, ScreenFragmentShader);
+    const char *FragmentShader = BEGIN_STRING
+        (
+#version 330 core \n
+         
+         out vec4 OutColor;
+         
+         in vec4 FragmentColor;
+         in vec2 FragmentUV;
+         uniform sampler2D InTexture;
+         
+         void main(){
+             OutColor = texture(InTexture, FragmentUV)*FragmentColor;
+             if(OutColor.a == 0.0){ discard; }
+         }
+         
+         );
     
+    GLuint Program = GLCompileShaderProgram(VertexShader, FragmentShader);
     
-    //~ Setup default objects
-    {
-        
-        glGenVertexArrays(1, &DefaultVertexArray);
-        glBindVertexArray(DefaultVertexArray);
-        
-        //GLuint VertexBuffer;
-        glGenBuffers(1, &DefaultVertexBuffer);
-        glBindBuffer(GL_ARRAY_BUFFER, DefaultVertexBuffer);
-        
-        GLuint ElementBuffer;
-        glGenBuffers(1, &ElementBuffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ElementBuffer);
-        
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, P));
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, Color));
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, TexCoord));
-        glEnableVertexAttribArray(2);
-        
-        glBindVertexArray(0);
-    }
+    basic_shader Result = {};
+    Result.ID = Program;
     
-    //~ Setup screen objects
-    {
-        glGenVertexArrays(1, &ScreenVertexArray);
-        glBindVertexArray(ScreenVertexArray);
-        
-        local_constant float Vertices[] = {
-            -1.0f,  1.0f,  0.0f, 1.0f,
-            -1.0f, -1.0f,  0.0f, 0.0f,
-            1.0f,   1.0f,  1.0f, 1.0f, 
-            1.0f,  -1.0f,  1.0f, 0.0f,
-        };
-        
-        GLuint VertexBuffer;
-        glGenBuffers(1, &VertexBuffer);
-        glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-        
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(0));
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
-        glEnableVertexAttribArray(1);
-        
-        glBindVertexArray(0);
-    }
+    glUseProgram(Program);
+    Result.ProjectionLocation = glGetUniformLocation(Program, "InProjection");
+    Assert(Result.ProjectionLocation != -1);
     
-    //~ Setup screen buffer
-    GLsizei WindowWidth = (GLsizei)OSInput.WindowSize.X;
-    GLsizei WindowHeight = (GLsizei)OSInput.WindowSize.Y;
+    return(Result);
+};
+
+
+internal screen_shader
+MakeGameScreenShader(){
+    global_constant char *VertexShader = BEGIN_STRING
+        (
+#version 330 core \n
+         
+         layout (location = 0) in vec2 InPosition;
+         layout (location = 1) in vec2 InUV;
+         
+         out vec2 FragmentUV;
+         out vec2 FragmentP;
+         
+         void main(){
+             gl_Position = vec4(InPosition, 0.0, 1.0);
+             FragmentP = InPosition;
+             FragmentUV = InUV;
+         }
+         );
     
-    {
-        glGenFramebuffers(1, &ScreenFramebuffer);
-        glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
-        
-        glGenTextures(1, &ScreenTexture);
-        glBindTexture(GL_TEXTURE_2D, ScreenTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-        glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WindowWidth, WindowHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ScreenTexture, 0);
-        
-        GLuint Renderbuffer;
-        glGenRenderbuffers(1, &Renderbuffer);
-        glBindRenderbuffer(GL_RENDERBUFFER, Renderbuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WindowWidth, WindowHeight);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-        
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 
-                                  Renderbuffer);
-        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
-            LogMessage("ERROR: framebuffer not complete!");
-            NOT_IMPLEMENTED_YET;
-        }
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);  
-    }
+    global_constant char *FragmentShader = BEGIN_STRING
+        (
+#version 330 core \n
+         
+         out vec4 OutColor;
+         in vec2 FragmentUV;
+         in vec2 FragmentP;
+         
+         uniform sampler2D InTexture;
+         uniform float     InScale;
+         
+         vec3 CalculateLight(vec2 LightP, vec3 LightColor, float Radius){
+             //float Distance = distance(LightP, (inverse(Projection)*vec4(FragmentP, 0.0, 1.0)).xy);
+             float Distance = distance(LightP, FragmentP.xy);
+             float Attenuation = clamp(1.0 - (Distance*Distance)/(Radius*Radius), 0.0, 1.0);
+             Attenuation *= Attenuation;
+             vec3 Result = Attenuation*LightColor;
+             return(Result);
+         }
+         
+         void main(){
+             //vec2 ScreenCenter = InOutputSize / 2.0;
+             //vec2 Pixel = gl_FragCoord.xy;
+             //vec2 TextureSize = textureSize(InTexture, 0).xy;
+             
+             //vec2 UV = FragmentUV;
+             //vec2 UV = ScreenCenter;
+             //float Scale = 4;
+             //Pixel = (Pixel - ScreenCenter)/Scale + ScreenCenter;
+             
+             //vec2 UV = floor(Pixel)+0.5;
+             //UV += 1.0 - clamp((1.0 - fract(Pixel)) * Scale, 0.0, 1.0);
+             
+             //UV /= TextureSize;
+             //vec4 Color = vec4(Pixel/TextureSize, 0.0, 1.0);
+             //vec2 UV = Pixel / InOutputSize;
+             
+             vec2 TextureSize = textureSize(InTexture, 0).xy;
+             vec2 Pixel = FragmentUV*TextureSize;
+             
+             vec2 UV = floor(Pixel) + 0.5;
+             
+             UV += 1.0 - clamp((1.0-fract(Pixel))*InScale, 0.0, 1.0);
+             
+             vec4 Color = texture(InTexture, UV/TextureSize);
+             //vec4 Color = texture(InTexture, FragmentUV);
+             if(Color.a == 0.0){
+                 discard;
+             }
+             
+             
+             /*
+              vec2 LightPs[] = vec2[](vec2(200.0, 100.0),
+                                      vec2(200.0, 600.0),
+                                      vec2(700.0, 100.0),
+                                      vec2(700.0, 600.0),
+                                      vec2(1200.0, 100.0),
+                                      vec2(1200.0, 600.0));
+              
+              
+              vec3 Lighting = vec3(0.0);
+              for(int I = 0; I < LightPs.length(); I++){
+                  Lighting += CalculateLight(LightPs[I], vec3(1.0, 1.0, 1.0), 1000);
+              }
+              Color *= vec4(0.4+Lighting, 1.0);
+              
+              float Exposure = 1.0;
+              vec4 Vec4HDRColor = Color;
+              vec3 HDRColor = Vec4HDRColor.rgb;
+              vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
+              //FragColor = vec4(MappedColor, Vec4HDRColor.a);
+         */
+             
+             OutColor = Color;
+         }
+         );
     
-    //~ 
-    u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
-    DefaultTexture = CreateRenderTexture(TemplateColor, 1, 1);
+    GLuint Program = GLCompileShaderProgram(VertexShader, FragmentShader);
     
-    b8 Result = true;
+    screen_shader Result = {};
+    Result.ID = Program;
+    glUseProgram(Program);
+    Result.ScaleLocation = glGetUniformLocation(Result.ID, "InScale");
+    //Assert(Result.ScaleLocation != -1);
+    
     return(Result);
 }
 
-void
-renderer::RenderToScreen(){
-    TIMED_FUNCTION();
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, ScreenFramebuffer);
-    
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_SCISSOR_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    glScissor(0, 0, OutputSize.X, OutputSize.Y);
-    glViewport(0, 0, OutputSize.X, OutputSize.Y);
-    
-    //~ Render scene normally to framebuffer
-    f32 A = 2.0f/((f32)OutputSize.Width);
-    f32 B = 2.0f/((f32)OutputSize.Height);
-    f32 C = 2.0f/((f32)100);
+//~ Shaders
+internal void
+UseBasicShader(basic_shader *Shader, v2 OutputSize, f32 ZResolution, f32 Scale=1){
+    glUseProgram(Shader->ID);
+    f32 A = 2.0f/(OutputSize.Width/Scale);
+    f32 B = 2.0f/(OutputSize.Height/Scale);
+    f32 C = 2.0f/(ZResolution);
     f32 Projection[] = {
         A,   0, 0, 0,
         0,   B, 0, 0,
         0,   0, C, 0,
         -1, -1, 0, 1,
     };
-    
-    glUseProgram(DefaultShaderProgram.Id);
-    glBindVertexArray(DefaultVertexArray);
-    glBindBuffer(GL_ARRAY_BUFFER, DefaultVertexBuffer);
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DefaultElementBuffer);
-    glUniformMatrix4fv(DefaultShaderProgram.ProjectionLocation, 1, GL_FALSE, Projection);
-    
-    glBufferData(GL_ARRAY_BUFFER, Vertices.Count*sizeof(vertex), 
-                 Vertices.Items, GL_STREAM_DRAW);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, Indices.Count*sizeof(u16), 
-                 Indices.Items, GL_STREAM_DRAW);
-    
-    dynamic_array<render_command_item *> TranslucentItems;
-    DynamicArrayInitialize(&TranslucentItems, 256, &TransientStorageArena);
-    dynamic_array<rect_s32> TranslucentItemClipRects;
-    DynamicArrayInitialize(&TranslucentItemClipRects, 256, &TransientStorageArena);
-    
-    rect_s32 ClipRect = RectS32(V2S(0,0), OutputSize);
-    u8 *CommandPtr = CommandBuffer.Items;
-    for(u32 I = 0; I < CommandCount; I++){
-        auto Header = (render_command_header *)CommandPtr;
-        switch(Header->Type){
-            case RenderCommand_None: {
-                CommandPtr += sizeof(render_command_header);
-            }break;
-            case RenderCommand_BeginClipRegion: {
-                auto Command = (render_command_begin_clip_region *)CommandPtr;
-                CommandPtr += sizeof(*Command);
-                glScissor(Command->Min.X, Command->Min.Y, 
-                          Command->Min.X+(Command->Max.X-Command->Min.X),
-                          Command->Min.Y+(Command->Max.Y-Command->Min.Y));
-                ClipRect = RectS32(Command->Min, Command->Max);
-            }break;
-            case RenderCommand_EndClipRegion: {
-                CommandPtr += sizeof(render_command_header);
-                glScissor(0, 0, OutputSize.X, OutputSize.Y);
-                ClipRect = RectS32(V2S(0,0), OutputSize);
-            }break;
-            case RenderCommand_RenderItem: {
-                auto Command = (render_command_item *)CommandPtr;
-                CommandPtr += sizeof(*Command);
-                glBindTexture(GL_TEXTURE_2D, Command->Texture);
-                glDrawElementsBaseVertex(GL_TRIANGLES, Command->IndexCount, 
-                                         GL_UNSIGNED_SHORT, (void*)(Command->IndexOffset*sizeof(u16)), 
-                                         Command->VertexOffset);
-            }break;
-            case RenderCommand_TranslucentRenderItem: {
-                auto Command = (render_command_item *)CommandPtr;
-                CommandPtr += sizeof(*Command);
-                s32 Index = -1;
-                Assert(Command);
-                for(u32 I = 0; I < TranslucentItems.Count; I++){
-                    auto Item = TranslucentItems[I];
-                    if(Command->ZLayer > Item->ZLayer){
-                        Index = I;
-                        break;
-                    }
-                }
-                if(Index < 0){
-                    DynamicArrayPushBack(&TranslucentItems, Command);
-                    DynamicArrayPushBack(&TranslucentItemClipRects, ClipRect);
-                }else{
-                    DynamicArrayInsertNewArrayItem(&TranslucentItems, Index, Command);
-                    DynamicArrayInsertNewArrayItem(&TranslucentItemClipRects, Index, ClipRect);
-                }
-            }break;
-            case RenderCommand_ClearScreen: {
-                auto Command = (render_command_clear_screen *)CommandPtr;
-                CommandPtr += sizeof(*Command);
-                
-                glClearColor(Command->Color.R,
-                             Command->Color.G,
-                             Command->Color.B,
-                             Command->Color.A);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                
-            }break;
-            default: {
-                INVALID_CODE_PATH;
-            }break;
-        }
-    }
-    
-    // So that the scene can render without a clip region command
-    f32 LastZ = 0.0f;
-    for(u32 Index = 0; Index < TranslucentItems.Count; Index++){
-        auto Item = TranslucentItems[Index];
-        rect_s32 ClipRect = TranslucentItemClipRects[Index];
-        if(LastZ != 0.0f) Assert((Item->ZLayer <= LastZ));
-        LastZ = Item->ZLayer;
-        glScissor(ClipRect.Min.X, ClipRect.Min.Y, ClipRect.Max.X, ClipRect.Max.Y);
-        glBindTexture(GL_TEXTURE_2D, Item->Texture);
-        glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)Item->IndexCount, 
-                                 GL_UNSIGNED_SHORT, (void*)(Item->IndexOffset*sizeof(u16)), 
-                                 Item->VertexOffset);
-    }
-    
-    //~ Render to screen
-#if 1
-    glScissor(0, 0, OutputSize.X, OutputSize.Y);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glDisable(GL_DEPTH_TEST);
-    glClearColor(0.2f, 0.0f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    
-    glUseProgram(ScreenShaderProgram);
-    glBindVertexArray(ScreenVertexArray);
-    glBindTexture(GL_TEXTURE_2D, ScreenTexture);
-    
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-#endif
-    
+    glUniformMatrix4fv(Shader->ProjectionLocation, 1, GL_FALSE, Projection);
 }
 
-internal render_texture_handle 
+internal void
+StopUsingShader(){
+    glUseProgram(0);
+}
+
+//~ Framebuffer
+
+internal void 
+InitializeFramebuffer(framebuffer *Framebuffer, v2 Size){
+    GLsizei Width = (GLsizei)Size.X;
+    GLsizei Height = (GLsizei)Size.Y;
+    
+    glGenFramebuffers(1, &Framebuffer->ID);
+    glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer->ID);
+    
+    glGenTextures(1, &Framebuffer->Texture);
+    glBindTexture(GL_TEXTURE_2D, Framebuffer->Texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Width, Height, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Framebuffer->Texture, 0);
+    
+    glGenRenderbuffers(1, &Framebuffer->RenderbufferID);
+    glBindRenderbuffer(GL_RENDERBUFFER, Framebuffer->RenderbufferID);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, Width, Height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 
+                              Framebuffer->RenderbufferID);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
+        LogMessage("ERROR: framebuffer not complete!");
+        INVALID_CODE_PATH;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+}
+
+internal void 
+ResizeFramebuffer(framebuffer *Framebuffer, v2 NewSize){
+    GLsizei Width = (GLsizei)NewSize.X;
+    GLsizei Height = (GLsizei)NewSize.Y;
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer->ID);
+    
+    glBindTexture(GL_TEXTURE_2D, Framebuffer->Texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Width, Height, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, Framebuffer->Texture, 0);
+    
+    glBindRenderbuffer(GL_RENDERBUFFER, Framebuffer->RenderbufferID);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, Width, Height);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 
+                              Framebuffer->RenderbufferID);
+    
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
+        LogMessage("ERROR: framebuffer not complete!");
+        INVALID_CODE_PATH;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);  
+}
+
+internal void
+UseFramebuffer(framebuffer *Framebuffer){
+    if(Framebuffer){
+        glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer->ID);
+    }else{
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+}
+
+void
+opengl_backend::RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, f32 Scale){
+    v2 OutputSize = OSInput.WindowSize;
+    
+    glScissor(0, 0, (u32)OutputSize.X, (u32)OutputSize.Y);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST);
+    //glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
+    //glClear(GL_COLOR_BUFFER_BIT);
+    
+    glUseProgram(Shader->ID);
+    glUniform1f(Shader->ScaleLocation, Scale);
+    glBindVertexArray(ScreenVertexArray);
+    glBindTexture(GL_TEXTURE_2D, Framebuffer->Texture);
+    
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+//~ Textures
+
+internal render_texture 
 CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend){
     u32 Result;
     glGenTextures(1, &Result);
@@ -478,3 +482,112 @@ CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend){
     return(Result);
 }
 
+internal void 
+RemakeRenderTexture(render_texture Texture, u8 *Pixels, u32 Width, u32 Height, b8 Blend){
+    glBindTexture(GL_TEXTURE_2D, Texture);
+    
+    if(Blend){
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }else{
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+internal void
+DeleteRenderTexture(render_texture Texture){
+    glDeleteTextures(1, &Texture);
+}
+
+//~ Rendering
+
+// TODO(Tyler): This might be able to be modified to merge sort each node 
+// and then merge sort the nodes together, but right now this works just
+// fine.
+internal inline void
+GLRenderNodes(game_renderer *Renderer, render_node *StartNode,
+              render_item_z *ZsA, render_item_z *ZsB, u32 ZItemCount){
+    //~ Normal items
+    u32 Index = 0; // Also doubles as the count for the current tree
+    render_node *Node = StartNode;
+    while(Node){
+        for(u32 J=0; J<Node->Count; J++){
+            render_item *Item = &Node->Items[J];
+            
+            render_item_z *ZItem = &ZsA[Index++];
+            ZItem->Z = Node->ItemZs[J];
+            if(Node->ItemZs[J] != F32_NEGATIVE_INFINITY){ 
+                ZItem->Item = Item;
+                continue; 
+            }
+            
+            glBindTexture(GL_TEXTURE_2D, Item->Texture);
+            v2 ClipSize = RectSize(Item->ClipRect);
+            glScissor((GLsizei)Item->ClipRect.Min.X, (GLsizei)Item->ClipRect.Min.Y, 
+                      (GLsizei)ClipSize.X,           (GLsizei)ClipSize.Y);
+            glDrawElementsBaseVertex(GL_TRIANGLES, Item->IndexCount, GL_UNSIGNED_INT, 
+                                     (void *)(Item->IndexOffset*sizeof(u32)),
+                                     Item->VertexOffset);
+        }
+        
+        Node = Node->Next;
+    }
+    
+    //~ Alpha items, requiring sorting
+    render_item_z *ZItems = MergeSortZs(ZsA, ZsB, Index);
+    //render_item_z *ZItems = ZsA;
+    for(u32 I=0; I<Index; I++){
+        render_item_z *ZItem = &ZItems[I];
+        render_item *Item = ZItem->Item;
+        if(!Item) continue;
+        
+        glBindTexture(GL_TEXTURE_2D, Item->Texture);
+        v2 ClipSize = RectSize(Item->ClipRect);
+        glScissor((GLsizei)Item->ClipRect.Min.X, (GLsizei)Item->ClipRect.Min.Y, 
+                  (GLsizei)ClipSize.X,           (GLsizei)ClipSize.Y);
+        glDrawElementsBaseVertex(GL_TRIANGLES, Item->IndexCount, GL_UNSIGNED_INT, 
+                                 (void *)(Item->IndexOffset*sizeof(u32)),
+                                 Item->VertexOffset);
+    }
+}
+
+internal void
+RendererRenderAll(game_renderer *Renderer){
+    TIMED_FUNCTION();
+    
+    v2 OutputSize = Renderer->OutputSize;
+    glScissor(0, 0, (u32)OutputSize.X, (u32)OutputSize.Y);
+    glViewport(0, 0, (u32)OutputSize.X, (u32)OutputSize.Y);
+    
+    OpenGL.UploadRenderData(&Renderer->Vertices, &Renderer->Indices);
+    GLClearOutput(Renderer->ClearColor);
+    OpenGL.NormalSetup();
+    
+    u32 ZItemCount = Renderer->RenderItemCount;
+    render_item_z *ZsA = PushArray(&TransientStorageArena, render_item_z, ZItemCount);
+    render_item_z *ZsB = PushArray(&TransientStorageArena, render_item_z, ZItemCount);
+    
+    //~ Pixel items
+    UseBasicShader(&Renderer->GameShader, OutputSize, 1000);
+    
+    UseFramebuffer(&Renderer->GameScreenFramebuffer);
+    GLClearOutput(Renderer->ClearColor);
+    GLRenderNodes(Renderer, Renderer->PixelNode, ZsA, ZsB, ZItemCount);
+    OpenGL.RenderFramebuffer(&Renderer->GameScreenShader, &Renderer->GameScreenFramebuffer, Renderer->CameraScale);
+    OpenGL.NormalSetup();
+    
+    //~ Scaled items
+    UseBasicShader(&Renderer->GameShader, OutputSize, 1000, Renderer->CameraScale);
+    GLRenderNodes(Renderer, Renderer->ScaledNode, ZsA, ZsB, ZItemCount);
+    
+    //~ Default items
+    UseBasicShader(&Renderer->DefaultShader, OutputSize, 1000);
+    GLRenderNodes(Renderer, Renderer->DefaultNode, ZsA, ZsB, ZItemCount);
+}

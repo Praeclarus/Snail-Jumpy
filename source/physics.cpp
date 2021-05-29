@@ -1,12 +1,11 @@
 physics_debugger PhysicsDebugger;
 
 //~ Debug stuff
-#if defined(SNAIL_JUMPY_DEBUG_BUILD)
 inline void
 physics_debugger::Begin(){
     Current = {};
     Layout = CreateLayout(1500, 700, 30, DebugFont.Size, 100, -10.2f);
-    Origin = V2(4.0f, 4.0f);
+    Origin = V2(100.0f, 100.0f);
     DrawPoint(Origin, V20, WHITE);
 }
 
@@ -49,27 +48,27 @@ physics_debugger::IsCurrent(){
 inline void
 physics_debugger::DrawPoint(v2 Offset, v2 Point, color Color){
     if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
-    RenderRect(CenterRect(Offset-GameCamera.P + Scale*Point, V2(0.05f)),
-               -10.3f, Color, &GameCamera);
+    RenderRect(CenterRect(Offset + Scale*Point, V2(1.0f)),
+               -10.3f, Color, ScaledItem(0));
 }
 
 inline void
 physics_debugger::DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color){
     if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
-    RenderLineFrom(Offset-GameCamera.P+Scale*A, Scale*Delta, -10, 0.02f, Color, &GameCamera);
+    RenderLineFrom(Offset+Scale*A, Scale*Delta, -10, 0.5f, Color, ScaledItem(0));
 }
 
 inline void
 physics_debugger::DrawNormal(v2 Offset, v2 A, v2 Delta, color Color){
     if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
     Delta = Normalize(Delta);
-    RenderLineFrom(Offset-GameCamera.P+Scale*A, 0.2f*Delta, -10, 0.015f, Color, &GameCamera);
+    RenderLineFrom(Offset+Scale*A, 0.2f*Delta, -10, 0.4f, Color, ScaledItem(0));
 }
 
 inline void
 physics_debugger::DrawLine(v2 Offset, v2 A, v2 B, color Color){
     if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
-    RenderLine(Offset-GameCamera.P+Scale*A, Offset+Scale*B, -10, 0.02f, Color, &GameCamera);
+    RenderLine(Offset+Scale*A, Offset+Scale*B, -10, 0.5f, Color, ScaledItem(0));
 }
 
 inline void
@@ -88,7 +87,7 @@ physics_debugger::DrawStringAtP(v2 P, const char *Format, ...){
     va_start(VarArgs, Format);
     
     P.Y += 0.1f;
-    v2 StringP = GameCamera.ToScreenP(P);
+    v2 StringP = GameRenderer.WorldToScreen(P, UIItem(0));
     VRenderFormatString(&DebugFont, BLACK, StringP, -10.0f, Format, VarArgs);
     
     va_end(VarArgs);
@@ -104,7 +103,7 @@ physics_debugger::DrawPolygon(v2 *Points, u32 PointCount){
         
         v2 P = Origin + (Scale * Points[I]);
         P.Y += 0.1f;
-        v2 NameP = GameCamera.ToScreenP(P);
+        v2 NameP = GameRenderer.WorldToScreen(P, UIItem(0));
         RenderFormatString(&DebugFont, BLACK, NameP, -10.0f, "%u", I);
     }
 }
@@ -118,34 +117,20 @@ physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount
     PhysicsDebugger.DrawPolygon(Points, PointCount);
     PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
 } 
-#else
-inline void physics_debugger::Begin(){}
-inline void physics_debugger::End(){}
-inline b8   physics_debugger::DefineStep(){ return(false); }
-inline void physics_debugger::BreakWhen(b8 Value){}
-inline b8   physics_debugger::IsCurrent(){ return(false); }
-inline void physics_debugger::DrawPoint(v2 Offset, v2 Point, color Color){}
-inline void physics_debugger::DrawLineFrom(v2 Offset, v2 A, v2 Delta, color Color){}
-inline void physics_debugger::DrawNormal(v2 Offset, v2 A, v2 Delta, color Color){}
-inline void physics_debugger::DrawLine(v2 Offset, v2 A, v2 B, color Color){}
-inline void physics_debugger::DrawString(const char *Format, ...){}
-inline void physics_debugger::DrawStringAtP(v2 P, const char *Format, ...){}
-inline void physics_debugger::DrawPolygon(v2 *Points, u32 PointCount){}
-inline void physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount){} 
-#endif
 
 
 //~ Boundary stuff7
 internal inline b8
 IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
-    b8 Result = IsPointInRect(Point, OffsetRect(Boundary->Bounds, Base+Boundary->Offset));
+    b8 Result = IsPointInRect(Point, Boundary->Bounds+Base+Boundary->Offset);
     return(Result);
 }
 
 internal inline void
-RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset){
+RenderBoundary(collision_boundary *Boundary, f32 Z, v2 Offset){
     Offset += Boundary->Offset;
     color Color_ = Color(0.0f, 0.8f, 0.8f, 1.0f);
+    f32 Thickness = 0.5f;
     switch(Boundary->Type){
         case BoundaryType_None: break;
         case BoundaryType_Rect: {
@@ -159,7 +144,7 @@ RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset){
             for(u32 I=0; I < 4; I++){
                 v2 PointA = Points[I] + Offset;
                 v2 PointB = Points[(I+1)%4] + Offset;
-                RenderLine(PointA, PointB, Z-0.15f, 0.02f, Color_, Camera);
+                RenderLine(PointA, PointB, Z-0.15f, Thickness, Color_, ScaledItem(1));
             }
             
         }break;
@@ -168,16 +153,30 @@ RenderBoundary(camera *Camera, collision_boundary *Boundary, f32 Z, v2 Offset){
             for(u32 I=0; I < Count; I++){
                 v2 PointA = Boundary->FreeFormPoints[I] + Offset;
                 v2 PointB = Boundary->FreeFormPoints[(I+1)%Count] + Offset;
-                RenderLine(PointA, PointB, Z-0.15f, 0.02f, Color_, Camera);
+                RenderLine(PointA, PointB, Z-0.15f, Thickness, Color_, ScaledItem(1));
             }
             
         }break;
         default: INVALID_CODE_PATH;
     }
-#if 0
-    RenderRectOutline(OffsetRect(Boundary->Bounds, Offset), Z-0.1f,
-                      RED, Camera, 0.015f);
+    
+#if 1
+    rect R = Boundary->Bounds + Offset;
+    // TODO(Tyler): FIX ME! This is a hack!!!
+    RenderRectOutline(R, Z-0.1f, RED, ScaledItem(1), Thickness);
 #endif
+}
+
+internal inline void
+RenderObject(physics_object *Object){
+    if(Object->State & PhysicsObjectState_Inactive) return;
+    
+    RenderRectOutline(Object->Bounds + Object->P, -10.0f, GREEN, ScaledItem(1), 0.02f);
+    for(collision_boundary *Boundary = Object->Boundaries;
+        Boundary < Object->Boundaries+Object->BoundaryCount;
+        Boundary++){
+        RenderBoundary(Boundary, -10.1f, Object->P);
+    }
 }
 
 internal inline collision_boundary
@@ -302,18 +301,6 @@ SetObjectBoundaries(physics_object *Object, collision_boundary *Boundaries, u8 C
     Object->Bounds = GetBoundsOfBoundaries(Boundaries, Count);
 }
 
-internal inline void
-RenderObject(physics_object *Object){
-    if(Object->State & PhysicsObjectState_Inactive) return;
-    
-    RenderRectOutline(OffsetRect(Object->Bounds, Object->P), -10.0f, GREEN, &GameCamera, 0.02f);
-    for(collision_boundary *Boundary = Object->Boundaries;
-        Boundary < Object->Boundaries+Object->BoundaryCount;
-        Boundary++){
-        RenderBoundary(&GameCamera, Boundary, -10.1f, Object->P);
-    }
-}
-
 //~ Collision stuff
 internal inline physics_collision
 MakeCollision(){
@@ -435,15 +422,15 @@ physics_system::AllocBoundaries(u32 Count){
 internal inline b8
 DoAABBTest(rect BoundsA, v2 Offset, v2 AP, 
            rect BoundsB, v2 BP, v2 Delta){
-    BoundsA = OffsetRect(BoundsA, Offset);
+    BoundsA += Offset;
     rect RectA1 = BoundsA;
-    rect RectA2 = OffsetRect(RectA1, Delta);
+    rect RectA2 = RectA1 + Delta;
     rect RectA;
     RectA.Min = MinimumV2(RectA1.Min, RectA2.Min);
     RectA.Max = MaximumV2(RectA1.Max, RectA2.Max);
-    RectA = OffsetRect(RectA, AP);
+    RectA += AP;
     rect RectB = BoundsB;
-    RectB = OffsetRect(RectB, BP);
+    RectB = RectB + BP;
     b8 Result = DoRectsOverlap(RectA, RectB);
     return(Result);
 }
@@ -813,7 +800,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
     
     FOR_BUCKET_ARRAY(ItB, &Tilemaps){
         physics_tilemap *Tilemap = ItB.Item;
-        rect Bounds = OffsetRect(Boundary->Bounds, Boundary->Offset+P);
+        rect Bounds = Boundary->Bounds + (Boundary->Offset+P);
         Bounds = SweepRect(Bounds, Delta);
         Bounds.Min.X /= Tilemap->TileSize.X;
         Bounds.Min.Y /= Tilemap->TileSize.Y;
@@ -928,7 +915,7 @@ physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collisi
 //~ Do physics
 
 void
-physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=0.2f){
+physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=7.0f){
     if(PhysicsDebugger.DefineStep()) return;
     if(PhysicsDebugger.IsCurrent()){
         PhysicsDebugger.DrawString("Floor raycast");
@@ -1001,7 +988,7 @@ physics_system::DoPhysics(){
         dynamic_physics_object *Object = It.Item;
         
         // NOTE(Tyler): This may not be the best way to integrate dP, Delta, but it works
-        f32 DragCoefficient = 0.7f;
+        f32 DragCoefficient = 0.1f;
         Object->ddP.X += -DragCoefficient*Object->dP.X*AbsoluteValue(Object->dP.X);
         Object->ddP.Y += -DragCoefficient*Object->dP.Y*AbsoluteValue(Object->dP.Y);
         Object->Delta = (dTime*Object->dP + 
@@ -1063,7 +1050,6 @@ physics_system::DoPhysics(){
             RenderObject(It.Item);
         }
     }
-    
 #endif
     
     //~ Do collisions
@@ -1208,6 +1194,9 @@ physics_system::DoPhysics(){
     }
     
     //~ Do particles
+    
+    // TODO(Tyler): Move the particle system somewhere else
+#if 0    
 #define RepeatExpr(V) F32X4(V, V, V, V)
     
     // TODO(Tyler): This isn't a very good particle system. We might want 
@@ -1272,6 +1261,7 @@ physics_system::DoPhysics(){
         }
     }
 #undef RepeatExpr
+#endif
     
     // DEBUG
     PhysicsDebugger.End();

@@ -109,16 +109,16 @@ RegisterEntityInfos(){
     
     entity_info *Player    = RegisterInfo("player", 1, 1, 1.0f, EntityFlag_None, PlayerCollisionResponse);
     
-    entity_info *Snail     = RegisterEnemyInfo("snail", 1, 1, 1.0f, 1.0f, 2, EntityFlag_CanBeStunned);
+    entity_info *Snail     = RegisterEnemyInfo("snail", 1, 1, 1.0f, 100.0f, 2, EntityFlag_CanBeStunned);
     
-    entity_info *Sally     = RegisterEnemyInfo("sally", 1, 2, 2.0f, 0.8f, 3, EntityFlag_CanBeStunned);
+    entity_info *Sally     = RegisterEnemyInfo("sally", 1, 2, 2.0f, 100.0f, 3, EntityFlag_CanBeStunned);
     Sally->BoundaryTable[State_Retreating] = 2;
     Sally->BoundaryTable[State_Stunned]    = 2;
     Sally->BoundaryTable[State_Returning]  = 2;
     
-    entity_info *Speedy    = RegisterEnemyInfo("speedy", 1, 1, 0.7f, 10.0f, 1, EntityFlag_CanBeStunned);
+    entity_info *Speedy    = RegisterEnemyInfo("speedy", 1, 1, 0.7f, 300.0f, 1, EntityFlag_CanBeStunned);
     
-    entity_info *Dragonfly = RegisterEnemyInfo("dragonfly", 2, 2, 1.5f, 1.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
+    entity_info *Dragonfly = RegisterEnemyInfo("dragonfly", 2, 2, 1.5f, 70.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
 }
 
 //~ File loading
@@ -127,7 +127,7 @@ RegisterEntityInfos(){
 internal void
 InitializeAndLoadEntityInfos(memory_arena *Arena, const char *Path){
     EntityInfoMemory = PushNewArena(Arena, Kilobytes(2048));
-    EntityInfos = CreateNewArray<entity_info>(&PermanentStorageArena, 128);
+    EntityInfos = MakeNewArray<entity_info>(&PermanentStorageArena, 128);
     RegisterEntityInfos();
     
     entire_file File = ReadEntireFile(&TransientStorageArena, Path);
