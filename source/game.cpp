@@ -107,7 +107,7 @@ UpdateAndRenderMainGame(){
     
     //~ Rope/vine thing
     {
-        v2 BaseP = V2(100, 100);
+        v2 BaseP = V2(100, 110);
         
         f32 FinalT = (0.5f*Sin(2*Counter))+0.5f;
         f32 MinAngle = 0.4*PI;
@@ -116,6 +116,7 @@ UpdateAndRenderMainGame(){
         v2 Delta = 50.0f*V2(Cos(Angle), -Sin(Angle));
         
         RenderLineFrom(BaseP, Delta, -10.0f, 1.0f, GREEN, GameItem(1));
+        GameRenderer.AddLight(BaseP+Delta, Color(0.0f, 1.0f, 0.0f), 0.4f, 10.0f, GameItem(1));
     }
     
     RenderFormatString(&MainFont, GREEN, V2(100, OSInput.WindowSize.Height-100),

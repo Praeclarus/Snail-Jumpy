@@ -480,13 +480,13 @@ struct color {
 };
 
 internal inline color
-Color(f32 R, f32 G, f32 B, f32 A){
+Color(f32 R, f32 G, f32 B, f32 A=1.0f){
     color Result = color{R, G, B, A};
     return(Result);
 }
 
 internal inline color
-MakeColor(f32 R, f32 G, f32 B, f32 A){
+MakeColor(f32 R, f32 G, f32 B, f32 A=1.0f){
     color Result = color{R, G, B, A};
     return(Result);
 }

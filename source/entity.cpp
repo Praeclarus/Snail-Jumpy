@@ -28,8 +28,8 @@ OpenDoor(door_entity *Door){
 
 inline void
 entity_manager::DamagePlayer(u32 Damage){
-    Player->Physics->P = V2(1.55f, 1.55f);
-    Player->DynamicPhysics->dP = {0, 0};
+    Player->Physics->P = V2(30.0f, 30.0f);
+    Player->DynamicPhysics->dP = V2(0);
     EntityManager.Player->Health -= Damage;
     if(EntityManager.Player->Health <= 0){
         EntityManager.Player->Health = 9;

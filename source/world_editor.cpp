@@ -628,12 +628,6 @@ world_editor::UpdateAndRender(){
     DoSelectedThingUI();
     DoSelectorOverlay();
     
-#if 0    
-    RenderString(&GameRenderer.UIGroup, &DebugFont, Color(0.9f, 0.9f, 0.9f, 1.0f), 
-                 V2(100, OSInput.WindowSize.Y-100), -1.0f,
-                 "Press tab to toggle UI");
-#endif
-    
     BEGIN_TIMED_BLOCK(RenderWorldEditor);
     // Walls and coins
     u32 CameraX = (u32)(GameRenderer.CameraFinalP.X/TILE_SIZE.X);
