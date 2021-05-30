@@ -394,7 +394,7 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     ClearColor = ClearColor_;
     CurrentClipRect = SizeRect(V2(0), OutputSize);
     
-    //~ Reset render items
+    //~ Render items
     RenderItemCount = 0;
     DynamicArrayClear(&Vertices);
     DynamicArrayClear(&Indices);
@@ -402,6 +402,11 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     for(u32 I=0; I<RenderType_TOTAL; I++){
         Nodes[I] = PushStruct(Arena, render_node);
     }
+    
+    //~ Lights
+    AmbientLight = 1.0f*Color(0.25f, 0.2f, 0.2f, 1.0f);
+    Exposure = 1.2f;
+    Lights = MakeNewArray<render_light>(Arena, RENDER_MAX_LIGHT_COUNT);
     
     //~ Camera
     CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
@@ -422,6 +427,7 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     ChangeScale(NewScale);
 }
 
+//~ Render stuff
 render_item *
 game_renderer::NewRenderItem(render_texture Texture, render_options Options, b8 HasAlpha, f32 Z){
     Assert(Options.Type < RenderType_TOTAL);
@@ -500,6 +506,19 @@ game_renderer::BeginClipRect(rect ClipRect){
 void
 game_renderer::EndClipRect(){
     CurrentClipRect = SizeRect(V2(0), OutputSize);
+}
+
+//~ Light stuff
+void
+game_renderer::AddLight(v2 P, color Color, f32 Intensity, f32 Radius, render_options Options){
+    render_light *Light = PushNewArrayItem(&Lights);
+    *Light = {};
+    
+    Light->P = P - CalculateParallax(Options.Layer);
+    Light->R = Intensity*Color.R;
+    Light->G = Intensity*Color.G;
+    Light->B = Intensity*Color.B;
+    Light->Radius = Radius;
 }
 
 //~ Camera stuff

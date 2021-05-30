@@ -468,7 +468,39 @@
 #define GL_PREVIOUS                       0x8578
 #define GL_DOT3_RGB                       0x86AE
 #define GL_DOT3_RGBA                      0x86AF
-
+#define GL_UNIFORM_BUFFER                                  0x8A11
+#define GL_UNIFORM_BUFFER_BINDING                          0x8A28
+#define GL_UNIFORM_BUFFER_START                            0x8A29
+#define GL_UNIFORM_BUFFER_SIZE                             0x8A2A
+#define GL_MAX_VERTEX_UNIFORM_BLOCKS                       0x8A2B
+#define GL_MAX_GEOMETRY_UNIFORM_BLOCKS                     0x8A2C
+#define GL_MAX_FRAGMENT_UNIFORM_BLOCKS                     0x8A2D
+#define GL_MAX_COMBINED_UNIFORM_BLOCKS                     0x8A2E
+#define GL_MAX_UNIFORM_BUFFER_BINDINGS                     0x8A2F
+#define GL_MAX_UNIFORM_BLOCK_SIZE                          0x8A30
+#define GL_MAX_COMBINED_VERTEX_UNIFORM_COMPONENTS          0x8A31
+#define GL_MAX_COMBINED_GEOMETRY_UNIFORM_COMPONENTS        0x8A32
+#define GL_MAX_COMBINED_FRAGMENT_UNIFORM_COMPONENTS        0x8A33
+#define GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT                 0x8A34
+#define GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH            0x8A35
+#define GL_ACTIVE_UNIFORM_BLOCKS                           0x8A36
+#define GL_UNIFORM_TYPE                                    0x8A37
+#define GL_UNIFORM_SIZE                                    0x8A38
+#define GL_UNIFORM_NAME_LENGTH                             0x8A39
+#define GL_UNIFORM_BLOCK_INDEX                             0x8A3A
+#define GL_UNIFORM_OFFSET                                  0x8A3B
+#define GL_UNIFORM_ARRAY_STRIDE                            0x8A3C
+#define GL_UNIFORM_MATRIX_STRIDE                           0x8A3D
+#define GL_UNIFORM_IS_ROW_MAJOR                            0x8A3E
+#define GL_UNIFORM_BLOCK_BINDING                           0x8A3F
+#define GL_UNIFORM_BLOCK_DATA_SIZE                         0x8A40
+#define GL_UNIFORM_BLOCK_NAME_LENGTH                       0x8A41
+#define GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS                   0x8A42
+#define GL_UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES            0x8A43
+#define GL_UNIFORM_BLOCK_REFERENCED_BY_VERTEX_SHADER       0x8A44
+#define GL_UNIFORM_BLOCK_REFERENCED_BY_GEOMETRY_SHADER     0x8A45
+#define GL_UNIFORM_BLOCK_REFERENCED_BY_FRAGMENT_SHADER     0x8A46
+#define GL_INVALID_INDEX                                   0xFFFFFFFFu
 //typedef b8 GLboolean;
 typedef char GLchar;
 
@@ -561,6 +593,9 @@ typedef void type_glRenderbufferStorage(GLenum target, GLenum internalformat, GL
 typedef void type_glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
 typedef void type_glDrawBuffers(GLsizei n, const GLenum *bufs);
 typedef void type_glActiveTexture(GLenum texture);
+typedef GLuint type_glGetUniformBlockIndex(GLuint program, const GLchar *uniformBlockName);
+typedef void type_glUniformBlockBinding(GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding);
+typedef void type_glBindBufferBase(GLenum target,  GLuint index, GLuint buffer);
 
 
 // TODO(Tyler): Move this to win32 specific code
@@ -624,20 +659,49 @@ X(glBindRenderbuffer)       \
 X(glRenderbufferStorage)       \
 X(glFramebufferRenderbuffer)       \
 X(glDrawBuffers)       \
-X(glActiveTexture)
+X(glActiveTexture)       \
+X(glGetUniformBlockIndex)       \
+X(glUniformBlockBinding)       \
+X(glBindBufferBase)
 
 //~
 struct opengl_backend {
     GLuint VertexArray;
     GLuint VertexBuffer;
     GLuint InstanceBuffer;
+    GLuint LightsUniformBuffer;
     
     GLuint ScreenVertexArray;
     
     void NormalSetup();
     void UploadRenderData(dynamic_array<basic_vertex> *Vertices, dynamic_array<u32> *Indices);
+    void UploadLights(color AmbientColor, f32 Exposure, array<render_light> Lights);
     void RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, f32 Scale);
 };
+
+
+#pragma pack(push, 1)
+struct opengl_color3 {
+    f32 R, G, B;   // 3x4 bytes  0 12
+    u32 Padding_0; // 1x4 bytes 12 16
+};
+
+struct opengl_light {
+    v2 P;                // 2x4 bytes  0  8
+    f32 Radius;          // 1x4 bytes  8 12
+    u32 Padding_0;       // 1x4 bytes 12 16
+    opengl_color3 Color; // 4x4 bytes 16 32
+};
+
+struct opengl_lights_uniform_buffer {
+    opengl_color3 AmbientColor;
+    f32 Exposure;
+    u32 LightCount; 
+    u32 Padding_1;
+    u32 Padding_2;
+    opengl_light Lights[];
+};
+#pragma pack(pop)
 
 #endif //SNAIL_JUMPY_OPENGL_H
 

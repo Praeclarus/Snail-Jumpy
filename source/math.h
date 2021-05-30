@@ -510,6 +510,24 @@ Alphiphy(color Color, f32 Alpha){
     return(Result);
 }
 
+internal inline color
+operator*(f32 X, color Color)
+{
+    color Result;
+    Result.R = X*Color.R;
+    Result.G = X*Color.G;
+    Result.B = X*Color.B;
+    Result.A = X*Color.A;
+    return(Result);
+}
+
+internal inline color
+operator*(color Color, f32 X)
+{
+    color Result = X*Color;
+    return(Result);
+}
+
 //~ Rectangles
 union rect {
     struct {

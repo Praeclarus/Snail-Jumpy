@@ -114,6 +114,7 @@ entity_editor::RemoveInfoBoundary(entity_info_boundary *Boundary){
 void 
 entity_editor::ProcessKeyDown(os_key_code KeyCode){
     switch((u32)KeyCode){
+        case KeyCode_Tab: UIManager.HideWindows = !UIManager.HideWindows; break;
         case 'T': ChangeState(GameMode_WorldEditor, 0); break;
         // Upper bounds checking is done elsewhere
         case 'J': if(CurrentFrame > 0) CurrentFrame--; break;

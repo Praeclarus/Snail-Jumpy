@@ -443,6 +443,7 @@ UpdateAndRenderPlatformerPlayer(){
             EntityManager.DamagePlayer(2);
         }
         
+        GameRenderer.AddLight(Player->Physics->P, Color(0.3f, 1.0f, 0.5f, 1.0), 0.8f, 20.0f, PixelItem(1));
         GameRenderer.SetCameraTarget(Player->Physics->P);
     }
     
@@ -512,6 +513,8 @@ entity_manager::UpdateAndRenderEntities(){
             }
         }
         
+        f32 Radius = RectSize(Enemy->Bounds).Width+5;
+        GameRenderer.AddLight(Physics->P, Color(1.0f, 0.6f, 0.0f, 1.0), 0.7f, Radius, PixelItem(1));
         MovePlatformer(Physics, Movement, Gravity);
         UpdateAndRenderAnimation(Enemy, OSInput.dTime);
         UpdateEnemyBoundary(Enemy);

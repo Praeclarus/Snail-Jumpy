@@ -423,7 +423,7 @@ RenderFrameOfSpriteSheet(const char *AssetName, u32 Frame, v2 Center, f32 Z, u32
     
     rect R = CenterRect(Center, RenderSize);
     
-    RenderTexture(R, Z, Asset->Texture, PixelItem(Layer), TextureRect, false);
+    RenderTexture(R, Z, Asset->Texture, PixelItem(Layer), TextureRect, true);
 }
 
 internal void

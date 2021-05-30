@@ -147,6 +147,16 @@ ui_window::AdvanceAndVerify(f32 Amount, f32 Width){
     }
 }
 
+b8
+ui_window::DontUpdateOrRender(){
+    b8 Result = false;
+    if((FadeMode == UIWindowFadeMode_Hidden) &&
+       (FadeT >= 1.0f)){
+        Result = true;
+    }
+    return(Result);
+}
+
 void
 ui_window::DrawRect(rect R, f32 Z_, color C){
     f32 T = FadeT;
@@ -174,6 +184,8 @@ ui_window::DrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, ...
 
 b8
 ui_window::Button(const char *Text, u64 ID){
+    if(DontUpdateOrRender()) return(false);
+    
     theme *Theme = &Manager->Theme;
     b8 Result = false;
     
@@ -222,6 +234,8 @@ ui_window::Button(const char *Text, u64 ID){
 
 void
 ui_window::Text(const char *Text, ...){
+    if(DontUpdateOrRender()) return;
+    
     theme *Theme = &Manager->Theme;
     
     va_list VarArgs;
@@ -239,6 +253,8 @@ ui_window::Text(const char *Text, ...){
 
 void 
 ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
+    if(DontUpdateOrRender()) return;;
+    
     theme *Theme = &Manager->Theme;
     
     ui_text_input_state *State = FindOrCreateInHashTablePtr(&Manager->TextInputStates, ID);
@@ -325,6 +341,8 @@ ui_window::ToggleButton(const char *TrueText, const char *FalseText,
 
 b8
 ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
+    if(DontUpdateOrRender()) return(false);
+    
     theme *Theme = &Manager->Theme;
     
     ui_button_state *State = FindOrCreateInHashTablePtr(&Manager->ButtonStates, ID);
@@ -393,6 +411,8 @@ FlagVar &= ~Flag;                                          \
 
 void
 ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
+    if(DontUpdateOrRender()) return;;
+    
     theme *Theme = &Manager->Theme;
     
     ui_drop_down_state *State = FindOrCreateInHashTablePtr(&Manager->DropDownStates, ID);
@@ -553,10 +573,10 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
             C = Theme.TitleBarHoverColor;
         }break;
         case UIBehavior_None: {
-            Window->FadeMode = UIWindowFadeMode_None;
             if((ActiveElement.Type == UIElementType_Draggable) ||
                (ActiveElement.Type == UIElementType_MouseButton)){
-                if(IsPointInRect(OSInput.MouseP, Window->Rect)){
+                if(IsPointInRect(OSInput.MouseP, Window->Rect) &&
+                   (Window->FadeMode != UIWindowFadeMode_Hidden)){
                     Window->FadeMode = UIWindowFadeMode_Faded;
                 }
             }
@@ -572,6 +592,9 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
             Window->FadeT += 7.0f*OSInput.dTime;
             // This could be different to get better results
             if(Window->FadeT > 0.8f) Window->FadeT = 0.7f;
+        }break;
+        case UIWindowFadeMode_Hidden: {
+            Window->FadeT += 7.0f*OSInput.dTime;
         }break;
     }
     Window->FadeT = Clamp(Window->FadeT, 0.0f, 1.0f);
@@ -604,6 +627,10 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
     Window->DrawP.Y = Window->Rect.Max.Y-TitleBarHeight;
     Window->DrawP.X = Window->Rect.Min.X+Theme.Padding;
     
+    Window->FadeMode = UIWindowFadeMode_None;
+    if(HideWindows){
+        Window->FadeMode = UIWindowFadeMode_Hidden;
+    }
     
     return(Window);
 }

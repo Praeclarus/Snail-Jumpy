@@ -118,7 +118,7 @@ RegisterEntityInfos(){
     
     entity_info *Speedy    = RegisterEnemyInfo("speedy", 1, 1, 0.7f, 300.0f, 1, EntityFlag_CanBeStunned);
     
-    entity_info *Dragonfly = RegisterEnemyInfo("dragonfly", 2, 2, 1.5f, 70.0f, 1, EntityFlag_FlipBoundaries|EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
+    entity_info *Dragonfly = RegisterEnemyInfo("dragonfly", 1, 1, 1.5f, 70.0f, 1, EntityFlag_NotAffectedByGravity, DragonflyCollisionResponse);
 }
 
 //~ File loading

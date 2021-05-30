@@ -100,6 +100,7 @@ enum ui_behavior {
 enum ui_window_fade_mode {
     UIWindowFadeMode_None,
     UIWindowFadeMode_Faded,
+    UIWindowFadeMode_Hidden,
 };
 
 struct ui_manager;
@@ -117,6 +118,11 @@ struct ui_window {
     ui_manager *Manager;
     
     void AdvanceAndVerify(f32 Amount, f32 Width);
+    b8   DontUpdateOrRender();
+    
+    void DrawRect(rect R, f32 Z_, color C);
+    void VDrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, va_list VarArgs);
+    void DrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, ...);
     
     void Text(const char *Text, ...);
     void TextInput(char *Buffer, u32 BufferSize, u64 ID);
@@ -125,10 +131,6 @@ struct ui_window {
     b8 ToggleBox(const char *Text, b8 Value, u64 ID);
     void DropDownMenu(const char **Texts, u32 TextCounts, u32 *Selected, u64 ID);
     void DropDownMenu(array<const char *>, u32 *Selected, u64 ID);
-    
-    void DrawRect(rect R, f32 Z_, color C);
-    void VDrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, va_list VarArgs);
-    void DrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, ...);
     
     void End();
 };
@@ -143,6 +145,8 @@ struct ui_manager {
     ui_element ValidElement;
     ui_element HoveredElement;
     b8 ElementJustActive;
+    
+    b8 HideWindows;
     
     //~ Window stuff
     hash_table<const char *, ui_window> WindowTable;

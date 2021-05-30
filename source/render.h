@@ -88,6 +88,15 @@ struct render_node {
     f32 ItemZs[RENDER_NODE_ITEMS];
 };
 
+
+global_constant u32 RENDER_MAX_LIGHT_COUNT = 128;
+struct render_light {
+    v2 P;
+    f32 Radius;
+    f32 R, G, B;
+};
+
+
 struct world_data;
 struct game_renderer {
     //~
@@ -116,7 +125,6 @@ struct game_renderer {
         render_node *Nodes[RenderType_TOTAL];
     };
     
-    
     //~ Render functions
     void Initialize(memory_arena *Arena, v2 OutputSize_);
     void NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_);
@@ -130,6 +138,12 @@ struct game_renderer {
     
     void BeginClipRect(rect ClipRect);
     void EndClipRect();
+    
+    //~ Lighting 
+    color AmbientLight;
+    f32   Exposure;
+    array<render_light> Lights;
+    void AddLight(v2 P, color Color, f32 Intensity, f32 Radius, render_options Options);
     
     //~ Camera stuff
     rect CameraBounds;

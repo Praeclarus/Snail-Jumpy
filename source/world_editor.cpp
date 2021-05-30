@@ -107,6 +107,7 @@ world_editor::GetCursorTile(){
 void
 world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
     switch((u32)KeyCode){
+        case KeyCode_Tab: UIManager.HideWindows = !UIManager.HideWindows; break;
         case 'E': ToggleWorldEditor(); break;
         case 'T': ChangeState(GameMode_EntityEditor, 0); break;
         case 'A': {
@@ -601,6 +602,7 @@ world_editor::DoUI(){
 
 void
 world_editor::UpdateAndRender(){
+    TIMED_FUNCTION();
     if(!World){
         World = CurrentWorld;
         EntityToAddInfoID = 2;

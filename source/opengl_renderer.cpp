@@ -21,6 +21,11 @@ InitializeRendererBackend(){
         glGenBuffers(1, &ElementBuffer);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ElementBuffer);
         
+        glGenBuffers(1, &OpenGL.LightsUniformBuffer);
+        glBindBuffer(GL_UNIFORM_BUFFER, OpenGL.LightsUniformBuffer);
+        u32 LightsBufferSize = (sizeof(opengl_lights_uniform_buffer) + 
+                                RENDER_MAX_LIGHT_COUNT*sizeof(opengl_light));
+        glBufferData(GL_UNIFORM_BUFFER, LightsBufferSize, 0, GL_DYNAMIC_DRAW);
         
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(basic_vertex), (void*)offsetof(basic_vertex, P));
         glEnableVertexAttribArray(0);
@@ -150,12 +155,14 @@ MakeGameShader(){
          layout (location = 1) in vec2 InPixelUV;
          layout (location = 2) in vec4 InColor;
          
+         out vec3 FragmentP;
          out vec4 FragmentColor;
          out vec2 FragmentUV;
          uniform mat4 InProjection;
          
          void main(){
              gl_Position = InProjection * vec4(InPosition, 1.0);
+             FragmentP = InPosition;
              FragmentColor = InColor;
              FragmentUV = InPixelUV;
          };
@@ -165,15 +172,56 @@ MakeGameShader(){
         (
 #version 330 core \n
          
+         struct light {
+             vec2  P;
+             float Radius;
+             vec4  Color;
+         };
+         
          out vec4 OutColor;
          
+         in vec3 FragmentP;
          in vec4 FragmentColor;
          in vec2 FragmentUV;
+         
          uniform sampler2D InTexture;
+         
+         layout (std140) uniform LightsBlock{
+             vec4 InAmbient;
+             float InExposure;
+             uint  InLightCount;
+             light InLights[128];
+         };
+         
+         vec3 CalculateLight(vec2 LightP, vec3 LightColor, float Radius){
+             float Distance = distance(LightP, FragmentP.xy);
+             float Attenuation = clamp(1.0 - (Distance*Distance)/(Radius*Radius), 0.0, 1.0);
+             Attenuation *= Attenuation;
+             vec3 Result = Attenuation*LightColor;
+             return(Result);
+         }
          
          void main(){
              vec2 UV = FragmentUV;
              OutColor = texture(InTexture, UV)*FragmentColor;
+             
+             vec3 AmbientLight = InAmbient.rgb;
+             float Exposure = InExposure;
+             
+             vec3 Lighting = vec3(0.0);
+             light Light = InLights[0];
+             
+             for(int I = 0; I < int(InLightCount); I++){
+                 light Light = InLights[I];
+                 Lighting += CalculateLight(Light.P, Light.Color.rgb, Light.Radius);
+             }
+             OutColor *= vec4(AmbientLight+Lighting, 1.0);
+             
+             vec4 Vec4HDRColor = OutColor;
+             vec3 HDRColor = Vec4HDRColor.rgb;
+             vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
+             OutColor = vec4(MappedColor, Vec4HDRColor.a);
+             
              if(OutColor.a == 0.0){ discard; }
          }
          
@@ -187,6 +235,10 @@ MakeGameShader(){
     glUseProgram(Program);
     Result.ProjectionLocation = glGetUniformLocation(Program, "InProjection");
     Assert(Result.ProjectionLocation != -1);
+    u32 LightsBlockIndex = glGetUniformBlockIndex(Program, "LightsBlock");
+    Assert(LightsBlockIndex != GL_INVALID_INDEX);
+    glUniformBlockBinding(Program, LightsBlockIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, OpenGL.LightsUniformBuffer);
     
     return(Result);
 }
@@ -273,15 +325,6 @@ MakeGameScreenShader(){
          uniform sampler2D InTexture;
          uniform float     InScale;
          
-         vec3 CalculateLight(vec2 LightP, vec3 LightColor, float Radius){
-             //float Distance = distance(LightP, (inverse(Projection)*vec4(FragmentP, 0.0, 1.0)).xy);
-             float Distance = distance(LightP, FragmentP.xy);
-             float Attenuation = clamp(1.0 - (Distance*Distance)/(Radius*Radius), 0.0, 1.0);
-             Attenuation *= Attenuation;
-             vec3 Result = Attenuation*LightColor;
-             return(Result);
-         }
-         
          void main(){
              //vec2 ScreenCenter = InOutputSize / 2.0;
              //vec2 Pixel = gl_FragCoord.xy;
@@ -312,29 +355,6 @@ MakeGameScreenShader(){
                  discard;
              }
              
-             
-             /*
-              vec2 LightPs[] = vec2[](vec2(200.0, 100.0),
-                                      vec2(200.0, 600.0),
-                                      vec2(700.0, 100.0),
-                                      vec2(700.0, 600.0),
-                                      vec2(1200.0, 100.0),
-                                      vec2(1200.0, 600.0));
-              
-              
-              vec3 Lighting = vec3(0.0);
-              for(int I = 0; I < LightPs.length(); I++){
-                  Lighting += CalculateLight(LightPs[I], vec3(1.0, 1.0, 1.0), 1000);
-              }
-              Color *= vec4(0.4+Lighting, 1.0);
-              
-              float Exposure = 1.0;
-              vec4 Vec4HDRColor = Color;
-              vec3 HDRColor = Vec4HDRColor.rgb;
-              vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
-              //FragColor = vec4(MappedColor, Vec4HDRColor.a);
-         */
-             
              OutColor = Color;
          }
          );
@@ -352,7 +372,7 @@ MakeGameScreenShader(){
 
 //~ Shaders
 internal void
-UseBasicShader(basic_shader *Shader, v2 OutputSize, f32 ZResolution, f32 Scale=1){
+GLUseBasicShader(basic_shader *Shader, v2 OutputSize, f32 ZResolution, f32 Scale=1){
     glUseProgram(Shader->ID);
     f32 A = 2.0f/(OutputSize.Width/Scale);
     f32 B = 2.0f/(OutputSize.Height/Scale);
@@ -366,9 +386,31 @@ UseBasicShader(basic_shader *Shader, v2 OutputSize, f32 ZResolution, f32 Scale=1
     glUniformMatrix4fv(Shader->ProjectionLocation, 1, GL_FALSE, Projection);
 }
 
-internal void
-StopUsingShader(){
-    glUseProgram(0);
+void
+opengl_backend::UploadLights(color AmbientColor, f32 Exposure, array<render_light> Lights){
+    glBindBuffer(GL_UNIFORM_BUFFER, LightsUniformBuffer);
+    
+    u32 Size = (sizeof(opengl_lights_uniform_buffer) +
+                Lights.Count*sizeof(opengl_light));
+    opengl_lights_uniform_buffer *Buffer = (opengl_lights_uniform_buffer *)PushMemory(&TransientStorageArena, Size);
+    
+    Buffer->AmbientColor.R = AmbientColor.R;
+    Buffer->AmbientColor.G = AmbientColor.G;
+    Buffer->AmbientColor.B = AmbientColor.B;
+    Buffer->Exposure = Exposure;
+    Buffer->LightCount = Lights.Count;
+    
+    for(u32 I=0; I<Lights.Count; I++){
+        render_light *Light   = &Lights[I];
+        opengl_light *GLLight = &Buffer->Lights[I];
+        GLLight->P = Light->P;
+        GLLight->Radius = Light->Radius;
+        GLLight->Color.R = Light->R;
+        GLLight->Color.G = Light->G;
+        GLLight->Color.B = Light->B;
+    }
+    
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, Size, Buffer);
 }
 
 //~ Framebuffer
@@ -523,9 +565,9 @@ GLRenderNodes(game_renderer *Renderer, render_node *StartNode,
         for(u32 J=0; J<Node->Count; J++){
             render_item *Item = &Node->Items[J];
             
-            render_item_z *ZItem = &ZsA[Index++];
-            ZItem->Z = Node->ItemZs[J];
             if(Node->ItemZs[J] != F32_NEGATIVE_INFINITY){ 
+                render_item_z *ZItem = &ZsA[Index++];
+                ZItem->Z = Node->ItemZs[J];
                 ZItem->Item = Item;
                 continue; 
             }
@@ -544,7 +586,6 @@ GLRenderNodes(game_renderer *Renderer, render_node *StartNode,
     
     //~ Alpha items, requiring sorting
     render_item_z *ZItems = MergeSortZs(ZsA, ZsB, Index);
-    //render_item_z *ZItems = ZsA;
     for(u32 I=0; I<Index; I++){
         render_item_z *ZItem = &ZItems[I];
         render_item *Item = ZItem->Item;
@@ -577,7 +618,8 @@ RendererRenderAll(game_renderer *Renderer){
     render_item_z *ZsB = PushArray(&TransientStorageArena, render_item_z, ZItemCount);
     
     //~ Pixel items
-    UseBasicShader(&Renderer->GameShader, OutputSize, 1000);
+    GLUseBasicShader(&Renderer->GameShader, OutputSize, 1000);
+    OpenGL.UploadLights(Renderer->AmbientLight, Renderer->Exposure, Renderer->Lights);
     
     UseFramebuffer(&Renderer->GameScreenFramebuffer);
     GLClearOutput(Renderer->ClearColor);
@@ -586,10 +628,10 @@ RendererRenderAll(game_renderer *Renderer){
     OpenGL.NormalSetup();
     
     //~ Scaled items
-    UseBasicShader(&Renderer->GameShader, OutputSize, 1000, Renderer->CameraScale);
+    GLUseBasicShader(&Renderer->DefaultShader, OutputSize, 1000, Renderer->CameraScale);
     GLRenderNodes(Renderer, Renderer->ScaledNode, ZsA, ZsB, ZItemCount);
     
     //~ Default items
-    UseBasicShader(&Renderer->DefaultShader, OutputSize, 1000);
+    GLUseBasicShader(&Renderer->DefaultShader, OutputSize, 1000);
     GLRenderNodes(Renderer, Renderer->DefaultNode, ZsA, ZsB, ZItemCount);
 }

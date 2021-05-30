@@ -172,8 +172,8 @@ GameUpdateAndRender(){
         }break;
     }
     
-    DEBUGRenderOverlay();
     UIManager.EndFrame();
+    DEBUGRenderOverlay();
     RendererRenderAll(&GameRenderer);
     
     Counter += OSInput.dTime;
