@@ -115,7 +115,7 @@ UpdateAndRenderMainGame(){
         f32 Angle = Lerp(MinAngle, MaxAngle, FinalT);
         v2 Delta = 50.0f*V2(Cos(Angle), -Sin(Angle));
         
-        RenderLineFrom(BaseP, Delta, -10.0f, 1.0f, GREEN, PixelItem(1));
+        RenderLineFrom(BaseP, Delta, -10.0f, 1.0f, GREEN, GameItem(1));
     }
     
     RenderFormatString(&MainFont, GREEN, V2(100, OSInput.WindowSize.Height-100),

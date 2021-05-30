@@ -275,9 +275,9 @@ RenderCenteredString(font *Font, color Color, v2 Center,
 
 //~ Render options
 internal inline render_options
-PixelItem(u32 Layer){
+GameItem(u32 Layer){
     render_options Result = {};
-    Result.Type = RenderType_Pixel;
+    Result.Type = RenderType_Game;
     Result.Layer = Layer;
     return(Result);
 }
@@ -470,11 +470,18 @@ game_renderer::AddIndices(render_item *Item, u32 IndexCount){
 }
 
 v2 
-game_renderer::CalculateParallax(u32 Layer){
+game_renderer::CalculateParallax(render_options Options){
     v2 Result = V2(0);
-    if(Layer > 0){
-        f32 Factor = 1.0f / (f32)Layer;
+    if(Options.Type == RenderType_UI) return(Result);
+    
+    if(Options.Layer > 0){
+        f32 Factor = 1.0f / (f32)Options.Layer;
         Result = CameraFinalP * Factor;
+    }
+    
+    if(Options.Type == RenderType_Game){
+        Result.X = Floor(Result.X);
+        Result.Y = Floor(Result.Y);
     }
     
     return(Result);
@@ -484,9 +491,7 @@ game_renderer::CalculateParallax(u32 Layer){
 // this function but I don't currently see a better and simpler way.
 void
 game_renderer::DoParallax(render_item *Item, render_options Options, u32 VertexCount){
-    if(Options.Type == RenderType_UI) return;
-    
-    v2 Offset = CalculateParallax(Options.Layer);
+    v2 Offset = CalculateParallax(Options);
     
     for(u32 I=Item->VertexOffset; 
         I<(Item->VertexOffset+VertexCount); 
@@ -514,7 +519,7 @@ game_renderer::AddLight(v2 P, color Color, f32 Intensity, f32 Radius, render_opt
     render_light *Light = PushNewArrayItem(&Lights);
     *Light = {};
     
-    Light->P = P - CalculateParallax(Options.Layer);
+    Light->P = P - CalculateParallax(Options);
     Light->R = Intensity*Color.R;
     Light->G = Intensity*Color.G;
     Light->B = Intensity*Color.B;
@@ -556,7 +561,7 @@ game_renderer::CalculateCameraBounds(world_data *World){
 
 v2
 game_renderer::WorldToScreen(v2 P, render_options Options){
-    v2 Offset = CalculateParallax(Options.Layer);
+    v2 Offset = CalculateParallax(Options);
     v2 Result = (P - Offset) * CameraScale;
     return(Result);
 }
@@ -571,7 +576,7 @@ game_renderer::WorldToScreen(rect R, render_options Options){
 
 v2
 game_renderer::ScreenToWorld(v2 P, render_options Options){
-    v2 Offset = CalculateParallax(Options.Layer);
+    v2 Offset = CalculateParallax(Options);
     v2 Result = P / CameraScale + Offset;
     return(Result);
 }

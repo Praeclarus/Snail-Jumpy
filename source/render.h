@@ -50,9 +50,9 @@ enum render_type {
     RenderType_None,
     
     RenderType_UI = RenderType_None, // Normal resolution
-    RenderType_Pixel,                // Low resolution for game
+    RenderType_Game,                 // Low resolution for game
     
-    RenderType_Scaled,               // Normal resolution for game
+    RenderType_Scaled,               // Normal resolution but game scale
     
     RenderType_TOTAL,
 };
@@ -133,7 +133,7 @@ struct game_renderer {
     basic_vertex *AddVertices(render_item *Item, u32 VertexCount);
     u32          *AddIndices(render_item *Item, u32 IndexCount);
     
-    v2   CalculateParallax(u32 Layer);
+    v2   CalculateParallax(render_options Options);
     void DoParallax(render_item *Item, render_options Options, u32 VertexCount);
     
     void BeginClipRect(rect ClipRect);

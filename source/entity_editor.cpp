@@ -261,7 +261,7 @@ entity_editor::UpdateAndRender(){
         v2 Max;
         Max.Y = FloorY;
         Max.X = (OSInput.WindowSize.X) - 1.0f;
-        RenderRect(Rect(Min, Max), 1.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), PixelItem(0));
+        RenderRect(Rect(Min, Max), 1.0f, Color(0.7f,  0.9f,  0.7f, 1.0f), GameItem(0));
     }
     
     ProcessInput();

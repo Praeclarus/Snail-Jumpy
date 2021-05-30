@@ -443,7 +443,7 @@ UpdateAndRenderPlatformerPlayer(){
             EntityManager.DamagePlayer(2);
         }
         
-        GameRenderer.AddLight(Player->Physics->P, Color(0.3f, 1.0f, 0.5f, 1.0), 0.8f, 20.0f, PixelItem(1));
+        GameRenderer.AddLight(Player->Physics->P, Color(0.3f, 1.0f, 0.5f, 1.0), 0.8f, 20.0f, GameItem(1));
         GameRenderer.SetCameraTarget(Player->Physics->P);
     }
     
@@ -469,7 +469,7 @@ entity_manager::UpdateAndRenderEntities(){
                     TileP.Y *= Tilemap->TileSize.Y;
                     rect TileR = CenterRect(TileP, Tilemap->TileSize);
                     
-                    RenderRect(TileR, Tilemap->ZLayer, WHITE, PixelItem(1));
+                    RenderRect(TileR, Tilemap->ZLayer, WHITE, GameItem(1));
                 }
             }
         }
@@ -482,7 +482,7 @@ entity_manager::UpdateAndRenderEntities(){
             Coin->Cooldown -= OSInput.dTime;
         }else{
             Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
-            RenderRect(Coin->Bounds+Coin->Physics->P, Coin->ZLayer, YELLOW, PixelItem(1));
+            RenderRect(Coin->Bounds+Coin->Physics->P, Coin->ZLayer, YELLOW, GameItem(1));
         }
     }
     
@@ -514,7 +514,7 @@ entity_manager::UpdateAndRenderEntities(){
         }
         
         f32 Radius = RectSize(Enemy->Bounds).Width+5;
-        GameRenderer.AddLight(Physics->P, Color(1.0f, 0.6f, 0.0f, 1.0), 0.7f, Radius, PixelItem(1));
+        GameRenderer.AddLight(Physics->P, Color(1.0f, 0.6f, 0.0f, 1.0), 0.7f, Radius, GameItem(1));
         MovePlatformer(Physics, Movement, Gravity);
         UpdateAndRenderAnimation(Enemy, OSInput.dTime);
         UpdateEnemyBoundary(Enemy);
@@ -525,7 +525,7 @@ entity_manager::UpdateAndRenderEntities(){
         art_entity *Art = It.Item;
         asset *Asset = GetArt(Art->Asset);
         v2 Size = V2(Asset->SizeInPixels);
-        RenderTexture(CenterRect(Art->P, Size), Art->Z, Asset->Texture, PixelItem(2), 
+        RenderTexture(CenterRect(Art->P, Size), Art->Z, Asset->Texture, GameItem(2), 
                       MakeRect(V2(0), V2(1)), true);
     }
     
@@ -540,7 +540,7 @@ entity_manager::UpdateAndRenderEntities(){
     FOR_BUCKET_ARRAY(It, &Teleporters){
         teleporter_entity *Teleporter = It.Item;
         if(!Teleporter->IsLocked){
-            RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, GREEN, PixelItem(1));
+            RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, GREEN, GameItem(1));
             
             if(Teleporter->IsSelected){
                 world_data *World = WorldManager.GetOrCreateWorld(Teleporter->Level);
@@ -561,7 +561,7 @@ entity_manager::UpdateAndRenderEntities(){
             }
         }else{
             RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, 
-                       Color(0.0f, 0.0f, 1.0f, 0.5f), PixelItem(1));
+                       Color(0.0f, 0.0f, 1.0f, 0.5f), GameItem(1));
         }
     }
     
@@ -571,14 +571,14 @@ entity_manager::UpdateAndRenderEntities(){
         Door->Cooldown -= OSInput.dTime;
         
         if(!Door->IsOpen){
-            RenderRect(Door->Bounds+Door->Physics->P, 0.0f, BROWN, PixelItem(1));
+            RenderRect(Door->Bounds+Door->Physics->P, 0.0f, BROWN, GameItem(1));
         }else{
             color Color = BROWN;
             Color.A = Door->Cooldown;
             if(Color.A < 0.3f){
                 Color.A = 0.3f;
             }
-            RenderRect(Door->Bounds+Door->Physics->P, 0.0f, Color, PixelItem(1));
+            RenderRect(Door->Bounds+Door->Physics->P, 0.0f, Color, GameItem(1));
         }
     }
     
@@ -599,7 +599,7 @@ entity_manager::UpdateAndRenderEntities(){
             Projectile->dP += dTime*ddP;
             
             RenderRect(Projectile->Bounds+Projectile->Physics->P,
-                       -10.0f, WHITE, PixelItem(1));
+                       -10.0f, WHITE, GameItem(1));
         }else{
             Physics->State |= PhysicsObjectState_Inactive;
         }

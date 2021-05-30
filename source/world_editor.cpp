@@ -43,7 +43,7 @@ DoArtSelector(v2 StartP, const char *Selected){
         
         Size *= 0.5f;
         rect R = SizeRect(P, Size);
-        RenderTexture(R, -2.0f, Art->Texture, PixelItem(0), MakeRect(V2(0), V2(1)), false);
+        RenderTexture(R, -2.0f, Art->Texture, GameItem(0), MakeRect(V2(0), V2(1)), false);
         
         u64 ID = WIDGET_ID_CHILD(WIDGET_ID, I);
         ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
@@ -292,32 +292,32 @@ world_editor::DoCursor(){
     switch(Mode){
         case EditMode_AddWall: {
             rect R = CenterRect(Center, TILE_SIZE);
-            RenderRect(R, -0.1f, WHITE, PixelItem(1));
-            RenderRectOutline(R, -0.11f, BLACK, PixelItem(1));
+            RenderRect(R, -0.1f, WHITE, GameItem(1));
+            RenderRectOutline(R, -0.11f, BLACK, GameItem(1));
         }break;
         case EditMode_AddTeleporter: {
             rect R = CenterRect(Center, TILE_SIZE);
-            RenderRect(R, -0.1f, GREEN, PixelItem(1));
-            RenderRectOutline(R, -0.11f, BLACK, PixelItem(1));
+            RenderRect(R, -0.1f, GREEN, GameItem(1));
+            RenderRectOutline(R, -0.11f, BLACK, GameItem(1));
         }break;
         case EditMode_AddDoor: {
             if(Flags & WorldEditorFlags_MakingRectEntity){
                 rect R = SnapToGrid(DragRect, TILE_SIDE);
-                RenderRect(R, -0.5f, BROWN, PixelItem(1));
+                RenderRect(R, -0.5f, BROWN, GameItem(1));
             }else{
-                RenderRect(CenterRect(Center, TILE_SIZE), -0.5f, BROWN, PixelItem(1));
+                RenderRect(CenterRect(Center, TILE_SIZE), -0.5f, BROWN, GameItem(1));
             }
             
         }break;
         case EditMode_AddCoinP: {
             v2 Size = V2(8);
             rect R = CenterRect(Center, Size);
-            RenderRect(R, -0.1f, YELLOW, PixelItem(1));
-            RenderRectOutline(R, -0.11f, BLACK, PixelItem(1));
+            RenderRect(R, -0.1f, YELLOW, GameItem(1));
+            RenderRectOutline(R, -0.11f, BLACK, GameItem(1));
         }break;
         case EditMode_AddEnemy: {
             if(EntityToAddInfoID == 0){
-                RenderRect(CenterRect(Center, TILE_SIZE), -0.11f, PINK, PixelItem(1));
+                RenderRect(CenterRect(Center, TILE_SIZE), -0.11f, PINK, GameItem(1));
             }else{ 
                 entity_info *Info = &EntityInfos[EntityToAddInfoID];
                 v2 P = MouseP + 0.5f*TILE_SIZE;
@@ -332,7 +332,7 @@ world_editor::DoCursor(){
             v2 P = MouseP + 0.5f*TILE_SIZE;
             P = SnapEntity(P, Size, TILE_SIDE);
             
-            RenderTexture(CenterRect(P, Size), 0.0f, Asset->Texture, PixelItem(1), 
+            RenderTexture(CenterRect(P, Size), 0.0f, Asset->Texture, GameItem(1), 
                           MakeRect(V2(0), V2(1)), true);
         }break;
     }
@@ -413,7 +413,7 @@ world_editor::DoEnemyOverlay(entity_data *Entity){
         f32 ActiveT = 1.0f-Square(1.0f-State->ActiveT);
         C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
         
-        RenderRect(PathPoint, -0.2f, C, PixelItem(1)); 
+        RenderRect(PathPoint, -0.2f, C, GameItem(1)); 
     }
     
     v2 Temp = Entity->PathStart;
@@ -461,7 +461,7 @@ world_editor::DoEnemyOverlay(entity_data *Entity){
         f32 ActiveT = 1.0f-Square(1.0f-State->ActiveT);
         C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
         
-        RenderRect(R, -0.2f, C, PixelItem(1));
+        RenderRect(R, -0.2f, C, GameItem(1));
     }
 }
 
@@ -645,10 +645,10 @@ world_editor::UpdateAndRender(){
             u8 TileId = World->Map[Y*World->Width + X];
             v2 P = TILE_SIDE*V2((f32)X, (f32)Y);
             if(TileId == EntityType_Wall){
-                RenderRect(Rect(P, P+TILE_SIZE), 0.0f, WHITE, PixelItem(1));
+                RenderRect(Rect(P, P+TILE_SIZE), 0.0f, WHITE, GameItem(1));
             }else if(TileId == EntityType_Coin){
                 v2 Center = P + 0.5f*TILE_SIZE;
-                RenderRect(CenterRect(Center, V2(8.0f)), 0.0f, YELLOW, PixelItem(1));
+                RenderRect(CenterRect(Center, V2(8.0f)), 0.0f, YELLOW, GameItem(1));
             }
         }
     }
@@ -688,11 +688,11 @@ world_editor::UpdateAndRender(){
             }break;
             case EntityType_Teleporter: {
                 EntityRect = CenterRect(Entity->P, TILE_SIZE);
-                RenderRect(EntityRect, -0.1f, GREEN, PixelItem(1));
+                RenderRect(EntityRect, -0.1f, GREEN, GameItem(1));
             }break;
             case EntityType_Door: {
                 EntityRect = CenterRect(Entity->P, Entity->Size);
-                RenderRect(EntityRect, -0.1f, BROWN, PixelItem(1));
+                RenderRect(EntityRect, -0.1f, BROWN, GameItem(1));
             }break;
             case EntityType_Art: {
                 if(Flags & WorldEditorFlags_HideArt) break;
@@ -702,7 +702,7 @@ world_editor::UpdateAndRender(){
                 
                 EntityRect = CenterRect(Entity->P, Size);
                 
-                RenderTexture(EntityRect, Entity->Z, Asset->Texture, PixelItem(1),
+                RenderTexture(EntityRect, Entity->Z, Asset->Texture, GameItem(1),
                               MakeRect(V2(0), V2(1)), true);
             }break;
         }
@@ -749,7 +749,7 @@ world_editor::UpdateAndRender(){
         
         f32 ActiveT = 1.0f - Square(1.0f-State->ActiveT);
         OutlineColor = MixColor(EDITOR_SELECTED_COLOR, OutlineColor,  ActiveT);
-        RenderRectOutline(EntityRect, -0.3f, OutlineColor, PixelItem(1));
+        RenderRectOutline(EntityRect, -0.3f, OutlineColor, GameItem(1));
         
         switch(EditorButtonElement(&UIManager, ID, EntityRect, MouseButton_Right, -1, ScaledItem(1))){
             case UIBehavior_Activate: {
