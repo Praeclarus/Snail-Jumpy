@@ -604,6 +604,7 @@ world_editor::DoUI(){
         ui_window *Window = UIManager.BeginWindow("Lighting", 0.5f*OSInput.WindowSize);
         Window->Text("Ambient light color: ");
         World->AmbientColor = Window->ColorPicker(World->AmbientColor, WIDGET_ID);
+        Window->Text("Exposure: ");
         World->Exposure     = Window->Slider(World->Exposure, WIDGET_ID);
         
         Window->End();
