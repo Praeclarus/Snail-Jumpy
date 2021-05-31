@@ -1,6 +1,13 @@
 #ifndef SNAIL_JUMPY_WORLD_H
 #define SNAIL_JUMPY_WORLD_H
 
+typedef u32 world_flags;
+enum world_flags_ {
+    WorldFlag_None,
+    WorldFlag_IsCompleted = (1 << 0),
+    WorldFlag_IsTopDown = (1 << 1)
+};
+
 struct entity_data {
     v2 P;
     u32 Type;
@@ -46,12 +53,6 @@ struct entity_data {
     };
 };
 
-typedef u32 world_flags;
-enum _world_flags {
-    WorldFlag_None,
-    WorldFlag_IsCompleted = (1 << 0),
-    WorldFlag_IsTopDown = (1 << 1)
-};
 
 struct world_data {
     const char *Name;

@@ -404,8 +404,14 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     }
     
     //~ Lights
-    AmbientLight = 1.0f*Color(0.25f, 0.2f, 0.2f, 1.0f);
+#if 0
+    AmbientLight = 0.9f*Color(0.25f, 0.2f, 0.2f, 1.0f);
     Exposure = 1.2f;
+#else
+    AmbientLight = 3.0f*Color(0.25f, 0.2f, 0.2f, 1.0f);
+    Exposure = 1.0f;
+#endif
+    
     Lights = MakeNewArray<render_light>(Arena, RENDER_MAX_LIGHT_COUNT);
     
     //~ Camera
@@ -480,8 +486,8 @@ game_renderer::CalculateParallax(render_options Options){
     }
     
     if(Options.Type == RenderType_Game){
-        Result.X = Floor(Result.X);
-        Result.Y = Floor(Result.Y);
+        Result.X = Round(Result.X);
+        Result.Y = Round(Result.Y);
     }
     
     return(Result);

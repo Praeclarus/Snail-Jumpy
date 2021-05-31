@@ -143,7 +143,9 @@ struct game_renderer {
     color AmbientLight;
     f32   Exposure;
     array<render_light> Lights;
+    
     void AddLight(v2 P, color Color, f32 Intensity, f32 Radius, render_options Options);
+    void SetConditions(color AmbientLight, f32 Exposure);
     
     //~ Camera stuff
     rect CameraBounds;
