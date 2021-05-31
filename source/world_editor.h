@@ -17,9 +17,10 @@ enum edit_mode {
 
 typedef u32 world_editor_flags;
 enum _world_editor_flags {
-    WorldEditorFlags_None       = 0,
-    WorldEditorFlags_HideArt    = (1 << 0),
+    WorldEditorFlags_None             = 0,
+    WorldEditorFlags_HideArt          = (1 << 0),
     WorldEditorFlags_MakingRectEntity = (1 << 1),
+    WorldEditorFlags_EditLighting     = (1 << 2),
 };
 
 struct world_editor {
@@ -42,6 +43,7 @@ struct world_editor {
     
     edit_mode Mode;
     
+    //~
     inline entity_type GetSelectedThingType();
     void UpdateAndRender();
     void DoUI();

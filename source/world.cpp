@@ -290,6 +290,9 @@ world_manager::LoadWorldFromFile(const char *Name){
         NewWorld->CoinsToSpawn = Header->CoinsToSpawn;
         NewWorld->CoinsRequired = Header->CoinsRequired;
         
+        NewWorld->AmbientColor = Header->AmbientColor;
+        NewWorld->Exposure     = Header->Exposure;
+        
         // TODO(Tyler): This probably is not needed and could be removed
         char *String = ConsumeString(&Stream); 
         //CopyCString(NewWorld->Name, String, 512);
@@ -339,6 +342,8 @@ world_manager::LoadWorldFromFile(const char *Name){
         }
     }
     
+    
+    
     return(NewWorld);
 }
 
@@ -366,6 +371,8 @@ world_manager::WriteWorldsToFiles(){
         Header.IsTopDown = (World->Flags & WorldFlag_IsTopDown);
         Header.CoinsToSpawn = World->CoinsToSpawn;
         Header.CoinsRequired = World->CoinsRequired;
+        Header.AmbientColor  = World->AmbientColor;
+        Header.Exposure      = World->Exposure;
         
         WriteToFile(File, 0, &Header, sizeof(Header));
         u32 Offset = sizeof(Header);

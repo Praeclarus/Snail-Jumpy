@@ -35,6 +35,7 @@ UpdateAndRenderMainGame(){
     GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
     GameRenderer.CalculateCameraBounds(CurrentWorld);
     GameRenderer.SetCameraSettings(0.02f);
+    GameRenderer.SetLightingConditions(HSBToRGB(CurrentWorld->AmbientColor), CurrentWorld->Exposure);
     
     EntityManager.UpdateAndRenderEntities();
     

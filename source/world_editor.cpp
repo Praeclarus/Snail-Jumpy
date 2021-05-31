@@ -595,9 +595,19 @@ world_editor::DoUI(){
         World->CoinsToSpawn += 1;
     }
     
-    TOGGLE_FLAG(Window, "Hide art", Flags, WorldEditorFlags_HideArt);
+    TOGGLE_FLAG(Window, "Hide art",      Flags, WorldEditorFlags_HideArt);
+    TOGGLE_FLAG(Window, "Edit lighting", Flags, WorldEditorFlags_EditLighting);
     
     Window->End();
+    
+    if(Flags & WorldEditorFlags_EditLighting){
+        ui_window *Window = UIManager.BeginWindow("Lighting", 0.5f*OSInput.WindowSize);
+        Window->Text("Ambient light color: ");
+        World->AmbientColor = Window->ColorPicker(World->AmbientColor, WIDGET_ID);
+        World->Exposure     = Window->Slider(World->Exposure, WIDGET_ID);
+        
+        Window->End();
+    }
 }
 
 void
@@ -611,6 +621,7 @@ world_editor::UpdateAndRender(){
     GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
     GameRenderer.CalculateCameraBounds(World);
     GameRenderer.SetCameraSettings(0.4f);
+    GameRenderer.SetLightingConditions(HSBToRGB(World->AmbientColor), World->Exposure);
     
     LastMouseP = MouseP;
     MouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(1));

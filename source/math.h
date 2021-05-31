@@ -528,6 +528,48 @@ operator*(color Color, f32 X)
     return(Result);
 }
 
+struct hsb_color {
+    f32 Hue, Saturation, Brightness;
+};
+
+internal hsb_color 
+HSBColor(f32 Hue, f32 Saturation, f32 Brightness){
+    hsb_color Result = {Hue, Saturation, Brightness};
+    return(Result);
+}
+
+internal color
+HSBToRGB(hsb_color HSBColor){
+    f32 Hue = Clamp(HSBColor.Hue, 0.0f, 360.0f);
+    Hue /= 60.0f;
+    f32 Saturation = Clamp(HSBColor.Saturation, 0.0f, 1.0f);
+    f32 Brightness = Clamp(HSBColor.Brightness, 0.0f, 1.0f);
+    
+    
+    f32 Chroma = Brightness*Saturation;
+    f32 X      = Chroma * (1.0f - AbsoluteValue(ModF32(Hue, 2.0f) - 1.0f)); 
+    
+    color Result = {};
+    u32 HueU32 = (u32)Hue;
+    switch(HueU32){
+        case 0: { Result = Color(Chroma,      X,   0.0f); }break;
+        case 1: { Result = Color(     X, Chroma,   0.0f); }break;
+        case 2: { Result = Color(  0.0f, Chroma,      X); }break;
+        case 3: { Result = Color(  0.0f,      X, Chroma); }break;
+        case 4: { Result = Color(     X,   0.0f, Chroma); }break;
+        case 5: 
+        case 6: { Result = Color(Chroma,   0.0f,      X); }break;
+        default: { INVALID_CODE_PATH; }break;
+    }
+    
+    f32 M = Brightness-Chroma;
+    Result.R += M;
+    Result.G += M;
+    Result.B += M;
+    
+    return(Result);
+}
+
 //~ Rectangles
 union rect {
     struct {

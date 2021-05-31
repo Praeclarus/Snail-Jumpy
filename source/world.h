@@ -64,6 +64,9 @@ struct world_data {
     u32 CoinsToSpawn;
     u32 CoinsRequired;
     world_flags Flags;
+    
+    hsb_color AmbientColor;
+    f32       Exposure;
 };
 
 struct world_manager {
@@ -91,6 +94,8 @@ struct world_file_header {
     b8 IsTopDown;
     u32 CoinsToSpawn;
     u32 CoinsRequired;
+    hsb_color AmbientColor;
+    f32       Exposure;
 };
 #pragma pack(pop)
 

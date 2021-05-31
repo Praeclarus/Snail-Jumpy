@@ -514,6 +514,112 @@ ui_window::DropDownMenu(array<const char *> Texts, u32 *Selected, u64 ID){
     DropDownMenu(Texts.Items, Texts.Count, Selected, ID);
 }
 
+hsb_color
+ui_window::ColorPicker(hsb_color Current, u64 ID){
+    theme *Theme = &Manager->Theme;
+    
+    v2 MouseP = OSInput.MouseP;
+    hsb_color Result = Current;
+    
+    v2 Size = V2(ContentWidth, 200);
+    f32 HueBarHeight = 30;
+    
+    v2 Min = DrawP;
+    Min.Y -= Size.Height+Theme->Padding;
+    
+    AdvanceAndVerify(Size.Height+HueBarHeight+Theme->Padding, Size.Width);
+    
+    {
+        rect R = SizeRect(Min, Size);
+        RenderQuad(GameRenderer.WhiteTexture, UIItem(0), Z-0.1f, 
+                   V2(R.Min.X, R.Min.Y), V2(0, 0), Color(0.0f, 0.0f, 0.0f, 1.0f-FadeT),
+                   V2(R.Min.X, R.Max.Y), V2(0, 1), Color(1.0f, 1.0f, 1.0f, 1.0f-FadeT),
+                   V2(R.Max.X, R.Max.Y), V2(1, 1), Alphiphy(HSBToRGB(HSBColor(Current.Hue, 1.0f, 1.0f)), 1.0f-FadeT),
+                   V2(R.Max.X, R.Min.Y), V2(1, 0), Color(0.0f, 0.0f, 0.0f, 1.0f-FadeT));
+        rect SelectionR = CenterRect(Min, V2(25));
+        SelectionR += V2(Current.Saturation*Size.Width, Current.Brightness*Size.Height);
+        RenderRectOutline(SelectionR, Z-0.2f, BLACK, UIItem(0), 2);
+        
+        switch(Manager->DoWindowDraggableElement(ID, R, V2(0))){
+            case UIBehavior_Activate: {
+                v2 P = MouseP;
+                P.X = Clamp(P.X, Min.X, Min.X+Size.Width);
+                P.Y = Clamp(P.Y, Min.Y, Min.Y+Size.Height);
+                Result.Saturation = (P.X-R.Min.X)/Size.Width;
+                Result.Brightness = (P.Y-R.Min.Y)/Size.Height;
+            }break;
+        }
+    }
+    
+    Min.Y -= HueBarHeight+Theme->Padding;
+    
+    {
+        f32 ChunkWidth = Size.Width/6.0f;
+        rect R = SizeRect(Min, V2(ChunkWidth, HueBarHeight));
+        rect FullR = SizeRect(Min, V2(Size.Width, HueBarHeight));
+        color Colors[] = {
+            Color(1.0f, 0.0f, 0.0f, 1.0f-FadeT), 
+            Color(1.0f, 1.0f, 0.0f, 1.0f-FadeT), 
+            Color(0.0f, 1.0f, 0.0f, 1.0f-FadeT), 
+            Color(0.0f, 1.0f, 1.0f, 1.0f-FadeT), 
+            Color(0.0f, 0.0f, 1.0f, 1.0f-FadeT), 
+            Color(1.0f, 0.0f, 1.0f, 1.0f-FadeT), 
+            Color(1.0f, 0.0f, 0.0f, 1.0f-FadeT), 
+        };
+        for(u32 I=0; I<6; I++){
+            RenderQuad(GameRenderer.WhiteTexture, UIItem(0), Z-0.1f, 
+                       V2(R.Min.X, R.Min.Y), V2(0, 0), Colors[I],
+                       V2(R.Min.X, R.Max.Y), V2(0, 1), Colors[I],
+                       V2(R.Max.X, R.Max.Y), V2(1, 1), Colors[I+1],
+                       V2(R.Max.X, R.Min.Y), V2(1, 0), Colors[I+1]);
+            R += V2(ChunkWidth, 0);
+        }
+        
+        rect SelectionR = CenterRect(V2(Min.X, Min.Y+0.5f*HueBarHeight), V2(10, 30));
+        SelectionR += V2(Current.Hue/360.0f*Size.Width, 0);
+        RenderRectOutline(SelectionR, Z-0.2f, BLACK, UIItem(0), 2);
+        
+        switch(Manager->DoWindowDraggableElement(WIDGET_ID_CHILD(ID, WIDGET_ID), FullR, V2(0))){
+            case UIBehavior_Activate: {
+                f32 PX = MouseP.X;
+                PX = Clamp(PX, Min.X, Min.X+Size.Width);
+                Result.Hue = (PX-Min.X)/Size.Width;
+                Result.Hue *= 360;
+            }break;
+        }
+    }
+    
+    return(Result);
+}
+
+f32
+ui_window::Slider(f32 Current, u64 ID){
+    theme *Theme = &Manager->Theme;
+    v2 MouseP = OSInput.MouseP;
+    
+    f32 Result = Current;
+    
+    v2 Size = V2(ContentWidth, 30);
+    AdvanceAndVerify(Size.Height, Size.Width);
+    
+    v2 Min = DrawP;
+    rect R = SizeRect(Min, Size);
+    DrawRect(R, Z-0.1f, Theme->BaseColor);
+    rect SelectionR = CenterRect(V2(Min.X, Min.Y+0.5f*Size.Height), V2(10, 30));
+    SelectionR += V2(Current*Size.Width, 0);
+    DrawRect(SelectionR, Z-0.2f, Theme->ActiveColor);
+    
+    switch(Manager->DoWindowDraggableElement(ID, R, V2(0))){
+        case UIBehavior_Activate: {
+            f32 PX = MouseP.X;
+            PX = Clamp(PX, Min.X, Min.X+Size.Width);
+            Result = (PX-Min.X)/Size.Width;
+        }break;
+    }
+    
+    return(Result);
+}
+
 void
 ui_window::End(){
     theme *Theme = &Manager->Theme;
@@ -736,6 +842,33 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
 }
 
 ui_behavior
+ui_manager::DoWindowDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
+    ui_behavior Result = UIBehavior_None;
+    
+    ui_element Element = MakeElement(UIElementType_WindowDraggable, ID, Priority);
+    Element.Offset = P - OSInput.MouseP;
+    
+    if(CompareElements(&Element, &ActiveElement)){
+        HoveredElement = Element;
+        Result = UIBehavior_Activate;
+        if(!MouseButtonIsDown(MouseButton_Left)){
+            ResetActiveElement();
+            Result = UIBehavior_Hovered;
+        }
+    }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
+        if(!DoHoverElement(&Element)) return(Result);
+        
+        HoveredElement = Element;
+        Result = UIBehavior_Hovered;
+        if(MouseButtonJustDown(MouseButton_Left)){
+            SetValidElement(&Element);
+        }
+    }
+    
+    return(Result);
+}
+
+ui_behavior
 ui_manager::EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce, s32 Priority){
     ui_behavior Result = UIBehavior_None;
     
@@ -778,6 +911,7 @@ ui_manager::EndFrame(){
     ElementJustActive = false;
     if((ActiveElement.Type != UIElementType_TextInput) &&
        (ActiveElement.Type != UIElementType_Draggable) &&
+       (ActiveElement.Type != UIElementType_WindowDraggable) &&
        (ActiveElement.Type != UIElementType_MouseButton)){
         ActiveElement = ValidElement;
         ElementJustActive = true;;

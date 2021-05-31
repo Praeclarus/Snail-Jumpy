@@ -368,6 +368,10 @@ game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
     //~ Camera
     CameraScale = 5;
     
+    //~ Lights
+    AmbientLight = 0.9f*Color(0.25f, 0.2f, 0.2f, 1.0f);
+    Exposure = 1.2f;
+    
     //~ Other
     u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
     GameRenderer.WhiteTexture = CreateRenderTexture(TemplateColor, 1, 1);
@@ -404,14 +408,6 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     }
     
     //~ Lights
-#if 0
-    AmbientLight = 0.9f*Color(0.25f, 0.2f, 0.2f, 1.0f);
-    Exposure = 1.2f;
-#else
-    AmbientLight = 3.0f*Color(0.25f, 0.2f, 0.2f, 1.0f);
-    Exposure = 1.0f;
-#endif
-    
     Lights = MakeNewArray<render_light>(Arena, RENDER_MAX_LIGHT_COUNT);
     
     //~ Camera
@@ -530,6 +526,12 @@ game_renderer::AddLight(v2 P, color Color, f32 Intensity, f32 Radius, render_opt
     Light->G = Intensity*Color.G;
     Light->B = Intensity*Color.B;
     Light->Radius = Radius;
+}
+
+void 
+game_renderer::SetLightingConditions(color AmbientLight_, f32 Exposure_){
+    AmbientLight = AmbientLight_;
+    Exposure     = Exposure_;
 }
 
 //~ Camera stuff

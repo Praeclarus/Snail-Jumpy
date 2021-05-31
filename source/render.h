@@ -96,7 +96,6 @@ struct render_light {
     f32 R, G, B;
 };
 
-
 struct world_data;
 struct game_renderer {
     //~
@@ -145,7 +144,7 @@ struct game_renderer {
     array<render_light> Lights;
     
     void AddLight(v2 P, color Color, f32 Intensity, f32 Radius, render_options Options);
-    void SetConditions(color AmbientLight, f32 Exposure);
+    void SetLightingConditions(color AmbientLight_, f32 Exposure_);
     
     //~ Camera stuff
     rect CameraBounds;
