@@ -244,6 +244,7 @@ entity_editor::UpdateAndRender(){
     }
     
     GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
+    GameRenderer.SetLightingConditions(WHITE, 1.0f);
     
     GridSize = 1;
     FloorY = SnapToGrid(V2(0, FloorY), GridSize).Y;

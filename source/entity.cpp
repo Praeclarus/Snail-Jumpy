@@ -443,7 +443,7 @@ UpdateAndRenderPlatformerPlayer(){
             EntityManager.DamagePlayer(2);
         }
         
-        GameRenderer.AddLight(Player->Physics->P, Color(0.3f, 1.0f, 0.4f, 1.0), 0.5f, 20.0f, GameItem(1));
+        GameRenderer.AddLight(Player->Physics->P, Color(0.3f, 0.7f, 0.6f, 1.0), 0.7f, 15.0f, GameItem(1));
         GameRenderer.SetCameraTarget(Player->Physics->P);
     }
     
