@@ -176,8 +176,14 @@ world_editor::ProcessKeyDown(os_key_code KeyCode, b8 JustDown){
     Flags |= WorldEditorFlags_HideArt;
    }
   }break;
+  case 'L': {
+   if(Flags & WorldEditorFlags_EditLighting){
+    Flags &= ~WorldEditorFlags_EditLighting;
+   }else{
+    Flags |= WorldEditorFlags_EditLighting;
+   }
+  }break;
   case 'S': WorldManager.WriteWorldsToFiles(); break;
-  
   case '1': Mode = EditMode_None;          break;
   case '2': Mode = EditMode_AddWall;       break;
   case '3': Mode = EditMode_AddCoinP;      break;
