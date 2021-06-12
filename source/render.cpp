@@ -102,10 +102,15 @@ RenderRect(rect R, f32 Z, color Color, render_options Options){
 
 internal inline void
 RenderRectOutline(rect R, f32 Z, color Color, render_options Options, f32 Thickness=1){
-    RenderRect(Rect(R.Min,                          V2(R.Max.X, R.Min.Y+Thickness)), Z, Color, Options);
-    RenderRect(Rect(V2(R.Max.X-Thickness, R.Min.Y), V2(R.Max.X, R.Max.Y)),           Z, Color, Options);
-    RenderRect(Rect(V2(R.Min.X, R.Max.Y),           V2(R.Max.X, R.Max.Y-Thickness)), Z, Color, Options);
-    RenderRect(Rect(V2(R.Min.X, R.Min.Y),           V2(R.Min.X+Thickness, R.Max.Y)), Z, Color, Options);
+    rect B = GrowRect(R, Thickness);
+    RenderRect(Rect(V2(B.Min.X, B.Min.Y), V2(R.Max.X, R.Min.Y)), Z, Color, Options);
+    RenderRect(Rect(V2(R.Max.X, B.Min.Y), V2(B.Max.X, R.Max.Y)), Z, Color, Options);
+    RenderRect(Rect(V2(R.Min.X, R.Max.Y), V2(B.Max.X, B.Max.Y)), Z, Color, Options);
+    RenderRect(Rect(V2(B.Min.X, R.Min.Y), V2(R.Min.X, B.Max.Y)), Z, Color, Options);
+    //RenderRect(Rect(V2(R.Min.X, R.Min.Y),           V2(R.Max.X, R.Min.Y+Thickness)), Z, Color, Options);
+    //RenderRect(Rect(V2(R.Max.X-Thickness, R.Min.Y), V2(R.Max.X, R.Max.Y)),           Z, Color, Options);
+    //RenderRect(Rect(V2(R.Min.X, R.Max.Y),           V2(R.Max.X, R.Max.Y-Thickness)), Z, Color, Options);
+    //RenderRect(Rect(V2(R.Min.X, R.Min.Y),           V2(R.Min.X+Thickness, R.Max.Y)), Z, Color, Options);
 }
 
 internal void
@@ -331,8 +336,6 @@ MergeSortZsMerge(render_item_z *LeftZs, render_item_z *RightZs,
 
 internal render_item_z *
 MergeSortZs(render_item_z *ZsA, render_item_z *ZsB, u32 Count){
-    TIMED_FUNCTION();
-    
     // Double the width every iteration, until it is the size of the array
     for(u32 Width=1; Width<Count; Width = 2*Width){
         
@@ -388,8 +391,11 @@ game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
 
 void
 game_renderer::ChangeScale(f32 NewScale){
-    CameraScale = NewScale;
-    ResizeFramebuffer(&GameScreenFramebuffer, OutputSize/CameraScale);
+    f32 Epsilon = 0.0001f;
+    if((NewScale <= (CameraScale+Epsilon)) &&((CameraScale-Epsilon) <= NewScale)){
+        CameraScale = NewScale;
+        ResizeFramebuffer(&GameScreenFramebuffer, OutputSize/CameraScale);
+    }
 }
 
 void
@@ -408,7 +414,7 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     }
     
     //~ Lights
-    Lights = MakeNewArray<render_light>(Arena, RENDER_MAX_LIGHT_COUNT);
+    Lights = MakeNewArray<render_light>(Arena, MAX_LIGHT_COUNT);
     
     //~ Camera
     CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
@@ -421,6 +427,7 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     Delta.X = Round(Delta.X);
     Delta.Y = Round(Delta.Y);
     CameraFinalP += Delta;
+    
     
     v2 BoundsSize = RectSize(CameraBounds);
     f32 Factor = 215.0f;

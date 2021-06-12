@@ -24,7 +24,7 @@ InitializeRendererBackend(){
         glGenBuffers(1, &OpenGL.LightsUniformBuffer);
         glBindBuffer(GL_UNIFORM_BUFFER, OpenGL.LightsUniformBuffer);
         u32 LightsBufferSize = (sizeof(opengl_lights_uniform_buffer) + 
-                                RENDER_MAX_LIGHT_COUNT*sizeof(opengl_light));
+                                MAX_LIGHT_COUNT*sizeof(opengl_light));
         glBufferData(GL_UNIFORM_BUFFER, LightsBufferSize, 0, GL_DYNAMIC_DRAW);
         
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(basic_vertex), (void*)offsetof(basic_vertex, P));

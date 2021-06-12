@@ -25,7 +25,7 @@ enum _world_editor_flags {
 
 struct world_editor {
     const char *AssetForArtEntity;
-    u32 EntityToAddInfoID;
+    const char *EntityInfoToAdd;
     
     world_editor_flags Flags;
     char NameBuffer[512];

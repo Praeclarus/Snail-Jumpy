@@ -104,11 +104,11 @@ struct os_event {
     };
 };
 
-enum _open_file_flags {
+enum open_file_flags_ {
     OpenFile_Read = (1 << 0),
     OpenFile_Write = (1 << 1),
     OpenFile_ReadWrite = OpenFile_Read | OpenFile_Write,
-    OpenFile_Clear = (1 << 2),
+    OpenFile_Clear  = (1 << 2),
 };
 typedef u8 open_file_flags;
 

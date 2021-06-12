@@ -1,481 +1,902 @@
 
-// TODO(Tyler): I have no clue if this is actually a good idea to do it this way
-global hash_table<const char *, asset_command> CommandTable;
-global hash_table<const char *, direction> DirectionTable;
-global hash_table<const char *, entity_state> StateTable;
-global hash_table<const char *, asset_spec> AssetSpecTable;
-global asset *CurrentAsset;
-global u64 LastAssetFileWriteTime;
+void
+asset_system::Initialize(memory_arena *Arena){
+ SpriteSheets = PushHashTable<const char *, asset_sprite_sheet>(Arena, MAX_ASSETS_PER_TYPE);
+ Entities     = PushHashTable<const char *, asset_entity>(Arena, MAX_ASSETS_PER_TYPE);
+ Animations   = PushHashTable<const char *, asset_animation>(Arena, MAX_ASSETS_PER_TYPE);
+ Arts         = PushHashTable<const char *, asset_art>(Arena, MAX_ASSETS_PER_TYPE);
+ Tilemaps     = PushHashTable<const char *, asset_tilemap>(Arena, MAX_ASSETS_PER_TYPE);
+ Backgrounds  = PushHashTable<const char *, asset_background>(Arena, MAX_ASSETS_PER_TYPE);
+ 
+ //~ Dummy assets
+ u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};
+ render_texture InvalidTexture = CreateRenderTexture(InvalidColor, 1, 1, false);
+ 
+ for(u32 I = 0; I < State_TOTAL; I++){
+  for(u32 J = 0; J < Direction_TOTAL; J++){
+   DummySpriteSheet.StateTable[I][J] = 1;
+  }
+ }
+ 
+ DummySpriteSheet.MiddlePiece    = InvalidTexture;
+ DummySpriteSheet.FrameSize      = V2(1);
+ DummySpriteSheet.XFrames        = 1;
+ DummySpriteSheet.YFrames        = 1;
+ DummySpriteSheet.FrameCounts[0] = 1;
+ DummySpriteSheet.FPSArray[0]    = 1;
+ 
+ DummyArt.Texture = InvalidTexture;
+ DummyArt.Size = V2(1);
+ 
+ //~ File loader
+ StateTable = PushHashTable<const char *, entity_state>(Arena, State_TOTAL);
+ InsertIntoHashTable(&StateTable, "state_none",       State_None);
+ InsertIntoHashTable(&StateTable, "state_idle",       State_Idle);
+ InsertIntoHashTable(&StateTable, "state_moving",     State_Moving);
+ InsertIntoHashTable(&StateTable, "state_jumping",    State_Jumping);
+ InsertIntoHashTable(&StateTable, "state_falling",    State_Falling);
+ InsertIntoHashTable(&StateTable, "state_turning",    State_Turning);
+ InsertIntoHashTable(&StateTable, "state_retreating", State_Retreating);
+ InsertIntoHashTable(&StateTable, "state_stunned",    State_Stunned);
+ InsertIntoHashTable(&StateTable, "state_returning",  State_Returning);
+ 
+ DirectionTable = PushHashTable<const char *, direction>(Arena, Direction_TOTAL+8);
+ InsertIntoHashTable(&DirectionTable, "north",     Direction_North);
+ InsertIntoHashTable(&DirectionTable, "northeast", Direction_Northeast);
+ InsertIntoHashTable(&DirectionTable, "east",      Direction_East);
+ InsertIntoHashTable(&DirectionTable, "southeast", Direction_Southeast);
+ InsertIntoHashTable(&DirectionTable, "south",     Direction_South);
+ InsertIntoHashTable(&DirectionTable, "southwest", Direction_Southwest);
+ InsertIntoHashTable(&DirectionTable, "west",      Direction_West);
+ InsertIntoHashTable(&DirectionTable, "northwest", Direction_Northwest);
+ InsertIntoHashTable(&DirectionTable, "up",        Direction_Up);
+ InsertIntoHashTable(&DirectionTable, "down",      Direction_Down);
+ InsertIntoHashTable(&DirectionTable, "left",      Direction_Left);
+ InsertIntoHashTable(&DirectionTable, "right",     Direction_Right);
+ 
+ EntityTypeTable = PushHashTable<const char *, entity_type>(Arena, EntityType_TOTAL);
+ InsertIntoHashTable(&EntityTypeTable, "player", EntityType_Player);
+ InsertIntoHashTable(&EntityTypeTable, "enemy",  EntityType_Enemy);
+ 
+ CollisionResponses = PushHashTable<const char *, collision_response_function *>(Arena, 3);
+ InsertIntoHashTable(&CollisionResponses, "PLAYER",    PlayerCollisionResponse);
+ InsertIntoHashTable(&CollisionResponses, "ENEMY",     EnemyCollisionResponse);
+ InsertIntoHashTable(&CollisionResponses, "DRAGONFLY", DragonflyCollisionResponse);
+ 
+ AssetSystem.LoadAssetFile(ASSET_FILE_PATH);
+}
 
-global asset DummySpriteSheetAsset;
-global asset DummyArtAsset;
+//~ Sprite sheets
+
+asset_sprite_sheet *
+asset_system::GetSpriteSheet(const char *Name){
+ asset_sprite_sheet *Result = &DummySpriteSheet;
+ if(Name){
+  asset_sprite_sheet *Asset = FindInHashTablePtr(&SpriteSheets, Name);
+  if(Asset) Result = Asset;
+ }
+ return(Result);
+}
+
+void 
+asset_system::RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32 Layer, u32 Frame){
+ P.X = Round(P.X);
+ P.Y = Round(P.Y);
+ P.Y += Sheet->YOffset;
+ 
+ v2 RenderSize = Sheet->FrameSize;
+ v2 FrameSize = Sheet->FrameSize;
+ 
+ rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+ 
+ u32 Column = Frame;
+ u32 Row = 0;
+ if(Column >= Sheet->XFrames){
+  Row = (Column / Sheet->XFrames);
+  Column %= Sheet->XFrames;
+ }
+ 
+ Row = (Sheet->YFrames - 1) - Row;
+ Assert((0 <= Row) && (Row < Sheet->YFrames));
+ 
+ v2 TextureSize = V2(Sheet->XFrames*FrameSize.X,
+                     Sheet->YFrames*FrameSize.Y);
+ 
+ TextureRect += V2(Column*FrameSize.X, Row*FrameSize.Y);
+ TextureRect.Min.X /= TextureSize.X;
+ TextureRect.Min.Y /= TextureSize.Y;
+ TextureRect.Max.X /= TextureSize.X;
+ TextureRect.Max.Y /= TextureSize.Y;
+ 
+ rect R = SizeRect(P, RenderSize);
+ 
+ RenderTexture(R, Z, Sheet->MiddlePiece, GameItem(Layer), TextureRect, true);
+}
+
+//~ Animation & entity
+
+asset_entity *
+asset_system::GetEntity(const char *Name){
+ asset_entity *Result = 0;
+ if(Name){
+  asset_entity *Asset = FindInHashTablePtr(&Entities, Name);
+  if(Asset) Result = Asset;
+ }
+ return(Result);
+}
+
+internal inline v2 
+GetEntitySize(asset_entity *Entity){
+ v2 Result = Entity->SpriteSheet->FrameSize;
+ return(Result);
+}
+
+internal inline void
+ChangeAnimationState(asset_animation *Animation, animation_state *AnimationState, entity_state NewState){
+ if(NewState == State_None) return;
+ AnimationState->State = NewState;
+ AnimationState->T = 0.0f;
+ animation_change_data *ChangeData = &Animation->ChangeDatas[AnimationState->State];
+ if(ChangeData->Condition == ChangeCondition_CooldownOver){
+  AnimationState->Cooldown = ChangeData->Cooldown;
+ }
+}
+
+
+internal inline b8
+DoesAnimationBlock(asset_animation *Animation, animation_state *State){
+ b8 Result = Animation->BlockingStates[State->State];
+ return(Result);
+}
+
+internal void 
+DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P){
+ f32 dTime = OSInput.dTime;
+ asset_sprite_sheet *Sheet = Entity->SpriteSheet;
+ asset_animation *Animation = &Entity->Animation;
+ 
+ u32 AnimationIndex = Sheet->StateTable[State->State][State->Direction];
+ Assert(AnimationIndex != 0);
+ AnimationIndex--;
+ 
+ animation_change_data *ChangeData = &Entity->Animation.ChangeDatas[State->State];
+ 
+ u32 FrameCount = Sheet->FrameCounts[AnimationIndex];
+ State->T += Sheet->FPSArray[AnimationIndex]*dTime;
+ if(State->T >= (f32)FrameCount){
+  State->T = ModF32(State->T, (f32)FrameCount);
+  if(ChangeData->Condition == ChangeCondition_AnimationOver){
+   ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
+  }
+ }
+ 
+ if(ChangeData->Condition == ChangeCondition_CooldownOver){
+  State->Cooldown -= dTime;
+  if(State->Cooldown < 0.0f){
+   ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
+  }
+ }
+ 
+ AnimationIndex = Sheet->StateTable[State->State][State->Direction];
+ Assert(AnimationIndex != 0);
+ AnimationIndex--;
+ 
+ u32 Frame = (u32)State->T;
+ for(u32 Index = 0; Index < AnimationIndex; Index++){
+  Frame += Sheet->FrameCounts[Index];
+ }
+ 
+ AssetSystem.RenderSpriteSheetFrame(Sheet, P, -11.0f, 1, Frame);
+}
+
+//~ Art
+
+asset_art *
+asset_system::GetArt(const char *Name){
+ asset_art *Result = &DummyArt;
+ if(Name){
+  asset_art *Asset = FindInHashTablePtr(&Arts, Name);
+  if(Asset) Result = Asset;
+ }
+ return(Result);
+}
+
+void
+asset_system::RenderArt(asset_art *Art, v2 P, f32 Z){
+ v2 Size = Art->Size;
+ RenderTexture(CenterRect(P, Size), Z, Art->Texture, GameItem(2), 
+               MakeRect(V2(0), V2(1)), true);
+}
 
 //~ Asset loading
 
-internal b8
-ProcessStates(stream *Stream, asset *NewAsset){
-    if(!NewAsset){
-        LogMessage("ProcessStates: can't process states because there isn't an asset");
-        return(false);
-    }
-    if(NewAsset->Type != AssetType_SpriteSheet){
-        LogMessage("ProcessStates: can only process states for spritesheet assets");
-        return(false);
-    }
-    
-    while(true){
-        ConsumeWhiteSpace(Stream);
-        u8 *NextBytePtr = PeekBytes(Stream, 1);
-        if(!NextBytePtr) break;
-        u8 NextByte = *NextBytePtr;
-        if(NextByte == ':') break;
-        
-        char *StateName = ProcessString(Stream);
-        
-        entity_state State = FindInHashTable(&StateTable, (const char *)StateName);
-        if(State == State_None){
-            LogMessage("ProcessSpriteSheet: can't process state %s", StateName);
-            return(false);
-        }
-        
-        while(true){
-            ConsumeWhiteSpace(Stream);
-            umw CurrentIndex = Stream->CurrentIndex;
-            const char *DirectionName = ProcessString(Stream);
-            direction Direction = FindInHashTable(&DirectionTable, DirectionName);
-            if(Direction == Direction_None){
-                Stream->CurrentIndex = CurrentIndex;
-                break;
-            }else{
-                
-                ConsumeWhiteSpace(Stream);
-                u32 Index = ProcessNumber(Stream);
-                
-                NewAsset->StateTable[State][Direction] = Index;
-            }
-        }
-    }
-    
-    return(true);
+#define AssetLoaderHandleError() \
+if(LastError == AssetLoaderError_InvalidToken) return(false); \
+LastError = AssetLoaderError_None;
+
+void 
+asset_system::BeginCommand(const char *Name){
+ CurrentCommand = Name;
+ CurrentAttribute = 0;
 }
 
-internal b8
-ProcessSpriteSheet(stream *Stream, asset *NewAsset){
-    ZeroMemory(NewAsset->FPSArray, sizeof(NewAsset->FPSArray));
-    
-    s32 Components = 0;
-    u32 Size = 0;
-    
-    while(true){
-        ConsumeWhiteSpace(Stream);
-        u8 *NextBytePtr = PeekBytes(Stream, 1);
-        if(!NextBytePtr) break;
-        u8 NextByte = *NextBytePtr;
-        if(NextByte == ':') break;
-        const char *SpecName = ProcessString(Stream);
-        
-        asset_spec Spec = FindInHashTable(&AssetSpecTable, SpecName);
-        if(Spec == AssetSpec_None){
-            LogMessage("ProcessSpriteSheet: can't process asset attribute %s", SpecName);
-            return(false);
-        }
-        
-        switch(Spec){
-            case AssetSpec_Path: {
-                ConsumeWhiteSpace(Stream);
-                const char *Path = ProcessString(Stream);
-                image *Image = LoadImageFromPath(Path);
-                NewAsset->IsTranslucent = Image->IsTranslucent;
-                NewAsset->SizeInPixels.Width = Image->Width;
-                NewAsset->SizeInPixels.Height = Image->Height;
-                NewAsset->Texture = Image->Texture;
-            }break;
-            case AssetSpec_Size: {
-                ConsumeWhiteSpace(Stream);
-                Size = ProcessNumber(Stream);
-            }break;
-            case AssetSpec_FramesPerRow: {
-                ConsumeWhiteSpace(Stream);
-                NewAsset->FramesPerRow = ProcessNumber(Stream);
-            }break;
-            case AssetSpec_FrameCounts: {
-                ConsumeWhiteSpace(Stream);
-                NextBytePtr = PeekBytes(Stream, 1);
-                if(!NextBytePtr) break;
-                NextByte = *NextBytePtr;
-                u32 AnimationIndex = 0;
-                while(true){
-                    ConsumeWhiteSpace(Stream);
-                    NewAsset->FrameCounts[AnimationIndex] = ProcessNumber(Stream);
-                    AnimationIndex++;
-                    NextBytePtr = PeekBytes(Stream, 1);
-                    if(!NextBytePtr) break;
-                    NextByte = *NextBytePtr;
-                    if((NextByte == '\n') || (NextByte == '\r')) break;
-                }
-            }break;
-            case AssetSpec_BaseFPS: {
-                ConsumeWhiteSpace(Stream);
-                u32 BaseFPS = ProcessNumber(Stream);
-                for(u32 I = 0; I < ArrayCount(asset::FPSArray); I++){
-                    if(NewAsset->FPSArray[I] == 0){
-                        NewAsset->FPSArray[I]= BaseFPS;
-                    }
-                }
-            }break;
-            case AssetSpec_OverrideFPS: {
-                ConsumeWhiteSpace(Stream);
-                u32 OverrideIndex = ProcessNumber(Stream) - 1;
-                if(OverrideIndex >= ArrayCount(asset::FPSArray)){
-                    LogMessage("ProcessSpriteSheet: override_fps index is >= %llu", ArrayCount(asset::FPSArray));
-                    return(false);
-                }
-                ConsumeWhiteSpace(Stream);
-                u32 OverrideFPS = ProcessNumber(Stream);
-                NewAsset->FPSArray[OverrideIndex] = OverrideFPS;
-            }break;
-            default: {
-                Assert(Spec >= AssetSpec_TOTAL); // This is a bug if this is the case
-                LogMessage("ProcessSpriteSheet: invalid asset spec %s",ASSET_SPEC_NAME_TABLE[Spec]);
-                
-                return(false);
-            }
-        }
-    }
-    
-    if(Size == 0){
-        LogMessage("ProcessSpriteSheet: the size cannot be 0!");
-        return(false);
-    }
-    // TODO(Tyler): This is stupid!!! Fix ME!!!
-    f32 MetersToPixels = 60.0f / 0.5f;
-    f32 WidthF32 = (f32)NewAsset->SizeInPixels.Width;
-    f32 HeightF32 = (f32)NewAsset->SizeInPixels.Height;
-    f32 SizeF32 = (f32)Size;
-    NewAsset->SizeInTexCoords.X = SizeF32 / WidthF32;
-    NewAsset->SizeInTexCoords.Y = SizeF32 / HeightF32;
-    NewAsset->SizeInMeters.X = SizeF32 / MetersToPixels;
-    NewAsset->SizeInMeters.Y = SizeF32 / MetersToPixels;
-    NewAsset->Scale = 4;
-    
-    return(true);
+void
+asset_system::LogError(u32 Line, const char *Format, ...){
+ va_list VarArgs;
+ va_start(VarArgs, Format);
+ 
+ char Buffer[DEFAULT_BUFFER_SIZE];
+ if(CurrentAttribute){
+  stbsp_snprintf(Buffer, sizeof(Buffer), "(%s,%s Line: %u) %s", CurrentCommand, CurrentAttribute, Line, Format);
+ }else{
+  stbsp_snprintf(Buffer, sizeof(Buffer), "(%s Line: %u) %s", CurrentCommand, Line, Format);
+ }
+ VLogMessage(Buffer, VarArgs);
+ 
+ va_end(VarArgs);
 }
 
-internal b8
-ProcessArt(stream *Stream, asset *Asset){
-    while(true){
-        ConsumeWhiteSpace(Stream);
-        u8 *NextBytePtr = PeekBytes(Stream, 1);
-        if(!NextBytePtr) break;
-        u8 NextByte = *NextBytePtr;
-        if(NextByte == ':') break;
-        const char *SpecName = ProcessString(Stream);
-        
-        asset_spec Spec = FindInHashTable(&AssetSpecTable, SpecName);
-        Assert(Spec != AssetSpec_None);
-        
-        switch(Spec){
-            case AssetSpec_Path: {
-                ConsumeWhiteSpace(Stream);
-                const char *Path = ProcessString(Stream);
-                image *Image = LoadImageFromPath(Path);
-                Asset->IsTranslucent = Image->IsTranslucent;
-                Asset->SizeInPixels.X = Image->Width;
-                Asset->SizeInPixels.Y = Image->Height;
-                Asset->Texture = Image->Texture;
-                Asset->Scale = 4;
-            }break;
-            default: {
-                return(false);
-            }break;
-        }
-    }
-    return(true);
+void
+asset_system::LogInvalidAttribute(u32 Line, const char *Attribute){
+ LogMessage("(%s, Line: %u) Invalid attribute: %s", CurrentCommand, Line, Attribute);
 }
 
-internal b8
-ProcessCommand(stream *Stream){
-    const char *CommandName = ProcessString(Stream);
-    asset_command Command = FindInHashTable(&CommandTable, CommandName);
-    if(Command == AssetCommand_None){
-        LogMessage("ProcessCommand: %s isn't a valid command!", CommandName);
-        return(false);
-    }
-    
-    switch(Command){
-        case AssetCommand_BeginSpriteSheet: {
-            const char *AssetName = ProcessString(Stream);
-            CurrentAsset = FindInHashTablePtr(&AssetTable, AssetName);
-            if(!CurrentAsset){
-                const char *String = PushCString(&StringMemory, AssetName);
-                CurrentAsset = CreateInHashTablePtr(&AssetTable, String);
-            }
-            
-            CurrentAsset->Type = AssetType_SpriteSheet;
-            if(!ProcessSpriteSheet(Stream, CurrentAsset)) return(false);
-        }break;
-        case AssetCommand_BeginArt: {
-            const char *AssetName = ProcessString(Stream);
-            CurrentAsset = FindInHashTablePtr(&AssetTable, AssetName);
-            if(!CurrentAsset){
-                const char *String = PushCString(&StringMemory, AssetName);
-                CurrentAsset = CreateInHashTablePtr(&AssetTable, String);
-            }
-            
-            CurrentAsset->Type = AssetType_Art;
-            if(!ProcessArt(Stream, CurrentAsset)) return(false); 
-        }break;
-        case AssetCommand_BeginStates: {
-            if(!ProcessStates(Stream, CurrentAsset)) return(false); 
-        }break;
-        default: return(false);
-    }
-    
-    return(true);
+const char *
+asset_system::ExpectString(file_reader *Reader){
+ LastError = AssetLoaderError_None;
+ file_token Token = Reader->NextToken();
+ switch(Token.Type){
+  case FileTokenType_String: {
+   return(Token.String);
+  }break;
+  case FileTokenType_Integer: {
+   LogError(Token.Line, "%s: Expected a string, instead read: '%d'", CurrentCommand, Token.Integer);
+  }break;
+  case FileTokenType_Float: {
+   LogError(Token.Line, "%s: Expected a string, instead read: %f", CurrentCommand, Token.Float);
+  }break;
+  case FileTokenType_BeginCommand: {
+   LogError(Token.Line, "%s: Expected a string, instead read: ':'", CurrentCommand);
+  }break;
+ }
+ 
+ LastError = AssetLoaderError_InvalidToken;
+ return(0);
 }
 
-internal void
-InitializeAssetLoader(memory_arena *Arena){
-    // TODO(Tyler): Maybe hash tables aren't a good way to do this, but they work for now
-    CommandTable = PushHashTable<const char *, asset_command>(Arena, AssetCommand_TOTAL);
-    for(u32 I = 0; I < AssetCommand_TOTAL; I++){
-        InsertIntoHashTable(&CommandTable, ASSET_COMMAND_NAME_TABLE[I], (asset_command)I);
-    }
-    
-    AssetSpecTable = PushHashTable<const char *, asset_spec>(Arena, AssetSpec_TOTAL);
-    for(u32 I = 0; I < AssetSpec_TOTAL; I++){
-        InsertIntoHashTable(&AssetSpecTable, ASSET_SPEC_NAME_TABLE[I], (asset_spec)I);
-    }
-    
-    StateTable = PushHashTable<const char *, entity_state>(Arena, State_TOTAL);
-    for(u32 I = 0; I < State_TOTAL; I++){
-        InsertIntoHashTable(&StateTable, ASSET_STATE_NAME_TABLE[I], (entity_state)I);
-    }
-    
-    DirectionTable = PushHashTable<const char *, direction>(Arena, Direction_TOTAL+8);
-    InsertIntoHashTable(&DirectionTable, "north", Direction_North);
-    InsertIntoHashTable(&DirectionTable, "northeast", Direction_Northeast);
-    InsertIntoHashTable(&DirectionTable, "east", Direction_East);
-    InsertIntoHashTable(&DirectionTable, "southeast", Direction_Southeast);
-    InsertIntoHashTable(&DirectionTable, "south", Direction_South);
-    InsertIntoHashTable(&DirectionTable, "southwest", Direction_Southwest);
-    InsertIntoHashTable(&DirectionTable, "west", Direction_West);
-    InsertIntoHashTable(&DirectionTable, "northwest", Direction_Northwest);
-    InsertIntoHashTable(&DirectionTable, "up", Direction_Up);
-    InsertIntoHashTable(&DirectionTable, "down", Direction_Down);
-    InsertIntoHashTable(&DirectionTable, "left", Direction_Left);
-    InsertIntoHashTable(&DirectionTable, "right", Direction_Right);
+s32
+asset_system::ExpectInteger(file_reader *Reader){
+ LastError = AssetLoaderError_None;
+ file_token Token = Reader->NextToken();
+ switch(Token.Type){
+  case FileTokenType_String: {
+   LogError(Token.Line, "%s: Expected a integer, instead read: '%s'", CurrentCommand, Token.String);
+  }break;
+  case FileTokenType_Integer: {
+   return(Token.Integer);
+  }break;
+  case FileTokenType_Float: {
+   LogError(Token.Line, "%s: Expected a integer, instead read: %f", CurrentCommand, Token.Float);
+  }break;
+  case FileTokenType_BeginCommand: {
+   LogError(Token.Line, "%s: Expected a integer, instead read: ':'", CurrentCommand);
+  }break;
+ }
+ 
+ LastError = AssetLoaderError_InvalidToken;
+ return(0);
 }
 
-internal void
-LoadAssetFile(const char *Path){
-    TIMED_FUNCTION();
-    b8 HitError = false;
-    
-    do{
-        os_file *File = OpenFile(Path, OpenFile_Read);
-        u64 NewFileWriteTime = GetLastFileWriteTime(File);
-        
-        if(LastAssetFileWriteTime < NewFileWriteTime){
-            HitError = false;
-            
-            CloseFile(File);
-            entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-            stream Stream = CreateReadStream(File.Data, File.Size);
-            
-            while(true){
-                u8 *NextBytePtr = PeekBytes(&Stream, 1);
-                if(!NextBytePtr) break;
-                u8 NextByte = *NextBytePtr;
-                if((('a' <= NextByte) && (NextByte <= 'z')) ||
-                   (('A' <= NextByte) && (NextByte <= 'Z'))){
-                    const char *Identfier = ProcessString(&Stream);
-                    LogMessage("LoadAssetFile: Unexpected identifier: '%s'!", Identfier);
-                    HitError = true;
-                }else if(('0' <= NextByte) && (NextByte <= '9')){
-                    u32 Number = ProcessNumber(&Stream);
-                    LogMessage("LoadAssetFile: Unexpected number: '%u'!", Number);
-                    HitError = true;
-                }else if(NextByte == ':'){
-                    ConsumeBytes(&Stream, 1);
-                    ConsumeWhiteSpace(&Stream);
-                    if(!ProcessCommand(&Stream)){ 
-                        HitError = true; 
-                        break;
-                    }
-                }else if((NextByte == ' ') ||
-                         (NextByte == '\t') ||
-                         (NextByte == '\n') ||
-                         (NextByte == '\r')){
-                    ConsumeWhiteSpace(&Stream);
-                }
-            }
-        }else{
-            CloseFile(File);
-        }
-        
-        if(HitError) OSSleep(10); // To prevent consuming the CPU
-        LastAssetFileWriteTime = NewFileWriteTime;
-    }while(HitError); 
-    // This loop does result in a missed FPS but for right now it works just fine.
+f32
+asset_system::ExpectFloat(file_reader *Reader){
+ LastError = AssetLoaderError_None;
+ file_token Token = Reader->NextToken();
+ switch(Token.Type){
+  case FileTokenType_String: {
+   LogError(Token.Line, "%s: Expected a float, instead read: '%s'", CurrentCommand, Token.String);
+  }break;
+  case FileTokenType_Integer: {
+   return((f32)Token.Integer);
+  }break;
+  case FileTokenType_Float: {
+   return(Token.Float);
+  }break;
+  case FileTokenType_BeginCommand: {
+   LogError(Token.Line, "%s: Expected a float, instead read: ':'", CurrentCommand);
+  }break;
+ }
+ 
+ LastError = AssetLoaderError_InvalidToken;
+ return(0);
 }
 
-//~ 
+b8 
+asset_system::DoAttribute(const char *String, const char *Attribute){
+ b8 Result = CompareStrings(String, Attribute);
+ if(Result) CurrentAttribute = Attribute;
+ return(Result);
+}
 
-internal void
-InitializeAssetSystem(memory_arena *Arena){
-    AssetTable = PushHashTable<const char *, asset>(&PermanentStorageArena, 256);
-    LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);
-    InitializeAssetLoader(&PermanentStorageArena);
-    LoadAssetFile(ASSET_FILE_PATH);
-    
-    DummySpriteSheetAsset.Type = AssetType_SpriteSheet;
-    for(u32 I = 0; I < State_TOTAL; I++){
-        for(u32 J = 0; J < Direction_TOTAL; J++){
-            DummySpriteSheetAsset.StateTable[I][J] = 1;
-        }
+entity_state
+asset_system::ReadState(file_reader *Reader){
+ entity_state Result = State_None;
+ 
+ const char *String = ExpectString(Reader);
+ if(!String) return(Result);
+ Result = FindInHashTable(&StateTable, String);
+ if(Result == State_None){
+  LogError(Reader->Line, "Invalid state '%s'", String);
+  return(Result);
+ }
+ 
+ return(Result);
+}
+
+b8 
+asset_system::ProcessSpriteSheetStates(file_reader *Reader, const char *StateName, asset_sprite_sheet *Sheet){
+ CurrentAttribute = 0;
+ 
+ entity_state State = FindInHashTable(&StateTable, StateName);
+ if(State == State_None) return(false); 
+ 
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type != FileTokenType_String){ break; }
+  
+  const char *DirectionName = Token.String;
+  direction Direction = FindInHashTable(&DirectionTable, DirectionName);
+  if(Direction == Direction_None) break; 
+  Reader->NextToken();
+  
+  s32 Index = ExpectInteger(Reader);
+  AssetLoaderHandleError();
+  if(Index < 0){
+   LogError(Reader->Line, "'%d' must be positive!", Index);
+   return(false);
+  }
+  
+  Sheet->StateTable[State][Direction] = Index;
+  
+ }
+ 
+ return(true);
+}
+
+b8 
+asset_system::ProcessSpriteSheet(file_reader *Reader){
+ const char *Name = ExpectString(Reader);
+ AssetLoaderHandleError();
+ asset_sprite_sheet *Sheet = Strings.GetInHashTablePtr(&SpriteSheets, Name);
+ 
+ v2s FrameSize = V2S(0);
+ b8 LoadedAPieceAlready = false;
+ v2s ImageSize = V2S(0);
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type == FileTokenType_BeginCommand) break;
+  const char *String = ExpectString(Reader);
+  AssetLoaderHandleError();
+  
+  if(DoAttribute(String, "piece")){
+   const char *Path = ExpectString(Reader);
+   AssetLoaderHandleError();
+   image *Image = LoadImageFromPath(Path);
+   
+   if(!Image){
+    LogError(Reader->Line, "'%s' isn't a valid path to an image!", Path);
+    return(false);
+   }
+   if(LoadedAPieceAlready){
+    if((ImageSize.X != Image->Size.X) || (ImageSize.Y != Image->Size.Y)){
+     LogError(Reader->Line, "Image sizes (%d, %d) and (%d, %d) do not match!",
+              ImageSize.X, ImageSize.Y, Image->Size.X, Image->Size.Y);
+     return(false);
     }
-    
-    u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};
-    render_texture InvalidTexture = CreateRenderTexture(InvalidColor, 1, 1, false);
-    
-    DummySpriteSheetAsset.Scale = 1.0f;
-    DummySpriteSheetAsset.SizeInPixels = V2S(128, 128);
-    DummySpriteSheetAsset.SizeInMeters = V2(0.2f, 0.2f);
-    DummySpriteSheetAsset.SizeInTexCoords = V2(1.0f, 1.0f);
-    DummySpriteSheetAsset.Texture = InvalidTexture;
-    DummySpriteSheetAsset.FramesPerRow = 1;
-    DummySpriteSheetAsset.FrameCounts[0] = 1;
-    DummySpriteSheetAsset.FPSArray[0]    = 1;
-    
-    DummyArtAsset.Type = AssetType_Art;
-    DummyArtAsset.SizeInPixels = V2S(128, 128);
-    DummyArtAsset.Scale = 1.0f;
-    DummyArtAsset.Texture = InvalidTexture;
-}
-
-internal asset *
-GetSpriteSheet(const char *Name){
-    asset *Result = &DummySpriteSheetAsset;
-    if(Name){
-        Result = FindInHashTablePtr(&AssetTable, Name);
-        if(!Result || (Result->Type != AssetType_SpriteSheet)) Result = &DummySpriteSheetAsset; 
-    }
-    return(Result);
-}
-
-internal asset *
-GetArt(const char *Name){
-    asset *Result = &DummyArtAsset;
-    if(Name){
-        Result = FindInHashTablePtr(&AssetTable, Name);
-        if(!Result || (Result->Type != AssetType_Art)) Result = &DummyArtAsset; 
-    }
-    return(Result);
-}
-
-internal array<const char *>
-GetAssetNameListByType(asset_type Type){
-    array<const char *> AssetNames = MakeNewArray<const char *>(&TransientStorageArena, 256);
-    for(u32 I = 0; I < AssetTable.MaxBuckets; I++){
-        const char *Key = AssetTable.Keys[I];
-        if(Key){
-            asset *Asset = &AssetTable.Values[I];
-            if(Asset->Type == Type){
-                PushItemOntoArray(&AssetNames, Key);
-            }
-        }
-    }
-    
-    return(AssetNames);
-}
-
-internal void
-RenderFrameOfSpriteSheet(const char *AssetName, u32 Frame, v2 Center, f32 Z, u32 Layer=1){
-    asset *Asset = GetSpriteSheet(AssetName);
-    Assert(Asset->Type == AssetType_SpriteSheet);
-    
-    // TODO(Tyler): This is awful, fix this! - Asset system rewrite
-    f32 Conversion = 60.0f / 0.5f;
-    v2 Size = Asset->SizeInMeters*Conversion;
-    //v2 RenderSize = Size-V2(1.0f, 0.0f);
-    
-    v2 RenderSize = Size;
-    
-    rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
-    
-    u32 Column = Frame;
-    u32 Row = 0;
-    if(Column >= Asset->FramesPerRow){
-        Row = (Column / Asset->FramesPerRow);
-        Column %= Asset->FramesPerRow;
-    }
-    
-    u32 TotalRows = (u32)RoundF32ToS32(1.0f/Asset->SizeInTexCoords.Y);
-    Row = (TotalRows - 1) - Row;
-    Assert((0 <= Row) && (Row < TotalRows));
-    
-    TextureRect += V2(Column*Size.X, Row*Size.Y);
-    TextureRect.Min.X /= Asset->SizeInPixels.X;
-    TextureRect.Min.Y /= Asset->SizeInPixels.Y;
-    TextureRect.Max.X /= Asset->SizeInPixels.X;
-    TextureRect.Max.Y /= Asset->SizeInPixels.Y;
-    
-    rect R = CenterRect(Center, RenderSize);
-    
-    RenderTexture(R, Z, Asset->Texture, GameItem(Layer), TextureRect, true);
-}
-
-internal void
-UpdateAndRenderAnimation(entity *Entity, f32 dTimeForFrame){
-    asset *Asset = GetSpriteSheet(Entity->Asset);
-    
-    u32 AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction];
-    if(AnimationIndex == 0) { 
-        // TODO(Tyler): MAKE THIS MORE ROBUST
-        //Assert(0);
+   }
+   ImageSize = Image->Size;
+   
+   s32 PieceIndex = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   if(AbsoluteValue(PieceIndex) >= MAX_SPRITE_SHEET_PIECES_HALF){
+    LogError(Token.Line, "Piece index: '%d' is not between -%d and %d", 
+             PieceIndex, MAX_SPRITE_SHEET_PIECES_HALF, MAX_SPRITE_SHEET_PIECES_HALF);
+    return(false);
+   }
+   
+   if(PieceIndex < 0){
+    Sheet->FrontPieces[-PieceIndex] = Image->Texture;
+   }else if(PieceIndex == 0){
+    Sheet->MiddlePiece = Image->Texture;
+   }else{
+    Sheet->BehindPieces[PieceIndex] = Image->Texture;
+   }
+   LoadedAPieceAlready = true;
+   
+  }else if(DoAttribute(String, "size")){
+   v2s Size = {};
+   Size.X = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   Size.Y = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   FrameSize = Size;
+   Sheet->FrameSize = V2(Size);
+   
+  }else if(DoAttribute(String, "frame_counts")){
+   u32 AnimationIndex = 0;
+   while(true){
+    file_token Token = Reader->PeekToken();
+    if(Token.Type == FileTokenType_Integer){
+    }else if(Token.Type == FileTokenType_Float){
+     LogError(Token.Line, "%s: Expected a integer, instead read: %f", CurrentCommand, Token.Float);
+     return(false);
     }else{
-        AnimationIndex--;
-        
-        u32 FrameCount = Asset->FrameCounts[AnimationIndex];
-        Entity->AnimationState += Asset->FPSArray[AnimationIndex]*dTimeForFrame;
-        Entity->Cooldown -= dTimeForFrame;
-        if(Entity->AnimationState >= FrameCount){
-            Entity->AnimationState = ModF32(Entity->AnimationState, (f32)FrameCount);
-            Entity->NumberOfTimesAnimationHasPlayed++;
-        }
-        
-        // TODO(Tyler): This is awful, fix this! - Asset system rewrite
-        if(ShouldEntityUpdate(Entity) &&
-           (Entity->Type == EntityType_Enemy)){
-            switch(Entity->State){
-                case State_Turning:    { 
-                    ChangeEntityState(Entity, State_Moving); 
-                }break;
-                case State_Retreating: { 
-                    SetEntityStateForNSeconds(Entity, State_Stunned, 3.0f); 
-                }break;
-                case State_Stunned:    { 
-                    SetEntityStateUntilAnimationIsOver(Entity, State_Returning); 
-                }break;
-                case State_Returning:  { 
-                    ChangeEntityState(Entity, State_Moving); 
-                }break;
-            }
-            AnimationIndex = Asset->StateTable[Entity->State][Entity->Direction]-1;
-        }
-        
-        v2 P = Entity->Physics->P;
-        P.X -= Asset->Scale*Asset->SizeInMeters.Width/2.0f;
-        P.Y -= Asset->Scale*Asset->SizeInMeters.Height/2.0f;
-        
-        u32 Frame = (u32)Entity->AnimationState;
-        for(u32 Index = 0; Index < AnimationIndex; Index++){
-            Frame += Asset->FrameCounts[Index];
-        }
-        
-        // TODO(Tyler): This does some reduntant work. Such as retrieving the 
-        // asset again from the asset table.
-        RenderFrameOfSpriteSheet(Entity->Asset, Frame, P, Entity->ZLayer);
+     break;
     }
+    
+    if(Token.Integer < 0){
+     LogError(Reader->Line, "'%d' must be positive!", Token.Integer);
+     return(false);
+    }
+    Sheet->FrameCounts[AnimationIndex] = (u32)Token.Integer;
+    AnimationIndex++;
+    
+    Reader->NextToken();
+   }
+   
+  }else if(DoAttribute(String, "base_fps")){
+   s32 BaseFPS = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   if(BaseFPS < 0){
+    LogError(Reader->Line, "'%d' must not be negative!", BaseFPS);
+    return(false);
+   }
+   
+   for(u32 I = 0; I < MAX_SPRITE_SHEET_ANIMATIONS; I++){
+    Sheet->FPSArray[I] = BaseFPS;
+   }
+   
+  }else if(DoAttribute(String, "override_fps")){
+   s32 OverrideIndex = ExpectInteger(Reader) - 1;
+   AssetLoaderHandleError();
+   if(OverrideIndex < 0){
+    LogError(Reader->Line, "'%d' must not be negative!", OverrideIndex);
+    return(false);
+   }
+   
+   if(OverrideIndex >= MAX_SPRITE_SHEET_ANIMATIONS){
+    LogMessage("ProcessSpriteSheet: override_fps index is greater than %llu", MAX_SPRITE_SHEET_ANIMATIONS);
+    return(false);
+   }
+   u32 OverrideFPS = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   Sheet->FPSArray[OverrideIndex] = OverrideFPS;
+   
+   
+  }else if(DoAttribute(String, "y_offset")){
+   f32 YOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   Sheet->YOffset = YOffset;
+   
+  }else{ 
+   if(!ProcessSpriteSheetStates(Reader, String, Sheet)){
+    LogInvalidAttribute(Reader->Line, String); 
+    return(false);
+   }
+  }
+ }
+ 
+ Assert((FrameSize.X != 0) && (FrameSize.Y != 0));
+ Assert((ImageSize.X != 0) && (ImageSize.Y != 0));
+ Sheet->XFrames = ImageSize.X/FrameSize.X;
+ Sheet->YFrames = ImageSize.Y/FrameSize.Y;
+ 
+ return(true);
+}
+
+b8
+asset_system::ProcessAnimation(file_reader *Reader){
+ const char *Name = ExpectString(Reader);
+ AssetLoaderHandleError();
+ asset_animation *Animation = Strings.GetInHashTablePtr(&Animations, Name);
+ 
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type == FileTokenType_BeginCommand) break;
+  const char *String = ExpectString(Reader);
+  AssetLoaderHandleError();
+  
+  if(DoAttribute(String, "on_finish")){
+   
+   entity_state From = ReadState(Reader);
+   if(From == State_None) return(false);
+   entity_state To = ReadState(Reader);
+   if(To == State_None) return(false);
+   
+   Animation->ChangeDatas[From].Condition = ChangeCondition_AnimationOver;
+   Animation->NextStates[From] = To;
+  }else if(DoAttribute(String, "after_time")){
+   animation_change_data ChangeData = {};
+   
+   file_token Token = Reader->NextToken();
+   if(Token.Type == FileTokenType_String){
+    if(CompareStrings(Token.String, "STUN_TIME")){
+     ChangeData.Condition = SpecialChangeCondition_StunTimeCooldown;
+    }else{
+     LogError(Reader->Line, "'%s' is an invalid time!", Token.String);
+     return(false);
+    }
+   }else if((Token.Type == FileTokenType_Float) ||
+            (Token.Type == FileTokenType_Integer)){
+    ChangeData.Condition = ChangeCondition_CooldownOver;
+    Token = TokenIntegerToFloat(Token);
+    ChangeData.Cooldown = Token.Float;
+   }
+   
+   entity_state From = ReadState(Reader);
+   if(From == State_None) return(false);
+   entity_state To = ReadState(Reader);
+   if(To == State_None) return(false);
+   
+   Animation->ChangeDatas[From] = ChangeData;
+   Animation->NextStates[From] = To;
+  }else if(DoAttribute(String, "blocking")){
+   entity_state State = ReadState(Reader);
+   if(State == State_None) return(false);
+   Animation->BlockingStates[State] = true;
+   
+  }else{ LogInvalidAttribute(Reader->Line, String); return(false); }
+ }
+ 
+ 
+ return(true);
+}
+
+inline b8
+asset_system::IsInvalidEntityType(u32 Line, asset_entity *Entity, entity_type Target){
+ b8 Result = false;
+ if(Entity->Type != Target){
+  if(Entity->Type == EntityType_None){
+   LogError(Line, "Entity type must be defined before!");
+  }else{
+   LogError(Line, "Entity type must be: %s", ASSET_ENTITY_TYPE_NAME_TABLE[Target]);
+  }
+  Result = true;
+ }
+ return(Result);
+}
+
+b8
+asset_system::ProcessEntity(file_reader *Reader){
+ u32 StartLine = Reader->Line;
+ 
+ const char *Name = ExpectString(Reader);
+ AssetLoaderHandleError();
+ asset_entity *Entity = Strings.GetInHashTablePtr(&Entities, Name);
+ // Reset entity
+ Entity->Flags = 0;
+ 
+ collision_boundary Boundaries[MAX_ENTITY_ASSET_BOUNDARIES];
+ u32 BoundaryCount = 0;
+ f32 StunTime = 0.0f;
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type == FileTokenType_BeginCommand) break;
+  const char *String = ExpectString(Reader);
+  AssetLoaderHandleError();
+  
+  if(DoAttribute(String, "type")){
+   const char *TypeName = ExpectString(Reader);
+   AssetLoaderHandleError();
+   entity_type Type = FindInHashTable(&EntityTypeTable, TypeName);
+   if(Type == EntityType_None){
+    LogError(Reader->Line, "Invalid type name: '%s'!", TypeName);
+    return(false);
+   }
+   
+   Entity->Type = Type;
+  }else if(DoAttribute(String, "sprite_sheet")){
+   const char *SheetName = ExpectString(Reader);
+   AssetLoaderHandleError();
+   asset_sprite_sheet *Sheet = FindInHashTablePtr(&SpriteSheets, SheetName);
+   if(!Sheet){
+    LogError(Reader->Line, "The sprite sheet: '%s' is undefined!", SheetName);
+    return(false);
+   }
+   
+   Entity->SpriteSheet = Sheet;
+  }else if(DoAttribute(String, "animation")){
+   const char *AnimationName = ExpectString(Reader);
+   AssetLoaderHandleError();
+   asset_animation *Animation = FindInHashTablePtr(&Animations, AnimationName);
+   if(!Animation){
+    LogError(Reader->Line, "The animation: '%s' is undefined!", AnimationName);
+    return(false);
+   }
+   
+   Entity->Animation = *Animation;
+  }else if(DoAttribute(String, "mass")){
+   Entity->Mass = ExpectFloat(Reader);
+   AssetLoaderHandleError();
+   
+  }else if(DoAttribute(String, "speed")){
+   Entity->Speed = ExpectFloat(Reader);
+   AssetLoaderHandleError();
+   
+  }else if(DoAttribute(String, "boundary_rect")){
+   s32 Index = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   if(Index < 0){
+    LogError(Reader->Line, "'%d' must be positive!", Index);
+    return(false);
+   }else if(Index > MAX_ENTITY_ASSET_BOUNDARIES){
+    LogError(Reader->Line, "'%d' must be less than %d!", Index, MAX_ENTITY_ASSET_BOUNDARIES);
+    return(false);
+   }
+   
+   f32 XOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 YOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 Width = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 Height = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   
+   if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
+   Boundaries[Index] = MakeCollisionRect(V2(XOffset, YOffset), V2(Width, Height));
+   
+  }else if(DoAttribute(String, "boundary_circle")){
+   s32 Index = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   if(Index < 0){
+    LogError(Reader->Line, "'%d' must be positive!", Index);
+    return(false);
+   }else if(Index > MAX_ENTITY_ASSET_BOUNDARIES){
+    LogError(Reader->Line, "'%d' must be less than %d!", Index, MAX_ENTITY_ASSET_BOUNDARIES);
+    return(false);
+   }
+   
+   f32 XOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 YOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 Radius = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   
+   if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
+   Boundaries[Index] = MakeCollisionCircle(V2(XOffset, YOffset), Radius, 12, &PhysicsSystem.PermanentBoundaryMemory);
+   
+  }else if(DoAttribute(String, "boundary_pill")){
+   s32 Index = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   if(Index < 0){
+    LogError(Reader->Line, "'%d' must be positive!", Index);
+    return(false);
+   }else if(Index > MAX_ENTITY_ASSET_BOUNDARIES){
+    LogError(Reader->Line, "'%d' must be less than %d!", Index, MAX_ENTITY_ASSET_BOUNDARIES);
+    return(false);
+   }
+   
+   f32 XOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 YOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 Radius = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   f32 Height = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   
+   if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
+   Boundaries[Index] = MakeCollisionPill(V2(XOffset, YOffset), Radius, Height, 4, &PhysicsSystem.PermanentBoundaryMemory);
+   
+  }else if(DoAttribute(String, "stun_time")){
+   if(IsInvalidEntityType(Reader->Line, Entity, EntityType_Enemy)) return(false);
+   
+   StunTime = ExpectFloat(Reader);
+   AssetLoaderHandleError();
+  }else if(DoAttribute(String, "damage")){
+   if(IsInvalidEntityType(Reader->Line, Entity, EntityType_Enemy)) return(false);
+   
+   Entity->Damage = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+  }else if(DoAttribute(String, "collision_response")){
+   const char *ResponseName = ExpectString(Reader);
+   AssetLoaderHandleError();
+   
+   collision_response_function *Response = FindInHashTable(&CollisionResponses, ResponseName);
+   if(!Response){
+    LogError(Reader->Line, "Invalid response function: '%s'!", ResponseName);
+    return(false);
+   }
+   Entity->Response = Response;
+   
+  }else if(DoAttribute(String, "CAN_BE_STUNNED")){
+   Entity->Flags |= EntityFlag_CanBeStunned;
+  }else if(DoAttribute(String, "NO_GRAVITY")){
+   Entity->Flags |= EntityFlag_NotAffectedByGravity;
+  }else{ LogInvalidAttribute(Reader->Line, String); return(false); }
+ }
+ 
+ if(!Entity->SpriteSheet){
+  LogError(StartLine, "Sprite sheet must be set!");
+  return(false);
+ }
+ 
+ asset_sprite_sheet *Sheet = Entity->SpriteSheet;
+ // TODO(Tyler): Memory leak!!!
+ Entity->Boundaries = PhysicsSystem.AllocPermanentBoundaries(BoundaryCount);
+ Entity->BoundaryCount = BoundaryCount;
+ for(u32 I=0; I<BoundaryCount; I++){
+  collision_boundary *Boundary = &Boundaries[I];
+  v2 Size = RectSize(Boundary->Bounds);
+  v2 Min   = Boundary->Bounds.Min;
+  Boundary->Offset.Y -= Min.Y - Sheet->YOffset;
+  Boundary->Offset.X += 0.5f*(Sheet->FrameSize.Width);
+  Entity->Boundaries[I] = *Boundary;
+ }
+ 
+ if(Entity->Type == EntityType_Enemy){
+  for(u32 I=0; I<State_TOTAL; I++){
+   animation_change_data *Data = &Entity->Animation.ChangeDatas[I];
+   if(Data->Condition == SpecialChangeCondition_StunTimeCooldown){
+    Data->Condition = ChangeCondition_CooldownOver;
+    Data->Cooldown = StunTime;
+   }
+  }
+ }
+ 
+ 
+ return(true);
+}
+
+b8 
+asset_system::ProcessArt(file_reader *Reader){
+ const char *Name = ExpectString(Reader);
+ AssetLoaderHandleError();
+ asset_art *Art = Strings.GetInHashTablePtr(&Arts, Name);
+ 
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type == FileTokenType_BeginCommand) break;
+  const char *String = ExpectString(Reader);
+  AssetLoaderHandleError();
+  
+  if(DoAttribute(String, "path")){
+   const char *Path = ExpectString(Reader);
+   AssetLoaderHandleError();
+   
+   image *Image = LoadImageFromPath(Path);
+   if(!Image){
+    LogError(Reader->Line, "'%s' isn't a valid path to an image!", Path);
+    return(false);
+   }
+   Art->Size = V2(Image->Size);
+   Art->Texture = Image->Texture;
+  }else{ LogInvalidAttribute(Reader->Line, String); return(false); }
+ }
+ 
+ return(true);
+}
+
+b8
+asset_system::ProcessTilemap(file_reader *Reader){
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type == FileTokenType_BeginCommand) return(true);
+  if(Token.Type == FileTokenType_EndFile)      return(true);
+  Reader->NextToken();
+ }
+ return(true);
+}
+
+b8
+asset_system::ProcessBackground(file_reader *Reader){
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type == FileTokenType_BeginCommand) return(true);
+  if(Token.Type == FileTokenType_EndFile)      return(true);
+  Reader->NextToken();
+ }
+ return(true);
+}
+
+b8
+asset_system::ProcessFont(file_reader *Reader){
+ while(true){
+  file_token Token = Reader->PeekToken();
+  if(Token.Type == FileTokenType_BeginCommand) return(true);
+  if(Token.Type == FileTokenType_EndFile)      return(true);
+  Reader->NextToken();
+ }
+ return(true);
+}
+
+
+#define IfCommand(Name, Command)       \
+if(CompareStrings(String, Name)) { \
+BeginCommand(Name);            \
+if(!Process ## Command(Reader)){ return(false); } \
+return(true);                  \
+}       
+
+b8
+asset_system::ProcessCommand(file_reader *Reader){
+ const char *String = ExpectString(Reader);
+ AssetLoaderHandleError();
+ 
+ IfCommand("sprite_sheet", SpriteSheet);
+ IfCommand("animation",    Animation);
+ IfCommand("entity",       Entity);
+ IfCommand("art",          Art);
+ IfCommand("tilemap",      Tilemap);
+ IfCommand("background",   Background);
+ IfCommand("font",         Font);
+ 
+ LogMessage("(Line: %u) '%s' isn't a valid command!", Reader->Line, String);
+ return(false);
+}
+#undef IfCommand
+
+
+void
+asset_system::LoadAssetFile(const char *Path){
+ TIMED_FUNCTION();
+ 
+ CurrentCommand = 0;
+ CurrentAttribute = 0;
+ 
+ b8 HitError = false;
+ do{
+  os_file *File = OpenFile(Path, OpenFile_Read);
+  u64 NewFileWriteTime = GetLastFileWriteTime(File);
+  CloseFile(File);
+  
+  if(LastFileWriteTime < NewFileWriteTime){
+   // TODO(Tyler): We can run out of memory in TransientStorageArena here!
+   
+   HitError = false;
+   
+   file_reader Reader = MakeFileReader(Path);
+   
+   while(!HitError){
+    file_token Token = Reader.NextToken();
+    
+    switch(Token.Type){
+     case FileTokenType_String: {
+      LogMessage("(Line: %u) String: '%s' was not expected! ':' was!", Token.Line, Token.String);
+      HitError = true;
+     }break;
+     case FileTokenType_Integer: {
+      LogMessage("(Line: %u) Integer: '%d' was not expected! ':' was!", Token.Line, Token.Integer);
+      HitError = true;
+     }break;
+     case FileTokenType_Float: {
+      LogMessage("(Line: %u) Float: '%f' was not expected! ':' was!", Token.Line, Token.Float);
+      HitError = true;
+     }break;
+     case FileTokenType_BeginCommand: {
+      if(!ProcessCommand(&Reader)){
+       HitError = true;
+       break;
+      }
+     }break;
+     case FileTokenType_EndFile: {
+      goto end_loop;
+     }break;
+     default: {
+      INVALID_CODE_PATH;
+     }break;
+    }
+   }
+   end_loop:;
+   
+  }else{
+   CloseFile(File);
+  }
+  
+  
+  if(HitError) OSSleep(10); // To prevent consuming the CPU
+  LastFileWriteTime = NewFileWriteTime;
+ }while(HitError); 
+ // This loop does result in a missed FPS but for right now it works just fine.
 }

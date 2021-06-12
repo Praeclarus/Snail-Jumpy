@@ -11,16 +11,20 @@
 #include "simd.h"
 
 //~ Constants, several of these should be hotloaded in a variables file
+global_constant u32 DEFAULT_BUFFER_SIZE = 512;
+
 global_constant f32 MAXIMUM_SECONDS_PER_FRAME = (1.0f / 20.0f);
 global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
+
 global_constant u32 PHYSICS_ITERATIONS_PER_OBJECT = 4;
-global_constant f32 FIXED_TIME_STEP = (1.0f / 120.0f);
+global_constant f32 WALKABLE_STEEPNESS    = 0.1f;
+global_constant u32 MAX_ENTITY_BOUNDARIES = 8;
+
 global_constant f32 TILE_SIDE = 16;
 global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
+
 global_constant char *ASSET_FILE_PATH = "assets.sja";
-global_constant u32 DEFAULT_BUFFER_SIZE = 512;
 global_constant char *STARTUP_LEVEL = "Debug";
-global_constant f32 WALKABLE_STEEPNESS = 0.1f;
 
 global_constant color EDITOR_BASE_COLOR     = Color(0.5f, 0.8f, 0.6f, 0.9f);
 global_constant color EDITOR_HOVERED_COLOR  = Color(0.8f, 0.5f, 0.7f, 0.9f);
@@ -147,18 +151,18 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 #include "helpers.cpp"
 #include "memory_arena.cpp"
 #include "freelist_allocator.cpp"
-#include "debug.h"
 #include "hash_table.cpp"
+#include "strings.cpp"
+#include "debug.h"
 #include "array.cpp"
 #include "render.h"
 #include "os.h"
 #include "ui.h"
-#include "asset.h"
+#include "file_processing.h"
 #include "physics.h"
-#include "entity_info.h"
+#include "asset.h"
 #include "entity.h"
 #include "world.h"
-#include "entity_editor.h"
 #include "world_editor.h"
 
 //~ Miscallaneous
@@ -167,7 +171,6 @@ enum game_mode {
     GameMode_Debug,
     GameMode_MainGame,
     GameMode_WorldEditor,
-    GameMode_EntityEditor,
 };
 struct state_change_data {
     b8 DidChange;
@@ -177,10 +180,6 @@ struct state_change_data {
 
 //~ Forward declarations
 internal inline void ChangeState(game_mode NewMode, const char *NewLevel);
-internal void ChangeEntityState(entity *Entity, entity_state NewState);
-internal void SetEntityStateUntilAnimationIsOver(entity *Entity, entity_state NewState);
-internal void SetEntityStateForNSeconds(entity *Entity, entity_state NewState, f32 N);
-internal b8 ShouldEntityUpdate(entity *Entity);
 internal inline void ProcessDefaultEvent(os_event *Event);
 
 internal b8 EnemyCollisionResponse(entity *Data, physics_collision *Collision);

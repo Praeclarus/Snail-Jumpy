@@ -11,7 +11,7 @@ enum world_flags_ {
 struct entity_data {
     v2 P;
     u32 Type;
-    u32 InfoID;
+    const char *EntityInfo;
     
     union {
         // Enemy

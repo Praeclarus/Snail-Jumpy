@@ -2,10 +2,7 @@ global os_file *LogFile;
 global u32 LogFileOffset;
 
 internal void
-LogMessage(char *Format, ...){
-    va_list VarArgs;
-    va_start(VarArgs, Format);
-    
+VLogMessage(char *Format, va_list VarArgs){
     char Buffer[DEFAULT_BUFFER_SIZE];
     u32 FormatLength = CStringLength(Format)+1;
     CopyMemory(Buffer, Format, Minimum(FormatLength, DEFAULT_BUFFER_SIZE));
@@ -22,6 +19,14 @@ LogMessage(char *Format, ...){
     WriteToFile(LogFile, LogFileOffset, Buffer, Length);
     LogFileOffset += Length;
 #endif
+}
+
+internal void
+LogMessage(char *Format, ...){
+    va_list VarArgs;
+    va_start(VarArgs, Format);
+    
+    VLogMessage(Format, VarArgs);
     
     va_end(VarArgs);
 }

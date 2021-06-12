@@ -77,9 +77,6 @@ struct collision_boundary {
     };
 };
 
-global_constant u32 MAX_BOUNDARY_CHILDREN = 3;
-
-
 //~ Physics
 
 struct entity;

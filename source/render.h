@@ -89,7 +89,7 @@ struct render_node {
 };
 
 
-global_constant u32 RENDER_MAX_LIGHT_COUNT = 128;
+global_constant u32 MAX_LIGHT_COUNT = 128;
 struct render_light {
     v2 P;
     f32 Radius;

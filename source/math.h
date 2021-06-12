@@ -119,6 +119,13 @@ AbsoluteValue(f32 A)
     return(Result);
 }
 
+internal inline s32
+AbsoluteValue(s32 A)
+{
+    s32 Result = (A < 0) ? -A : A;
+    return(Result);
+}
+
 internal inline f32
 SignOf(f32 A){
     f32 Result = (A < 0) ? -1.0f : 1.0f;
@@ -189,6 +196,17 @@ Lerp(f32 A, f32 B, f32 T){
     return(Result);
 }
 
+internal inline b8
+IsEven(s32 A){
+    b8 Result = (A % 2) == 0;
+    return(Result);
+}
+
+internal inline b8
+IsOdd(s32 A){
+    b8 Result = (A % 2) == 1;
+    return(Result);
+}
 
 //~ V2s
 
@@ -455,6 +473,14 @@ SquareV2(v2 V){
     v2 Result;
     Result.X = V.X*V.X;
     Result.Y = V.Y*V.Y;
+    return(Result);
+}
+
+internal inline v2
+FloorV2(v2 V){
+    v2 Result;
+    Result.X = Floor(V.X);
+    Result.Y = Floor(V.Y);
     return(Result);
 }
 

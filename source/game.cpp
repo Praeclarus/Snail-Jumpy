@@ -40,6 +40,7 @@ UpdateAndRenderMainGame(){
     EntityManager.UpdateAndRenderEntities();
     
     player_entity *Player = EntityManager.Player;
+    
     if(CompletionCooldown > 0.0f){
         f32 Advance =
             GetFormatStringAdvance(&MainFont, 
@@ -67,12 +68,12 @@ UpdateAndRenderMainGame(){
     
     //~ Weapon charge bar
     {
-        v2 Min = V2(0.1f, 0.1f);
+        v2 Min = V2(10.0f, 10.0f);
         v2 Max = Min;
         f32 Percent = 0.0f;
         Percent = EntityManager.Player->WeaponChargeTime;
-        Max.X += 4.0f*Percent;
-        Max.Y += 0.2f;
+        Max.X += 400.0f*Percent;
+        Max.Y += 30.0f;
         RenderRect(Rect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f), UIItem(1));
     }
     
@@ -84,23 +85,24 @@ UpdateAndRenderMainGame(){
         u32 FullHearts = Player->Health / 3;
         u32 Remainder = Player->Health % 3;
         
+        asset_sprite_sheet *Asset = AssetSystem.GetSpriteSheet("heart");
         Assert(FullHearts <= 3);
         u32 I;
         for(I = 0; I < FullHearts; I++){
-            RenderFrameOfSpriteSheet("heart", 0, P, -0.9f);
+            AssetSystem.RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 0);
             P.X += XAdvance;
         }
         
         if(Remainder > 0){
             Remainder = 3 - Remainder;
-            RenderFrameOfSpriteSheet("heart", Remainder, P, -0.9f);
+            AssetSystem.RenderSpriteSheetFrame(Asset, P, -0.9f, 0, Remainder);
             P.X += XAdvance;
             I++;
         }
         
         if(I < 3){
             for(u32 J = 0; J < 3-I; J++){
-                RenderFrameOfSpriteSheet("heart", 3, P, -0.9f);
+                AssetSystem.RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 3);
                 P.X += XAdvance;
             }
         }

@@ -1,12 +1,5 @@
 
 //~ Stream
-struct stream {
-    u8 *Buffer;
-    umw CurrentIndex;
-    umw BufferSize;
-    
-    u8 CurrentBit;
-};
 
 internal stream
 CreateReadStream(void *Buffer, umw BufferSize){

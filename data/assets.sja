@@ -1,134 +1,147 @@
-: spritesheet snail
-    path snail_spritesheet.png
-    size 17
-    frames_per_row 7
+# //////////////////////////////////////////////////////////////////////////
+#                                 Animations
+# //////////////////////////////////////////////////////////////////////////
+: animation enemy
+    on_finish            state_turning    state_moving
+	   on_finish            state_retreating state_stunned
+	   after_time STUN_TIME state_stunned    state_returning
+	   on_finish            state_returning  state_moving
+	   blocking state_retreating
+	   blocking state_stunned
+	   blocking state_returning
+	   blocking state_turning
+
+: animation player
+	
+: animation overworld_player
+	
+# //////////////////////////////////////////////////////////////////////////
+#                                Spritesheets
+# //////////////////////////////////////////////////////////////////////////
+
+: sprite_sheet dragonfly
+    piece asset_sprite_sheets/dragonfly_sprite_sheet.png 0
+    size 33 33
+    frame_counts 10 10 3 3 4 4
+    base_fps 8
+        state_moving          
+         			left  1
+			         right 2
+        state_turning 
+			         left  3
+			         right 4
+
+: sprite_sheet snail
+    piece asset_sprite_sheets/snail_sprite_sheet.png 0 
+    size 17 17
     frame_counts 4 4 3 3 4 4 3 3 7 7
     base_fps 8
     override_fps 7 3
     override_fps 8 3
-	: states
+	   y_offset 0
         state_moving          
-			left  1
-			right 2
+         			left  1
+			         right 2
         state_turning 
-			left  3
-			right 4
+			         left  3
+			         right 4
         state_retreating      
-			left  5
-			right 6
+			         left  5
+			         right 6
         state_stunned
-			left  7
-			right 8
+			         left  7
+			         right 8
         state_returning
-			left  9
-			right 10
+			         left  9
+			         right 10
 
-: spritesheet sally
-    path sally_spritesheet.png
-    size 33
-    frames_per_row 8
+: sprite_sheet sally
+    piece asset_sprite_sheets/sally_sprite_sheet.png 0
+    size 33 33
     frame_counts 4 4 3 3 3 3 3 3 7 7
     base_fps 8
     override_fps 7 3
     override_fps 8 3
-	: states
+    y_offset 0
         state_moving          
-			left  1
-			right 2
+			         left  1
+			         right 2
         state_turning 
-			left  3
-			right 4
+			         left  3
+			         right 4
         state_retreating      
-			left  5
-			right 6
+			         left  5
+			         right 6
         state_stunned
-			left  7
-			right 8
+			         left  7
+			         right 8
         state_returning
-			left  9
-			right 10
+			         left  9
+			         right 10
 
-: spritesheet speedy
-    path speedy_spritesheet.png
-    size 17
-    frames_per_row 8
+: sprite_sheet speedy
+    piece asset_sprite_sheets/speedy_sprite_sheet.png 0
+    size 17 17
     frame_counts 4 4 3 3 2 2 3 3 4 4
     base_fps 8
     override_fps 7 3
     override_fps 8 3
-	: states
+   	y_offset 0
         state_moving          
-			left  1
-			right 2
+			         left  1
+			         right 2
         state_turning 
-			left  3
-			right 4
+			         left  3
+			         right 4
         state_retreating      
-			left  5
-			right 6
+			         left  5
+			         right 6
         state_stunned
-			left  7
-			right 8
+			         left  7
+			         right 8
         state_returning
-			left  9
-			right 10
+			         left  9
+			         right 10
 
-: spritesheet dragonfly
-    path dragonfly_spritesheet.png
-    size 33
-    frames_per_row 7
-    frame_counts 10 10 3 3 4 4
-    base_fps 8
-	: states
-        state_moving          
-			left  1
-			right 2
-        state_turning 
-			left  3
-			right 4
-
-: spritesheet boxing_dragonfly
-    path boxing_spritesheet.png
-    size 33
-    frames_per_row 6
+: sprite_sheet boxing_dragonfly
+    piece asset_sprite_sheets/boxing_sprite_sheet.png 0
+    size 33 33
     frame_counts 10 10 3 3
     base_fps 8
-	: states
+	   y_offset 0
         state_moving          
-			left  1
-			right 2
+			         left  1
+			         right 2
         state_turning 
-			left  3
-			right 4
+			         left  3
+			         right 4
 
-: spritesheet player
-    path test_avatar_spritesheet2.png
-    size 16
-    frames_per_row 17
+: sprite_sheet player
+    piece asset_sprite_sheets/test_avatar_sprite_sheet2.png 0
+    size 16 16
     frame_counts 17 17 6 6 5 5 1 1 2 2
     base_fps 8
-	: states
+   	y_offset 0
         state_idle
             left  1
             right 2
         state_moving
             left  3
             right 4
-		state_jumping
+		     state_jumping
             left  7
             right 8
         state_falling
             left  9
             right 10
 
-: spritesheet overworld_player
-	path overworld_avatar_spritesheet.png
-	size 64
-	frames_per_row 10
-	frame_counts 3 3 3 3 3 3 3 3 4 5 5 5 4 5 5 5
-	base_fps 8
-	: states
-		state_idle
+: sprite_sheet overworld_player
+	   piece asset_sprite_sheets/overworld_avatar_sprite_sheet.png 0
+	   size 64 64
+	   frame_counts 3 3 3 3 3 3 3 3 4 5 5 5 4 5 5 5
+	   base_fps 8
+	   y_offset 0
+		      state_idle
             north     1
             northeast 2
             east      3
@@ -147,29 +160,164 @@
             west      15
             northwest 16
 
-: spritesheet heart
-	path heart_8x8.png
-	size 8
-	frames_per_row 4
+: sprite_sheet heart
+	   piece asset_sprite_sheets/heart_8x8.png 0
+	   size 8 8
+
+# //////////////////////////////////////////////////////////////////////////
+#                                  Entities
+# //////////////////////////////////////////////////////////////////////////
+
+: entity player
+	   type          player
+	   sprite_sheet  player
+	   animation     player 
+	   mass          1.0
+	   speed         100
+	   boundary_pill 0 0 0 3 8
+	   collision_response PLAYER
+
+: entity snail
+   	type          enemy
+	   sprite_sheet  snail
+	   animation     enemy
+	   mass          1.0  
+	   speed         100  
+	   boundary_circle 0 0 0 6
+	   stun_time     3.0  
+	   damage        2    
+	   collision_response ENEMY
+	   CAN_BE_STUNNED
+
+: entity sally
+   	type          enemy
+	   sprite_sheet  sally
+	   animation     enemy
+	   mass          2.0
+	   speed         100
+	   boundary_circle 0 0 0 13
+	   stun_time     4.0
+	   damage        3
+	   collision_response ENEMY
+	   CAN_BE_STUNNED
+
+: entity speedy
+   	type          enemy
+	   sprite_sheet  speedy
+	   animation     enemy
+	   mass          0.7
+	   speed         100
+	   boundary_rect 0 0 0 11 11
+	   stun_time     2.0
+	   damage        1
+	   collision_response ENEMY
+	   CAN_BE_STUNNED
+
+: entity dragonfly
+   	type          enemy
+	   sprite_sheet  dragonfly
+	   animation     enemy
+	   mass          1.5
+	   speed         100
+	   boundary_rect 0   0  8 31 3
+	   stun_time     0.0
+	   damage        1
+	   collision_response DRAGONFLY
+	   NO_GRAVITY
+
+# //////////////////////////////////////////////////////////////////////////
+#                                    Arts
+# //////////////////////////////////////////////////////////////////////////
 
 : art art_test
-	path test_art.png
+    path asset_arts/test_art.png
 	
 : art art_test2
-	path test_art2.png
+	   path asset_arts/test_art2.png
 	
 : art grass_platform_a
-	path grass_platform_a.png
+	   path asset_arts/grass_platform_a.png
 		
 : art grass_platform_b
-	path grass_platform_b.png
+	   path asset_arts/grass_platform_b.png
 		
 : art grass_platform_c
-	path grass_platform_c.png
+	   path asset_arts/grass_platform_c.png
 	
 : art grass_platform_d
-	path grass_platform_d.png
+	   path asset_arts/grass_platform_d.png
 	
 : art grass_platform_e
-	path grass_platform_e.png
+	   path asset_arts/grass_platform_e.png
 	
+# //////////////////////////////////////////////////////////////////////////
+#                                    Fonts
+# //////////////////////////////////////////////////////////////////////////
+
+: font font_one
+    path SJ_Font.png
+    height 5
+    SPACE 2
+    EXCLAMATION 1
+    QUOTATION 3
+    POUND 5
+    APOSTROPHE 1
+    PARENTHESIS_LEFT 2
+    PARENTHESIS_RIGHT 2
+    ASTERISK 1
+    PLUS 3
+    COMMA 2
+    DASH 2
+    PERIOD 1
+    SLASH 3
+    ZERO 3
+    ONE 3
+    TWO 3
+    THREE 3
+    FOUR 3
+    FIVE 3
+    SIX 3
+    SEVEN 3
+    EIGHT 3
+    NINE 3
+    COLON 1
+    SEMICOLON 2
+    ANGLE_BRACKET_LEFT 3
+    EQUAL 3
+    ANGLE_BRACKET_RIGHT 3
+    QUESTION 3
+    A 3
+    B 3
+    C 3
+    D 3
+    E 3
+    F 3
+    G 3 
+    H 3
+    I 3
+    J 3
+    K 3
+    L 3
+    M 5
+    N 4
+    O 4
+    P 3
+    Q 4
+    R 3
+    S 3
+    T 3
+    U 3 
+    V 3
+    W 5
+    X 3
+    Y 3
+    Z 3
+    SQUARE_BRACKET_LEFT 2
+    BACKSLASH 3
+    SQUARE_BRACKET_RIGHT 2
+    CIRCUMFLEX 3
+    UNDERSCORE 4
+    CURLY_BRACKET_LEFT 3
+    BAR 1
+    CURLY_BRACKET_RIGHT 3
+    TILDE 4

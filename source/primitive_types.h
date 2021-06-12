@@ -72,4 +72,18 @@ typedef double f64;
 #define F64_POSITIVE_INFINITY 0x7FF0000000000000 
 #define F64_NEGATIVE_INFINITY 0xFFF0000000000000 
 
+
+internal constexpr b8
+CompareStrings(const char *A, const char *B){
+    b8 Result = true;
+    while(*A || *B){
+        if(*A++ != *B++){
+            Result = false;
+        }
+    }
+    
+    return(Result);
+}
+
+
 #endif //SNAIL_JUMPY_PRIMITIVE_TYPES_H

@@ -671,22 +671,24 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
     TitleBarRect.Min.Y = TitleBarRect.Max.Y - TitleBarHeight;
     color C = Theme.TitleBarColor;
     
-    switch(DoDraggableElement(WIDGET_ID_CHILD(WIDGET_ID, (u64)Window), TitleBarRect,  Window->WindowP, 3)){
-        case UIBehavior_Activate: {
-            Window->WindowP = OSInput.MouseP + ActiveElement.Offset;
-        }
-        case UIBehavior_Hovered: {
-            C = Theme.TitleBarHoverColor;
-        }break;
-        case UIBehavior_None: {
-            if((ActiveElement.Type == UIElementType_Draggable) ||
-               (ActiveElement.Type == UIElementType_MouseButton)){
-                if(IsPointInRect(OSInput.MouseP, Window->Rect) &&
-                   (Window->FadeMode != UIWindowFadeMode_Hidden)){
-                    Window->FadeMode = UIWindowFadeMode_Faded;
-                }
+    if(!Window->DontUpdateOrRender()){
+        switch(DoDraggableElement(WIDGET_ID_CHILD(WIDGET_ID, (u64)Window), TitleBarRect,  Window->WindowP, 3)){
+            case UIBehavior_Activate: {
+                Window->WindowP = OSInput.MouseP + ActiveElement.Offset;
             }
-        }break;
+            case UIBehavior_Hovered: {
+                C = Theme.TitleBarHoverColor;
+            }break;
+            case UIBehavior_None: {
+                if((ActiveElement.Type == UIElementType_Draggable) ||
+                   (ActiveElement.Type == UIElementType_MouseButton)){
+                    if(IsPointInRect(OSInput.MouseP, Window->Rect) &&
+                       (Window->FadeMode != UIWindowFadeMode_Hidden)){
+                        Window->FadeMode = UIWindowFadeMode_Faded;
+                    }
+                }
+            }break;
+        }
     }
     Window->Rect = TopLeftRect(Window->WindowP, RectSize(Window->Rect));
     
@@ -806,7 +808,7 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, s32 Priority){
         if(!DoHoverElement(&Element)) return(Result);
         
         Result = UIBehavior_Hovered;
-        if(MouseButtonJustUp(MouseButton_Left)){
+        if(MouseButtonJustDown(MouseButton_Left)){
             SetValidElement(&Element);
         }
     }

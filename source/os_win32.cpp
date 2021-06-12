@@ -238,7 +238,6 @@ Win32DefaultHandlerRoutine(DWORD ControlSignal){
             
 #if defined(SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT)
             WorldManager.WriteWorldsToFiles();
-            WriteEntityInfos("entities.sje");
 #endif
             
             ExitProcess(0);
@@ -354,7 +353,6 @@ WinMain(HINSTANCE Instance,
     
 #if defined(SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT)
     WorldManager.WriteWorldsToFiles();
-    WriteEntityInfos("entities.sje");
 #endif
     FreeConsole();
     
@@ -365,8 +363,10 @@ WinMain(HINSTANCE Instance,
 internal os_file *
 OpenFile(const char *Path, open_file_flags Flags){
     DWORD Access = 0;
+    DWORD Creation = OPEN_ALWAYS;
     if(Flags & OpenFile_Read){
         Access |= GENERIC_READ;
+        Creation = OPEN_EXISTING;
     }
     if(Flags & OpenFile_Write){
         Access |= GENERIC_WRITE;
@@ -376,16 +376,11 @@ OpenFile(const char *Path, open_file_flags Flags){
     }
     
     os_file *Result;
-    HANDLE File = CreateFileA(Path, Access, FILE_SHARE_READ, 0, OPEN_ALWAYS, 0, 0);
+    HANDLE File = CreateFileA(Path, Access, FILE_SHARE_READ, 0, Creation, 0, 0);
     if(File != INVALID_HANDLE_VALUE){
         Result = (os_file *)File;
     }else{
-        // TODO(Tyler): Logging
         Result = 0;
-        DWORD Error = GetLastError();
-        if(Error != ERROR_SHARING_VIOLATION){
-            Assert(0);
-        }
     }
     
     return(Result);

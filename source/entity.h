@@ -2,11 +2,7 @@
 #define SNAIL_JUMPY_ENTITY_H
 
 //~ Other
-enum state_change_condition {
-    ChangeCondition_None,
-    ChangeCondition_CooldownOver,
-    ChangeCondition_AnimationOver,
-};
+//typedef u32 state_change_condition;
 
 // TODO(Tyler): I don't fully like having this be full of b8 variables, but having a 
 // v2 Direction has a few failings
@@ -37,23 +33,14 @@ struct art_entity {
     const char *Asset;
 };
 
-
 struct entity {
-    // NOTE(Tyler): Needs to be u32 otherwise compiler complains
-    // TODO(Tyler): Reorder to fix the above NOTE
     entity_type Type;
     entity_flags Flags;
-    entity_state State;
-    direction Direction;
-    u32 Info;
     
-    state_change_condition ChangeCondition;
-    f32 Cooldown;
-    const char *Asset;
-    f32 AnimationState;
+    asset_entity   *EntityInfo;
+    animation_state Animation;
+    
     f32 ZLayer;
-    f32 YOffset;
-    u32 NumberOfTimesAnimationHasPlayed;
     
     u8 BoundarySet;
     
