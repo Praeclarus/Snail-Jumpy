@@ -29,7 +29,7 @@ UpdateAndRenderDebug(){
  }
  RenderRect(CenterRect(P, V2(1)), -10.0f, RED, ScaledItem(1));
  
- asset_sprite_sheet *Sheet = Entity->SpriteSheet;
+ asset_sprite_sheet *Sheet = Entity->Pieces[0];
  
  {
   //f32 Y = -0.5f*Sheet->FrameSize.Height + Sheet->YOffset;
@@ -39,5 +39,5 @@ UpdateAndRenderDebug(){
   RenderRect(Rect(A, B), -10.0f, PINK, ScaledItem(1));
  }
  
- DoEntityAnimation(Entity, &Animation, P);
+ DoEntityAnimation(Entity, &Animation, P, -11.0f);
 }

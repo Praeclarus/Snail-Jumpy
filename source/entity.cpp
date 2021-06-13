@@ -372,7 +372,7 @@ UpdateAndRenderPlatformerPlayer(){
     case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
    }
    
-   ProjectilePhysics->P = Player->Physics->P + 0.5f*GetEntitySize(Player->EntityInfo);
+   ProjectilePhysics->P = Player->Physics->P + 0.5f*Player->EntityInfo->Size;
    ProjectilePhysics->P.Y += 0.15f;
    Projectile->dP *= Player->WeaponChargeTime+0.2f;
    Projectile->dP += 0.3f*Physics->dP;
@@ -388,10 +388,10 @@ UpdateAndRenderPlatformerPlayer(){
  
  
  v2 P = FloorV2(Player->Physics->P);
- v2 Center = P + 0.5f*GetEntitySize(Player->EntityInfo);
+ v2 Center = P + 0.5f*Player->EntityInfo->Size;
  GameRenderer.AddLight(Center, Color(0.3f, 0.7f, 0.6f, 1.0), 0.7f, 15.0f, GameItem(1));
  GameRenderer.SetCameraTarget(Center);
- DoEntityAnimation(Player->EntityInfo, &Player->Animation, P);
+ DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->ZLayer);
 }
 
 void 
@@ -459,12 +459,12 @@ entity_manager::UpdateAndRenderEntities(){
   
   MovePlatformer(Physics, Movement, Gravity);
   
-  v2 EntitySize = GetEntitySize(Enemy->EntityInfo);
+  v2 EntitySize = Enemy->EntityInfo->Size;
   v2 P = FloorV2(Physics->P);
   
   f32 Radius = RectSize(Enemy->Bounds).Width+5;
   GameRenderer.AddLight(P+0.5f*EntitySize, Color(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
-  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P);
+  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->ZLayer);
  }
  
  //~ Arts

@@ -35,8 +35,8 @@ DoInfoSelector(v2 StartP, string Selected){
  v2 P = StartP;
  for(u32 I=0; I<Entities.Count; I++){
   asset_entity *Info = AssetSystem.GetEntity(Entities[I]);
-  asset_sprite_sheet *Asset = Info->SpriteSheet;
-  v2 Size = GetEntitySize(Info);
+  asset_sprite_sheet *Asset = Info->Pieces[0];
+  v2 Size = Info->Size;
   
   AssetSystem.RenderSpriteSheetFrame(Asset, P, -2.0f, 0, 0);
   
@@ -226,7 +226,7 @@ world_editor::AddWorldEntity(){
    entity_data *NewEnemy = PushNewArrayItem(&World->Entities);
    *NewEnemy = {};
    
-   v2 EntitySize = GetEntitySize(EntityInfo);
+   v2 EntitySize = EntityInfo->Size;
    v2 P = MouseP - 0.5f*EntitySize;
    P = SnapEntity(P, EntitySize, 1);
    
@@ -383,11 +383,11 @@ world_editor::DoCursor(){
     RenderRect(CenterRect(Center, TILE_SIZE), -0.11f, PINK, GameItem(1));
    }else{ 
     asset_entity *EntityInfo = AssetSystem.GetEntity(EntityInfoToAdd);
-    v2 EntitySize = GetEntitySize(EntityInfo);
+    v2 EntitySize = EntityInfo->Size;
     v2 P = MouseP - 0.5f*EntitySize;
     P = SnapEntity(P, EntitySize, 1);
     
-    AssetSystem.RenderSpriteSheetFrame(EntityInfo->SpriteSheet, P, -0.5f, 1, 0);
+    AssetSystem.RenderSpriteSheetFrame(EntityInfo->Pieces[0], P, -0.5f, 1, 0);
    }
   }break;
   case EditMode_AddArt: {
@@ -487,7 +487,7 @@ world_editor::DoEnemyOverlay(entity_data *Entity){
  
  //~ Enemy facing direction
  asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->EntityInfo);
- v2 EntitySize = GetEntitySize(EntityInfo);
+ v2 EntitySize = EntityInfo->Size;
  v2 Size = V2(0.3f*EntitySize.X, EntitySize.Y);
  v2 Offset = V2(0.5f*EntitySize.X - 0.5f*Size.X, 0.0f);
  
@@ -730,7 +730,7 @@ world_editor::UpdateAndRender(){
   switch(Entity->Type){
    case EntityType_Enemy: {
     asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->EntityInfo);
-    asset_sprite_sheet *Asset = EntityInfo->SpriteSheet;
+    asset_sprite_sheet *Asset = EntityInfo->Pieces[0];
     
     v2 Size = Asset->FrameSize;
     v2 P = Entity->P;

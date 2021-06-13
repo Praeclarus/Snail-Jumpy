@@ -42,14 +42,13 @@ global const char * const ASSET_ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
 //~ Assets
 
 global_constant u32 MAX_ASSETS_PER_TYPE = 128;
-
-global_constant u32 MAX_SPRITE_SHEET_PIECES_HALF = 4;
 global_constant u32 MAX_SPRITE_SHEET_ANIMATIONS  = 32;
+global_constant u32 MAX_ENTITY_PIECES = 4;
+global_constant u32 MAX_ENTITY_ASSET_BOUNDARIES = 8;
+
 struct asset_sprite_sheet {
  u32 StateTable[State_TOTAL][Direction_TOTAL];
- render_texture BehindPieces[MAX_SPRITE_SHEET_PIECES_HALF];
- render_texture MiddlePiece;
- render_texture FrontPieces[MAX_SPRITE_SHEET_PIECES_HALF];
+ render_texture Texture;
  
  v2  FrameSize; 
  u32 XFrames;
@@ -60,24 +59,18 @@ struct asset_sprite_sheet {
  u32 FPSArray[MAX_SPRITE_SHEET_ANIMATIONS];
 };
 
-struct animation_state {
- entity_state State;
- direction Direction;
- f32 T;
- f32 Cooldown;
-};
-
 enum animation_change_condition {
  ChangeCondition_None,
  ChangeCondition_CooldownOver,
  ChangeCondition_AnimationOver,
- SpecialChangeCondition_StunTimeCooldown,
+ SpecialChangeCondition_CooldownVariable,
 };
 
 struct animation_change_data {
  animation_change_condition Condition;
  union {
   f32 Cooldown;
+  u64 VarHash;
  };
 };
 
@@ -88,10 +81,19 @@ struct asset_animation {
  b8                    BlockingStates[State_TOTAL];
 };
 
+struct animation_state {
+ entity_state State;
+ direction Direction;
+ f32 Ts[MAX_ENTITY_PIECES];
+ f32 Cooldown;
+};
 
-global_constant u32 MAX_ENTITY_ASSET_BOUNDARIES = 8;
 struct asset_entity {
- asset_sprite_sheet *SpriteSheet;
+ asset_sprite_sheet *Pieces[MAX_ENTITY_PIECES];
+ f32                 ZOffsets[MAX_ENTITY_PIECES];
+ u32                 PieceCount;
+ v2 Size;
+ 
  asset_animation     Animation;
  entity_flags        Flags;
  entity_type         Type;

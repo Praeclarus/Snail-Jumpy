@@ -18,7 +18,7 @@ asset_system::Initialize(memory_arena *Arena){
   }
  }
  
- DummySpriteSheet.MiddlePiece    = InvalidTexture;
+ DummySpriteSheet.Texture        = InvalidTexture;
  DummySpriteSheet.FrameSize      = V2(1);
  DummySpriteSheet.XFrames        = 1;
  DummySpriteSheet.YFrames        = 1;
@@ -110,10 +110,10 @@ asset_system::RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32
  
  rect R = SizeRect(P, RenderSize);
  
- RenderTexture(R, Z, Sheet->MiddlePiece, GameItem(Layer), TextureRect, true);
+ RenderTexture(R, Z, Sheet->Texture, GameItem(Layer), TextureRect, true);
 }
 
-//~ Animation & entity
+//~ Entities and animation
 
 asset_entity *
 asset_system::GetEntity(string Name){
@@ -125,17 +125,13 @@ asset_system::GetEntity(string Name){
  return(Result);
 }
 
-internal inline v2 
-GetEntitySize(asset_entity *Entity){
- v2 Result = Entity->SpriteSheet->FrameSize;
- return(Result);
-}
-
 internal inline void
 ChangeAnimationState(asset_animation *Animation, animation_state *AnimationState, entity_state NewState){
  if(NewState == State_None) return;
  AnimationState->State = NewState;
- AnimationState->T = 0.0f;
+ for(u32 I=0; I<MAX_ENTITY_PIECES; I++){
+  AnimationState->Ts[I] = 0.0f;
+ }
  animation_change_data *ChangeData = &Animation->ChangeDatas[AnimationState->State];
  if(ChangeData->Condition == ChangeCondition_CooldownOver){
   AnimationState->Cooldown = ChangeData->Cooldown;
@@ -149,25 +145,68 @@ DoesAnimationBlock(asset_animation *Animation, animation_state *State){
  return(Result);
 }
 
-internal void 
-DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P){
+internal inline b8
+UpdateSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation,  
+                           entity_state State, direction Direction, f32 *T){
+ b8 Result = false;
  f32 dTime = OSInput.dTime;
- asset_sprite_sheet *Sheet = Entity->SpriteSheet;
- asset_animation *Animation = &Entity->Animation;
  
- u32 AnimationIndex = Sheet->StateTable[State->State][State->Direction];
+ u32 AnimationIndex = Sheet->StateTable[State][Direction];
  Assert(AnimationIndex != 0);
  AnimationIndex--;
  
+ u32 FrameCount = Sheet->FrameCounts[AnimationIndex];
+ *T += Sheet->FPSArray[AnimationIndex]*dTime;
+ if(*T >= (f32)FrameCount){
+  *T= ModF32(*T, (f32)FrameCount);
+  Result = true;
+ }
+ 
+ return(Result);
+}
+
+internal inline void
+RenderSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation,  
+                           entity_state State, direction Direction, f32 *T, v2 P, f32 Z){
+ u32 AnimationIndex = Sheet->StateTable[State][Direction];
+ Assert(AnimationIndex != 0);
+ AnimationIndex--;
+ 
+ u32 Frame = (u32)*T;
+ for(u32 I=0; I < AnimationIndex; I++){
+  Frame += Sheet->FrameCounts[I];
+ }
+ 
+ AssetSystem.RenderSpriteSheetFrame(Sheet, P, Z, 1, Frame);
+}
+
+internal void 
+DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P, f32 Z){
+ f32 dTime = OSInput.dTime;
+ asset_animation *Animation = &Entity->Animation;
+ 
  animation_change_data *ChangeData = &Entity->Animation.ChangeDatas[State->State];
  
- u32 FrameCount = Sheet->FrameCounts[AnimationIndex];
- State->T += Sheet->FPSArray[AnimationIndex]*dTime;
- if(State->T >= (f32)FrameCount){
-  State->T = ModF32(State->T, (f32)FrameCount);
-  if(ChangeData->Condition == ChangeCondition_AnimationOver){
-   ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
+ b8 AllAnimationsFinished = true;
+ for(u32 PieceIndex = 0; PieceIndex < Entity->PieceCount; PieceIndex++){
+  asset_sprite_sheet *Sheet = Entity->Pieces[PieceIndex];
+  if(!UpdateSpriteSheetAnimation(Sheet, &Entity->Animation, 
+                                 State->State, State->Direction, &State->Ts[PieceIndex])){
+   AllAnimationsFinished = false;
   }
+ }
+ 
+ if((ChangeData->Condition == ChangeCondition_AnimationOver) &&
+    AllAnimationsFinished){
+  ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
+ }
+ 
+ for(u32 PieceIndex = 0; PieceIndex < Entity->PieceCount; PieceIndex++){
+  asset_sprite_sheet *Sheet = Entity->Pieces[PieceIndex];
+  f32 ZOffset = Entity->ZOffsets[PieceIndex];
+  RenderSpriteSheetAnimation(Sheet, &Entity->Animation, 
+                             State->State, State->Direction, &State->Ts[PieceIndex],
+                             P, Z+ZOffset);
  }
  
  if(ChangeData->Condition == ChangeCondition_CooldownOver){
@@ -177,16 +216,6 @@ DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P){
   }
  }
  
- AnimationIndex = Sheet->StateTable[State->State][State->Direction];
- Assert(AnimationIndex != 0);
- AnimationIndex--;
- 
- u32 Frame = (u32)State->T;
- for(u32 Index = 0; Index < AnimationIndex; Index++){
-  Frame += Sheet->FrameCounts[Index];
- }
- 
- AssetSystem.RenderSpriteSheetFrame(Sheet, P, -11.0f, 1, Frame);
 }
 
 //~ Art
@@ -356,7 +385,6 @@ asset_system::ProcessSpriteSheetStates(file_reader *Reader, const char *StateNam
   }
   
   Sheet->StateTable[State][Direction] = Index;
-  
  }
  
  return(true);
@@ -367,6 +395,7 @@ asset_system::ProcessSpriteSheet(file_reader *Reader){
  const char *Name = ExpectString(Reader);
  AssetLoaderHandleError();
  asset_sprite_sheet *Sheet = Strings.GetInHashTablePtr(&SpriteSheets, Name);
+ *Sheet = {0};
  
  v2s FrameSize = V2S(0);
  b8 LoadedAPieceAlready = false;
@@ -377,7 +406,7 @@ asset_system::ProcessSpriteSheet(file_reader *Reader){
   const char *String = ExpectString(Reader);
   AssetLoaderHandleError();
   
-  if(DoAttribute(String, "piece")){
+  if(DoAttribute(String, "path")){
    const char *Path = ExpectString(Reader);
    AssetLoaderHandleError();
    image *Image = LoadImageFromPath(Path);
@@ -395,21 +424,7 @@ asset_system::ProcessSpriteSheet(file_reader *Reader){
    }
    ImageSize = Image->Size;
    
-   s32 PieceIndex = ExpectInteger(Reader);
-   AssetLoaderHandleError();
-   if(AbsoluteValue(PieceIndex) >= MAX_SPRITE_SHEET_PIECES_HALF){
-    LogError(Token.Line, "Piece index: '%d' is not between -%d and %d", 
-             PieceIndex, MAX_SPRITE_SHEET_PIECES_HALF, MAX_SPRITE_SHEET_PIECES_HALF);
-    return(false);
-   }
-   
-   if(PieceIndex < 0){
-    Sheet->FrontPieces[-PieceIndex] = Image->Texture;
-   }else if(PieceIndex == 0){
-    Sheet->MiddlePiece = Image->Texture;
-   }else{
-    Sheet->BehindPieces[PieceIndex] = Image->Texture;
-   }
+   Sheet->Texture = Image->Texture;
    LoadedAPieceAlready = true;
    
   }else if(DoAttribute(String, "size")){
@@ -519,12 +534,10 @@ asset_system::ProcessAnimation(file_reader *Reader){
    
    file_token Token = Reader->NextToken();
    if(Token.Type == FileTokenType_String){
-    if(CompareStrings(Token.String, "STUN_TIME")){
-     ChangeData.Condition = SpecialChangeCondition_StunTimeCooldown;
-    }else{
-     LogError(Reader->Line, "'%s' is an invalid time!", Token.String);
-     return(false);
-    }
+    u64 Hash = HashString(Token.String);
+    ChangeData.Condition = SpecialChangeCondition_CooldownVariable;
+    ChangeData.VarHash = Hash;
+    
    }else if((Token.Type == FileTokenType_Float) ||
             (Token.Type == FileTokenType_Integer)){
     ChangeData.Condition = ChangeCondition_CooldownOver;
@@ -572,12 +585,13 @@ asset_system::ProcessEntity(file_reader *Reader){
  const char *Name = ExpectString(Reader);
  AssetLoaderHandleError();
  asset_entity *Entity = Strings.GetInHashTablePtr(&Entities, Name);
- // Reset entity
- Entity->Flags = 0;
+ *Entity = {0};
  
  collision_boundary Boundaries[MAX_ENTITY_ASSET_BOUNDARIES];
+ s32 CurrentPieceIndex = -1;
  u32 BoundaryCount = 0;
- f32 StunTime = 0.0f;
+ b8 HasSetAnimation = false;
+ b8 HasSetSize = false;
  while(true){
   file_token Token = Reader->PeekToken();
   if(Token.Type == FileTokenType_BeginCommand) break;
@@ -594,7 +608,7 @@ asset_system::ProcessEntity(file_reader *Reader){
    }
    
    Entity->Type = Type;
-  }else if(DoAttribute(String, "sprite_sheet")){
+  }else if(DoAttribute(String, "piece")){
    const char *SheetName = ExpectString(Reader);
    AssetLoaderHandleError();
    asset_sprite_sheet *Sheet = Strings.FindInHashTablePtr(&SpriteSheets, SheetName);
@@ -603,7 +617,30 @@ asset_system::ProcessEntity(file_reader *Reader){
     return(false);
    }
    
-   Entity->SpriteSheet = Sheet;
+   f32 ZOffset = (f32)ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   ZOffset *= 0.1f;
+   
+   if(Entity->PieceCount > MAX_ENTITY_PIECES){
+    LogError(Reader->Line, "Too many pieces(%u) specified, must be less than %u", Entity->PieceCount, MAX_ENTITY_PIECES);
+    return(false);
+   }
+   
+   
+   if(HasSetSize &&
+      ((Sheet->FrameSize.X  != Entity->Size.X) ||
+       (Sheet->FrameSize.Y  != Entity->Size.Y))){
+    LogError(Reader->Line, "Entity pieces must be the same size!");
+    return(false);
+   }
+   HasSetSize = true;
+   Entity->Size = Sheet->FrameSize;
+   
+   Entity->Pieces[Entity->PieceCount] = Sheet;
+   Entity->ZOffsets[Entity->PieceCount] = ZOffset;
+   Entity->PieceCount++;
+   CurrentPieceIndex++;
+   
   }else if(DoAttribute(String, "animation")){
    const char *AnimationName = ExpectString(Reader);
    AssetLoaderHandleError();
@@ -614,6 +651,31 @@ asset_system::ProcessEntity(file_reader *Reader){
    }
    
    Entity->Animation = *Animation;
+   HasSetAnimation = true;
+   
+  }else if(DoAttribute(String, "animation_var")){
+   if(!HasSetAnimation){
+    LogError(Reader->Line, "Animation must be specified before 'animation_var' is used!");
+    return(false);
+   }
+   if(IsInvalidEntityType(Reader->Line, Entity, EntityType_Enemy)) return(false);
+   
+   const char *VarName = ExpectString(Reader);
+   AssetLoaderHandleError();
+   u64 VarHash = HashString(VarName);
+   
+   f32 Time = ExpectFloat(Reader);
+   AssetLoaderHandleError();
+   
+   for(u32 I=0; I<State_TOTAL; I++){
+    animation_change_data *Data = &Entity->Animation.ChangeDatas[I];
+    if((Data->Condition == SpecialChangeCondition_CooldownVariable) &&
+       (Data->VarHash == VarHash)){
+     Data->Condition = ChangeCondition_CooldownOver;
+     Data->Cooldown = Time;
+    }
+   }
+   
   }else if(DoAttribute(String, "mass")){
    Entity->Mass = ExpectFloat(Reader);
    AssetLoaderHandleError();
@@ -689,11 +751,6 @@ asset_system::ProcessEntity(file_reader *Reader){
    if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
    Boundaries[Index] = MakeCollisionPill(V2(XOffset, YOffset), Radius, Height, 4, &PhysicsSystem.PermanentBoundaryMemory);
    
-  }else if(DoAttribute(String, "stun_time")){
-   if(IsInvalidEntityType(Reader->Line, Entity, EntityType_Enemy)) return(false);
-   
-   StunTime = ExpectFloat(Reader);
-   AssetLoaderHandleError();
   }else if(DoAttribute(String, "damage")){
    if(IsInvalidEntityType(Reader->Line, Entity, EntityType_Enemy)) return(false);
    
@@ -717,12 +774,11 @@ asset_system::ProcessEntity(file_reader *Reader){
   }else{ LogInvalidAttribute(Reader->Line, String); return(false); }
  }
  
- if(!Entity->SpriteSheet){
+ if(!Entity->Pieces[0]){
   LogError(StartLine, "Sprite sheet must be set!");
   return(false);
  }
  
- asset_sprite_sheet *Sheet = Entity->SpriteSheet;
  // TODO(Tyler): Memory leak!!!
  Entity->Boundaries = PhysicsSystem.AllocPermanentBoundaries(BoundaryCount);
  Entity->BoundaryCount = BoundaryCount;
@@ -730,20 +786,11 @@ asset_system::ProcessEntity(file_reader *Reader){
   collision_boundary *Boundary = &Boundaries[I];
   v2 Size = RectSize(Boundary->Bounds);
   v2 Min   = Boundary->Bounds.Min;
-  Boundary->Offset.Y -= Min.Y - Sheet->YOffset;
-  Boundary->Offset.X += 0.5f*(Sheet->FrameSize.Width);
+  Boundary->Offset.Y -= Min.Y;
+  Boundary->Offset.X += 0.5f*(Entity->Size.Width);
   Entity->Boundaries[I] = *Boundary;
  }
  
- if(Entity->Type == EntityType_Enemy){
-  for(u32 I=0; I<State_TOTAL; I++){
-   animation_change_data *Data = &Entity->Animation.ChangeDatas[I];
-   if(Data->Condition == SpecialChangeCondition_StunTimeCooldown){
-    Data->Condition = ChangeCondition_CooldownOver;
-    Data->Cooldown = StunTime;
-   }
-  }
- }
  
  
  return(true);
@@ -754,6 +801,7 @@ asset_system::ProcessArt(file_reader *Reader){
  const char *Name = ExpectString(Reader);
  AssetLoaderHandleError();
  asset_art *Art = Strings.GetInHashTablePtr(&Arts, Name);
+ *Art = {0};
  
  while(true){
   file_token Token = Reader->PeekToken();

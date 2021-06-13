@@ -2,7 +2,7 @@
 #                                 Animations
 # //////////////////////////////////////////////////////////////////////////
 : animation enemy
-    on_finish            state_turning    state_moving
+    on_finish            state_turning   state_moving
 	   on_finish            state_retreating state_stunned
 	   after_time STUN_TIME state_stunned    state_returning
 	   on_finish            state_returning  state_moving
@@ -20,7 +20,7 @@
 # //////////////////////////////////////////////////////////////////////////
 
 : sprite_sheet dragonfly
-    piece asset_sprite_sheets/dragonfly_sprite_sheet.png 0
+    path asset_sprite_sheets/dragonfly_sprite_sheet.png
     size 33 33
     frame_counts 10 10 3 3 4 4
     base_fps 8
@@ -32,7 +32,7 @@
 			         right 4
 
 : sprite_sheet snail
-    piece asset_sprite_sheets/snail_sprite_sheet.png 0 
+    path asset_sprite_sheets/snail_sprite_sheet.png
     size 17 17
     frame_counts 4 4 3 3 4 4 3 3 7 7
     base_fps 8
@@ -56,7 +56,7 @@
 			         right 10
 
 : sprite_sheet sally
-    piece asset_sprite_sheets/sally_sprite_sheet.png 0
+    path asset_sprite_sheets/sally_sprite_sheet.png
     size 33 33
     frame_counts 4 4 3 3 3 3 3 3 7 7
     base_fps 8
@@ -80,7 +80,7 @@
 			         right 10
 
 : sprite_sheet speedy
-    piece asset_sprite_sheets/speedy_sprite_sheet.png 0
+    path asset_sprite_sheets/speedy_sprite_sheet.png
     size 17 17
     frame_counts 4 4 3 3 2 2 3 3 4 4
     base_fps 8
@@ -104,7 +104,7 @@
 			         right 10
 
 : sprite_sheet boxing_dragonfly
-    piece asset_sprite_sheets/boxing_sprite_sheet.png 0
+    path asset_sprite_sheets/boxing_sprite_sheet.png
     size 33 33
     frame_counts 10 10 3 3
     base_fps 8
@@ -117,7 +117,7 @@
 			         right 4
 
 : sprite_sheet player
-    piece asset_sprite_sheets/test_avatar_sprite_sheet2.png 0
+    path asset_sprite_sheets/test_avatar_sprite_sheet2.png
     size 16 16
     frame_counts 17 17 6 6 5 5 1 1 2 2
     base_fps 8
@@ -136,7 +136,7 @@
             right 10
 
 : sprite_sheet overworld_player
-	   piece asset_sprite_sheets/overworld_avatar_sprite_sheet.png 0
+	   path asset_sprite_sheets/overworld_avatar_sprite_sheet.png
 	   size 64 64
 	   frame_counts 3 3 3 3 3 3 3 3 4 5 5 5 4 5 5 5
 	   base_fps 8
@@ -161,7 +161,7 @@
             northwest 16
 
 : sprite_sheet heart
-	   piece asset_sprite_sheets/heart_8x8.png 0
+	   path asset_sprite_sheets/heart_8x8.png
 	   size 8 8
 
 # //////////////////////////////////////////////////////////////////////////
@@ -170,7 +170,7 @@
 
 : entity player
 	   type          player
-	   sprite_sheet  player
+	   piece         player 0
 	   animation     player 
 	   mass          1.0
 	   speed         100
@@ -179,48 +179,48 @@
 
 : entity snail
    	type          enemy
-	   sprite_sheet  snail
+	   piece         snail 0
 	   animation     enemy
+    animation_var STUN_TIME 3.0
 	   mass          1.0  
 	   speed         100  
 	   boundary_circle 0 0 0 6
-	   stun_time     3.0  
 	   damage        2    
 	   collision_response ENEMY
 	   CAN_BE_STUNNED
 
 : entity sally
    	type          enemy
-	   sprite_sheet  sally
+	   piece         sally 0
 	   animation     enemy
+    animation_var STUN_TIME 4.0
 	   mass          2.0
 	   speed         100
 	   boundary_circle 0 0 0 13
-	   stun_time     4.0
 	   damage        3
 	   collision_response ENEMY
 	   CAN_BE_STUNNED
 
 : entity speedy
    	type          enemy
-	   sprite_sheet  speedy
+	   piece         speedy 0
 	   animation     enemy
+    animation_var STUN_TIME 2.0
 	   mass          0.7
 	   speed         100
 	   boundary_rect 0 0 0 11 11
-	   stun_time     2.0
 	   damage        1
 	   collision_response ENEMY
 	   CAN_BE_STUNNED
 
 : entity dragonfly
    	type          enemy
-	   sprite_sheet  dragonfly
+	   piece         dragonfly 0
 	   animation     enemy
+    animation_var STUN_TIME 0.0
 	   mass          1.5
 	   speed         100
-	   boundary_rect 0   0  8 31 3
-	   stun_time     0.0
+	   boundary_rect 0 0  8 31 3
 	   damage        1
 	   collision_response DRAGONFLY
 	   NO_GRAVITY
