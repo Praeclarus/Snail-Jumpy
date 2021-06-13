@@ -1,6 +1,7 @@
 
 void
 asset_system::Initialize(memory_arena *Arena){
+ Memory = PushNewArena(Arena, Kilobytes(8));
  SpriteSheets = PushHashTable<string, asset_sprite_sheet>(Arena, MAX_ASSETS_PER_TYPE);
  Entities     = PushHashTable<string, asset_entity>(Arena, MAX_ASSETS_PER_TYPE);
  Animations   = PushHashTable<string, asset_animation>(Arena, MAX_ASSETS_PER_TYPE);
@@ -395,7 +396,7 @@ asset_system::ProcessSpriteSheet(file_reader *Reader){
  const char *Name = ExpectString(Reader);
  AssetLoaderHandleError();
  asset_sprite_sheet *Sheet = Strings.GetInHashTablePtr(&SpriteSheets, Name);
- *Sheet = {0};
+ *Sheet = {};
  
  v2s FrameSize = V2S(0);
  b8 LoadedAPieceAlready = false;
@@ -586,7 +587,7 @@ asset_system::ProcessEntity(file_reader *Reader){
  const char *Name = ExpectString(Reader);
  AssetLoaderHandleError();
  asset_entity *Entity = Strings.GetInHashTablePtr(&Entities, Name);
- *Entity = {0};
+ *Entity = {};
  
  collision_boundary Boundaries[MAX_ENTITY_ASSET_BOUNDARIES];
  s32 CurrentPieceIndex = -1;
@@ -727,7 +728,7 @@ asset_system::ProcessEntity(file_reader *Reader){
    AssetLoaderHandleError();
    
    if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
-   Boundaries[Index] = MakeCollisionCircle(V2(XOffset, YOffset), Radius, 12, &PhysicsSystem.PermanentBoundaryMemory);
+   Boundaries[Index] = MakeCollisionCircle(V2(XOffset, YOffset), Radius, 12, &Memory);
    
   }else if(DoAttribute(String, "boundary_pill")){
    s32 Index = ExpectInteger(Reader);
@@ -750,7 +751,7 @@ asset_system::ProcessEntity(file_reader *Reader){
    AssetLoaderHandleError();
    
    if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
-   Boundaries[Index] = MakeCollisionPill(V2(XOffset, YOffset), Radius, Height, 4, &PhysicsSystem.PermanentBoundaryMemory);
+   Boundaries[Index] = MakeCollisionPill(V2(XOffset, YOffset), Radius, Height, 4, &Memory);
    
   }else if(DoAttribute(String, "damage")){
    if(IsInvalidEntityType(Reader->Line, Entity, EntityType_Enemy)) return(false);
@@ -782,7 +783,8 @@ asset_system::ProcessEntity(file_reader *Reader){
  }
  
  // TODO(Tyler): Memory leak!!!
- Entity->Boundaries = PhysicsSystem.AllocPermanentBoundaries(BoundaryCount);
+ //Entity->Boundaries = PhysicsSystem.AllocPermanentBoundaries(BoundaryCount);
+ Entity->Boundaries = PushArray(&Memory, collision_boundary, BoundaryCount);
  Entity->BoundaryCount = BoundaryCount;
  for(u32 I=0; I<BoundaryCount; I++){
   collision_boundary *Boundary = &Boundaries[I];
@@ -803,7 +805,7 @@ asset_system::ProcessArt(file_reader *Reader){
  const char *Name = ExpectString(Reader);
  AssetLoaderHandleError();
  asset_art *Art = Strings.GetInHashTablePtr(&Arts, Name);
- *Art = {0};
+ *Art = {};
  
  while(true){
   file_token Token = Reader->PeekToken();
@@ -897,13 +899,14 @@ asset_system::LoadAssetFile(const char *Path){
  
  b8 HitError = false;
  do{
+  ClearArena(&Memory);
+  memory_arena_marker Marker = BeginMarker(&TransientStorageArena);
+  
   os_file *File = OpenFile(Path, OpenFile_Read);
   u64 NewFileWriteTime = GetLastFileWriteTime(File);
   CloseFile(File);
   
   if(LastFileWriteTime < NewFileWriteTime){
-   // TODO(Tyler): We can run out of memory in TransientStorageArena here!
-   
    HitError = false;
    
    file_reader Reader = MakeFileReader(Path);
@@ -939,11 +942,9 @@ asset_system::LoadAssetFile(const char *Path){
     }
    }
    end_loop:;
-   
-  }else{
-   CloseFile(File);
   }
   
+  EndMarker(&TransientStorageArena, &Marker);
   
   if(HitError) OSSleep(10); // To prevent consuming the CPU
   LastFileWriteTime = NewFileWriteTime;

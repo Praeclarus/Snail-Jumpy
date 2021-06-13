@@ -2,7 +2,7 @@
 #                                 Animations
 # //////////////////////////////////////////////////////////////////////////
 : animation enemy
-    on_finish            state_turning   state_moving
+    on_finish            state_turning    state_moving
 	   on_finish            state_retreating state_stunned
 	   after_time STUN_TIME state_stunned    state_returning
 	   on_finish            state_returning  state_moving

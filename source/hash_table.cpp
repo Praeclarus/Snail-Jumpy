@@ -38,7 +38,7 @@ CompareKeys(u64 A, u64 B){
 template <typename KeyType, typename ValueType>
 internal constexpr hash_table<KeyType, ValueType>
 PushHashTable(memory_arena *Arena, u32 MaxBuckets){
- hash_table<KeyType, ValueType> Result = {0};
+ hash_table<KeyType, ValueType> Result = {};
  Result.MaxBuckets = MaxBuckets;
  Result.Hashes = PushArray(Arena, u64, MaxBuckets);
  Result.Keys = PushArray(Arena, KeyType, MaxBuckets);

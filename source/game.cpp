@@ -68,13 +68,13 @@ UpdateAndRenderMainGame(){
  
  //~ Weapon charge bar
  {
-  v2 Min = V2(10.0f, 10.0f);
+  v2 Min = V2(4.0f, 4.0f);
   v2 Max = Min;
   f32 Percent = 0.0f;
   Percent = EntityManager.Player->WeaponChargeTime;
-  Max.X += 400.0f*Percent;
-  Max.Y += 30.0f;
-  RenderRect(Rect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f), UIItem(1));
+  Max.X += 70.0f*Percent;
+  Max.Y += 5.0f;
+  RenderRect(Rect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f), GameItem(0));
  }
  
  //~ Health display

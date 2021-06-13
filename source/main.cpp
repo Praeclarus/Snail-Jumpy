@@ -173,7 +173,7 @@ GameUpdateAndRender(){
    GameMode = GameMode_WorldEditor;
   }
   
-  StateChangeData = {0};
+  StateChangeData = {};
  }
 }
 

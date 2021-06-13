@@ -137,8 +137,11 @@ enum asset_loader_error {
 };
 
 //~ Asset system
+
 struct asset_system {
  //~ Asset stuff
+ memory_arena Memory;
+ 
  hash_table<string, asset_sprite_sheet> SpriteSheets;
  hash_table<string, asset_animation>    Animations;
  hash_table<string, asset_entity>       Entities;
@@ -196,14 +199,5 @@ struct asset_system {
  b8 ProcessBackground(file_reader *Reader);
  b8 ProcessFont(file_reader *Reader);
 };
-
-#pragma pack(push, 1)
-struct asset_file_header {
- char Header[3]; // 'S', 'J', 'A'
- u32 Version;
- const char *SpriteSheet;
- 
-};
-#pragma pack(pop)
 
 #endif //SNAIL_JUMPY_ASSET_H

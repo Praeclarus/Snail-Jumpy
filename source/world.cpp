@@ -356,7 +356,7 @@ world_manager::WriteWorldsToFiles(){
   os_file *File = OpenFile(Path, OpenFile_Write);
   Assert(File);
   
-  world_file_header Header = {0};
+  world_file_header Header = {};
   Header.Header[0] = 'S';
   Header.Header[1] = 'J';
   Header.Header[2] = 'W';
