@@ -552,6 +552,7 @@ asset_system::ProcessAnimation(file_reader *Reader){
    
    Animation->ChangeDatas[From] = ChangeData;
    Animation->NextStates[From] = To;
+   
   }else if(DoAttribute(String, "blocking")){
    entity_state State = ReadState(Reader);
    if(State == State_None) return(false);
@@ -756,6 +757,7 @@ asset_system::ProcessEntity(file_reader *Reader){
    
    Entity->Damage = ExpectInteger(Reader);
    AssetLoaderHandleError();
+   
   }else if(DoAttribute(String, "collision_response")){
    const char *ResponseName = ExpectString(Reader);
    AssetLoaderHandleError();

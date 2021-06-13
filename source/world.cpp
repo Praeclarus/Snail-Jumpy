@@ -388,6 +388,7 @@ world_manager::WriteWorldsToFiles(){
    WriteVariableToFile(File, Offset, Entity->P);
    WriteVariableToFile(File, Offset, Entity->Type);
    const char *EntityInfoName = Strings.GetString(Entity->EntityInfo);
+   if(!EntityInfoName) EntityInfoName = "";
    u32 Length = CStringLength(EntityInfoName);
    WriteToFile(File, Offset, EntityInfoName, Length+1);
    Offset += Length+1;
