@@ -1,4 +1,4 @@
-// TODO(Tyler): Implement an allocator for the stb libraries
+//TODO(Tyler): Implement an allocator for the stb libraries
 #define STB_NO_STDIO
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
@@ -178,10 +178,10 @@ GameUpdateAndRender(){
 }
 
 internal inline void
-ChangeState(game_mode NewMode, const char *NewLevel){
+ChangeState(game_mode NewMode, string NewLevel){
  StateChangeData.DidChange = true;
  StateChangeData.NewMode = NewMode;
- StateChangeData.NewLevel = NewLevel;
+ StateChangeData.NewLevel = Strings.GetString(NewLevel);
 }
 
 internal inline void

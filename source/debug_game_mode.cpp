@@ -10,7 +10,7 @@ UpdateAndRenderDebug(){
  GameRenderer.SetLightingConditions(WHITE, 1.0f);
  GameRenderer.SetCameraSettings(0.5f);
  
- asset_entity *Entity = FindInHashTablePtr(&AssetSystem.Entities, "snail");
+ asset_entity *Entity = Strings.FindInHashTablePtr(&AssetSystem.Entities, "snail");
  
  local_persist animation_state Animation = {};
  if(Animation.State == State_None){

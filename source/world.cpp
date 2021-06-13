@@ -2,12 +2,10 @@
 //~ Helpers
 
 b8
-world_manager::IsLevelCompleted(const char *LevelName){
+world_manager::IsLevelCompleted(string LevelName){
  b8 Result = false;
  
- if(LevelName[0] == '\0'){
-  Result = true;
- }else if(LevelName){
+ if(LevelName.ID){
   world_data *World = WorldManager.GetOrCreateWorld(LevelName);
   if(World){
    Result = World->Flags & WorldFlag_IsCompleted;
@@ -25,7 +23,7 @@ AddPlayer(v2 P){
  player_entity *Player = EntityManager.Player;
  *Player = {};
  // TODO(Tyler): Maybe make a constant
- asset_entity *EntityInfo = AssetSystem.GetEntity("player");
+ asset_entity *EntityInfo = AssetSystem.GetEntity(Strings.GetString("player"));
  Player->Type = EntityType_Player;
  Player->EntityInfo = EntityInfo;
  Player->Animation.Direction = Direction_Right;
@@ -61,7 +59,8 @@ world_manager::LoadWorld(const char *LevelName){
  EntityManager.Reset();
  
  if(LevelName){
-  world_data *World = GetOrCreateWorld(LevelName);
+  string String = Strings.GetString(LevelName);
+  world_data *World = GetOrCreateWorld(String);
   
   if(World){
    CurrentWorld = World;
@@ -178,7 +177,7 @@ world_manager::LoadWorld(const char *LevelName){
       Teleporter->Physics = Physics;
       Teleporter->Bounds = TeleporterBoundary->Bounds;
       Teleporter->Level = Entity->Level;
-      Teleporter->IsLocked = !IsLevelCompleted(Entity->TRequiredLevel);
+      Teleporter->IsLocked = !IsLevelCompleted(Strings.GetString(Entity->TRequiredLevel));
      }break;
      
      //~ Doors
@@ -192,12 +191,12 @@ world_manager::LoadWorld(const char *LevelName){
       Door->Physics = Physics;
       Door->Bounds = Boundary->Bounds;
       
-      if(IsLevelCompleted(Entity->DRequiredLevel)){
+      if(IsLevelCompleted(Strings.GetString(Entity->DRequiredLevel))){
        OpenDoor(Door);
       }
      }break;
      
-     //~Arts
+     //~ Arts
      case EntityType_Art: {
       art_entity *Art = BucketArrayAlloc(&EntityManager.Arts);
       *Art = {};
@@ -261,9 +260,9 @@ world_manager::LoadWorldFromFile(const char *Name){
  CloseFile(OSFile);
  if(OSFile){
   entire_file File = ReadEntireFile(&TransientStorageArena, Path);
-  const char *WorldName = Strings.GetString(Name);
-  NewWorld = CreateNewWorld(Name);
-  NewWorld->Name = WorldName;
+  string String = Strings.GetString(Name);
+  NewWorld = CreateNewWorld(String);
+  NewWorld->Name = String;
   stream Stream = CreateReadStream(File.Data, File.Size);
   
   world_file_header *Header = ConsumeType(&Stream, world_file_header);
@@ -271,12 +270,12 @@ world_manager::LoadWorldFromFile(const char *Name){
        (Header->Header[1] == 'J') && 
        (Header->Header[2] == 'W'))){
    LogMessage("LoadWorldFromFile: Invalid header: %.3s!", Header->Header);
-   RemoveWorld(Name);
+   RemoveWorld(String);
    return(0);
   }
   if(Header->Version != CURRENT_WORLD_FILE_VERSION){
    LogMessage("LoadWorldFromFile: Invalid version %u, current version: %u", Header->Version, CURRENT_WORLD_FILE_VERSION);
-   RemoveWorld(Name);
+   RemoveWorld(String);
    return(0);
   }
   
@@ -295,8 +294,7 @@ world_manager::LoadWorldFromFile(const char *Name){
   NewWorld->Exposure     = Header->Exposure;
   
   // TODO(Tyler): This probably is not needed and could be removed
-  char *String = ConsumeString(&Stream); 
-  //CopyCString(NewWorld->Name, String, 512);
+  ConsumeString(&Stream); 
   
   u32 MapSize = NewWorld->Width*NewWorld->Height;
   u8 *Map = ConsumeBytes(&Stream, MapSize);
@@ -308,8 +306,8 @@ world_manager::LoadWorldFromFile(const char *Name){
    entity_data *Entity = &NewWorld->Entities[I];
    Entity->P      = *ConsumeType(&Stream, v2);
    Entity->Type   = *ConsumeType(&Stream, u32);
-   Entity->EntityInfo = ConsumeString(&Stream);
-   Entity->EntityInfo = Strings.GetString(Entity->EntityInfo);
+   const char *EntityInfoString = ConsumeString(&Stream);
+   Entity->EntityInfo = Strings.GetString(EntityInfoString);
    switch(Entity->Type){
     case EntityType_Enemy: {
      Entity->Direction = *ConsumeType(&Stream, direction);
@@ -333,11 +331,10 @@ world_manager::LoadWorldFromFile(const char *Name){
     case EntityType_Art: {
      char *AssetInFile = ConsumeString(&Stream);
      Entity->Asset = Strings.GetString(AssetInFile);
-     if(!Entity->Asset) Entity->Asset = Strings.GetString(AssetInFile);
      Entity->Z = *ConsumeType(&Stream, f32);
     }break;
     default: {
-     RemoveWorld(Name);
+     RemoveWorld(String);
      return(0);
     }break;
    }
@@ -377,8 +374,9 @@ world_manager::WriteWorldsToFiles(){
   WriteToFile(File, 0, &Header, sizeof(Header));
   u32 Offset = sizeof(Header);
   
-  u32 NameLength = CStringLength(World->Name);
-  WriteToFile(File, Offset, World->Name, NameLength+1);
+  const char *WorldName = Strings.GetString(World->Name);
+  u32 NameLength = CStringLength(WorldName);
+  WriteToFile(File, Offset, WorldName, NameLength+1);
   Offset += NameLength+1;
   
   u32 MapSize = World->Width*World->Height;
@@ -389,8 +387,9 @@ world_manager::WriteWorldsToFiles(){
    entity_data *Entity = &World->Entities[I];
    WriteVariableToFile(File, Offset, Entity->P);
    WriteVariableToFile(File, Offset, Entity->Type);
-   u32 Length = CStringLength(Entity->EntityInfo);
-   WriteToFile(File, Offset, Entity->EntityInfo, Length+1);
+   const char *EntityInfoName = Strings.GetString(Entity->EntityInfo);
+   u32 Length = CStringLength(EntityInfoName);
+   WriteToFile(File, Offset, EntityInfoName, Length+1);
    Offset += Length+1;
    switch(Entity->Type){
     case EntityType_Enemy: {
@@ -419,8 +418,9 @@ world_manager::WriteWorldsToFiles(){
      }
     }break;
     case EntityType_Art: {
-     u32 Length = CStringLength(Entity->Asset);
-     WriteToFile(File, Offset, Entity->Asset, Length+1);
+     const char *AssetName = Strings.GetString(Entity->Asset);
+     u32 Length = CStringLength(AssetName);
+     WriteToFile(File, Offset, AssetName, Length+1);
      Offset += Length+1;
      WriteVariableToFile(File, Offset, Entity->Z);
     }break;
@@ -435,26 +435,25 @@ world_manager::WriteWorldsToFiles(){
 void
 world_manager::Initialize(memory_arena *Arena){
  Memory = PushNewArena(Arena, Kilobytes(512));
- WorldTable = PushHashTable<const char *, world_data>(Arena, 512);
+ WorldTable = PushHashTable<string, world_data>(Arena, 512);
 }
 
 world_data *
-world_manager::GetWorld(const char *Name){
- world_data *Result = FindInHashTablePtr<const char *, world_data>(&WorldTable, Name);
+world_manager::GetWorld(string Name){
+ world_data *Result = FindInHashTablePtr<string, world_data>(&WorldTable, Name);
  if(!Result){
-  Result = LoadWorldFromFile(Name);
+  Result = LoadWorldFromFile(Strings.GetString(Name));
  }
  
  return(Result);
 }
 
 world_data *
-world_manager::GetOrCreateWorld(const char *Name){
+world_manager::GetOrCreateWorld(string Name){
  world_data *Result = GetWorld(Name);
  if(!Result){
-  const char *WorldName = Strings.GetString(Name);
   Result = CreateNewWorld(Name);
-  Result->Name = WorldName;
+  Result->Name = Name;
   Result->Width = 32;
   Result->Height = 18;
   u32 MapSize = Result->Width*Result->Height;
@@ -466,12 +465,12 @@ world_manager::GetOrCreateWorld(const char *Name){
 }
 
 world_data *
-world_manager::CreateNewWorld(const char *Name){
- world_data *Result = FindInHashTablePtr<const char *, world_data>(&WorldTable, Name);
+world_manager::CreateNewWorld(string Name){
+ world_data *Result = FindInHashTablePtr(&WorldTable, Name);
  if(Result){
   Result = 0;
  }else{
-  Result = CreateInHashTablePtr<const char *, world_data>(&WorldTable, Name);
+  Result = CreateInHashTablePtr(&WorldTable, Name);
   Result->AmbientColor = HSBColor(1.0f, 0.0f, 1.0f);
   Result->Exposure = 1.0f;
  }
@@ -480,9 +479,9 @@ world_manager::CreateNewWorld(const char *Name){
 }
 
 void 
-world_manager::RemoveWorld(const char *Name){
- char Buffer[256];
- stbsp_snprintf(Buffer, sizeof(Buffer), "worlds//%s.sjw", Name);
+world_manager::RemoveWorld(string Name){
+ char Buffer[DEFAULT_BUFFER_SIZE];
+ stbsp_snprintf(Buffer, sizeof(Buffer), "worlds//%s.sjw", Strings.GetString(Name));
  DeleteFileAtPath(Buffer);
- RemoveFromHashTable<const char *, world_data>(&WorldTable, Name);
+ RemoveFromHashTable(&WorldTable, Name);
 }

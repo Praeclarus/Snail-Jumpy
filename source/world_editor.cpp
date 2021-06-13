@@ -8,7 +8,7 @@ ToggleWorldEditor(){
   Score = 0;
  }else if(GameMode == GameMode_MainGame){
   // To editor from main game
-  ChangeState(GameMode_WorldEditor, 0);
+  ChangeState(GameMode_WorldEditor, String(0));
   WorldEditor.SelectedThing = 0;
  }
 }
@@ -16,21 +16,21 @@ ToggleWorldEditor(){
 
 //~ Selector
 
-internal const char *
-DoInfoSelector(v2 StartP, const char *Selected){
- const char *Result = Selected;
+internal string
+DoInfoSelector(v2 StartP, string Selected){
+ string Result = Selected;
  local_constant f32 Thickness = 1.0f;
  local_constant f32 Spacer    = 0.0f;
  
- array<const char *> Entities = MakeNewArray<const char *>(&TransientStorageArena, AssetSystem.Entities.BucketsUsed);
+ array<string> Entities = MakeNewArray<string>(&TransientStorageArena, AssetSystem.Entities.BucketsUsed);
  for(u32 I=0; I < AssetSystem.Entities.MaxBuckets; I++){
-  const char *Key = AssetSystem.Entities.Keys[I];
-  if(Key){ 
+  string Key = AssetSystem.Entities.Keys[I];
+  if(Key.ID){ 
    PushItemOntoArray(&Entities, Key); 
   }
  }
  
- if(!Result) Result = Entities[0];
+ if(!Result.ID) Result = Entities[0];
  
  v2 P = StartP;
  for(u32 I=0; I<Entities.Count; I++){
@@ -82,20 +82,20 @@ DoInfoSelector(v2 StartP, const char *Selected){
  return(Result);
 }
 
-internal const char *
-DoArtSelector(v2 StartP, const char *Selected){
- const char *Result = Selected;
+internal string 
+DoArtSelector(v2 StartP, string Selected){
+ string Result = Selected;
  local_constant f32 Thickness = 1.0f;
  local_constant f32 Spacer    = 0.0f;
  
  v2 P = StartP;
- array<const char *> Arts = MakeNewArray<const char *>(&TransientStorageArena, AssetSystem.Arts.BucketsUsed);
+ array<string> Arts = MakeNewArray<string>(&TransientStorageArena, AssetSystem.Arts.BucketsUsed);
  for(u32 I=0; I < AssetSystem.Arts.MaxBuckets; I++){
-  const char *Key = AssetSystem.Arts.Keys[I];
-  if(Key){ PushItemOntoArray(&Arts, Key); }
+  string Key = AssetSystem.Arts.Keys[I];
+  if(Key.ID){ PushItemOntoArray(&Arts, Key); }
  }
  
- if(!Result) Result = Arts[0];
+ if(!Result.ID) Result = Arts[0];
  
  for(u32 I=0; I<Arts.Count; I++){
   asset_art *Art = AssetSystem.GetArt(Arts[I]);
@@ -379,7 +379,7 @@ world_editor::DoCursor(){
    RenderRectOutline(R, -0.11f, BLACK, GameItem(1));
   }break;
   case EditMode_AddEnemy: {
-   if(EntityInfoToAdd == 0){
+   if(EntityInfoToAdd.ID == 0){
     RenderRect(CenterRect(Center, TILE_SIZE), -0.11f, PINK, GameItem(1));
    }else{ 
     asset_entity *EntityInfo = AssetSystem.GetEntity(EntityInfoToAdd);
@@ -548,15 +548,15 @@ world_editor::DoUI(){
  Window->TextInput(NameBuffer, ArrayCount(NameBuffer), WIDGET_ID);
  
  if(Window->Button("Load or create world", WIDGET_ID)){
-  World = WorldManager.GetOrCreateWorld(NameBuffer);
+  World = WorldManager.GetOrCreateWorld(Strings.GetString(NameBuffer));
   
   ZeroMemory(NameBuffer, ArrayCount(NameBuffer));
  }
  
  if(Window->Button("Rename world", WIDGET_ID)){
-  world_data *NewWorld = WorldManager.GetWorld(NameBuffer);
+  world_data *NewWorld = WorldManager.GetWorld(Strings.GetString(NameBuffer));
   if(!NewWorld){
-   const char *WorldName = Strings.GetString(NameBuffer);
+   string WorldName = Strings.GetString(NameBuffer);
    NewWorld = WorldManager.CreateNewWorld(WorldName);
    *NewWorld = *World;
    WorldManager.RemoveWorld(World->Name);
@@ -679,7 +679,7 @@ world_editor::UpdateAndRender(){
  TIMED_FUNCTION();
  if(!World){
   World = CurrentWorld;
-  EntityInfoToAdd = "snail";
+  EntityInfoToAdd = Strings.GetString("snail");
  }
  
  GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));

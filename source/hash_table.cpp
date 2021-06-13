@@ -1,5 +1,6 @@
 
-//~ Simple hash table
+//~ Simple and very naive hash table
+// // TODO(Tyler): This hash table implementation could be improved significantly
 
 template <typename KeyType, typename ValueType>
 struct hash_table {
@@ -10,14 +11,9 @@ struct hash_table {
  ValueType *Values;
 };
 
-// TODO(Tyler): Better hash function
 internal constexpr u64
 HashKey(const char *String) {
- u64 Result = 71984823;
- while(s32 Char = *String++) {
-  Result += (Char << 5) * 3;
-  Result *= Char;
- }
+ u64 Result = HashString(String);
  return(Result);
 }
 
@@ -114,8 +110,6 @@ CreateInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
 template <typename KeyType, typename ValueType>
 internal constexpr ValueType *
 FindInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
- //TIMED_FUNCTION();
- 
  u64 Hash = HashKey(Key);
  if(Hash == 0) Hash++; 
  
@@ -159,7 +153,6 @@ FindInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
 template <typename KeyType, typename ValueType>
 internal constexpr ValueType
 FindOrCreateInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
- //TIMED_FUNCTION();
  Assert(Table->BucketsUsed < Table->MaxBuckets);
  
  u64 Hash = HashKey(Key);
@@ -192,7 +185,6 @@ FindOrCreateInHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
 template <typename KeyType, typename ValueType>
 internal constexpr ValueType *
 FindOrCreateInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
- //TIMED_FUNCTION();
  Assert(Table->BucketsUsed < Table->MaxBuckets);
  
  u64 Hash = HashKey(Key);
@@ -229,8 +221,6 @@ FindOrCreateInHashTablePtr(hash_table<KeyType, ValueType> *Table, KeyType Key){
 template <typename KeyType, typename ValueType>
 internal constexpr b8
 RemoveFromHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
- //TIMED_FUNCTION();
- 
  u64 Hash = HashKey(Key);
  if(Hash == 0){ Hash++; }
  
@@ -253,7 +243,7 @@ RemoveFromHashTable(hash_table<KeyType, ValueType> *Table, KeyType Key){
  if(Index != 0){
   Table->BucketsUsed--;
   Table->Hashes[Index] = 0; 
-  Table->Keys[Index] = 0; 
+  Table->Keys[Index] = {}; 
   Table->Values[Index] = {}; 
   Result = true;
  }

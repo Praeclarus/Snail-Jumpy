@@ -489,7 +489,7 @@ entity_manager::UpdateAndRenderEntities(){
    RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, GREEN, GameItem(1));
    
    if(Teleporter->IsSelected){
-    world_data *World = WorldManager.GetOrCreateWorld(Teleporter->Level);
+    world_data *World = WorldManager.GetOrCreateWorld(Strings.GetString(Teleporter->Level));
     if(World){
      v2 StringP = Teleporter->Physics->P;
      StringP.Y += 0.5f;

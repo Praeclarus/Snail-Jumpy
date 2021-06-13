@@ -1,12 +1,12 @@
 
 void
 asset_system::Initialize(memory_arena *Arena){
- SpriteSheets = PushHashTable<const char *, asset_sprite_sheet>(Arena, MAX_ASSETS_PER_TYPE);
- Entities     = PushHashTable<const char *, asset_entity>(Arena, MAX_ASSETS_PER_TYPE);
- Animations   = PushHashTable<const char *, asset_animation>(Arena, MAX_ASSETS_PER_TYPE);
- Arts         = PushHashTable<const char *, asset_art>(Arena, MAX_ASSETS_PER_TYPE);
- Tilemaps     = PushHashTable<const char *, asset_tilemap>(Arena, MAX_ASSETS_PER_TYPE);
- Backgrounds  = PushHashTable<const char *, asset_background>(Arena, MAX_ASSETS_PER_TYPE);
+ SpriteSheets = PushHashTable<string, asset_sprite_sheet>(Arena, MAX_ASSETS_PER_TYPE);
+ Entities     = PushHashTable<string, asset_entity>(Arena, MAX_ASSETS_PER_TYPE);
+ Animations   = PushHashTable<string, asset_animation>(Arena, MAX_ASSETS_PER_TYPE);
+ Arts         = PushHashTable<string, asset_art>(Arena, MAX_ASSETS_PER_TYPE);
+ Tilemaps     = PushHashTable<string, asset_tilemap>(Arena, MAX_ASSETS_PER_TYPE);
+ Backgrounds  = PushHashTable<string, asset_background>(Arena, MAX_ASSETS_PER_TYPE);
  
  //~ Dummy assets
  u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};
@@ -69,9 +69,9 @@ asset_system::Initialize(memory_arena *Arena){
 //~ Sprite sheets
 
 asset_sprite_sheet *
-asset_system::GetSpriteSheet(const char *Name){
+asset_system::GetSpriteSheet(string Name){
  asset_sprite_sheet *Result = &DummySpriteSheet;
- if(Name){
+ if(Name.ID){
   asset_sprite_sheet *Asset = FindInHashTablePtr(&SpriteSheets, Name);
   if(Asset) Result = Asset;
  }
@@ -116,9 +116,9 @@ asset_system::RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32
 //~ Animation & entity
 
 asset_entity *
-asset_system::GetEntity(const char *Name){
+asset_system::GetEntity(string Name){
  asset_entity *Result = 0;
- if(Name){
+ if(Name.ID){
   asset_entity *Asset = FindInHashTablePtr(&Entities, Name);
   if(Asset) Result = Asset;
  }
@@ -192,9 +192,9 @@ DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P){
 //~ Art
 
 asset_art *
-asset_system::GetArt(const char *Name){
+asset_system::GetArt(string Name){
  asset_art *Result = &DummyArt;
- if(Name){
+ if(Name.ID){
   asset_art *Asset = FindInHashTablePtr(&Arts, Name);
   if(Asset) Result = Asset;
  }
@@ -597,7 +597,7 @@ asset_system::ProcessEntity(file_reader *Reader){
   }else if(DoAttribute(String, "sprite_sheet")){
    const char *SheetName = ExpectString(Reader);
    AssetLoaderHandleError();
-   asset_sprite_sheet *Sheet = FindInHashTablePtr(&SpriteSheets, SheetName);
+   asset_sprite_sheet *Sheet = Strings.FindInHashTablePtr(&SpriteSheets, SheetName);
    if(!Sheet){
     LogError(Reader->Line, "The sprite sheet: '%s' is undefined!", SheetName);
     return(false);
@@ -607,7 +607,7 @@ asset_system::ProcessEntity(file_reader *Reader){
   }else if(DoAttribute(String, "animation")){
    const char *AnimationName = ExpectString(Reader);
    AssetLoaderHandleError();
-   asset_animation *Animation = FindInHashTablePtr(&Animations, AnimationName);
+   asset_animation *Animation = Strings.FindInHashTablePtr(&Animations, AnimationName);
    if(!Animation){
     LogError(Reader->Line, "The animation: '%s' is undefined!", AnimationName);
     return(false);

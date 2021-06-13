@@ -137,12 +137,12 @@ enum asset_loader_error {
 //~ Asset system
 struct asset_system {
  //~ Asset stuff
- hash_table<const char *, asset_sprite_sheet> SpriteSheets;
- hash_table<const char *, asset_animation>    Animations;
- hash_table<const char *, asset_entity>       Entities;
- hash_table<const char *, asset_art>          Arts;
- hash_table<const char *, asset_tilemap>      Tilemaps;
- hash_table<const char *, asset_background>   Backgrounds;
+ hash_table<string, asset_sprite_sheet> SpriteSheets;
+ hash_table<string, asset_animation>    Animations;
+ hash_table<string, asset_entity>       Entities;
+ hash_table<string, asset_art>          Arts;
+ hash_table<string, asset_tilemap>      Tilemaps;
+ hash_table<string, asset_background>   Backgrounds;
  
  asset_sprite_sheet DummySpriteSheet;
  asset_art          DummyArt;
@@ -151,12 +151,12 @@ struct asset_system {
  
  void Initialize(memory_arena *Arena);
  
- asset_sprite_sheet *GetSpriteSheet(const char *Name);
+ asset_sprite_sheet *GetSpriteSheet(string Name);
  void RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 Center, f32 Z, u32 Layer, u32 Frame);
  
- asset_entity *GetEntity(const char *Name);
+ asset_entity *GetEntity(string Name);
  
- asset_art *GetArt(const char *Name);
+ asset_art *GetArt(string Name);
  void RenderArt(asset_art *Art, v2 P, f32 Z);
  
  //~ Logging 

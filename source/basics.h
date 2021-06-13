@@ -72,17 +72,27 @@ typedef double f64;
 #define F64_POSITIVE_INFINITY 0x7FF0000000000000 
 #define F64_NEGATIVE_INFINITY 0xFFF0000000000000 
 
+//~ String functions
 
 internal constexpr b8
 CompareStrings(const char *A, const char *B){
-    b8 Result = true;
-    while(*A || *B){
-        if(*A++ != *B++){
-            Result = false;
-        }
-    }
-    
-    return(Result);
+ b8 Result = true;
+ while(*A || *B){
+  if(*A++ != *B++){
+   Result = false;
+  }
+ }
+ 
+ return(Result);
+}
+
+internal constexpr u64
+HashString(const char *String){
+ u64 Result = 71984823;
+ while(char Char = *String++) {
+  Result += (Char << 5) + Char;
+ }
+ return(Result);
 }
 
 
