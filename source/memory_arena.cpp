@@ -14,7 +14,7 @@ struct memory_arena {
 };
 
 internal void
-CreateArena(memory_arena *Arena, void *Memory, umw Size){
+InitializeArena(memory_arena *Arena, void *Memory, umw Size){
  *Arena = {};
  Arena->Memory = (u8 *)Memory;
  Arena->Size = Size;

@@ -2,8 +2,8 @@
 //~ Layout
 
 internal inline layout
-CreateLayout(f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance, 
-             f32 Width = 100, f32 Z = -0.5f){
+MakeLayout(f32 BaseX, f32 BaseY, f32 XAdvance, f32 YAdvance, 
+           f32 Width = 100, f32 Z = -0.5f){
  layout Result = {};
  Result.BaseP = { BaseX, BaseY };
  Result.CurrentP = Result.BaseP;

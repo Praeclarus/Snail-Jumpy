@@ -4,7 +4,7 @@ physics_debugger PhysicsDebugger;
 inline void
 physics_debugger::Begin(){
  Current = {};
- Layout = CreateLayout(1500, 700, 30, DebugFont.Size, 100, -10.2f);
+ Layout = MakeLayout(1500, 700, 30, DebugFont.Size, 100, -10.2f);
  Origin = V2(100.0f, 100.0f);
  DrawPoint(Origin, V20, WHITE);
 }
@@ -325,11 +325,11 @@ CollisionResponseStub(entity *Data, physics_collision *Collision){
 
 void
 physics_system::Initialize(memory_arena *Arena){
- BucketArrayInitialize(&ParticleSystems, Arena);
- BucketArrayInitialize(&Objects, Arena);
- BucketArrayInitialize(&StaticObjects, Arena);
- BucketArrayInitialize(&TriggerObjects, Arena);
- BucketArrayInitialize(&Tilemaps, Arena);
+ InitializeBucketArray(&ParticleSystems, Arena);
+ InitializeBucketArray(&Objects, Arena);
+ InitializeBucketArray(&StaticObjects, Arena);
+ InitializeBucketArray(&TriggerObjects, Arena);
+ InitializeBucketArray(&Tilemaps, Arena);
  ParticleMemory          = MakeArena(Arena, 64*128*sizeof(physics_particle_x4));
  BoundaryMemory          = MakeArena(Arena, 3*128*sizeof(collision_boundary));
  PermanentBoundaryMemory = MakeArena(Arena, 128*sizeof(collision_boundary));
@@ -600,7 +600,7 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
  const f32 Epsilon = 0.0001f;
  
  dynamic_array<v2> Polytope; 
- CreateArray(&Polytope, 20, &TransientStorageArena);
+ InitializeArray(&Polytope, 20, &TransientStorageArena);
  ArrayAdd(&Polytope, Simplex[0]);
  ArrayAdd(&Polytope, Simplex[1]);
  ArrayAdd(&Polytope, Simplex[2]);

@@ -2,7 +2,7 @@
 //~ Stream
 
 internal stream
-CreateReadStream(void *Buffer, umw BufferSize){
+MakeReadStream(void *Buffer, umw BufferSize){
  stream Result = {};
  Result.Buffer = (u8 *)Buffer;
  Result.BufferSize = BufferSize;

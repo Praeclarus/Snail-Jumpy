@@ -127,7 +127,7 @@ dynamic_array {
 };
 
 template <typename T> internal void 
-CreateArray(dynamic_array<T> *Array, int InitialCapacity, memory_arena *Arena=0){
+InitializeArray(dynamic_array<T> *Array, int InitialCapacity, memory_arena *Arena=0){
  *Array = {};
  if(Arena) Array->Items = PushArray(Arena, T, InitialCapacity);
  else Array->Items = (T *)DefaultAlloc(InitialCapacity*sizeof(T));
@@ -243,7 +243,7 @@ struct bucket_array_iterator {
 
 template<typename T, u32 U>
 internal bucket_array_bucket<T, U> *
-AllocateBucket(bucket_array<T, U> *Array){
+BucketArrayAllocBucket(bucket_array<T, U> *Array){
  typedef bucket_array_bucket<T, U> this_bucket; // To avoid a comma inside the macro because it 
  // doesn't like that bucket<T, U> has a comma
  bucket_array_bucket<T,U> *Result = PushStruct(Array->Arena, this_bucket);
@@ -257,15 +257,15 @@ AllocateBucket(bucket_array<T, U> *Array){
 
 template<typename T, u32 U>
 internal void
-BucketArrayInitialize(bucket_array<T, U> *Array, memory_arena *Arena, u32 InitialBuckets=4){
+InitializeBucketArray(bucket_array<T, U> *Array, memory_arena *Arena, u32 InitialBuckets=4){
  Assert(Arena);
  
  *Array = {};
  Array->Arena = Arena;
- CreateArray(&Array->Buckets, InitialBuckets, Array->Arena);
- CreateArray(&Array->UnfullBuckets, InitialBuckets, Array->Arena);
+ InitializeArray(&Array->Buckets, InitialBuckets, Array->Arena);
+ InitializeArray(&Array->UnfullBuckets, InitialBuckets, Array->Arena);
  bucket_location Location;
- bucket_array_bucket<T, U> *Bucket = AllocateBucket(Array);
+ bucket_array_bucket<T, U> *Bucket = BucketArrayAllocBucket(Array);
 }
 
 template<typename T, u32 U>
@@ -273,7 +273,7 @@ internal T *
 BucketArrayAlloc(bucket_array<T, U> *Array){
  T *Result = 0;
  if(Array->UnfullBuckets.Count == 0){
-  AllocateBucket(Array);
+  BucketArrayAllocBucket(Array);
  }
  
  bucket_array_bucket<T, U> *Bucket = Array->UnfullBuckets[0];
@@ -325,6 +325,13 @@ BucketArrayRemoveAll(bucket_array<T, U> *Array){
 
 template<typename T, u32 U>
 internal inline bucket_array_iterator<T>
+BucketArrayIteratorFromLocation(bucket_array<T, U> *Array, bucket_location Location){
+ bucket_array_iterator<T> Result = {0, Location};
+ return(Result);
+}
+
+template<typename T, u32 U>
+internal inline bucket_array_iterator<T>
 BucketArrayBeginIteration(bucket_array<T, U> *Array){
  bucket_array_iterator<T> Result = {};
  while(true){
@@ -339,21 +346,14 @@ BucketArrayBeginIteration(bucket_array<T, U> *Array){
    Result.Location.BucketIndex++;
   }
  }
- Result.Item = BucketArrayGetItemPtr(Array, Result.Location);
+ Result.Item = BucketArrayGet(Array, Result.Location);
  
  return(Result);
 }
 
 template<typename T, u32 U>
-internal inline bucket_array_iterator<T>
-BucketArrayIteratorFromLocation(bucket_array<T, U> *Array, bucket_location Location){
- bucket_array_iterator<T> Result = {0, Location};
- return(Result);
-}
-
-template<typename T, u32 U>
 internal inline void
-BucketArrayIterationNext(bucket_array<T, U> *Array, bucket_array_iterator<T> *Iterator){
+BucketArrayNextIteration(bucket_array<T, U> *Array, bucket_array_iterator<T> *Iterator){
  bucket_array_bucket<T, U> *Bucket = Array->Buckets[Iterator->Location.BucketIndex];
  b8 FoundNextItem = false;
  for(u32 I = Iterator->Location.ItemIndex+1; I < U; I++){
@@ -388,14 +388,14 @@ BucketArrayContinueIteration(bucket_array<T, U> *Array, bucket_array_iterator<T>
               (Array->Buckets[Iterator->Location.BucketIndex]->Count > 0) &&
               (Array->Buckets[Iterator->Location.BucketIndex]->Occupancy & (1ULL << Iterator->Location.ItemIndex)));
  if(Result){
-  Iterator->Item = BucketArrayGetItemPtr(Array, Iterator->Location);
+  Iterator->Item = BucketArrayGet(Array, Iterator->Location);
  }
  return(Result);
 }
 
 template<typename T, u32 U>
 internal inline T *
-BucketArrayGetItemPtr(bucket_array<T, U> *Array, bucket_location Location){
+BucketArrayGet(bucket_array<T, U> *Array, bucket_location Location){
  bucket_array_bucket<T, U> *Bucket = Array->Buckets[Location.BucketIndex];
  T *Result = 0;
  if(Bucket->Occupancy & (1ULL << Location.ItemIndex))
@@ -410,18 +410,12 @@ BucketLocation(u32 BucketIndex, u32 ItemIndex){
  return(Result);
 }
 
-template<typename T, u32 U>
-internal inline T *
-BucketArrayGetNullPtr(bucket_array<T, U> *Array){
- return(0);
-}
-
 #define FOR_BUCKET_ARRAY(Iterator, Array)                    \
 for(auto Iterator = BucketArrayBeginIteration(Array); \
 BucketArrayContinueIteration(Array, &Iterator);   \
-BucketArrayIterationNext(Array, &Iterator))
+BucketArrayNextIteration(Array, &Iterator))
 
 #define FOR_BUCKET_ARRAY_FROM(Iterator, Array, Initial)                                  \
 for(auto Iterator = BucketArrayIteratorFromLocation(Array, Initial); \
 BucketArrayContinueIteration(Array, &Iterator);                               \
-BucketArrayIterationNext(Array, &Iterator))
+BucketArrayNextIteration(Array, &Iterator))

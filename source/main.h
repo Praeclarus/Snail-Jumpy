@@ -10,7 +10,7 @@
 #include "intrinsics.h"
 #include "simd.h"
 
-//~ Constants, several of these should be hotloaded in a variables file
+//~ Constants TODO(Tyler): Several of these should be hotloaded in a variables file
 global_constant u32 DEFAULT_BUFFER_SIZE = 512;
 
 global_constant f32 MAXIMUM_SECONDS_PER_FRAME = (1.0f / 20.0f);

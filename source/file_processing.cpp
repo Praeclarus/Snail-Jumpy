@@ -223,7 +223,7 @@ internal inline file_reader
 MakeFileReader(const char *Path){
  file_reader Result = {};
  entire_file File = ReadEntireFile(&TransientStorageArena, Path);
- Result.Stream = CreateReadStream(File.Data, File.Size);
+ Result.Stream = MakeReadStream(File.Data, File.Size);
  Result.Line   = 1;
  return(Result);
 }

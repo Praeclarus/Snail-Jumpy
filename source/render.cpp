@@ -385,8 +385,8 @@ game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
  
  DefaultShader = MakeDefaultShader();
  
- CreateArray(&Vertices, 2000);
- CreateArray(&Indices,  2000);
+ InitializeArray(&Vertices, 2000);
+ InitializeArray(&Indices,  2000);
 }
 
 void

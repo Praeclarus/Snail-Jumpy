@@ -263,7 +263,7 @@ world_manager::LoadWorldFromFile(const char *Name){
   string String = Strings.GetString(Name);
   NewWorld = CreateNewWorld(String);
   NewWorld->Name = String;
-  stream Stream = CreateReadStream(File.Data, File.Size);
+  stream Stream = MakeReadStream(File.Data, File.Size);
   
   world_file_header *Header = ConsumeType(&Stream, world_file_header);
   if(!((Header->Header[0] == 'S') && 

@@ -3,14 +3,14 @@
 void
 entity_manager::Reset(){
  Memory.Used = 0;
- BucketArrayInitialize(&Tilemaps,  &Memory);
- BucketArrayInitialize(&Coins,     &Memory);
- BucketArrayInitialize(&Enemies,   &Memory);
- BucketArrayInitialize(&Arts,      &Memory);
+ InitializeBucketArray(&Tilemaps,  &Memory);
+ InitializeBucketArray(&Coins,     &Memory);
+ InitializeBucketArray(&Enemies,   &Memory);
+ InitializeBucketArray(&Arts,      &Memory);
  Player = PushStruct(&Memory, player_entity);
- BucketArrayInitialize(&Teleporters, &Memory);
- BucketArrayInitialize(&Doors,       &Memory);
- BucketArrayInitialize(&Projectiles, &Memory);
+ InitializeBucketArray(&Teleporters, &Memory);
+ InitializeBucketArray(&Doors,       &Memory);
+ InitializeBucketArray(&Projectiles, &Memory);
 }
 
 void
@@ -352,8 +352,7 @@ UpdateAndRenderPlatformerPlayer(){
     Player->WeaponChargeTime = 1.0f;
    }
   }else if(Player->WeaponChargeTime > 0.0f){
-   projectile_entity *Projectile = BucketArrayGetItemPtr(&EntityManager.Projectiles, 
-                                                         BucketLocation(0, 0));
+   projectile_entity *Projectile = BucketArrayGet(&EntityManager.Projectiles, BucketLocation(0, 0));
    
    if(Player->WeaponChargeTime < 0.1f){
     Player->WeaponChargeTime = 0.1f;

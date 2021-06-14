@@ -105,12 +105,12 @@ InitializeGame(){
   umw Size = Megabytes(200);
   void *Memory = AllocateVirtualMemory(Size);
   Assert(Memory);
-  CreateArena(&PermanentStorageArena, Memory, Size);
+  InitializeArena(&PermanentStorageArena, Memory, Size);
  }{
   umw Size = Gigabytes(1);
   void *Memory = AllocateVirtualMemory(Size);
   Assert(Memory);
-  CreateArena(&TransientStorageArena, Memory, Size);
+  InitializeArena(&TransientStorageArena, Memory, Size);
  }
  
  LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
