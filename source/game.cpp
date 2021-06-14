@@ -32,7 +32,7 @@ UpdateAndRenderMainGame(){
  
  GameProcessInput();
  
- GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
+ GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.4f, 0.5f, 0.45f, 1.0f));
  GameRenderer.CalculateCameraBounds(CurrentWorld);
  GameRenderer.SetCameraSettings(0.02f);
  GameRenderer.SetLightingConditions(HSBToRGB(CurrentWorld->AmbientColor), CurrentWorld->Exposure);
@@ -74,7 +74,7 @@ UpdateAndRenderMainGame(){
   Percent = EntityManager.Player->WeaponChargeTime;
   Max.X += 70.0f*Percent;
   Max.Y += 5.0f;
-  RenderRect(MakeRect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f), GameItem(0));
+  RenderRect(MakeRect(Min, Max), -1.0f, MakeColor(1.0f, 0.0f, 1.0f, 0.9f), GameItem(0));
  }
  
  //~ Health display
@@ -89,20 +89,20 @@ UpdateAndRenderMainGame(){
   Assert(FullHearts <= 3);
   u32 I;
   for(I = 0; I < FullHearts; I++){
-   AssetSystem.RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 0);
+   RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 0);
    P.X += XAdvance;
   }
   
   if(Remainder > 0){
    Remainder = 3 - Remainder;
-   AssetSystem.RenderSpriteSheetFrame(Asset, P, -0.9f, 0, Remainder);
+   RenderSpriteSheetFrame(Asset, P, -0.9f, 0, Remainder);
    P.X += XAdvance;
    I++;
   }
   
   if(I < 3){
    for(u32 J = 0; J < 3-I; J++){
-    AssetSystem.RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 3);
+    RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 3);
     P.X += XAdvance;
    }
   }
@@ -118,8 +118,8 @@ UpdateAndRenderMainGame(){
   f32 Angle = Lerp(MinAngle, MaxAngle, FinalT);
   v2 Delta = 50.0f*V2(Cos(Angle), -Sin(Angle));
   
-  RenderLineFrom(BaseP, Delta, -10.0f, 1.0f, GREEN, GameItem(1));
-  GameRenderer.AddLight(BaseP+Delta, Color(0.0f, 1.0f, 0.0f), 0.3f, 5.0f, GameItem(1));
+  RenderLineFrom(BaseP, Delta, 0.0f, 1.0f, GREEN, GameItem(1));
+  GameRenderer.AddLight(BaseP+Delta, MakeColor(0.0f, 1.0f, 0.0f), 0.3f, 5.0f, GameItem(1));
  }
  
  RenderFormatString(&MainFont, GREEN, V2(100, OSInput.WindowSize.Height-100),

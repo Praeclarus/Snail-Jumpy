@@ -534,10 +534,10 @@ ui_window::ColorPicker(hsb_color Current, u64 ID){
  {
   rect R = SizeRect(Min, Size);
   RenderQuad(GameRenderer.WhiteTexture, UIItem(0), Z-0.1f, 
-             V2(R.Min.X, R.Min.Y), V2(0, 0), Color(0.0f, 0.0f, 0.0f, 1.0f-FadeT),
-             V2(R.Min.X, R.Max.Y), V2(0, 1), Color(1.0f, 1.0f, 1.0f, 1.0f-FadeT),
+             V2(R.Min.X, R.Min.Y), V2(0, 0), MakeColor(0.0f, 0.0f, 0.0f, 1.0f-FadeT),
+             V2(R.Min.X, R.Max.Y), V2(0, 1), MakeColor(1.0f, 1.0f, 1.0f, 1.0f-FadeT),
              V2(R.Max.X, R.Max.Y), V2(1, 1), Alphiphy(HSBToRGB(HSBColor(Current.Hue, 1.0f, 1.0f)), 1.0f-FadeT),
-             V2(R.Max.X, R.Min.Y), V2(1, 0), Color(0.0f, 0.0f, 0.0f, 1.0f-FadeT));
+             V2(R.Max.X, R.Min.Y), V2(1, 0), MakeColor(0.0f, 0.0f, 0.0f, 1.0f-FadeT));
   rect SelectionR = CenterRect(Min, V2(25));
   SelectionR += V2(Current.Saturation*Size.Width, Current.Brightness*Size.Height);
   RenderRectOutline(SelectionR, Z-0.2f, Alphiphy(BLACK, 1.0f-FadeT), UIItem(0), 2);
@@ -560,13 +560,13 @@ ui_window::ColorPicker(hsb_color Current, u64 ID){
   rect R = SizeRect(Min, V2(ChunkWidth, HueBarHeight));
   rect FullR = SizeRect(Min, V2(Size.Width, HueBarHeight));
   color Colors[] = {
-   Color(1.0f, 0.0f, 0.0f, 1.0f-FadeT), 
-   Color(1.0f, 1.0f, 0.0f, 1.0f-FadeT), 
-   Color(0.0f, 1.0f, 0.0f, 1.0f-FadeT), 
-   Color(0.0f, 1.0f, 1.0f, 1.0f-FadeT), 
-   Color(0.0f, 0.0f, 1.0f, 1.0f-FadeT), 
-   Color(1.0f, 0.0f, 1.0f, 1.0f-FadeT), 
-   Color(1.0f, 0.0f, 0.0f, 1.0f-FadeT), 
+   MakeColor(1.0f, 0.0f, 0.0f, 1.0f-FadeT), 
+   MakeColor(1.0f, 1.0f, 0.0f, 1.0f-FadeT), 
+   MakeColor(0.0f, 1.0f, 0.0f, 1.0f-FadeT), 
+   MakeColor(0.0f, 1.0f, 1.0f, 1.0f-FadeT), 
+   MakeColor(0.0f, 0.0f, 1.0f, 1.0f-FadeT), 
+   MakeColor(1.0f, 0.0f, 1.0f, 1.0f-FadeT), 
+   MakeColor(1.0f, 0.0f, 0.0f, 1.0f-FadeT), 
   };
   for(u32 I=0; I<6; I++){
    RenderQuad(GameRenderer.WhiteTexture, UIItem(0), Z-0.1f, 
@@ -639,16 +639,16 @@ SetupDefaultTheme(theme *Theme){
  Theme->TitleFont = &TitleFont;
  Theme->NormalFont = &DebugFont;
  
- Theme->TitleColor         = Color(0.8f, 0.8f, 0.8f, 1.0f);
- Theme->TitleBarColor      = Color(0.1f, 0.3f, 0.3f, 0.8f);
- Theme->TitleBarHoverColor = Color(0.4f, 0.2f, 0.3f, 0.9f);
- Theme->BackgroundColor    = Color(0.1f, 0.4f, 0.4f, 0.7f);
+ Theme->TitleColor         = MakeColor(0.8f, 0.8f, 0.8f, 1.0f);
+ Theme->TitleBarColor      = MakeColor(0.1f, 0.3f, 0.3f, 0.8f);
+ Theme->TitleBarHoverColor = MakeColor(0.4f, 0.2f, 0.3f, 0.9f);
+ Theme->BackgroundColor    = MakeColor(0.1f, 0.4f, 0.4f, 0.7f);
  
- Theme->BaseColor   = Color(0.3f, 0.5f, 0.5f, 0.8f);
- Theme->HoverColor  = Color(0.5f, 0.4f, 0.5f, 0.9f);
- Theme->ActiveColor = Color(0.6f, 0.6f, 0.9f, 0.9f);
- Theme->TextColorA  = Color(0.9f, 0.9f, 0.9f, 1.0f);
- Theme->TextColorB  = Color(0.0f, 0.0f, 0.0f, 1.0f);
+ Theme->BaseColor   = MakeColor(0.3f, 0.5f, 0.5f, 0.8f);
+ Theme->HoverColor  = MakeColor(0.5f, 0.4f, 0.5f, 0.9f);
+ Theme->ActiveColor = MakeColor(0.6f, 0.6f, 0.9f, 0.9f);
+ Theme->TextColorA  = MakeColor(0.9f, 0.9f, 0.9f, 1.0f);
+ Theme->TextColorB  = MakeColor(0.0f, 0.0f, 0.0f, 1.0f);
  
  Theme->ButtonHeight = 30;
  Theme->Padding = 4;

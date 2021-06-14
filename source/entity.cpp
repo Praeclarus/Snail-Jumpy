@@ -388,9 +388,9 @@ UpdateAndRenderPlatformerPlayer(){
  
  v2 P = FloorV2(Player->Physics->P);
  v2 Center = P + 0.5f*Player->EntityInfo->Size;
- GameRenderer.AddLight(Center, Color(0.3f, 0.7f, 0.6f, 1.0), 0.7f, 15.0f, GameItem(1));
+ GameRenderer.AddLight(Center, MakeColor(0.3f, 0.7f, 0.6f, 1.0), 0.7f, 15.0f, GameItem(1));
  GameRenderer.SetCameraTarget(Center);
- DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->ZLayer);
+ DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->ZLayer, 1);
 }
 
 void 
@@ -462,8 +462,8 @@ entity_manager::UpdateAndRenderEntities(){
   v2 P = FloorV2(Physics->P);
   
   f32 Radius = RectSize(Enemy->Bounds).Width+5;
-  GameRenderer.AddLight(P+0.5f*EntitySize, Color(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
-  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->ZLayer);
+  GameRenderer.AddLight(P+0.5f*EntitySize, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
+  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->ZLayer, 1);
  }
  
  //~ Arts
@@ -506,7 +506,7 @@ entity_manager::UpdateAndRenderEntities(){
    }
   }else{
    RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, 
-              Color(0.0f, 0.0f, 1.0f, 0.5f), GameItem(1));
+              MakeColor(0.0f, 0.0f, 1.0f, 0.5f), GameItem(1));
   }
  }
  
@@ -543,7 +543,7 @@ entity_manager::UpdateAndRenderEntities(){
    Projectile->dP += dTime*ddP;
    
    RenderRect(Projectile->Bounds+Projectile->Physics->P,
-              -10.0f, WHITE, GameItem(1));
+              0.0f, WHITE, GameItem(1));
   }else{
    Physics->State |= PhysicsObjectState_Inactive;
   }

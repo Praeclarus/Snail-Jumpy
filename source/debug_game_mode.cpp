@@ -6,7 +6,7 @@ UpdateAndRenderDebug(){
   if(UIManager.ProcessEvent(&Event)) continue;
   ProcessDefaultEvent(&Event);
  }
- GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
+ GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.4f, 0.5f, 0.45f, 1.0f));
  GameRenderer.SetLightingConditions(WHITE, 1.0f);
  GameRenderer.SetCameraSettings(0.5f);
  
@@ -25,7 +25,7 @@ UpdateAndRenderDebug(){
   rect R = Entity->Boundaries[I].Bounds;
   R += Entity->Boundaries[I].Offset;
   R += P;
-  RenderRectOutline(R, -10.0f, Color(0.0f, 0.8f, 0.8f), ScaledItem(1), 0.5f);
+  RenderRectOutline(R, -10.0f, MakeColor(0.0f, 0.8f, 0.8f), ScaledItem(1), 0.5f);
  }
  RenderRect(CenterRect(P, V2(1)), -10.0f, RED, ScaledItem(1));
  
@@ -39,5 +39,5 @@ UpdateAndRenderDebug(){
   RenderRect(MakeRect(A, B), -10.0f, PINK, ScaledItem(1));
  }
  
- DoEntityAnimation(Entity, &Animation, P, -11.0f);
+ DoEntityAnimation(Entity, &Animation, P, -11.0f, 0);
 }

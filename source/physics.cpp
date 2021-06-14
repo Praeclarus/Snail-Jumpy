@@ -127,7 +127,7 @@ IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
 internal inline void
 RenderBoundary(collision_boundary *Boundary, f32 Z, v2 Offset){
  Offset += Boundary->Offset;
- color Color_ = Color(0.0f, 0.8f, 0.8f, 1.0f);
+ color Color = MakeColor(0.0f, 0.8f, 0.8f, 1.0f);
  f32 Thickness = 0.5f;
  switch(Boundary->Type){
   case BoundaryType_None: break;
@@ -142,7 +142,7 @@ RenderBoundary(collision_boundary *Boundary, f32 Z, v2 Offset){
    for(u32 I=0; I < 4; I++){
     v2 PointA = Points[I] + Offset;
     v2 PointB = Points[(I+1)%4] + Offset;
-    RenderLine(PointA, PointB, Z-0.15f, Thickness, Color_, ScaledItem(1));
+    RenderLine(PointA, PointB, Z-0.15f, Thickness, Color, ScaledItem(1));
    }
    
   }break;
@@ -151,7 +151,7 @@ RenderBoundary(collision_boundary *Boundary, f32 Z, v2 Offset){
    for(u32 I=0; I < Count; I++){
     v2 PointA = Boundary->FreeFormPoints[I] + Offset;
     v2 PointB = Boundary->FreeFormPoints[(I+1)%Count] + Offset;
-    RenderLine(PointA, PointB, Z-0.15f, Thickness, Color_, ScaledItem(1));
+    RenderLine(PointA, PointB, Z-0.15f, Thickness, Color, ScaledItem(1));
    }
    
   }break;

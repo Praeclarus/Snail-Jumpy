@@ -38,7 +38,7 @@ DoInfoSelector(v2 StartP, string Selected){
   asset_sprite_sheet *Asset = Info->Pieces[0];
   v2 Size = Info->Size;
   
-  AssetSystem.RenderSpriteSheetFrame(Asset, P, -2.0f, 0, 0);
+  RenderSpriteSheetFrame(Asset, P, -2.0f, 0, 0);
   
   rect R = SizeRect(P, Size);
   
@@ -355,39 +355,39 @@ world_editor::DoCursor(){
  switch(Mode){
   case EditMode_AddWall: {
    rect R = CenterRect(Center, TILE_SIZE);
-   RenderRect(R, -0.1f, WHITE, GameItem(1));
-   RenderRectOutline(R, -0.11f, BLACK, GameItem(1));
+   RenderRect(R, 0.0f, WHITE, GameItem(1));
+   RenderRectOutline(R, -0.1f, BLACK, GameItem(1));
   }break;
   case EditMode_AddTeleporter: {
    rect R = CenterRect(Center, TILE_SIZE);
-   RenderRect(R, -0.1f, GREEN, GameItem(1));
-   RenderRectOutline(R, -0.11f, BLACK, GameItem(1));
+   RenderRect(R, 0.0f, GREEN, GameItem(1));
+   RenderRectOutline(R, -0.1f, BLACK, GameItem(1));
   }break;
   case EditMode_AddDoor: {
    if(Flags & WorldEditorFlags_MakingRectEntity){
     rect R = SnapToGrid(DragRect, 1);
-    RenderRect(R, -0.5f, BROWN, GameItem(1));
+    RenderRect(R, 0.0f, BROWN, GameItem(1));
    }else{
-    RenderRect(CenterRect(Center, TILE_SIZE), -0.5f, BROWN, GameItem(1));
+    RenderRect(CenterRect(Center, TILE_SIZE), 0.0f, BROWN, GameItem(1));
    }
    
   }break;
   case EditMode_AddCoinP: {
    v2 Size = V2(8);
    rect R = CenterRect(Center, Size);
-   RenderRect(R, -0.1f, YELLOW, GameItem(1));
-   RenderRectOutline(R, -0.11f, BLACK, GameItem(1));
+   RenderRect(R, 0.0f, YELLOW, GameItem(1));
+   RenderRectOutline(R, -0.1f, BLACK, GameItem(1));
   }break;
   case EditMode_AddEnemy: {
    if(EntityInfoToAdd.ID == 0){
-    RenderRect(CenterRect(Center, TILE_SIZE), -0.11f, PINK, GameItem(1));
+    RenderRect(CenterRect(Center, TILE_SIZE), -0.1f, PINK, GameItem(1));
    }else{ 
     asset_entity *EntityInfo = AssetSystem.GetEntity(EntityInfoToAdd);
     v2 EntitySize = EntityInfo->Size;
     v2 P = MouseP - 0.5f*EntitySize;
     P = SnapEntity(P, EntitySize, 1);
     
-    AssetSystem.RenderSpriteSheetFrame(EntityInfo->Pieces[0], P, -0.5f, 1, 0);
+    RenderSpriteSheetFrame(EntityInfo->Pieces[0], P, 0.0f, 1, 0);
    }
   }break;
   case EditMode_AddArt: {
@@ -682,7 +682,7 @@ world_editor::UpdateAndRender(){
   EntityInfoToAdd = Strings.GetString("snail");
  }
  
- GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, Color(0.4f, 0.5f, 0.45f, 1.0f));
+ GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.4f, 0.5f, 0.45f, 1.0f));
  GameRenderer.CalculateCameraBounds(World);
  GameRenderer.SetCameraSettings(0.4f);
  GameRenderer.SetLightingConditions(HSBToRGB(World->AmbientColor), World->Exposure);
@@ -714,10 +714,10 @@ world_editor::UpdateAndRender(){
    u8 TileId = World->Map[Y*World->Width + X];
    v2 P = TILE_SIDE*V2((f32)X, (f32)Y);
    if(TileId == EntityType_Wall){
-    RenderRect(MakeRect(P, P+TILE_SIZE), 0.0f, WHITE, GameItem(1));
+    RenderRect(MakeRect(P, P+TILE_SIZE), 2.0f, WHITE, GameItem(1));
    }else if(TileId == EntityType_Coin){
     v2 Center = P + 0.5f*TILE_SIZE;
-    RenderRect(CenterRect(Center, V2(8.0f)), 0.0f, YELLOW, GameItem(1));
+    RenderRect(CenterRect(Center, V2(8.0f)), 2.0f, YELLOW, GameItem(1));
    }
   }
  }
@@ -744,7 +744,7 @@ world_editor::UpdateAndRender(){
      Frame += Asset->FrameCounts[Index];
     }
     
-    AssetSystem.RenderSpriteSheetFrame(Asset, P, -0.1f, 1, Frame);
+    RenderSpriteSheetFrame(Asset, P, 1.0f, 1, Frame);
     
     if(SelectedThing == Entity){
      DoEnemyOverlay(SelectedThing);
@@ -752,11 +752,11 @@ world_editor::UpdateAndRender(){
    }break;
    case EntityType_Teleporter: {
     EntityRect = CenterRect(Entity->P, TILE_SIZE);
-    RenderRect(EntityRect, -0.1f, GREEN, GameItem(1));
+    RenderRect(EntityRect, 1.1f, GREEN, GameItem(1));
    }break;
    case EntityType_Door: {
     EntityRect = CenterRect(Entity->P, Entity->Size);
-    RenderRect(EntityRect, -0.1f, BROWN, GameItem(1));
+    RenderRect(EntityRect, 1.0f, BROWN, GameItem(1));
    }break;
    case EntityType_Art: {
     if(Flags & WorldEditorFlags_HideArt) break;

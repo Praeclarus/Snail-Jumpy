@@ -80,7 +80,7 @@ asset_system::GetSpriteSheet(string Name){
 }
 
 void 
-asset_system::RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32 Layer, u32 Frame){
+RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32 Layer, u32 Frame){
  P.X = Round(P.X);
  P.Y = Round(P.Y);
  P.Y += Sheet->YOffset;
@@ -168,7 +168,7 @@ UpdateSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation
 
 internal inline void
 RenderSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation,  
-                           entity_state State, direction Direction, f32 *T, v2 P, f32 Z){
+                           entity_state State, direction Direction, f32 *T, v2 P, f32 Z, u32 Layer){
  u32 AnimationIndex = Sheet->StateTable[State][Direction];
  Assert(AnimationIndex != 0);
  AnimationIndex--;
@@ -178,11 +178,11 @@ RenderSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation
   Frame += Sheet->FrameCounts[I];
  }
  
- AssetSystem.RenderSpriteSheetFrame(Sheet, P, Z, 1, Frame);
+ RenderSpriteSheetFrame(Sheet, P, Z, Layer, Frame);
 }
 
 internal void 
-DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P, f32 Z){
+DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P, f32 Z, u32 Layer){
  f32 dTime = OSInput.dTime;
  asset_animation *Animation = &Entity->Animation;
  
@@ -207,7 +207,7 @@ DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P, f32 Z){
   f32 ZOffset = Entity->ZOffsets[PieceIndex];
   RenderSpriteSheetAnimation(Sheet, &Entity->Animation, 
                              State->State, State->Direction, &State->Ts[PieceIndex],
-                             P, Z+ZOffset);
+                             P, Z+ZOffset, Layer);
  }
  
  if(ChangeData->Condition == ChangeCondition_CooldownOver){

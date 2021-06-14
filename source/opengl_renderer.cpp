@@ -145,6 +145,38 @@ GLCompileShaderProgram(const char *VertexShaderSource,
 
 //~ Shader programs
 
+#if 0
+// Stuff for 4Coder syntax highlighting in shaders
+
+#define uniform
+#define out
+#define in
+#define discard
+#define gl_Position
+struct vec2;
+struct vec3;
+struct vec4;
+struct mat3;
+struct mat4;
+struct uint
+struct sampler2D
+struct light;
+void CalculateLight();
+void exp();
+void clamp();
+void distance();
+void texture();
+void textureSize();
+void floor();
+void fract();
+void abs();
+void InPosition;
+void InColor;
+void InUV;
+void InPixelUV;
+
+#endif
+
 internal basic_shader
 MakeGameShader(){
  const char *VertexShader = BEGIN_STRING
@@ -173,7 +205,7 @@ MakeGameShader(){
 #version 330 core \n
   
   struct light {
-   vec2  P;
+   vec3  P;
    float Radius;
    vec4  Color;
   };
@@ -193,34 +225,43 @@ MakeGameShader(){
    light InLights[128];
   };
   
-  vec3 CalculateLight(vec2 LightP, vec3 LightColor, float Radius){
-   float Distance = distance(LightP, FragmentP.xy);
-   float Attenuation = clamp(1.0 - (Distance*Distance)/(Radius*Radius), 0.0, 1.0);
-   Attenuation *= Attenuation;
-   vec3 Result = Attenuation*LightColor;
-   return(Result);
+  vec3 CalculateLight(vec3 LightP, vec3 LightColor, float Radius){
+   float ZScale = 0.5;
+   LightP.z = ZScale*floor(LightP.z);
+   vec3 P = vec3(FragmentP.xy, ZScale*floor(FragmentP.z));
+   if(P.z >= 0.0){
+    float Distance = distance(LightP, P);
+    float Attenuation = clamp(1.0 - (Distance*Distance)/(Radius*Radius), 0.0, 1.0);
+    Attenuation *= Attenuation;
+    vec3 Result = Attenuation*LightColor;
+    return(Result);
+   }else{
+    vec3 Result = vec3(0.0);
+    return(Result);
+   }
   }
   
   void main(){
    vec2 UV = FragmentUV;
    OutColor = texture(InTexture, UV)*FragmentColor;
    
-   vec3 AmbientLight = InAmbient.rgb;
-   float Exposure = InExposure;
-   
-   vec3 Lighting = vec3(0.0);
-   light Light = InLights[0];
-   
-   for(int I = 0; I < int(InLightCount); I++){
-    light Light = InLights[I];
-    Lighting += CalculateLight(Light.P, Light.Color.rgb, Light.Radius);
+   if(FragmentP.z >= 0.0){
+    vec3 AmbientLight = InAmbient.rgb;
+    float Exposure = InExposure;
+    
+    vec3 Lighting = vec3(0.0);
+    
+    for(int I = 0; I < int(InLightCount); I++){
+     light Light = InLights[I];
+     Lighting += CalculateLight(Light.P, Light.Color.rgb, Light.Radius);
+    }
+    OutColor *= vec4(AmbientLight+Lighting, 1.0);
+    
+    vec4 Vec4HDRColor = OutColor;
+    vec3 HDRColor = Vec4HDRColor.rgb;
+    vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
+    OutColor = vec4(MappedColor, Vec4HDRColor.a);
    }
-   OutColor *= vec4(AmbientLight+Lighting, 1.0);
-   
-   vec4 Vec4HDRColor = OutColor;
-   vec3 HDRColor = Vec4HDRColor.rgb;
-   vec3 MappedColor = vec3(1.0) - exp(-HDRColor*Exposure);
-   OutColor = vec4(MappedColor, Vec4HDRColor.a);
    
    if(OutColor.a == 0.0){ discard; }
   }
@@ -404,6 +445,7 @@ opengl_backend::UploadLights(color AmbientColor, f32 Exposure, array<render_ligh
   render_light *Light   = &Lights[I];
   opengl_light *GLLight = &Buffer->Lights[I];
   GLLight->P = Light->P;
+  GLLight->Z = Light->Z;
   GLLight->Radius = Light->Radius;
   GLLight->Color.R = Light->R;
   GLLight->Color.G = Light->G;

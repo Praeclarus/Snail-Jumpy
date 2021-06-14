@@ -183,7 +183,7 @@
 	   animation     enemy
     animation_var STUN_TIME 3.0
 	   mass          1.0  
-	   speed         100  
+	   speed         50  
 	   boundary_circle 0 0 0 6
 	   damage        2    
 	   collision_response ENEMY
@@ -195,7 +195,7 @@
 	   animation     enemy
     animation_var STUN_TIME 4.0
 	   mass          2.0
-	   speed         100
+	   speed         30
 	   boundary_circle 0 0 0 13
 	   damage        3
 	   collision_response ENEMY
@@ -219,7 +219,7 @@
 	   animation     enemy
     animation_var STUN_TIME 0.0
 	   mass          1.5
-	   speed         100
+	   speed         50
 	   boundary_rect 0 0  8 31 3
 	   damage        1
 	   collision_response DRAGONFLY

@@ -28,7 +28,7 @@ AddPlayer(v2 P){
  Player->EntityInfo = EntityInfo;
  Player->Animation.Direction = Direction_Right;
  
- Player->ZLayer = -0.2f;
+ Player->ZLayer = 0.0f;
  
  Player->JumpTime = 1.0f;
  
@@ -70,6 +70,7 @@ world_manager::LoadWorld(const char *LevelName){
    //~ Walls
    tilemap_entity *Tilemap = BucketArrayAlloc(&EntityManager.Tilemaps);
    Tilemap->Map = World->Map;
+   Tilemap->ZLayer = 1.0f;
    Tilemap->MapWidth  = World->Width;
    Tilemap->MapHeight = World->Height;
    Tilemap->TileSize = TILE_SIZE;
@@ -104,7 +105,7 @@ world_manager::LoadWorld(const char *LevelName){
     for(u32 I = 0; I < N; I++){
      coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
      Coin->Type = EntityType_Coin;
-     Coin->ZLayer = -0.2f;
+     Coin->ZLayer = -0.0f;
      Coin->Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
      Coin->Physics->TriggerResponse = CoinResponse;
      Coin->Physics->Entity = Coin;
@@ -142,7 +143,7 @@ world_manager::LoadWorld(const char *LevelName){
       Enemy->Speed = EntityInfo->Speed;
       Enemy->Damage = EntityInfo->Damage;
       
-      Enemy->ZLayer = -0.2f;
+      Enemy->ZLayer = 0.0f;
       
       Enemy->Animation.Direction = Entity->Direction;
       Enemy->PathStart = Entity->PathStart;

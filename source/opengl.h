@@ -666,40 +666,40 @@ X(glBindBufferBase)
 
 //~
 struct opengl_backend {
-    GLuint VertexArray;
-    GLuint VertexBuffer;
-    GLuint InstanceBuffer;
-    GLuint LightsUniformBuffer;
-    
-    GLuint ScreenVertexArray;
-    
-    void NormalSetup();
-    void UploadRenderData(dynamic_array<basic_vertex> *Vertices, dynamic_array<u32> *Indices);
-    void UploadLights(color AmbientColor, f32 Exposure, array<render_light> Lights);
-    void RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, f32 Scale);
+ GLuint VertexArray;
+ GLuint VertexBuffer;
+ GLuint InstanceBuffer;
+ GLuint LightsUniformBuffer;
+ 
+ GLuint ScreenVertexArray;
+ 
+ void NormalSetup();
+ void UploadRenderData(dynamic_array<basic_vertex> *Vertices, dynamic_array<u32> *Indices);
+ void UploadLights(color AmbientColor, f32 Exposure, array<render_light> Lights);
+ void RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, f32 Scale);
 };
 
 
 #pragma pack(push, 1)
 struct opengl_color3 {
-    f32 R, G, B;   // 3x4 bytes  0 12
-    u32 Padding_0; // 1x4 bytes 12 16
+ f32 R, G, B;   // 3x4 bytes  0 12
+ u32 Padding_0; // 1x4 bytes 12 16
 };
 
 struct opengl_light {
-    v2 P;                // 2x4 bytes  0  8
-    f32 Radius;          // 1x4 bytes  8 12
-    u32 Padding_0;       // 1x4 bytes 12 16
-    opengl_color3 Color; // 4x4 bytes 16 32
+ v2 P;                // 2x4 bytes  0  8
+ f32 Z;               // 1x4 bytes  8 12
+ f32 Radius;          // 1x4 bytes 12 16
+ opengl_color3 Color; // 4x4 bytes 16 32
 };
 
 struct opengl_lights_uniform_buffer {
-    opengl_color3 AmbientColor;
-    f32 Exposure;
-    u32 LightCount; 
-    u32 Padding_1;
-    u32 Padding_2;
-    opengl_light Lights[];
+ opengl_color3 AmbientColor;
+ f32 Exposure;
+ u32 LightCount; 
+ u32 Padding_1;
+ u32 Padding_2;
+ opengl_light Lights[];
 };
 #pragma pack(pop)
 

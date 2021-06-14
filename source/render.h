@@ -3,17 +3,17 @@
 
 //~ Basic colors
 
-global_constant color BLACK      = Color(0.0f,  0.0f,  0.0f, 1.0f);
-global_constant color WHITE      = Color(1.0f,  1.0f,  1.0f, 1.0f);
-global_constant color RED        = Color(1.0f,  0.0f,  0.0f, 1.0f);
-global_constant color YELLOW     = Color(1.0f,  1.0f,  0.0f, 1.0f);
-global_constant color BLUE       = Color(0.0f,  0.0f,  1.0f, 1.0f);
-global_constant color GREEN      = Color(0.0f,  1.0f,  0.0f, 1.0f);
-global_constant color DARK_GREEN = Color(0.0f,  0.5f,  0.0f, 1.0f);
-global_constant color BROWN      = Color(0.41f, 0.20f, 0.0f, 1.0f);
-global_constant color PINK       = Color(1.0f,  0.0f,  1.0f, 1.0f);
-global_constant color PURPLE     = Color(0.42f, 0.05f, 0.68f,1.0f);
-global_constant color ORANGE     = Color(1.0f,  0.5f,  0.0f, 1.0f);
+global_constant color BLACK      = MakeColor(0.0f,  0.0f,  0.0f, 1.0f);
+global_constant color WHITE      = MakeColor(1.0f,  1.0f,  1.0f, 1.0f);
+global_constant color RED        = MakeColor(1.0f,  0.0f,  0.0f, 1.0f);
+global_constant color YELLOW     = MakeColor(1.0f,  1.0f,  0.0f, 1.0f);
+global_constant color BLUE       = MakeColor(0.0f,  0.0f,  1.0f, 1.0f);
+global_constant color GREEN      = MakeColor(0.0f,  1.0f,  0.0f, 1.0f);
+global_constant color DARK_GREEN = MakeColor(0.0f,  0.5f,  0.0f, 1.0f);
+global_constant color BROWN      = MakeColor(0.41f, 0.20f, 0.0f, 1.0f);
+global_constant color PINK       = MakeColor(1.0f,  0.0f,  1.0f, 1.0f);
+global_constant color PURPLE     = MakeColor(0.42f, 0.05f, 0.68f,1.0f);
+global_constant color ORANGE     = MakeColor(1.0f,  0.5f,  0.0f, 1.0f);
 
 
 //~ Primitive types
@@ -84,10 +84,10 @@ struct render_node {
  f32 ItemZs[RENDER_NODE_ITEMS];
 };
 
-
 global_constant u32 MAX_LIGHT_COUNT = 128;
 struct render_light {
  v2 P;
+ f32 Z;
  f32 Radius;
  f32 R, G, B;
 };

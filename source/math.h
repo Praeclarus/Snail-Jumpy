@@ -506,12 +506,6 @@ struct color {
 };
 
 internal inline color
-Color(f32 R, f32 G, f32 B, f32 A=1.0f){
- color Result = color{R, G, B, A};
- return(Result);
-}
-
-internal inline color
 MakeColor(f32 R, f32 G, f32 B, f32 A=1.0f){
  color Result = color{R, G, B, A};
  return(Result);
@@ -579,13 +573,13 @@ HSBToRGB(hsb_color HSBColor){
  color Result = {};
  u32 HueU32 = (u32)Hue;
  switch(HueU32){
-  case 0: { Result = Color(Chroma,      X,   0.0f); }break;
-  case 1: { Result = Color(     X, Chroma,   0.0f); }break;
-  case 2: { Result = Color(  0.0f, Chroma,      X); }break;
-  case 3: { Result = Color(  0.0f,      X, Chroma); }break;
-  case 4: { Result = Color(     X,   0.0f, Chroma); }break;
+  case 0: { Result = MakeColor(Chroma,      X,   0.0f); }break;
+  case 1: { Result = MakeColor(     X, Chroma,   0.0f); }break;
+  case 2: { Result = MakeColor(  0.0f, Chroma,      X); }break;
+  case 3: { Result = MakeColor(  0.0f,      X, Chroma); }break;
+  case 4: { Result = MakeColor(     X,   0.0f, Chroma); }break;
   case 5: 
-  case 6: { Result = Color(Chroma,   0.0f,      X); }break;
+  case 6: { Result = MakeColor(Chroma,   0.0f,      X); }break;
   default: { INVALID_CODE_PATH; }break;
  }
  
@@ -672,16 +666,6 @@ operator/=(rect &A, f32 B){
  A.Max /= B;
  return(A);
 }
-
-#if 0
-internal inline rect
-Rect(v2 Min, v2 Max){
- rect Result;
- Result.Min = Min;
- Result.Max = Max;
- return(Result);
-}
-#endif
 
 internal inline rect
 MakeRect(v2 Min, v2 Max){

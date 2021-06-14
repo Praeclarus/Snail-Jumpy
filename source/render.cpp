@@ -372,7 +372,7 @@ game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
  CameraScale = 5;
  
  //~ Lights
- AmbientLight = 0.9f*Color(0.25f, 0.2f, 0.2f, 1.0f);
+ AmbientLight = 0.9f*MakeColor(0.25f, 0.2f, 0.2f, 1.0f);
  Exposure = 1.2f;
  
  //~ Other
@@ -491,7 +491,7 @@ game_renderer::CalculateParallax(render_options Options){
  if(Options.Type == RenderType_UI) return(Result);
  
  if(Options.Layer > 0){
-  f32 Factor = 1.0f / (f32)Options.Layer;
+  f32 Factor = 1.0f / Options.Layer;
   Result = CameraFinalP * Factor;
  }
  

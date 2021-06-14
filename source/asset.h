@@ -157,7 +157,6 @@ struct asset_system {
  void Initialize(memory_arena *Arena);
  
  asset_sprite_sheet *GetSpriteSheet(string Name);
- void RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 Center, f32 Z, u32 Layer, u32 Frame);
  
  asset_entity *GetEntity(string Name);
  
