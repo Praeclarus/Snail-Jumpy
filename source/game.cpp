@@ -74,7 +74,7 @@ UpdateAndRenderMainGame(){
   Percent = EntityManager.Player->WeaponChargeTime;
   Max.X += 70.0f*Percent;
   Max.Y += 5.0f;
-  RenderRect(Rect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f), GameItem(0));
+  RenderRect(MakeRect(Min, Max), -1.0f, Color(1.0f, 0.0f, 1.0f, 0.9f), GameItem(0));
  }
  
  //~ Health display

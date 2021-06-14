@@ -102,11 +102,11 @@ RenderRect(rect R, f32 Z, color Color, render_options Options){
 
 internal inline void
 RenderRectOutline(rect R, f32 Z, color Color, render_options Options, f32 Thickness=1){
- rect B = GrowRect(R, Thickness);
- RenderRect(Rect(V2(B.Min.X, B.Min.Y), V2(R.Max.X, R.Min.Y)), Z, Color, Options);
- RenderRect(Rect(V2(R.Max.X, B.Min.Y), V2(B.Max.X, R.Max.Y)), Z, Color, Options);
- RenderRect(Rect(V2(R.Min.X, R.Max.Y), V2(B.Max.X, B.Max.Y)), Z, Color, Options);
- RenderRect(Rect(V2(B.Min.X, R.Min.Y), V2(R.Min.X, B.Max.Y)), Z, Color, Options);
+ rect B = RectGrow(R, Thickness);
+ RenderRect(MakeRect(V2(B.Min.X, B.Min.Y), V2(R.Max.X, R.Min.Y)), Z, Color, Options);
+ RenderRect(MakeRect(V2(R.Max.X, B.Min.Y), V2(B.Max.X, R.Max.Y)), Z, Color, Options);
+ RenderRect(MakeRect(V2(R.Min.X, R.Max.Y), V2(B.Max.X, B.Max.Y)), Z, Color, Options);
+ RenderRect(MakeRect(V2(B.Min.X, R.Min.Y), V2(R.Min.X, B.Max.Y)), Z, Color, Options);
  //RenderRect(Rect(V2(R.Min.X, R.Min.Y),           V2(R.Max.X, R.Min.Y+Thickness)), Z, Color, Options);
  //RenderRect(Rect(V2(R.Max.X-Thickness, R.Min.Y), V2(R.Max.X, R.Max.Y)),           Z, Color, Options);
  //RenderRect(Rect(V2(R.Min.X, R.Max.Y),           V2(R.Max.X, R.Max.Y-Thickness)), Z, Color, Options);
@@ -385,8 +385,8 @@ game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
  
  DefaultShader = MakeDefaultShader();
  
- DynamicArrayInitialize(&Vertices, 2000);
- DynamicArrayInitialize(&Indices,  2000);
+ CreateArray(&Vertices, 2000);
+ CreateArray(&Indices,  2000);
 }
 
 void
@@ -408,15 +408,15 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
  
  //~ Render items
  RenderItemCount = 0;
- DynamicArrayClear(&Vertices);
- DynamicArrayClear(&Indices);
+ ArrayClear(&Vertices);
+ ArrayClear(&Indices);
  
  for(u32 I=0; I<RenderType_TOTAL; I++){
   Nodes[I] = PushStruct(Arena, render_node);
  }
  
  //~ Lights
- Lights = MakeNewArray<render_light>(Arena, MAX_LIGHT_COUNT);
+ Lights = MakeArray<render_light>(Arena, MAX_LIGHT_COUNT);
  
  //~ Camera
  CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
@@ -473,7 +473,7 @@ game_renderer::NewRenderItem(render_texture Texture, render_options Options, b8 
 basic_vertex *
 game_renderer::AddVertices(render_item *Item, u32 VertexCount){
  Item->VertexOffset = Vertices.Count;
- basic_vertex *Result = PushNArrayItems(&Vertices, VertexCount);
+ basic_vertex *Result = ArrayAlloc(&Vertices, VertexCount);
  return(Result);
 }
 
@@ -481,7 +481,7 @@ u32 *
 game_renderer::AddIndices(render_item *Item, u32 IndexCount){
  Item->IndexOffset  = Indices.Count;
  Item->IndexCount   = IndexCount;
- u32 *Result = PushNArrayItems(&Indices, IndexCount);
+ u32 *Result = ArrayAlloc(&Indices, IndexCount);
  return(Result);
 }
 
@@ -532,7 +532,7 @@ game_renderer::EndClipRect(){
 //~ Light stuff
 void
 game_renderer::AddLight(v2 P, color Color, f32 Intensity, f32 Radius, render_options Options){
- render_light *Light = PushNewArrayItem(&Lights);
+ render_light *Light = ArrayAlloc(&Lights);
  *Light = {};
  
  Light->P = P - CalculateParallax(Options);

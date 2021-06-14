@@ -554,6 +554,7 @@ operator*(color Color, f32 X)
  return(Result);
 }
 
+//~ HSB color
 struct hsb_color {
  f32 Hue, Saturation, Brightness;
 };
@@ -672,6 +673,7 @@ operator/=(rect &A, f32 B){
  return(A);
 }
 
+#if 0
 internal inline rect
 Rect(v2 Min, v2 Max){
  rect Result;
@@ -679,6 +681,7 @@ Rect(v2 Min, v2 Max){
  Result.Max = Max;
  return(Result);
 }
+#endif
 
 internal inline rect
 MakeRect(v2 Min, v2 Max){
@@ -716,7 +719,7 @@ CenterRect(v2 P, v2 Size){
 }
 
 internal inline rect
-FixRect(rect Rect){
+RectFix(rect Rect){
  rect Result = {};
  Result.Min.X = Minimum(Rect.Min.X, Rect.Max.X);
  Result.Min.Y = Minimum(Rect.Min.Y, Rect.Max.Y);
@@ -765,7 +768,7 @@ DoRectsOverlap(rect A, rect B){
 }
 
 internal inline rect
-GrowRect(rect Rect, f32 G){
+RectGrow(rect Rect, f32 G){
  rect Result = Rect;
  Result.Min -= V2(G, G);
  Result.Max += V2(G, G);
@@ -773,7 +776,7 @@ GrowRect(rect Rect, f32 G){
 }
 
 internal inline v2
-GetRectCenter(rect Rect){
+RectCenter(rect Rect){
  v2 Result = {};
  v2 Size = RectSize(Rect);
  Result = Rect.Min + 0.5f*Size;
@@ -782,7 +785,7 @@ GetRectCenter(rect Rect){
 }
 
 internal inline rect
-SweepRect(rect RectA, v2 Delta){
+RectSweep(rect RectA, v2 Delta){
  rect RectB = RectA + Delta;
  rect Result;
  Result.Min = MinimumV2(RectA.Min, RectB.Min);
@@ -811,7 +814,7 @@ SnapToGrid(rect R, f32 UnitSize){
  Result *= UnitSize;
  
  // TODO(Tyler): Maybe fix rect?
- Result = FixRect(Result);
+ Result = RectFix(Result);
  
  return(Result);
 }

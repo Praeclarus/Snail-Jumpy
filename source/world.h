@@ -53,7 +53,7 @@ struct entity_data {
  };
 };
 
-
+global_constant u32 MAX_WORLD_ENTITY = 256;
 struct world_data {
  string Name;
  u8 *Map;

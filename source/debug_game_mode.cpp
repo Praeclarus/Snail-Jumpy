@@ -36,7 +36,7 @@ UpdateAndRenderDebug(){
   f32 Y = Sheet->YOffset;
   v2 A = V2(-100.0f, Y-1.0f) + P;
   v2 B = V2( 100.0f, Y) + P;
-  RenderRect(Rect(A, B), -10.0f, PINK, ScaledItem(1));
+  RenderRect(MakeRect(A, B), -10.0f, PINK, ScaledItem(1));
  }
  
  DoEntityAnimation(Entity, &Animation, P, -11.0f);

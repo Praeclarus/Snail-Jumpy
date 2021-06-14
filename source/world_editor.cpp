@@ -22,11 +22,11 @@ DoInfoSelector(v2 StartP, string Selected){
  local_constant f32 Thickness = 1.0f;
  local_constant f32 Spacer    = 0.0f;
  
- array<string> Entities = MakeNewArray<string>(&TransientStorageArena, AssetSystem.Entities.BucketsUsed);
+ array<string> Entities = MakeArray<string>(&TransientStorageArena, AssetSystem.Entities.BucketsUsed);
  for(u32 I=0; I < AssetSystem.Entities.MaxBuckets; I++){
   string Key = AssetSystem.Entities.Keys[I];
   if(Key.ID){ 
-   PushItemOntoArray(&Entities, Key); 
+   ArrayAdd(&Entities, Key); 
   }
  }
  
@@ -89,10 +89,10 @@ DoArtSelector(v2 StartP, string Selected){
  local_constant f32 Spacer    = 0.0f;
  
  v2 P = StartP;
- array<string> Arts = MakeNewArray<string>(&TransientStorageArena, AssetSystem.Arts.BucketsUsed);
+ array<string> Arts = MakeArray<string>(&TransientStorageArena, AssetSystem.Arts.BucketsUsed);
  for(u32 I=0; I < AssetSystem.Arts.MaxBuckets; I++){
   string Key = AssetSystem.Arts.Keys[I];
-  if(Key.ID){ PushItemOntoArray(&Arts, Key); }
+  if(Key.ID){ ArrayAdd(&Arts, Key); }
  }
  
  if(!Result.ID) Result = Arts[0];
@@ -208,7 +208,7 @@ world_editor::AddWorldEntity(){
    Result = true;
   }break;
   case EditMode_AddTeleporter: {
-   entity_data *Entity = PushNewArrayItem(&World->Entities);
+   entity_data *Entity = ArrayAlloc(&World->Entities);
    
    Entity->Level          = Strings.MakeBuffer();
    Entity->TRequiredLevel = Strings.MakeBuffer();
@@ -223,7 +223,7 @@ world_editor::AddWorldEntity(){
   }break;
   case EditMode_AddEnemy: {
    asset_entity *EntityInfo = AssetSystem.GetEntity(EntityInfoToAdd);
-   entity_data *NewEnemy = PushNewArrayItem(&World->Entities);
+   entity_data *NewEnemy = ArrayAlloc(&World->Entities);
    *NewEnemy = {};
    
    v2 EntitySize = EntityInfo->Size;
@@ -244,7 +244,7 @@ world_editor::AddWorldEntity(){
   }break;
   case EditMode_AddArt: {
    asset_art *Asset = AssetSystem.GetArt(AssetForArtEntity);
-   entity_data *Art = PushNewArrayItem(&World->Entities);
+   entity_data *Art = ArrayAlloc(&World->Entities);
    
    v2 Size = Asset->Size;
    v2 P = MouseP;
@@ -420,10 +420,10 @@ world_editor::DoCursor(){
    }break;
    case UIBehavior_Deactivate: {
     if(Mode == EditMode_AddDoor){
-     entity_data *Entity = PushNewArrayItem(&World->Entities);
+     entity_data *Entity = ArrayAlloc(&World->Entities);
      rect R = SnapToGrid(DragRect, 1);
      Entity->Type = EntityType_Door;
-     Entity->P = GetRectCenter(R);
+     Entity->P = RectCenter(R);
      Entity->Size = RectSize(R);
      Entity->DRequiredLevel = Strings.MakeBuffer();
      SelectedThing = Entity;
@@ -714,7 +714,7 @@ world_editor::UpdateAndRender(){
    u8 TileId = World->Map[Y*World->Width + X];
    v2 P = TILE_SIDE*V2((f32)X, (f32)Y);
    if(TileId == EntityType_Wall){
-    RenderRect(Rect(P, P+TILE_SIZE), 0.0f, WHITE, GameItem(1));
+    RenderRect(MakeRect(P, P+TILE_SIZE), 0.0f, WHITE, GameItem(1));
    }else if(TileId == EntityType_Coin){
     v2 Center = P + 0.5f*TILE_SIZE;
     RenderRect(CenterRect(Center, V2(8.0f)), 0.0f, YELLOW, GameItem(1));
@@ -817,7 +817,7 @@ world_editor::UpdateAndRender(){
   switch(EditorButtonElement(&UIManager, ID, EntityRect, MouseButton_Right, -1, ScaledItem(1))){
    case UIBehavior_Activate: {
     SelectedThing = 0;
-    UnorderedRemoveArrayItemAtIndex(&World->Entities, I);
+    ArrayUnorderedRemove(&World->Entities, I);
     I--; // Repeat the last iteration because an item was removed
     State->T = 0.0f;
     State->ActiveT = 0.0f;

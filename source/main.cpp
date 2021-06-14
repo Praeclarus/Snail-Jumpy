@@ -105,12 +105,12 @@ InitializeGame(){
   umw Size = Megabytes(200);
   void *Memory = AllocateVirtualMemory(Size);
   Assert(Memory);
-  InitializeArena(&PermanentStorageArena, Memory, Size);
+  CreateArena(&PermanentStorageArena, Memory, Size);
  }{
   umw Size = Gigabytes(1);
   void *Memory = AllocateVirtualMemory(Size);
   Assert(Memory);
-  InitializeArena(&TransientStorageArena, Memory, Size);
+  CreateArena(&TransientStorageArena, Memory, Size);
  }
  
  LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
@@ -138,7 +138,7 @@ internal void
 GameUpdateAndRender(){
  //~ Prepare for next frame
  ProfileData.CurrentBlockIndex = 0;
- ClearArena(&TransientStorageArena);
+ ArenaClear(&TransientStorageArena);
  UIManager.BeginFrame();
  
  //~ Do next frame

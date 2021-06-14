@@ -248,7 +248,7 @@ MakeCollisionPill(v2 Offset, f32 Radius, f32 Height, u32 HalfSegments, memory_ar
  collision_boundary Result = {};
  Result.Type = BoundaryType_FreeForm;
  Result.Offset = Offset;
- Result.Bounds = Rect(V2(-Radius, -Radius), V2(Radius, Height+Radius));
+ Result.Bounds = MakeRect(V2(-Radius, -Radius), V2(Radius, Height+Radius));
  
  u32 Segments = 2*HalfSegments;
  u32 ActualSegments = Segments + 2;
@@ -288,7 +288,7 @@ GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
   Min = MinimumV2(Boundaries[I].Bounds.Min+Boundaries[I].Offset, Min);
   Max = MaximumV2(Boundaries[I].Bounds.Max+Boundaries[I].Offset, Max);
  }
- rect Result = Rect(Min, Max);
+ rect Result = MakeRect(Min, Max);
  return(Result);
 }
 
@@ -330,9 +330,9 @@ physics_system::Initialize(memory_arena *Arena){
  BucketArrayInitialize(&StaticObjects, Arena);
  BucketArrayInitialize(&TriggerObjects, Arena);
  BucketArrayInitialize(&Tilemaps, Arena);
- ParticleMemory          = PushNewArena(Arena, 64*128*sizeof(physics_particle_x4));
- BoundaryMemory          = PushNewArena(Arena, 3*128*sizeof(collision_boundary));
- PermanentBoundaryMemory = PushNewArena(Arena, 128*sizeof(collision_boundary));
+ ParticleMemory          = MakeArena(Arena, 64*128*sizeof(physics_particle_x4));
+ BoundaryMemory          = MakeArena(Arena, 3*128*sizeof(collision_boundary));
+ PermanentBoundaryMemory = MakeArena(Arena, 128*sizeof(collision_boundary));
 }
 
 void
@@ -342,8 +342,8 @@ physics_system::Reload(u32 Width, u32 Height){
  BucketArrayRemoveAll(&StaticObjects);
  BucketArrayRemoveAll(&TriggerObjects);
  BucketArrayRemoveAll(&Tilemaps);
- ClearArena(&ParticleMemory);
- ClearArena(&BoundaryMemory);
+ ArenaClear(&ParticleMemory);
+ ArenaClear(&BoundaryMemory);
  
  PhysicsDebugger.Paused = {};
  PhysicsDebugger.StartOfPhysicsFrame = true;
@@ -353,7 +353,7 @@ physics_particle_system *
 physics_system::AddParticleSystem(v2 P, collision_boundary *Boundary, u32 Count,
                                   f32 COR=1.0f){
  physics_particle_system *Result = BucketArrayAlloc(&ParticleSystems);
- Result->Particles = CreateFullArray<physics_particle_x4>(&ParticleMemory, Count, 16);
+ Result->Particles = MakeFullArray<physics_particle_x4>(&ParticleMemory, Count, 16);
  Result->Boundary = Boundary;
  Result->P = P;
  Result->COR = COR;
@@ -600,10 +600,10 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
  const f32 Epsilon = 0.0001f;
  
  dynamic_array<v2> Polytope; 
- DynamicArrayInitialize(&Polytope, 20, &TransientStorageArena);
- DynamicArrayPushBack(&Polytope, Simplex[0]);
- DynamicArrayPushBack(&Polytope, Simplex[1]);
- DynamicArrayPushBack(&Polytope, Simplex[2]);
+ CreateArray(&Polytope, 20, &TransientStorageArena);
+ ArrayAdd(&Polytope, Simplex[0]);
+ ArrayAdd(&Polytope, Simplex[1]);
+ ArrayAdd(&Polytope, Simplex[2]);
  
  v2 DeltaNormal = Normalize(Clockwise90(Delta));
  v2 DeltaDirection = Normalize(Delta);
@@ -721,7 +721,7 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
    
    break;
   }else{
-   DynamicArrayInsertNewArrayItem(&Polytope, EdgeIndex+1, NewPoint);
+   ArrayInsert(&Polytope, EdgeIndex+1, NewPoint);
   }
  }
  
@@ -799,7 +799,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
  FOR_BUCKET_ARRAY(ItB, &Tilemaps){
   physics_tilemap *Tilemap = ItB.Item;
   rect Bounds = Boundary->Bounds + (Boundary->Offset+P);
-  Bounds = SweepRect(Bounds, Delta);
+  Bounds = RectSweep(Bounds, Delta);
   Bounds.Min.X /= Tilemap->TileSize.X;
   Bounds.Min.Y /= Tilemap->TileSize.Y;
   Bounds.Max.X /= Tilemap->TileSize.X;

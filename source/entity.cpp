@@ -15,7 +15,7 @@ entity_manager::Reset(){
 
 void
 entity_manager::Initialize(memory_arena *Arena){
- Memory = PushNewArena(Arena, Megabytes(10));
+ Memory = MakeArena(Arena, Megabytes(10));
  Reset();
 }
 

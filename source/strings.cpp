@@ -44,7 +44,7 @@ struct string_manager {
 
 void
 string_manager::Initialize(memory_arena *Arena){
- Memory = PushNewArena(Arena, Kilobytes(32));
+ Memory = MakeArena(Arena, Kilobytes(32));
  Table = PushHashTable<const char *, const char *>(Arena, 512);
 }
 
@@ -52,7 +52,7 @@ string
 string_manager::GetString(const char *String){
  const char *ResultString = FindInHashTable(&Table, String);
  if(!ResultString){
-  ResultString = PushCString(&Memory, String);
+  ResultString = ArenaPushCString(&Memory, String);
   InsertIntoHashTable(&Table, String, ResultString);
  }
  string Result;

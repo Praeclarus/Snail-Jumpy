@@ -216,7 +216,7 @@ ui_window::Button(const char *Text, u64 ID){
  f32 T = EaseOutSquared(State->T);
  
  color ButtonColor = MixColor(Theme->HoverColor, Theme->BaseColor, T);
- ButtonRect = GrowRect(ButtonRect, -5.0f*T);
+ ButtonRect = RectGrow(ButtonRect, -5.0f*T);
  
  if(State->ActiveT > 0.0f){
   f32 ActiveT = Sin(State->ActiveT*PI);
@@ -313,7 +313,7 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
  color TextColor  = MixColor(Theme->TextColorB, Theme->TextColorA, ActiveT);
  color OtherColor = MixColor(Theme->ActiveColor, Theme->HoverColor, ActiveT);
  color Color      = MixColor(OtherColor, Theme->BaseColor, T);
- TextBoxRect      = GrowRect(TextBoxRect, -3*T);
+ TextBoxRect      = RectGrow(TextBoxRect, -3*T);
  
  DrawRect(TextBoxRect, Z-0.1f, Color);
  v2 StringP = VCenterStringP(Theme, Theme->NormalFont, DrawP, Height);
@@ -373,7 +373,7 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
  f32 T = EaseOutSquared(State->T);
  
  color ButtonColor = MixColor(Theme->HoverColor, Theme->BaseColor, T);
- BoxRect = GrowRect(BoxRect, -3.0f*T);
+ BoxRect = RectGrow(BoxRect, -3.0f*T);
  
  if(State->ActiveT > 0.0f){
   f32 ActiveT = EaseInSquared(State->ActiveT);
@@ -384,7 +384,7 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
  DrawRect(BoxRect, Z-0.1f, ButtonColor);
  
  if(Value){
-  DrawRect(GrowRect(BoxRect, -5.0f), Z-0.2f, Theme->ActiveColor);
+  DrawRect(RectGrow(BoxRect, -5.0f), Z-0.2f, Theme->ActiveColor);
  }
  
  v2 StringP = DrawP;
@@ -469,7 +469,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
     
     f32 T = EaseOutSquared(State->T);
     Color = MixColor(Theme->ActiveColor, Theme->HoverColor, T);
-    ItemRect = GrowRect(ItemRect, -3.0f*T);
+    ItemRect = RectGrow(ItemRect, -3.0f*T);
     ItemZ -= 0.01f;
    }
    

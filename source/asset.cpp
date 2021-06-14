@@ -1,7 +1,7 @@
 
 void
 asset_system::Initialize(memory_arena *Arena){
- Memory = PushNewArena(Arena, Kilobytes(8));
+ Memory = MakeArena(Arena, Kilobytes(8));
  SpriteSheets = PushHashTable<string, asset_sprite_sheet>(Arena, MAX_ASSETS_PER_TYPE);
  Entities     = PushHashTable<string, asset_entity>(Arena, MAX_ASSETS_PER_TYPE);
  Animations   = PushHashTable<string, asset_animation>(Arena, MAX_ASSETS_PER_TYPE);
@@ -899,8 +899,8 @@ asset_system::LoadAssetFile(const char *Path){
  
  b8 HitError = false;
  do{
-  ClearArena(&Memory);
-  memory_arena_marker Marker = BeginMarker(&TransientStorageArena);
+  ArenaClear(&Memory);
+  memory_arena_marker Marker = ArenaBeginMarker(&TransientStorageArena);
   
   os_file *File = OpenFile(Path, OpenFile_Read);
   u64 NewFileWriteTime = GetLastFileWriteTime(File);
@@ -944,7 +944,7 @@ asset_system::LoadAssetFile(const char *Path){
    end_loop:;
   }
   
-  EndMarker(&TransientStorageArena, &Marker);
+  ArenaEndMarker(&TransientStorageArena, &Marker);
   
   if(HitError) OSSleep(10); // To prevent consuming the CPU
   LastFileWriteTime = NewFileWriteTime;

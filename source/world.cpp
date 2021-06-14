@@ -281,7 +281,7 @@ world_manager::LoadWorldFromFile(const char *Name){
   
   NewWorld->Width = Header->WidthInTiles;
   NewWorld->Height = Header->HeightInTiles;
-  NewWorld->Entities = MakeNewArray<entity_data>(&Memory, 256);
+  NewWorld->Entities = MakeArray<entity_data>(&Memory, 256);
   NewWorld->Entities.Count = Header->EntityCount;
   if(Header->IsTopDown){
    NewWorld->Flags |= WorldFlag_IsTopDown;
@@ -435,7 +435,7 @@ world_manager::WriteWorldsToFiles(){
 
 void
 world_manager::Initialize(memory_arena *Arena){
- Memory = PushNewArena(Arena, Kilobytes(512));
+ Memory = MakeArena(Arena, Kilobytes(512));
  WorldTable = PushHashTable<string, world_data>(Arena, 512);
 }
 
@@ -458,9 +458,8 @@ world_manager::GetOrCreateWorld(string Name){
   Result->Width = 32;
   Result->Height = 18;
   u32 MapSize = Result->Width*Result->Height;
-  //NewData->MapData = PushArray(&MapDataMemory, u8, MapSize);
   Result->Map = (u8 *)DefaultAlloc(MapSize);
-  Result->Entities = MakeNewArray<entity_data>(&Memory, 64);
+  Result->Entities = MakeArray<entity_data>(&Memory, MAX_WORLD_ENTITY);
  }
  return(Result);
 }
