@@ -32,9 +32,9 @@ UpdateAndRenderMainGame(){
  
  GameProcessInput();
  
- GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.4f, 0.5f, 0.45f, 1.0f));
- GameRenderer.CalculateCameraBounds(CurrentWorld);
- GameRenderer.SetCameraSettings(0.02f);
+ GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.30f, 0.40f, 0.70f));
+ GameRenderer.CalculateCameraBounds(CurrentWorld); 
+ GameRenderer.SetCameraSettings(0.5f);
  GameRenderer.SetLightingConditions(HSBToRGB(CurrentWorld->AmbientColor), CurrentWorld->Exposure);
  
  EntityManager.UpdateAndRenderEntities();
@@ -108,6 +108,8 @@ UpdateAndRenderMainGame(){
   }
  }
  
+ 
+#if 0 
  //~ Rope/vine thing
  {
   v2 BaseP = V2(100, 110);
@@ -121,6 +123,8 @@ UpdateAndRenderMainGame(){
   RenderLineFrom(BaseP, Delta, 0.0f, 1.0f, GREEN, GameItem(1));
   GameRenderer.AddLight(BaseP+Delta, MakeColor(0.0f, 1.0f, 0.0f), 0.3f, 5.0f, GameItem(1));
  }
+#endif
+ 
  
  RenderFormatString(&MainFont, GREEN, V2(100, OSInput.WindowSize.Height-100),
                     -0.9f, "Score: %u", Score);

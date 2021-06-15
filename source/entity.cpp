@@ -303,7 +303,7 @@ UpdateAndRenderPlatformerPlayer(){
  player_entity *Player = EntityManager.Player;
  dynamic_physics_object *Physics = Player->DynamicPhysics;
  if(!DoesAnimationBlock(&Player->EntityInfo->Animation, &Player->Animation)){
-  f32 MovementSpeed = 100; // TODO(Tyler): Load this from a variables file
+  f32 MovementSpeed = Player->EntityInfo->Speed; // TODO(Tyler): Load this from a variables file
   f32 Movement = 0.0f;
   if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
    Player->Animation.Direction = Direction_Right;
@@ -385,10 +385,9 @@ UpdateAndRenderPlatformerPlayer(){
   
  }
  
- 
- v2 P = FloorV2(Player->Physics->P);
+ v2 P = Player->Physics->P;
  v2 Center = P + 0.5f*Player->EntityInfo->Size;
- GameRenderer.AddLight(Center, MakeColor(0.3f, 0.7f, 0.6f, 1.0), 0.7f, 15.0f, GameItem(1));
+ GameRenderer.AddLight(Center, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f, GameItem(1));
  GameRenderer.SetCameraTarget(Center);
  DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->ZLayer, 1);
 }
@@ -397,7 +396,16 @@ void
 entity_manager::UpdateAndRenderEntities(){
  TIMED_FUNCTION();
  
- //~ Walls
+ //~ Player @entity_player
+ // NOTE(Tyler): The player is processed before all other entities because it controls the camera.
+ // This must be here other wise there is jitter and shakiness.
+ if(CurrentWorld->Flags & WorldFlag_IsTopDown){
+  NOT_IMPLEMENTED_YET;
+ }else{
+  UpdateAndRenderPlatformerPlayer();
+ }
+ 
+ //~ Walls @entity_tilemaps
  FOR_BUCKET_ARRAY(It, &Tilemaps){
   tilemap_entity *Tilemap = It.Item;  
   
@@ -418,7 +426,7 @@ entity_manager::UpdateAndRenderEntities(){
   }
  }
  
- //~ Coins
+ //~ Coins @entity_coin
  FOR_BUCKET_ARRAY(It, &Coins){
   coin_entity *Coin = It.Item;
   if(Coin->Animation.Cooldown > 0.0f){
@@ -429,7 +437,7 @@ entity_manager::UpdateAndRenderEntities(){
   }
  }
  
- //~ Enemies
+ //~ Enemies @entity_enemies
  FOR_BUCKET_ARRAY(It, &Enemies){
   enemy_entity *Enemy = It.Item;
   dynamic_physics_object *Physics = Enemy->DynamicPhysics;
@@ -459,29 +467,21 @@ entity_manager::UpdateAndRenderEntities(){
   MovePlatformer(Physics, Movement, Gravity);
   
   v2 EntitySize = Enemy->EntityInfo->Size;
-  v2 P = FloorV2(Physics->P);
+  v2 P = Physics->P;
   
   f32 Radius = RectSize(Enemy->Bounds).Width+5;
   GameRenderer.AddLight(P+0.5f*EntitySize, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
   DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->ZLayer, 1);
  }
  
- //~ Arts
+ //~ Arts @entity_arts
  FOR_BUCKET_ARRAY(It, &Arts){
   art_entity *Art = It.Item;
   asset_art *Asset = AssetSystem.GetArt(Art->Asset);
-  AssetSystem.RenderArt(Asset, Art->P, Art->Z);
-  
+  RenderArt(Asset, Art->P, Art->Z, 1);
  }
  
- //~ Player
- if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-  NOT_IMPLEMENTED_YET;
- }else{
-  UpdateAndRenderPlatformerPlayer();
- }
- 
- //~ Teleporters
+ //~ Teleporters @entity_teleporters
  FOR_BUCKET_ARRAY(It, &Teleporters){
   teleporter_entity *Teleporter = It.Item;
   if(!Teleporter->IsLocked){
@@ -510,7 +510,7 @@ entity_manager::UpdateAndRenderEntities(){
   }
  }
  
- //~ Doors
+ //~ Doors @entity_doors
  FOR_BUCKET_ARRAY(It, &Doors){
   door_entity *Door = It.Item;
   Door->Cooldown -= OSInput.dTime;
@@ -527,7 +527,7 @@ entity_manager::UpdateAndRenderEntities(){
   }
  }
  
- //~ Projectiles
+ //~ Projectiles @entity_projectiles
  FOR_BUCKET_ARRAY(It, &Projectiles){
   projectile_entity *Projectile = It.Item;
   trigger_physics_object *Physics = Projectile->TriggerPhysics;
@@ -548,6 +548,31 @@ entity_manager::UpdateAndRenderEntities(){
    Physics->State |= PhysicsObjectState_Inactive;
   }
  }
+ 
+#if 1
+ //~ Backgrounds
+ {
+  TIMED_SCOPE(Backgrounds);
+  asset_art *BackgroundBack   = AssetSystem.GetArt(Strings.GetString("background_test_back"));
+  asset_art *BackgroundMiddle = AssetSystem.GetArt(Strings.GetString("background_test_middle"));
+  asset_art *BackgroundFront  = AssetSystem.GetArt(Strings.GetString("background_test_front"));
+  //f32 YOffset = -200;
+  f32 YOffset = 0;
+#if 1
+  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 5);
+  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 5);
+#endif
+#if 1
+  RenderArt(BackgroundMiddle, V2(0*BackgroundMiddle->Size.Width, YOffset), 14, 3);
+  RenderArt(BackgroundMiddle, V2(1*BackgroundMiddle->Size.Width, YOffset), 14, 3);
+#endif
+#if 1
+  RenderArt(BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), 13, 1);
+  RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
+  RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
+#endif
+ }
+#endif
  
 #if 0    
  //~ Gate

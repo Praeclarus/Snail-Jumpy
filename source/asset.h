@@ -123,11 +123,6 @@ struct asset_tilemap {
  
 };
 
-struct asset_background {
- render_texture Texture;
- v2 Size;
-};
-
 //~ Asset loading
 enum asset_loader_error {
  AssetLoaderError_None,
@@ -147,12 +142,10 @@ struct asset_system {
  hash_table<string, asset_entity>       Entities;
  hash_table<string, asset_art>          Arts;
  hash_table<string, asset_tilemap>      Tilemaps;
- hash_table<string, asset_background>   Backgrounds;
  
  asset_sprite_sheet DummySpriteSheet;
  asset_art          DummyArt;
  asset_tilemap      DummyTilemap;
- asset_background   DummyBackground;
  
  void Initialize(memory_arena *Arena);
  
@@ -161,7 +154,7 @@ struct asset_system {
  asset_entity *GetEntity(string Name);
  
  asset_art *GetArt(string Name);
- void RenderArt(asset_art *Art, v2 P, f32 Z);
+ 
  
  //~ Logging 
  const char *CurrentCommand;

@@ -7,7 +7,6 @@ asset_system::Initialize(memory_arena *Arena){
  Animations   = PushHashTable<string, asset_animation>(Arena, MAX_ASSETS_PER_TYPE);
  Arts         = PushHashTable<string, asset_art>(Arena, MAX_ASSETS_PER_TYPE);
  Tilemaps     = PushHashTable<string, asset_tilemap>(Arena, MAX_ASSETS_PER_TYPE);
- Backgrounds  = PushHashTable<string, asset_background>(Arena, MAX_ASSETS_PER_TYPE);
  
  //~ Dummy assets
  u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};
@@ -81,8 +80,7 @@ asset_system::GetSpriteSheet(string Name){
 
 void 
 RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32 Layer, u32 Frame){
- P.X = Round(P.X);
- P.Y = Round(P.Y);
+ P = RoundV2(P);
  P.Y += Sheet->YOffset;
  
  v2 RenderSize = Sheet->FrameSize;
@@ -231,10 +229,10 @@ asset_system::GetArt(string Name){
  return(Result);
 }
 
-void
-asset_system::RenderArt(asset_art *Art, v2 P, f32 Z){
+void 
+RenderArt(asset_art *Art, v2 P, f32 Z, u32 Layer){
  v2 Size = Art->Size;
- RenderTexture(CenterRect(P, Size), Z, Art->Texture, GameItem(2), 
+ RenderTexture(SizeRect(P, Size), Z, Art->Texture, GameItem(Layer), 
                MakeRect(V2(0), V2(1)), true);
 }
 

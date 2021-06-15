@@ -419,17 +419,14 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
  Lights = MakeArray<render_light>(Arena, MAX_LIGHT_COUNT);
  
  //~ Camera
+#if 0 
  CameraTargetP.X = Clamp(CameraTargetP.X, CameraBounds.Min.X, CameraBounds.Max.X);
  CameraTargetP.Y = Clamp(CameraTargetP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
  
- // TODO(Tyler): This does allow for an the camera not to move when it might make sense
- // for it to. For instance when there is one pixel when the camera should be fully
- // to the right.
- v2 Delta = CameraSpeed*(CameraTargetP-CameraFinalP);
- Delta.X = Round(Delta.X);
- Delta.Y = Round(Delta.Y);
+ f32 dTime = OSInput.dTime;
+ v2 Delta = dTime*CameraSpeed*(CameraTargetP-CameraFinalP);
  CameraFinalP += Delta;
- 
+#endif
  
  v2 BoundsSize = RectSize(CameraBounds);
  f32 Factor = 215.0f;
@@ -440,7 +437,6 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
     (OldOutputSize.Y != OutputSize.Y)){
   ResizeFramebuffer(&GameScreenFramebuffer, OutputSize/CameraScale);
  }
- 
 }
 
 //~ Render stuff
@@ -496,8 +492,7 @@ game_renderer::CalculateParallax(render_options Options){
  }
  
  if(Options.Type == RenderType_Game){
-  Result.X = Round(Result.X);
-  Result.Y = Round(Result.Y);
+  Result = RoundV2(Result);
  }
  
  return(Result);
@@ -558,12 +553,18 @@ game_renderer::SetCameraSettings(f32 Speed){
 void 
 game_renderer::SetCameraTarget(v2 Center){
  v2 ScreenSize = OutputSize/CameraScale;
- CameraTargetP = Center - 0.5f*ScreenSize;
+ //CameraTargetP = Center - 0.5f*ScreenSize;
+ CameraFinalP = Center - 0.5f*ScreenSize;
+ CameraFinalP.X = Clamp(CameraFinalP.X, CameraBounds.Min.X, CameraBounds.Max.X);
+ CameraFinalP.Y = Clamp(CameraFinalP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
 }
 
 void
 game_renderer::MoveCamera(v2 Delta){
- CameraTargetP += Delta;
+ //CameraTargetP += Delta;
+ CameraFinalP += Delta;
+ CameraFinalP.X = Clamp(CameraFinalP.X, CameraBounds.Min.X, CameraBounds.Max.X);
+ CameraFinalP.Y = Clamp(CameraFinalP.Y, CameraBounds.Min.Y, CameraBounds.Max.Y);
 }
 
 void

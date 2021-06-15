@@ -173,7 +173,7 @@
 	   piece         player 0
 	   animation     player 
 	   mass          1.0
-	   speed         100
+	   speed         50
 	   boundary_pill 0 0 0 3 8
 	   collision_response PLAYER
 
@@ -249,6 +249,16 @@
 	
 : art grass_platform_e
 	   path asset_arts/grass_platform_e.png
+
+
+: art background_test_back
+	   path asset_backgrounds/background_test_back.png
+	
+: art background_test_middle
+	   path asset_backgrounds/background_test_middle.png
+	
+: art background_test_front
+	   path asset_backgrounds/background_test_front.png
 	
 # //////////////////////////////////////////////////////////////////////////
 #                                    Fonts

@@ -485,6 +485,14 @@ FloorV2(v2 V){
 }
 
 internal inline v2
+RoundV2(v2 V){
+ v2 Result;
+ Result.X = Round(V.X);
+ Result.Y = Round(V.Y);
+ return(Result);
+}
+
+internal inline v2
 SnapToGrid(v2 P, f32 UnitSize){
  P /= UnitSize;
  v2 Result = V2(Floor(P.X), Floor(P.Y));

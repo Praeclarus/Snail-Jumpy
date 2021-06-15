@@ -388,7 +388,7 @@ MakeGameScreenShader(){
    
    vec2 UV = floor(Pixel) + 0.5;
    
-   UV += 1.0 - clamp((1.0-fract(Pixel))*InScale, 0.0, 1.0);
+   //UV += 1.0 - clamp((1.0-fract(Pixel))*InScale, 0.0, 1.0);
    
    vec4 Color = texture(InTexture, UV/TextureSize);
    //vec4 Color = texture(InTexture, FragmentUV);

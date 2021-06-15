@@ -397,8 +397,7 @@ world_editor::DoCursor(){
    v2 P = MouseP;
    P = SnapEntity(P, Size, 1);
    
-   RenderTexture(CenterRect(P, Size), 0.0f, Asset->Texture, GameItem(1), 
-                 MakeRect(V2(0), V2(1)), true);
+   RenderArt(Asset, P, 0.0f, 1);
   }break;
  }
  
@@ -668,7 +667,10 @@ world_editor::DoUI(){
   Window->Text("Ambient light color:");
   World->AmbientColor = Window->ColorPicker(World->AmbientColor, WIDGET_ID);
   Window->Text("Exposure:");
-  World->Exposure     = Window->Slider(World->Exposure, WIDGET_ID);
+  f32 MaxExposure = 2.0f;
+  f32 ExposurePercent = World->Exposure / MaxExposure;
+  ExposurePercent = Window->Slider(ExposurePercent, WIDGET_ID);
+  World->Exposure =  ExposurePercent * MaxExposure;
   
   Window->End();
  }
@@ -682,9 +684,9 @@ world_editor::UpdateAndRender(){
   EntityInfoToAdd = Strings.GetString("snail");
  }
  
- GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.4f, 0.5f, 0.45f, 1.0f));
+ GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.30f, 0.40f, 0.70f));
  GameRenderer.CalculateCameraBounds(World);
- GameRenderer.SetCameraSettings(0.4f);
+ GameRenderer.SetCameraSettings(0.3f/OSInput.dTime);
  GameRenderer.SetLightingConditions(HSBToRGB(World->AmbientColor), World->Exposure);
  
  LastMouseP = MouseP;
@@ -763,11 +765,9 @@ world_editor::UpdateAndRender(){
     
     asset_art *Asset = AssetSystem.GetArt(Entity->Asset);
     v2 Size = Asset->Size;
+    EntityRect = SizeRect(Entity->P, Size);
     
-    EntityRect = CenterRect(Entity->P, Size);
-    
-    RenderTexture(EntityRect, Entity->Z, Asset->Texture, GameItem(1),
-                  MakeRect(V2(0), V2(1)), true);
+    RenderArt(Asset, Entity->P, Entity->Z, 1);
    }break;
   }
   
@@ -825,6 +825,25 @@ world_editor::UpdateAndRender(){
   }
   
  }
+ 
+ 
+ //~ Backgrounds
+ {
+  TIMED_SCOPE(Backgrounds);
+  asset_art *BackgroundBack   = AssetSystem.GetArt(Strings.GetString("background_test_back"));
+  asset_art *BackgroundMiddle = AssetSystem.GetArt(Strings.GetString("background_test_middle"));
+  asset_art *BackgroundFront  = AssetSystem.GetArt(Strings.GetString("background_test_front"));
+  //f32 YOffset = -150;
+  f32 YOffset = 0;
+  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 5);
+  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 5);
+  RenderArt(BackgroundMiddle, V2(0*BackgroundMiddle->Size.Width, YOffset), 14, 3);
+  RenderArt(BackgroundMiddle, V2(1*BackgroundMiddle->Size.Width, YOffset), 14, 3);
+  RenderArt(BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), 13, 1);
+  RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
+  RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
+ }
+ 
  
  END_TIMED_BLOCK();
  
