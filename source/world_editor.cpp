@@ -37,6 +37,15 @@ DoInfoSelector(v2 StartP, string Selected){
   asset_entity *Info = AssetSystem.GetEntity(Entities[I]);
   asset_sprite_sheet *Asset = Info->Pieces[0];
   v2 Size = Info->Size;
+  f32 AspectRatio = Size.Y/Size.X;
+  if(Size.X > 100){
+   Size.X = 100;
+   Size.Y = Size.X*AspectRatio;
+  }
+  if(Size.Y > 100){
+   Size.Y = 100;
+   Size.X = Size.Y/AspectRatio;
+  }
   
   RenderSpriteSheetFrame(Asset, P, -2.0f, 0, 0);
   
@@ -73,7 +82,7 @@ DoInfoSelector(v2 StartP, string Selected){
   f32 XAdvance = Spacer+Size.X;
   P.X += XAdvance;
   
-  if(P.X > 300.0f){
+  if(P.X > 250.0f){
    P.X = StartP.X;
    P.Y -= 50.0f;
   }
@@ -100,6 +109,15 @@ DoArtSelector(v2 StartP, string Selected){
  for(u32 I=0; I<Arts.Count; I++){
   asset_art *Art = AssetSystem.GetArt(Arts[I]);
   v2 Size = Art->Size;
+  f32 AspectRatio = Size.Y/Size.X;
+  if(Size.X > 100){
+   Size.X = 100;
+   Size.Y = Size.X*AspectRatio;
+  }
+  if(Size.Y > 100){
+   Size.Y = 100;
+   Size.X = Size.Y/AspectRatio;
+  }
   
   Size *= 0.5f;
   rect R = SizeRect(P, Size);
@@ -136,7 +154,7 @@ DoArtSelector(v2 StartP, string Selected){
   f32 XAdvance = Spacer+Size.X;
   P.X += XAdvance;
   
-  if(P.X > 300.0f){
+  if(P.X > 250.0f){
    P.X = StartP.X;
    P.Y -= 50.0f;
   }
@@ -247,7 +265,7 @@ world_editor::AddWorldEntity(){
    entity_data *Art = ArrayAlloc(&World->Entities);
    
    v2 Size = Asset->Size;
-   v2 P = MouseP;
+   v2 P = MouseP - 0.5f*Size;
    P = SnapEntity(P, Size, 1);
    
    Art->P = P;
@@ -394,7 +412,7 @@ world_editor::DoCursor(){
    asset_art *Asset = AssetSystem.GetArt(AssetForArtEntity);
    v2 Size = Asset->Size;
    
-   v2 P = MouseP;
+   v2 P = MouseP - 0.5f*Size;
    P = SnapEntity(P, Size, 1);
    
    RenderArt(Asset, P, 0.0f, 1);
@@ -835,13 +853,17 @@ world_editor::UpdateAndRender(){
   asset_art *BackgroundFront  = AssetSystem.GetArt(Strings.GetString("background_test_front"));
   //f32 YOffset = -150;
   f32 YOffset = 0;
-  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 5);
+#if 0
   RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 5);
+  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 5);
+#endif
   RenderArt(BackgroundMiddle, V2(0*BackgroundMiddle->Size.Width, YOffset), 14, 3);
   RenderArt(BackgroundMiddle, V2(1*BackgroundMiddle->Size.Width, YOffset), 14, 3);
+#if 0
   RenderArt(BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), 13, 1);
   RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
   RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
+#endif
  }
  
  
