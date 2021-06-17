@@ -492,7 +492,7 @@ game_renderer::CalculateParallax(render_options Options){
  }
  
  if(Options.Type == RenderType_Game){
-  Result = RoundV2(Result);
+  Result = FloorV2(Result);
  }
  
  return(Result);

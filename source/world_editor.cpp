@@ -571,9 +571,9 @@ world_editor::DoUI(){
  }
  
  if(Window->Button("Rename world", WIDGET_ID)){
-  world_data *NewWorld = WorldManager.GetWorld(Strings.GetString(NameBuffer));
+  string WorldName = Strings.GetString(NameBuffer);
+  world_data *NewWorld = WorldManager.GetWorld(WorldName);
   if(!NewWorld){
-   string WorldName = Strings.GetString(NameBuffer);
    NewWorld = WorldManager.CreateNewWorld(WorldName);
    *NewWorld = *World;
    WorldManager.RemoveWorld(World->Name);
@@ -583,8 +583,7 @@ world_editor::DoUI(){
   
   ZeroMemory(NameBuffer, ArrayCount(NameBuffer));
  }
- Window->Text("Map size: %u %u", 
-              World->Width, World->Height);
+ Window->Text("Map size: %u %u", World->Width, World->Height);
  
  //~ Map Resizing
  
@@ -702,7 +701,7 @@ world_editor::UpdateAndRender(){
   EntityInfoToAdd = Strings.GetString("snail");
  }
  
- GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.30f, 0.40f, 0.70f));
+ GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.30f, 0.55f, 0.70f));
  GameRenderer.CalculateCameraBounds(World);
  GameRenderer.SetCameraSettings(0.3f/OSInput.dTime);
  GameRenderer.SetLightingConditions(HSBToRGB(World->AmbientColor), World->Exposure);
@@ -710,6 +709,10 @@ world_editor::UpdateAndRender(){
  LastMouseP = MouseP;
  MouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(1));
  CursorP = SnapToGrid(MouseP, TILE_SIDE);
+ v2 CursorCenter = CursorP+0.5f*TILE_SIZE;
+ //GameRenderer.AddLight(MouseP, MakeColor(0.4f, 0.7f, 1.0f, 1.0f), 0.6f, TILE_SIDE, GameItem(1));
+ //GameRenderer.AddLight(MouseP, MakeColor(1.0f, 1.0f, 0.5f), 0.6f, TILE_SIDE, GameItem(1));
+ GameRenderer.AddLight(MouseP, MakeColor(1.0f, 0.5f, 1.0f), 0.6f, TILE_SIDE, GameItem(1));
  
  ProcessInput();
  
@@ -735,6 +738,7 @@ world_editor::UpdateAndRender(){
    v2 P = TILE_SIDE*V2((f32)X, (f32)Y);
    if(TileId == EntityType_Wall){
     RenderRect(MakeRect(P, P+TILE_SIZE), 2.0f, WHITE, GameItem(1));
+    v2 Center = P + 0.5f*TILE_SIZE;
    }else if(TileId == EntityType_Coin){
     v2 Center = P + 0.5f*TILE_SIZE;
     RenderRect(CenterRect(Center, V2(8.0f)), 2.0f, YELLOW, GameItem(1));
@@ -789,6 +793,9 @@ world_editor::UpdateAndRender(){
    }break;
   }
   
+  v2 EntitySize = RectSize(EntityRect);
+  GameRenderer.AddLight(Entity->P+0.5f*EntitySize, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, EntitySize.Width, GameItem(1));
+  
   u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)Entity);
   ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
   
@@ -804,7 +811,6 @@ world_editor::UpdateAndRender(){
     
     v2 NewP = MouseP + Offset;
     if(DoSnap){
-     v2 EntitySize = RectSize(EntityRect);
      NewP = SnapEntity(NewP, EntitySize, 1);
     }
     
@@ -853,17 +859,13 @@ world_editor::UpdateAndRender(){
   asset_art *BackgroundFront  = AssetSystem.GetArt(Strings.GetString("background_test_front"));
   //f32 YOffset = -150;
   f32 YOffset = 0;
-#if 0
-  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 5);
-  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 5);
-#endif
+  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 6);
+  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 6);
   RenderArt(BackgroundMiddle, V2(0*BackgroundMiddle->Size.Width, YOffset), 14, 3);
   RenderArt(BackgroundMiddle, V2(1*BackgroundMiddle->Size.Width, YOffset), 14, 3);
-#if 0
   RenderArt(BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), 13, 1);
   RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
   RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
-#endif
  }
  
  

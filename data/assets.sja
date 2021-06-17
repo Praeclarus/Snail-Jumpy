@@ -173,7 +173,7 @@
 	   piece         player 0
 	   animation     player 
 	   mass          1.0
-	   speed         50
+	   speed         70
 	   boundary_pill 0 0 0 3 8
 	   collision_response PLAYER
 
@@ -260,6 +260,13 @@
 : art background_test_front
 	   path asset_backgrounds/background_test_front.png
 	
+# //////////////////////////////////////////////////////////////////////////
+#                                   Tilemaps
+# //////////////////////////////////////////////////////////////////////////
+
+: tilemap my_map 
+    
+
 # //////////////////////////////////////////////////////////////////////////
 #                                    Fonts
 # //////////////////////////////////////////////////////////////////////////

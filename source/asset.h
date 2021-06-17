@@ -120,7 +120,10 @@ struct asset_art {
 
 // TODO(Tyler): Implement tilemaps
 struct asset_tilemap {
- 
+ v2 TileSize;
+ u32 TileCount;
+ u16 *TileInfos;
+ v2  *TileOffsets;
 };
 
 //~ Asset loading

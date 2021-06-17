@@ -32,7 +32,7 @@ UpdateAndRenderMainGame(){
  
  GameProcessInput();
  
- GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.30f, 0.40f, 0.70f));
+ GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.30f, 0.55f, 0.70f));
  GameRenderer.CalculateCameraBounds(CurrentWorld); 
  GameRenderer.SetCameraSettings(0.5f);
  GameRenderer.SetLightingConditions(HSBToRGB(CurrentWorld->AmbientColor), CurrentWorld->Exposure);

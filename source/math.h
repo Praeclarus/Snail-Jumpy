@@ -493,6 +493,14 @@ RoundV2(v2 V){
 }
 
 internal inline v2
+CeilV2(v2 V){
+ v2 Result;
+ Result.X = Ceil(V.X);
+ Result.Y = Ceil(V.Y);
+ return(Result);
+}
+
+internal inline v2
 SnapToGrid(v2 P, f32 UnitSize){
  P /= UnitSize;
  v2 Result = V2(Floor(P.X), Floor(P.Y));

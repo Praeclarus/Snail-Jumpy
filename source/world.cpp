@@ -216,6 +216,7 @@ world_manager::LoadWorld(const char *LevelName){
    //~ Player
    // TODO(Tyler): Formalize player starting position
    AddPlayer(V2(30.0f, 30.0f));
+   //AddPlayer(V2(300.0f, 30.0f));
    
 #if 0
    AddParticles(V2(3.0f, 3.0f));

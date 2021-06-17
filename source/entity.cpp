@@ -443,7 +443,7 @@ entity_manager::UpdateAndRenderEntities(){
   dynamic_physics_object *Physics = Enemy->DynamicPhysics;
   
   f32 Movement = 0.0f;
-  f32 Gravity = 100.0f;
+  f32 Gravity = 300.0f;
   if(!DoesAnimationBlock(&Enemy->EntityInfo->Animation, &Enemy->Animation)){
    if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
       (Enemy->Animation.Direction == Direction_Left)){
@@ -479,6 +479,9 @@ entity_manager::UpdateAndRenderEntities(){
   art_entity *Art = It.Item;
   asset_art *Asset = AssetSystem.GetArt(Art->Asset);
   RenderArt(Asset, Art->P, Art->Z, 1);
+  v2 Center = Art->P+0.5f*Asset->Size;
+  f32 Radius = Asset->Size.Width;
+  GameRenderer.AddLight(Center, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
  }
  
  //~ Teleporters @entity_teleporters
@@ -558,19 +561,13 @@ entity_manager::UpdateAndRenderEntities(){
   asset_art *BackgroundFront  = AssetSystem.GetArt(Strings.GetString("background_test_front"));
   //f32 YOffset = -200;
   f32 YOffset = 0;
-#if 1
-  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 5);
-  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 5);
-#endif
-#if 1
+  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 6);
+  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 6);
   RenderArt(BackgroundMiddle, V2(0*BackgroundMiddle->Size.Width, YOffset), 14, 3);
   RenderArt(BackgroundMiddle, V2(1*BackgroundMiddle->Size.Width, YOffset), 14, 3);
-#endif
-#if 1
   RenderArt(BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), 13, 1);
   RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
   RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
-#endif
  }
 #endif
  
