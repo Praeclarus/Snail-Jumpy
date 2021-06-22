@@ -59,6 +59,12 @@ ZeroMemory(void *Memory, umw Size) {
 #endif
 }
 
+internal u32 
+PopCountU32(u32 A){
+ u32 Result = _mm_popcnt_u32(A);
+ return(Result);
+}
+
 #else 
 #error Please implement intrinsics for this compiler!
 #endif

@@ -15,6 +15,12 @@ enum edit_mode {
  EditMode_TOTAL
 };
 
+enum tile_edit_mode {
+ TileEditMode_None,
+ TileEditMode_Tile,
+ TileEditMode_Wedge,
+};
+
 typedef u32 world_editor_flags;
 enum _world_editor_flags {
  WorldEditorFlags_None             = 0,

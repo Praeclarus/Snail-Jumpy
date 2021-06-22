@@ -250,23 +250,141 @@
 : art grass_platform_e
 	   path asset_arts/grass_platform_e.png
 
+# //////////////////////////////////////////////////////////////////////////
+#                                 Backgrounds
+# //////////////////////////////////////////////////////////////////////////
 
-: art background_test_back
+: background background_test_back
 	   path asset_backgrounds/background_test_back.png
 	
-: art background_test_middle
+: background background_test_middle
 	   path asset_backgrounds/background_test_middle.png
 	
-: art background_test_front
+: background background_test_front
 	   path asset_backgrounds/background_test_front.png
 	
 # //////////////////////////////////////////////////////////////////////////
-#                                   Tilemaps
+#                                  Tilemaps
 # //////////////////////////////////////////////////////////////////////////
 
-: tilemap my_map 
-    
+: tilemap grass_and_dirt
+    path asset_tilemaps/grass_and_dirt.png
+    cell_size 24 24
+    tile_size 16 16
+    dimensions 9 9
+    single               4
+    single_bottom_middle 2
+    single_bottom_left   2
+    single_bottom_right  REVERSE_PREVIOUS
+    horizontal_left_end  6
+    horizontal_right_end REVERSE_PREVIOUS
+    horizontal_middle    7
+    vertical_top_end     2
+    vertical_bottom_end  2
+    vertical_middle      4
+    corner_top_left      4
+    corner_top_right     REVERSE_PREVIOUS
+    corner_bottom_left   4
+    corner_bottom_right  REVERSE_PREVIOUS
+    corner_inner_bottom_left  4
+    corner_inner_bottom_right REVERSE_PREVIOUS
+    edge_top             9
+    edge_left            ROTATE_PREVIOUS_270 
+    edge_right           ROTATE_PREVIOUS_90
+    edge_bottom          5
+    filler               3
+    cutoff_filler_left   2
+    cutoff_filler_right  REVERSE_PREVIOUS
+    cutoff_vertical_left  2
+    cutoff_vertical_right REVERSE_PREVIOUS
+    cutoff_vertical_both 2
+    connector_left       1
+    connector_right      REVERSE_PREVIOUS
 
+    wedge_top_left       4
+    wedge_top_right      REVERSE_PREVIOUS
+    wedge_bottom_left    2
+    wedge_bottom_right   REVERSE_PREVIOUS
+
+    wedge_top_point_left  2
+    wedge_top_point_right REVERSE_PREVIOUS
+
+    wedge_vertical_bottom_point_left  ROTATE_PREVIOUS_180
+    wedge_vertical_bottom_point_right ROTATE_PREVIOUS_180
+
+    wedge_bottom_point_left 2
+    wedge_bottom_point_right REVERSE_PREVIOUS
+
+    wedge_end_down_left  2
+    wedge_end_down_right REVERSE_PREVIOUS
+    wedge_bottom_point_out_left  ROTATE_PREVIOUS_270
+    wedge_bottom_point_out_right REVERSE_AND_ROTATE_PREVIOUS_90
+
+    wedge_end_up_left    2
+    wedge_end_up_right   REVERSE_PREVIOUS
+    wedge_bottom_point_in_left  ROTATE_PREVIOUS_270
+    wedge_bottom_point_in_right ROTATE_PREVIOUS_270
+
+    wedge_connector_bottom_left  2 
+    wedge_connector_bottom_right REVERSE_PREVIOUS
+
+ :tilemap plant
+    path asset_tilemaps/plant.png
+    cell_size 24 24
+    tile_size 16 16
+    dimensions 9 7
+    single                3
+    single_bottom_middle  2
+    single_bottom_left    2
+    single_bottom_right   REVERSE_PREVIOUS
+    horizontal_left_end   4
+    horizontal_right_end  REVERSE_PREVIOUS
+    horizontal_middle     5
+    vertical_top_end      2
+    vertical_bottom_end   2
+    vertical_middle       5
+    corner_top_left       2
+    corner_top_right      REVERSE_PREVIOUS
+    corner_bottom_left    3
+    corner_bottom_right   REVERSE_PREVIOUS
+    corner_inner_bottom_left  2
+    corner_inner_bottom_right REVERSE_PREVIOUS
+    edge_top              5
+    edge_left             ROTATE_PREVIOUS_270
+    edge_right            ROTATE_PREVIOUS_90
+    edge_bottom           3
+    filler                3
+    cutoff_filler_left    2
+    cutoff_filler_right   REVERSE_PREVIOUS
+    cutoff_vertical_left  2
+    cutoff_vertical_right REVERSE_PREVIOUS
+    cutoff_vertical_both  2
+
+    wedge_top_left        2
+    wedge_top_right       REVERSE_PREVIOUS
+    wedge_bottom_left     2
+    wedge_bottom_right    REVERSE_PREVIOUS
+
+    wedge_connector_bottom_left  COPY_PREVIOUS
+    wedge_connector_bottom_right REVERSE_PREVIOUS    
+
+    wedge_top_point_left  2
+    wedge_top_point_left  REVERSE_PREVIOUS
+    wedge_vertical_bottom_point_left  ROTATE_PREVIOUS_180
+    wedge_vertical_bottom_point_right REVERSE_AND_ROTATE_PREVIOUS_180
+    wedge_bottom_point_left  2
+    wedge_bottom_point_right REVERSE_PREVIOUS
+
+    wedge_end_up_left     2
+    wedge_end_up_right    REVERSE_PREVIOUS
+    wedge_bottom_point_in_left   COPY_PREVIOUS
+    wedge_bottom_point_in_right  REVERSE_PREVIOUS
+
+    wedge_end_down_left   2
+    wedge_end_down_right  REVERSE_PREVIOUS
+    wedge_bottom_point_out_left  COPY_PREVIOUS
+    wedge_bottom_point_out_right REVERSE_PREVIOUS
+    
 # //////////////////////////////////////////////////////////////////////////
 #                                    Fonts
 # //////////////////////////////////////////////////////////////////////////

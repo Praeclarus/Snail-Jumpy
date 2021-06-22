@@ -42,7 +42,7 @@ global s32 Score;
 global f32 CompletionCooldown;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_WorldEditor;
+global game_mode GameMode = GameMode_Debug;
 
 //~ Includes
 #include "logging.cpp"
@@ -52,6 +52,7 @@ global game_mode GameMode = GameMode_WorldEditor;
 #include "ui.cpp"
 #include "physics.cpp"
 #include "asset.cpp"
+#include "asset_loading.cpp"
 #include "entity.cpp"
 #include "debug_ui.cpp"
 #include "world.cpp"

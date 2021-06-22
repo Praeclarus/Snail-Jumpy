@@ -208,6 +208,18 @@ IsOdd(s32 A){
  return(Result);
 }
 
+internal inline s32
+NormalizeDegrees(s32 D){
+ s32 Result;
+ if(D < 0){
+  Result = D;
+  while(Result < 0) Result += 360; 
+ }else{
+  Result = D % 360;
+ }
+ return(Result);
+}
+
 //~ V2s
 
 #define V20 V2(0)
@@ -616,6 +628,10 @@ union rect {
  struct {
   v2 E[2];
  };
+ struct {
+  f32 X0, Y0;
+  f32 X1, Y1;
+ };
 };
 
 struct rect_s32 {
@@ -772,6 +788,14 @@ RectGrow(rect Rect, f32 G){
  rect Result = Rect;
  Result.Min -= V2(G, G);
  Result.Max += V2(G, G);
+ return(Result);
+}
+
+internal inline rect
+RectGrow(rect Rect, v2 G){
+ rect Result = Rect;
+ Result.Min -= G;
+ Result.Max += G;
  return(Result);
 }
 

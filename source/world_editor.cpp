@@ -8,7 +8,7 @@ ToggleWorldEditor(){
   Score = 0;
  }else if(GameMode == GameMode_MainGame){
   // To editor from main game
-  ChangeState(GameMode_WorldEditor, String(0));
+  ChangeState(GameMode_WorldEditor, MakeString(0));
   WorldEditor.SelectedThing = 0;
  }
 }
@@ -709,7 +709,7 @@ world_editor::UpdateAndRender(){
  LastMouseP = MouseP;
  MouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(1));
  CursorP = SnapToGrid(MouseP, TILE_SIDE);
- v2 CursorCenter = CursorP+0.5f*TILE_SIZE;
+ //v2 CursorCenter = CursorP+0.5f*TILE_SIZE;
  //GameRenderer.AddLight(MouseP, MakeColor(0.4f, 0.7f, 1.0f, 1.0f), 0.6f, TILE_SIDE, GameItem(1));
  //GameRenderer.AddLight(MouseP, MakeColor(1.0f, 1.0f, 0.5f), 0.6f, TILE_SIDE, GameItem(1));
  GameRenderer.AddLight(MouseP, MakeColor(1.0f, 0.5f, 1.0f), 0.6f, TILE_SIDE, GameItem(1));
@@ -850,13 +850,12 @@ world_editor::UpdateAndRender(){
   
  }
  
- 
  //~ Backgrounds
  {
   TIMED_SCOPE(Backgrounds);
-  asset_art *BackgroundBack   = AssetSystem.GetArt(Strings.GetString("background_test_back"));
-  asset_art *BackgroundMiddle = AssetSystem.GetArt(Strings.GetString("background_test_middle"));
-  asset_art *BackgroundFront  = AssetSystem.GetArt(Strings.GetString("background_test_front"));
+  asset_art *BackgroundBack   = AssetSystem.GetBackground(Strings.GetString("background_test_back"));
+  asset_art *BackgroundMiddle = AssetSystem.GetBackground(Strings.GetString("background_test_middle"));
+  asset_art *BackgroundFront  = AssetSystem.GetBackground(Strings.GetString("background_test_front"));
   //f32 YOffset = -150;
   f32 YOffset = 0;
   RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 6);
@@ -867,7 +866,6 @@ world_editor::UpdateAndRender(){
   RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
   RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
  }
- 
  
  END_TIMED_BLOCK();
  

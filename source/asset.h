@@ -118,12 +118,118 @@ struct asset_art {
  v2 Size;
 };
 
+typedef u8 tile_type;
+enum tile_type_ {
+ TileType_None           = 0x00,
+ TileType_Tile           = 0x01,
+ TileType_WedgeUpLeft    = 0x02,
+ TileType_WedgeUpRight   = 0x04 ,
+ TileType_WedgeDownLeft  = 0x08,
+ TileType_WedgeDownRight = 0x10,
+ TileType_Connector      = 0x20
+};
+
+enum tilemap_tile_type {
+ TilemapTileType_None,
+ TilemapTileType_Single,
+ TilemapTileType_SingleBottomMiddle,
+ TilemapTileType_SingleBottomLeft,
+ TilemapTileType_SingleBottomRight,
+ TilemapTileType_HorizontalLeftEnd,
+ TilemapTileType_HorizontalRightEnd,
+ TilemapTileType_HorizontalMiddle,
+ TilemapTileType_VerticalTopEnd,
+ TilemapTileType_VerticalBottomEnd,
+ TilemapTileType_VerticalMiddle,
+ TilemapTileType_CornerTopLeft,
+ TilemapTileType_CornerTopRight,
+ TilemapTileType_CornerBottomLeft,
+ TilemapTileType_CornerBottomRight,
+ TilemapTileType_CornerInnerBottomLeft,
+ TilemapTileType_CornerInnerBottomRight,
+ TilemapTileType_EdgeTop,
+ TilemapTileType_EdgeLeft,
+ TilemapTileType_EdgeRight,
+ TilemapTileType_EdgeBottom,
+ TilemapTileType_Filler,
+ TilemapTileType_CutoffFillerLeft,
+ TilemapTileType_CutoffFillerRight,
+ TilemapTileType_CutoffVerticalLeft,
+ TilemapTileType_CutoffVerticalRight,
+ TilemapTileType_CutoffVerticalBoth,
+ TilemapTileType_ConnectorLeft,
+ TilemapTileType_ConnectorRight,
+ TilemapTileType_WedgeTopLeft,
+ TilemapTileType_WedgeTopRight,
+ TilemapTileType_WedgeBottomLeft,
+ TilemapTileType_WedgeBottomRight,
+ TilemapTileType_WedgeTopPointLeft,
+ TilemapTileType_WedgeTopPointRight,
+ TilemapTileType_WedgeBottomPointLeft,
+ TilemapTileType_WedgeBottomPointRight,
+ TilemapTileType_WedgeEndUpLeft,
+ TilemapTileType_WedgeEndUpRight,
+ TilemapTileType_WedgeEndDownLeft,
+ TilemapTileType_WedgeEndDownRight,
+ TilemapTileType_WedgeConnectorBottomLeft,
+ TilemapTileType_WedgeConnectorBottomRight,
+ TilemapTileType_WedgeVerticalBottomPointLeft,
+ TilemapTileType_WedgeVerticalBottomPointRight,
+ TilemapTileType_WedgeBottomPointOutLeft,
+ TilemapTileType_WedgeBottomPointOutRight,
+ TilemapTileType_WedgeBottomPointInLeft,
+ TilemapTileType_WedgeBottomPointInRight,
+ 
+ TilemapTileType_TOTAL,
+};
+
+typedef u16 tilemap_tile_place;
+
+typedef u8 tile_transform;
+enum tile_transform_ {
+ TileTransform_None,
+ TileTransform_HorizontalReverse,
+ TileTransform_Rotate90,
+ TileTransform_Rotate180,
+ TileTransform_Rotate270,
+ TileTransform_ReverseAndRotate90,
+ TileTransform_ReverseAndRotate180,
+ TileTransform_ReverseAndRotate270
+};
+
+typedef u8 tile_connetor_flags;
+enum tile_connetor_flags_ {
+ TileConnector_None,
+ TileConnector_Left  = 0x01,
+ TileConnector_Right = 0x02,
+ TileConnector_Both  = TileConnector_Left | TileConnector_Right,
+};
+
+
+struct extra_tile_data {
+ tile_transform Transform      : 4;
+ tile_connetor_flags Connector : 4;
+};
+
+struct tilemap_tile_data {
+ tile_type Type;
+ tilemap_tile_place Place;
+ u32 OffsetMin;
+ u32 OffsetMax;
+ tile_transform Transform;
+};
+
 // TODO(Tyler): Implement tilemaps
 struct asset_tilemap {
+ render_texture Texture;
  v2 TileSize;
+ v2 CellSize;
+ u32 XTiles;
+ u32 YTiles;
+ 
  u32 TileCount;
- u16 *TileInfos;
- v2  *TileOffsets;
+ tilemap_tile_data *Tiles;
+ u32 ConnectorOffset;
 };
 
 //~ Asset loading
@@ -144,6 +250,7 @@ struct asset_system {
  hash_table<string, asset_animation>    Animations;
  hash_table<string, asset_entity>       Entities;
  hash_table<string, asset_art>          Arts;
+ hash_table<string, asset_art>          Backgrounds;
  hash_table<string, asset_tilemap>      Tilemaps;
  
  asset_sprite_sheet DummySpriteSheet;
@@ -157,7 +264,9 @@ struct asset_system {
  asset_entity *GetEntity(string Name);
  
  asset_art *GetArt(string Name);
+ asset_art *GetBackground(string Name);
  
+ asset_tilemap *GetTilemap(string Name);
  
  //~ Logging 
  const char *CurrentCommand;
@@ -173,7 +282,10 @@ struct asset_system {
  hash_table<const char *, entity_state> StateTable;
  hash_table<const char *, entity_type>  EntityTypeTable;
  hash_table<const char *, collision_response_function *> CollisionResponses;
+ hash_table<const char *, tilemap_tile_data> TilemapTileDatas;
  asset_loader_error LastError;
+ 
+ void InitializeLoader(memory_arena *Arena);
  
  const char *ExpectString(file_reader *Reader);
  s32         ExpectInteger(file_reader *Reader);
@@ -190,9 +302,11 @@ struct asset_system {
  b8 ProcessAnimation(file_reader *Reader);
  b8 ProcessEntity(file_reader *Reader);
  b8 ProcessArt(file_reader *Reader);
- b8 ProcessTilemap(file_reader *Reader);
  b8 ProcessBackground(file_reader *Reader);
+ b8 ProcessTilemapTile(file_reader *Reader, tilemap_tile_data *Tiles, u32 TileIndex, const char *TileName, u32 *TileOffset);
+ b8 ProcessTilemap(file_reader *Reader);
  b8 ProcessFont(file_reader *Reader);
+ b8 ProcessIgnore(file_reader *Reader);
 };
 
 #endif //SNAIL_JUMPY_ASSET_H

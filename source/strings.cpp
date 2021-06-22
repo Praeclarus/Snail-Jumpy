@@ -11,7 +11,7 @@ operator==(string A, string B){
 }
 
 internal inline string
-String(u64 ID){
+MakeString(u64 ID){
  string Result = {ID};
  return(Result);
 }

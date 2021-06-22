@@ -556,9 +556,9 @@ entity_manager::UpdateAndRenderEntities(){
  //~ Backgrounds
  {
   TIMED_SCOPE(Backgrounds);
-  asset_art *BackgroundBack   = AssetSystem.GetArt(Strings.GetString("background_test_back"));
-  asset_art *BackgroundMiddle = AssetSystem.GetArt(Strings.GetString("background_test_middle"));
-  asset_art *BackgroundFront  = AssetSystem.GetArt(Strings.GetString("background_test_front"));
+  asset_art *BackgroundBack   = AssetSystem.GetBackground(Strings.GetString("background_test_back"));
+  asset_art *BackgroundMiddle = AssetSystem.GetBackground(Strings.GetString("background_test_middle"));
+  asset_art *BackgroundFront  = AssetSystem.GetBackground(Strings.GetString("background_test_front"));
   //f32 YOffset = -200;
   f32 YOffset = 0;
   RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 6);
