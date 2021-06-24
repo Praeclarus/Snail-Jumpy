@@ -176,7 +176,7 @@ CalculateSinglePlaceWithBoundsTiles(u8 *MapData, s32 Width, s32 Height,
 }
 
 internal inline tilemap_tile_place
-CalculatePlace(u8 *MapData, s32 Width, s32 Height, s32 X, s32 Y, b8 BoundsTiles){
+CalculatePlace(u8 *MapData, s32 Width, s32 Height, s32 X, s32 Y, b8 BoundsTiles=false){
  tilemap_tile_place Place = 0;
  if(!BoundsTiles){
   CalculateSinglePlace(MapData, Width, Height, X, Y, -1, -1, &Place); Place <<= 2;
@@ -209,6 +209,7 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, u32 *MapIndices, ex
   for(s32 X=0; X<Width; X++){
    u8 HasTile = MapData[MapIndex];
    if(HasTile){
+    //tilemap_tile_place Place = CalculatePlace(MapData, Width, Height, X, Y);
     tilemap_tile_place Place = CalculatePlace(MapData, Width, Height, X, Y, true);
     
     tile_type Type = TileType_Tile;
@@ -263,6 +264,7 @@ internal tilemap_edge_action
 EditorTilemapEdge(f32 X, f32 Y, f32 Width, f32 Height, u64 ID){
  tilemap_edge_action Result = TilemapEdgeAction_None;
  rect R = SizeRect(V2(X, Y), V2(Width, Height));
+ R = RectFix(R);
  ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
  
  switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Left, 1, ScaledItem(1))){
@@ -301,7 +303,7 @@ EditorTilemapEdge(f32 X, f32 Y, f32 Width, f32 Height, u64 ID){
   C = MixColor(EDITOR_SELECTED_COLOR, C, ActiveT);
  }
  
- RenderRect(R, -10.0f, C, GameItem(1));
+ RenderRect(R, -10.1f, C, GameItem(1));
  return(Result);
 }
 
@@ -310,9 +312,11 @@ ResizeTilemapData(u8 **MapData, u32 **MapIndices, extra_tile_data **ExtraData,
                   u32 OldWidth, u32 OldHeight, u32 Width, u32 Height){
  u8 *OldMapData = *MapData;
  u8 *NewMapData    = (u8 *)DefaultAlloc(Width*Height*sizeof(*NewMapData));
- for(u32 Y = 0; Y < Minimum(OldHeight, Height); Y++){
-  for(u32 X = 0; X < Minimum(OldWidth, Width); X++){
-   NewMapData[Y*Width + X] = OldMapData[Y*OldWidth + X];
+ for(u32 Y=0; Y<Minimum(OldHeight, Height); Y++){
+  for(u32 X=0; X < Minimum(OldWidth, Width); X++){
+   u32 NewY = Height-1-Y;
+   u32 OldY = OldHeight-1-Y;
+   NewMapData[NewY*Width + X] = OldMapData[OldY*OldWidth + X];
   }
  }
  
@@ -324,24 +328,74 @@ ResizeTilemapData(u8 **MapData, u32 **MapIndices, extra_tile_data **ExtraData,
 }
 
 internal void
+MoveTilemapData(u8 *MapData, u32 Width, u32 Height, s32 XOffset, s32 YOffset){
+ u8 *Temp = PushArray(&TransientStorageArena, u8, Width*Height);
+ for(u32 Y=0; Y<Height; Y++){
+  for(u32 X=0; X < Width; X++){
+   s32 OldX = X+XOffset;
+   s32 OldY = Y+YOffset;
+   u8 Value = 0;
+   if((0 <= OldX) && (OldX < (s32)Width) && 
+      (0 <= OldY) && (OldY < (s32)Height)){
+    Value = MapData[OldY*Width + OldX];
+   }
+   Temp[Y*Width + X] = Value;
+  }
+ }
+ CopyMemory(MapData, Temp, Width*Height*sizeof(u8));
+}
+
+internal void
 UpdateAndRenderDebug(){
  TIMED_FUNCTION();
+ 
+ b8 IncreaseWidth   = false;
+ b8 IncreaseHeight  = false;
+ b8 DecrementWidth  = false;
+ b8 DecrementHeight = false;
+ b8 MoveMapUp      = false;
+ b8 MoveMapDown    = false;
+ b8 MoveMapLeft    = false;
+ b8 MoveMapRight   = false; 
  
  os_event Event;
  while(PollEvents(&Event)){
   if(UIManager.ProcessEvent(&Event)) continue;
+  switch(Event.Kind){
+   case OSEventKind_KeyDown: {
+    switch(Event.Key){
+     case KeyCode_Up: {
+      if(OSInput.KeyFlags & KeyFlag_Ctrl){ IncreaseHeight = true; }
+      else{ MoveMapUp = true; }
+     }break;
+     case KeyCode_Down: {
+      if(OSInput.KeyFlags & KeyFlag_Ctrl){ DecrementHeight = true; }
+      else{ MoveMapDown = true; }
+     }break;
+     case KeyCode_Right: {
+      if(OSInput.KeyFlags & KeyFlag_Ctrl){ IncreaseWidth = true; }
+      else{ MoveMapRight = true; }
+     }break;
+     case KeyCode_Left: {
+      if(OSInput.KeyFlags & KeyFlag_Ctrl){ DecrementWidth = true; }
+      else{ MoveMapLeft = true; }
+     }break;
+    }
+   }break;
+  }
   ProcessDefaultEvent(&Event);
  }
  GameRenderer.NewFrame(&TransientStorageArena, OSInput.WindowSize, MakeColor(0.30f, 0.55f, 0.70f));
  GameRenderer.SetLightingConditions(WHITE, 1.0f);
  GameRenderer.SetCameraSettings(0.5f);
  
- //asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("grass_and_dirt"));
- asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("plant"));
- local_persist v2 P = V2(10);
+ asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("grass_and_dirt"));
+ //asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("plant"));
+ //asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("cobblestone"));
+ local_persist v2 P = V2(0);
  P = MaximumV2(P, V2(0));
- local_persist s32 Width  = 10;
- local_persist s32 Height = 10;
+ local_persist s32 Width  = 24;
+ local_persist s32 Height = 14;
  
  local_persist tile_edit_mode TileEditMode = TileEditMode_Tile;
  local_persist u8 *MapData = 0;
@@ -370,7 +424,6 @@ UpdateAndRenderDebug(){
  if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left)){
   if((X < 0)      || (Y < 0)       || 
      (X >= Width) || (Y >= Height)){
-   UIManager.ResetActiveElement();
   }else{
    MapData[Y*Width+X] = (u8)TileEditMode;
   }
@@ -378,7 +431,6 @@ UpdateAndRenderDebug(){
  if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Right)){
   if((X < 0)      || (Y < 0)       || 
      (X >= Width) || (Y >= Height)){
-   UIManager.ResetActiveElement();
   }else{
    MapData[Y*Width+X] = 0;
   }
@@ -386,7 +438,6 @@ UpdateAndRenderDebug(){
  if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Middle, true)){
   if((X < 0)      || (Y < 0)       || 
      (X >= Width) || (Y >= Height)){
-   UIManager.ResetActiveElement();
   }else{
    if(TileEditMode == TileEditMode_Tile){
     TileEditMode = TileEditMode_Wedge;
@@ -396,13 +447,62 @@ UpdateAndRenderDebug(){
   }
  }
  
+ {
+  v2 Size = V2(10);
+  rect R = CenterRect(P, Size);
+  f32 EdgeSize = 3;
+  
+  tilemap_edge_action RightEdge = EditorTilemapEdge(R.Max.X, R.Min.Y, EdgeSize, Size.Y, WIDGET_ID);
+  if(IncreaseWidth) RightEdge = TilemapEdgeAction_Incrememt;
+  else if(DecrementWidth) RightEdge = TilemapEdgeAction_Decrement;
+  switch(RightEdge){
+   case TilemapEdgeAction_Incrememt: {
+    s32 OldWidth = Width;
+    Width++;
+    ResizeTilemapData(&MapData, &MapIndices, &ExtraData, OldWidth, Height, Width, Height);
+   }break;
+   case TilemapEdgeAction_Decrement: {
+    if(Width == 0) break;
+    s32 OldWidth = Width;
+    Width--;
+    ResizeTilemapData(&MapData, &MapIndices, &ExtraData, OldWidth, Height, Width, Height);
+   }break;
+  }
+  
+  tilemap_edge_action TopEdge = EditorTilemapEdge(R.Min.X, R.Max.Y, Size.X, EdgeSize, WIDGET_ID);
+  if(IncreaseHeight) TopEdge = TilemapEdgeAction_Incrememt;
+  else if(DecrementHeight) TopEdge = TilemapEdgeAction_Decrement;
+  switch(TopEdge){
+   case TilemapEdgeAction_Incrememt: {
+    s32 OldHeight = Height;
+    Height++;
+    ResizeTilemapData(&MapData, &MapIndices, &ExtraData, Width, OldHeight, Width, Height);
+   }break;
+   case TilemapEdgeAction_Decrement: {
+    if(Height == 0) break;
+    s32 OldHeight = Height;
+    Height--;
+    ResizeTilemapData(&MapData, &MapIndices, &ExtraData, Width, OldHeight, Width, Height);
+   }break;
+  }
+ }
+ 
+ s32 XOffset = 0;
+ s32 YOffset = 0;
+ if(MoveMapUp        && !MoveMapDown){ YOffset = 1; } 
+ else if(MoveMapDown && !MoveMapUp)  { YOffset = -1; }
+ if(MoveMapLeft       && !MoveMapRight){ XOffset = 1; } 
+ else if(MoveMapRight && !MoveMapLeft) { XOffset = -1; }
+ if((XOffset != 0) || (YOffset != 0)){
+  MoveTilemapData(MapData, Width, Height, XOffset, YOffset);
+ }
  
  v2 TilemapSize = V2((f32)Width*Tilemap->TileSize.X,  (f32)Height*Tilemap->TileSize.Y);
  rect TilemapRect = SizeRect(P, TilemapSize);
- RenderRectOutline(TilemapRect, -10.0f, RED, GameItem(1));
+ RenderRectOutline(TilemapRect, -10.0f, RED, GameItem(1), 1.0f);
  
  {
-  rect R = CenterRect(P, V2(4));
+  rect R = CenterRect(P, V2(8));
   color C = EDITOR_BASE_COLOR;
   switch(EditorDraggableElement(&UIManager, WIDGET_ID, R, P, 1, ScaledItem(1))){
    case UIBehavior_Hovered: {
@@ -417,36 +517,7 @@ UpdateAndRenderDebug(){
     P = SnapToGrid(P, 1);
    }break;
   }
-  RenderRect(R, -11.0f, C, GameItem(1));
- }
- 
- f32 EdgeSize = 10;
- switch(EditorTilemapEdge(TilemapRect.Max.X, TilemapRect.Min.Y, EdgeSize, TilemapSize.Y, WIDGET_ID)){
-  case TilemapEdgeAction_Incrememt: {
-   s32 OldWidth = Width;
-   Width++;
-   ResizeTilemapData(&MapData, &MapIndices, &ExtraData, OldWidth, Height, Width, Height);
-  }break;
-  case TilemapEdgeAction_Decrement: {
-   if(Width == 0) break;
-   s32 OldWidth = Width;
-   Width--;
-   ResizeTilemapData(&MapData, &MapIndices, &ExtraData, OldWidth, Height, Width, Height);
-  }break;
- }
- 
- switch(EditorTilemapEdge(TilemapRect.Min.X, TilemapRect.Max.Y, TilemapSize.X, EdgeSize, WIDGET_ID)){
-  case TilemapEdgeAction_Incrememt: {
-   s32 OldHeight = Height;
-   Height++;
-   ResizeTilemapData(&MapData, &MapIndices, &ExtraData, Width, OldHeight, Width, Height);
-  }break;
-  case TilemapEdgeAction_Decrement: {
-   if(Height == 0) break;
-   s32 OldHeight = Height;
-   Height--;
-   ResizeTilemapData(&MapData, &MapIndices, &ExtraData, Width, OldHeight, Width, Height);
-  }break;
+  RenderRect(R, -10.1f, C, GameItem(1));
  }
  
 }

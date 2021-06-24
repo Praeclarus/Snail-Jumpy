@@ -42,7 +42,7 @@ global s32 Score;
 global f32 CompletionCooldown;
 
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_Debug;
+global game_mode GameMode = GameMode_WorldEditor;
 
 //~ Includes
 #include "logging.cpp"
@@ -197,7 +197,10 @@ ProcessDefaultEvent(os_event *Event){
   case OSEventKind_KeyDown: {
    switch((u32)Event->Key){
     case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift; break;
-    case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Ctrl;  break;
+    case KeyCode_Ctrl:  {
+     OSInput.KeyFlags |= KeyFlag_Ctrl;  
+     //Assert(0);
+    }break;
     case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
     
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)

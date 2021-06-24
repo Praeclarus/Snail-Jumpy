@@ -4,7 +4,7 @@
 internal inline tilemap_tile_place
 StringToTilePlace(const char *S){
  u32 Count = CStringLength(S);
- Assert(Count == 9);
+ if(Count != 9) return(0); 
  tilemap_tile_place Result = 0;
  for(u32 I=0; I<Count; I++){
   char C = S[I];
@@ -15,10 +15,10 @@ StringToTilePlace(const char *S){
   }else if(C == 'X'){
    Result |= 0x02;
   }else if(C == '#'){
-   Assert(I == 4);
+   if(I != 4) return(0);
    continue;
   }else{
-   INVALID_CODE_PATH;
+   return(0);
   }
   if(I<(Count-1)) Result <<= 2;
  }
@@ -122,7 +122,7 @@ asset_system::InitializeLoader(memory_arena *Arena){
  InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_point_in_right",       MakeTileData(TileType_WedgeDownRight, "XX__#_???"));
 }
 
-//~ Other
+//~ Base
 
 #define AssetLoaderHandleError() \
 if(LastError == AssetLoaderError_InvalidToken) return(false); \
@@ -137,6 +137,7 @@ return(false);                 \
 #define AssetLoaderHandleToken(Token)                   \
 if(Token.Type == FileTokenType_BeginCommand) break; \
 if(Token.Type == FileTokenType_EndFile)      break; \
+if(Token.Type == FileTokenType_Invalid)      break; \
 
 void 
 asset_system::BeginCommand(const char *Name){
@@ -249,6 +250,108 @@ asset_system::DoAttribute(const char *String, const char *Attribute){
  if(Result) CurrentAttribute = Attribute;
  return(Result);
 }
+
+// NOTE(Tyler): This is essentially a way to comment out an entire command
+b8
+asset_system::ProcessIgnore(file_reader *Reader){
+ while(true){
+  file_token Token = Reader->PeekToken();
+  AssetLoaderHandleToken(Token);
+  Reader->NextToken();
+ }
+ return(true);
+}
+
+#define IfCommand(Name, Command)       \
+if(CompareStrings(String, Name)) { \
+BeginCommand(Name);            \
+if(!Process ## Command(Reader)){ return(false); } \
+return(true);                  \
+}       
+
+b8
+asset_system::ProcessCommand(file_reader *Reader){
+ const char *String = ExpectString(Reader);
+ AssetLoaderHandleError();
+ 
+ IfCommand("sprite_sheet", SpriteSheet);
+ IfCommand("animation",    Animation);
+ IfCommand("entity",       Entity);
+ IfCommand("art",          Art);
+ IfCommand("background",   Background);
+ IfCommand("tilemap",      Tilemap);
+ IfCommand("font",         Font);
+ IfCommand("ignore",       Ignore);
+ 
+ LogMessage("(Line: %u) '%s' isn't a valid command!", Reader->Line, String);
+ return(false);
+}
+#undef IfCommand
+
+
+void
+asset_system::LoadAssetFile(const char *Path){
+ TIMED_FUNCTION();
+ 
+ CurrentCommand = 0;
+ CurrentAttribute = 0;
+ 
+ b8 HitError = false;
+ do{
+  ArenaClear(&Memory);
+  memory_arena_marker Marker = ArenaBeginMarker(&TransientStorageArena);
+  
+  os_file *File = OpenFile(Path, OpenFile_Read);
+  u64 NewFileWriteTime = GetLastFileWriteTime(File);
+  CloseFile(File);
+  
+  if(LastFileWriteTime < NewFileWriteTime){
+   HitError = false;
+   
+   file_reader Reader = MakeFileReader(Path);
+   
+   while(!HitError){
+    file_token Token = Reader.NextToken();
+    
+    switch(Token.Type){
+     case FileTokenType_String: {
+      LogMessage("(Line: %u) String: '%s' was not expected! ':' was!", Token.Line, Token.String);
+      HitError = true;
+     }break;
+     case FileTokenType_Integer: {
+      LogMessage("(Line: %u) Integer: '%d' was not expected! ':' was!", Token.Line, Token.Integer);
+      HitError = true;
+     }break;
+     case FileTokenType_Float: {
+      LogMessage("(Line: %u) Float: '%f' was not expected! ':' was!", Token.Line, Token.Float);
+      HitError = true;
+     }break;
+     case FileTokenType_BeginCommand: {
+      if(!ProcessCommand(&Reader)){
+       HitError = true;
+       break;
+      }
+     }break;
+     case FileTokenType_EndFile: {
+      goto end_loop;
+     }break;
+     default: {
+      INVALID_CODE_PATH;
+     }break;
+    }
+   }
+   end_loop:;
+  }
+  
+  ArenaEndMarker(&TransientStorageArena, &Marker);
+  
+  if(HitError) OSSleep(10); // To prevent consuming the CPU
+  LastFileWriteTime = NewFileWriteTime;
+ }while(HitError); 
+ // This loop does result in a missed FPS but for right now it works just fine.
+}
+
+//~ Sprite sheets
 
 entity_state
 asset_system::ReadState(file_reader *Reader){
@@ -398,6 +501,7 @@ asset_system::ProcessSpriteSheet(file_reader *Reader){
  return(true);
 }
 
+//~ Animations
 b8
 asset_system::ProcessAnimation(file_reader *Reader){
  const char *Name = ExpectString(Reader);
@@ -455,6 +559,7 @@ asset_system::ProcessAnimation(file_reader *Reader){
  return(true);
 }
 
+//~ Entities
 inline b8
 asset_system::IsInvalidEntityType(u32 Line, asset_entity *Entity, entity_type Target){
  b8 Result = false;
@@ -689,6 +794,7 @@ asset_system::ProcessEntity(file_reader *Reader){
  return(true);
 }
 
+//~ Arts
 b8 
 asset_system::ProcessArt(file_reader *Reader){
  const char *Name = ExpectString(Reader);
@@ -719,6 +825,7 @@ asset_system::ProcessArt(file_reader *Reader){
  return(true);
 }
 
+//~ Backgrounds
 b8
 asset_system::ProcessBackground(file_reader *Reader){
  const char *Name = ExpectString(Reader);
@@ -749,13 +856,15 @@ asset_system::ProcessBackground(file_reader *Reader){
  return(true);
 }
 
+//~ Tilemaps
+
 #define AssetLoaderProcessTilemapTransform(Name_, Transform_) \
-if(CompareStrings(S, Name_)){                \
-if(TileIndex > 0){                                    \
-tilemap_tile_data *PreviousTile = &Tiles[TileIndex-1]; \
+if(CompareStrings(S, Name_)){                             \
+if(Tiles->Count > 1){                                 \
+tilemap_tile_data *PreviousTile = &(*Tiles)[Tiles->Count-2]; \
 Tile->OffsetMin = PreviousTile->OffsetMin;        \
 Tile->OffsetMax = PreviousTile->OffsetMax;        \
-Tile->Transform = Transform_;\
+Tile->Transform = Transform_;                     \
 break;                                            \
 }else{                                                \
 LogError(Reader->Line, "'%s' can not apply to the first tile!", Name_); \
@@ -764,19 +873,36 @@ return(false);                                    \
 } 
 
 b8
-asset_system::ProcessTilemapTile(file_reader *Reader, tilemap_tile_data *Tiles, 
-                                 u32 TileIndex, const char *TileName,
-                                 u32 *TileOffset){
- tilemap_tile_data *Tile = &Tiles[TileIndex];
- AssetLoaderHandleError();
- tilemap_tile_data *FoundTile = FindInHashTablePtr(&TilemapTileDatas, TileName);
- if(!FoundTile){
-  LogError(Reader->Line, "'%s' is not a valid tile name!", TileName);
+asset_system::ProcessTilemapTile(file_reader *Reader, tile_array *Tiles, const char *TileType, u32 *TileOffset){
+ tilemap_tile_data *Tile = ArrayAlloc(Tiles);
+ if(CompareStrings(TileType, "tile")){
+  Tile->Type = TileType_Tile;
+ }else if(CompareStrings(TileType, "wedge_up_left")){
+  Tile->Type = TileType_WedgeUpLeft;
+ }else if(CompareStrings(TileType, "wedge_up_right")){
+  Tile->Type = TileType_WedgeUpRight;
+ }else if(CompareStrings(TileType, "wedge_down_left")){
+  Tile->Type = TileType_WedgeDownLeft;
+ }else if(CompareStrings(TileType, "wedge_down_right")){
+  Tile->Type = TileType_WedgeDownRight;
+ }else if(CompareStrings(TileType, "connector")){
+  Tile->Type = TileType_Connector;
+ }else{
+  LogError(Reader->Line, "'%s' is not a valid tile type!", TileType);
   return(false);
  }
- *Tile = *FoundTile;
+ 
+ const char *PlaceString = ExpectString(Reader);
+ AssetLoaderHandleError();
+ tilemap_tile_place Place = StringToTilePlace(PlaceString);
+ if(Place == 0){
+  LogError(Reader->Line, "'%s' is not a valid tile place pattern", PlaceString);
+  return(false);
+ }
+ Tile->Place = Place;
  
  while(true){
+  
   file_token Token = Reader->PeekToken();
   if(Token.Type == FileTokenType_String){
    const char *S = ExpectString(Reader);
@@ -784,6 +910,8 @@ asset_system::ProcessTilemapTile(file_reader *Reader, tilemap_tile_data *Tiles,
    
    AssetLoaderProcessTilemapTransform("COPY_PREVIOUS",       TileTransform_None);
    AssetLoaderProcessTilemapTransform("REVERSE_PREVIOUS",    TileTransform_HorizontalReverse);
+   AssetLoaderProcessTilemapTransform("V_REVERSE_PREVIOUS",  TileTransform_VerticalReverse);
+   AssetLoaderProcessTilemapTransform("HV_REVERSE_PREVIOUS", TileTransform_HorizontalAndVerticalReverse);
    AssetLoaderProcessTilemapTransform("ROTATE_PREVIOUS_90",  TileTransform_Rotate90);
    AssetLoaderProcessTilemapTransform("ROTATE_PREVIOUS_180", TileTransform_Rotate180);
    AssetLoaderProcessTilemapTransform("ROTATE_PREVIOUS_270", TileTransform_Rotate270);
@@ -804,12 +932,13 @@ asset_system::ProcessTilemapTile(file_reader *Reader, tilemap_tile_data *Tiles,
    
   }else if(Token.Type == FileTokenType_Float){
    LogError(Token.Line, "Expected an integer, instead read: %f", Token.Float);
-   Assert(0);
    return(false);
   }else{
    LogError(Token.Line, "Expected an integer, instead read an invalid token!");
    return(false);
   }
+  
+  break;
  }
  
  return(true);
@@ -822,9 +951,12 @@ asset_system::ProcessTilemap(file_reader *Reader){
  asset_tilemap *Tilemap = Strings.GetInHashTablePtr(&Tilemaps, Name);
  *Tilemap = {};
  
- tilemap_tile_data Tiles[TilemapTileType_TOTAL];
- u32 Index = 0;
+ //tilemap_tile_data Tiles[TilemapTileType_TOTAL];
+ tile_array Tiles;
+ InitializeArray(&Tiles, 32, &TransientStorageArena);
+ 
  u32 TileOffset = 0;
+ u32 TileCount = 0;
  while(true){
   file_token Token = Reader->PeekToken();
   AssetLoaderHandleToken(Token);
@@ -870,8 +1002,7 @@ asset_system::ProcessTilemap(file_reader *Reader){
    Tilemap->XTiles = XTiles;
    Tilemap->YTiles = YTiles;
   }else{
-   if(!ProcessTilemapTile(Reader, Tiles, Index, String, &TileOffset)) return(false);
-   Index++;
+   if(!ProcessTilemapTile(Reader, &Tiles, String, &TileOffset)) return(false);
    
    if(TileOffset > (Tilemap->XTiles*Tilemap->YTiles)){
     LogError(Reader->Line, "The number of tiles(%u) adds up to more than than the dimensions of the tilemap would allow(%u)!",
@@ -881,8 +1012,8 @@ asset_system::ProcessTilemap(file_reader *Reader){
   }
  }
  
- Tilemap->TileCount = Index;
- Tilemap->Tiles = PushArray(&Memory, tilemap_tile_data, Index);
+ Tilemap->TileCount = Tiles.Count;
+ Tilemap->Tiles = PushArray(&Memory, tilemap_tile_data, Tiles.Count);
  for(u32 I=0; I<Tilemap->TileCount; I++){
   Tilemap->Tiles[I]  = Tiles[I];
   if(Tiles[I].Type == TileType_Connector){
@@ -893,6 +1024,8 @@ asset_system::ProcessTilemap(file_reader *Reader){
  return(true);
 }
 
+//~ Fonts
+
 b8
 asset_system::ProcessFont(file_reader *Reader){
  while(true){
@@ -901,105 +1034,4 @@ asset_system::ProcessFont(file_reader *Reader){
   Reader->NextToken();
  }
  return(true);
-}
-
-// NOTE(Tyler): This is essentially a way to comment out an entire command
-b8
-asset_system::ProcessIgnore(file_reader *Reader){
- while(true){
-  file_token Token = Reader->PeekToken();
-  AssetLoaderHandleToken(Token);
-  Reader->NextToken();
- }
- return(true);
-}
-
-
-#define IfCommand(Name, Command)       \
-if(CompareStrings(String, Name)) { \
-BeginCommand(Name);            \
-if(!Process ## Command(Reader)){ return(false); } \
-return(true);                  \
-}       
-
-b8
-asset_system::ProcessCommand(file_reader *Reader){
- const char *String = ExpectString(Reader);
- AssetLoaderHandleError();
- 
- IfCommand("sprite_sheet", SpriteSheet);
- IfCommand("animation",    Animation);
- IfCommand("entity",       Entity);
- IfCommand("art",          Art);
- IfCommand("background",   Background);
- IfCommand("tilemap",      Tilemap);
- IfCommand("font",         Font);
- IfCommand("ignore",       Ignore);
- 
- LogMessage("(Line: %u) '%s' isn't a valid command!", Reader->Line, String);
- return(false);
-}
-#undef IfCommand
-
-
-void
-asset_system::LoadAssetFile(const char *Path){
- TIMED_FUNCTION();
- 
- CurrentCommand = 0;
- CurrentAttribute = 0;
- 
- b8 HitError = false;
- do{
-  ArenaClear(&Memory);
-  memory_arena_marker Marker = ArenaBeginMarker(&TransientStorageArena);
-  
-  os_file *File = OpenFile(Path, OpenFile_Read);
-  u64 NewFileWriteTime = GetLastFileWriteTime(File);
-  CloseFile(File);
-  
-  if(LastFileWriteTime < NewFileWriteTime){
-   HitError = false;
-   
-   file_reader Reader = MakeFileReader(Path);
-   
-   while(!HitError){
-    file_token Token = Reader.NextToken();
-    
-    switch(Token.Type){
-     case FileTokenType_String: {
-      LogMessage("(Line: %u) String: '%s' was not expected! ':' was!", Token.Line, Token.String);
-      HitError = true;
-     }break;
-     case FileTokenType_Integer: {
-      LogMessage("(Line: %u) Integer: '%d' was not expected! ':' was!", Token.Line, Token.Integer);
-      HitError = true;
-     }break;
-     case FileTokenType_Float: {
-      LogMessage("(Line: %u) Float: '%f' was not expected! ':' was!", Token.Line, Token.Float);
-      HitError = true;
-     }break;
-     case FileTokenType_BeginCommand: {
-      if(!ProcessCommand(&Reader)){
-       HitError = true;
-       break;
-      }
-     }break;
-     case FileTokenType_EndFile: {
-      goto end_loop;
-     }break;
-     default: {
-      INVALID_CODE_PATH;
-     }break;
-    }
-   }
-   end_loop:;
-  }
-  
-  ArenaEndMarker(&TransientStorageArena, &Marker);
-  
-  if(HitError) OSSleep(10); // To prevent consuming the CPU
-  LastFileWriteTime = NewFileWriteTime;
- }while(HitError); 
- // This loop does result in a missed FPS but for right now it works just fine.
 }

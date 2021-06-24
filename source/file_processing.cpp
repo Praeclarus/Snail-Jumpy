@@ -100,10 +100,12 @@ ConsumeTextString(stream *Stream){
   while((('a' <= Char) && (Char <= 'z')) ||
         (('A' <= Char) && (Char <= 'Z')) ||
         (('0' <= Char) && (Char <= '9')) ||
-        (Char == '_') ||
-        (Char == '.') ||
-        (Char == '/') ||
-        (Char == '\\')){
+        (Char == '_')  ||
+        (Char == '.')  ||
+        (Char == '/')  ||
+        (Char == '\\') ||
+        (Char == '#')  ||
+        (Char == '?')){
    if(BufferIndex >= DEFAULT_BUFFER_SIZE-1) break;
    Buffer[BufferIndex++] = Char;
    CharPtr = ConsumeBytes(Stream, 1);
@@ -239,7 +241,9 @@ file_reader::NextToken(){
    break;
   }
   
-  if(IsALetter(*NextBytePtr)){
+  if(IsALetter(*NextBytePtr) ||
+     (*NextBytePtr == '_')   ||
+     (*NextBytePtr == '?')){
    Result.Type = FileTokenType_String;
    Result.Line = Line;
    Result.String = ConsumeTextString(&Stream);
@@ -317,7 +321,8 @@ file_reader::NextToken(){
    }
    
   }else{
-   Assert(0);
+   Result.Type = FileTokenType_Invalid;
+   break;
   }
  }
  

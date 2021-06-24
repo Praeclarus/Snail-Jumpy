@@ -558,6 +558,7 @@ PollEvents(os_event *Event){
       case VK_RIGHT:     Event->Key = KeyCode_Right;     break;
       case VK_SPACE:     Event->Key = KeyCode_Space;     break;
       case VK_TAB:       Event->Key = KeyCode_Tab;       break;
+      case VK_CONTROL:   Event->Key = KeyCode_Ctrl;     break;
       case VK_SHIFT:     Event->Key = KeyCode_Shift;     break;
       case VK_ESCAPE:    Event->Key = KeyCode_Escape;    break;
       case VK_BACK:      Event->Key = KeyCode_BackSpace; break;

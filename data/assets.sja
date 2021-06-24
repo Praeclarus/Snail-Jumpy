@@ -272,63 +272,56 @@
     cell_size 24 24
     tile_size 16 16
     dimensions 9 9
-    single               4
-    single_bottom_middle 2
-    single_bottom_left   2
-    single_bottom_right  REVERSE_PREVIOUS
-    horizontal_left_end  6
-    horizontal_right_end REVERSE_PREVIOUS
-    horizontal_middle    7
-    vertical_top_end     2
-    vertical_bottom_end  2
-    vertical_middle      4
-    corner_top_left      4
-    corner_top_right     REVERSE_PREVIOUS
-    corner_bottom_left   4
-    corner_bottom_right  REVERSE_PREVIOUS
-    corner_inner_bottom_left  4
-    corner_inner_bottom_right REVERSE_PREVIOUS
-    edge_top             9
-    edge_left            ROTATE_PREVIOUS_270 
-    edge_right           ROTATE_PREVIOUS_90
-    edge_bottom          5
-    filler               3
-    cutoff_filler_left   2
-    cutoff_filler_right  REVERSE_PREVIOUS
-    cutoff_vertical_left  2
-    cutoff_vertical_right REVERSE_PREVIOUS
-    cutoff_vertical_both 2
-    connector_left       1
-    connector_right      REVERSE_PREVIOUS
+    tile           ?_?_#_?_? 4
+    tile           XXX_#_?_? 2
+    tile           _XX_#_?_? 2
+    tile           XX__#_?_? REVERSE_PREVIOUS
+    tile           ?_?_#X?_? 6
+    tile           ?_?X#_?_? REVERSE_PREVIOUS
+    tile           ?_?X#X?_? 7
+    tile           ?_?_#_?X? 2
+    tile           _X__#_?_? 2
+    tile           _X__#_?X? 4
+    tile           ?_?_#X?X? 4
+    tile           ?_?X#_?X? REVERSE_PREVIOUS
+    tile           _X?_#X?_? 4
+    tile           ?X_X#_?_? REVERSE_PREVIOUS
+    tile           XX?_#X?_? 4
+    tile           ?XXX#_?_? REVERSE_PREVIOUS
+    tile           ?_?X#X?X? 9
+    tile           _X?_#X?X? ROTATE_PREVIOUS_270 
+    tile           ?X_X#_?X? ROTATE_PREVIOUS_90
+    tile           ?X?X#X?_? 5
+    tile           ?X?X#X?X? 3
+    tile           XX?_#X?X? 2
+    tile           ?XXX#_?X? REVERSE_PREVIOUS
+    tile           XX__#_?X? 2
+    tile           _XX_#_?X? REVERSE_PREVIOUS
+    tile           XXX_#_?X? 2
+    connector      _X?X#???? 1
+    connector      ?X_?#X??? REVERSE_PREVIOUS
+    wedge_up_left    ?_?_#X?X? 4
+    wedge_up_right   ?_?X#_?X? REVERSE_PREVIOUS
+    wedge_down_left  XX?_#X?_? 2
+    wedge_down_right ?XXX#_?_? REVERSE_PREVIOUS
+    wedge_up_left    ???_#_?X? 2
+    wedge_up_right   ???_#_?X? REVERSE_PREVIOUS
+    wedge_down_left  _X__#_??? REVERSE_AND_ROTATE_PREVIOUS_180
+    wedge_down_right _X__#_??? ROTATE_PREVIOUS_180
+    wedge_down_left  XXX_#_??? 2
+    wedge_down_right XXX_#_??? REVERSE_PREVIOUS
+    wedge_down_left  ?_?_#X?_? 2
+    wedge_down_right ?_?X#_?_? REVERSE_PREVIOUS
+    wedge_down_left  _XX_#_??? ROTATE_PREVIOUS_270
+    wedge_down_right XX__#_??? REVERSE_AND_ROTATE_PREVIOUS_90
+    wedge_up_left    ?_?_#X?_? 2
+    wedge_up_right   ?_?X#_?_? REVERSE_PREVIOUS
+    wedge_down_left  _XX_#_??? ROTATE_PREVIOUS_270
+    wedge_down_right XX__#_??? REVERSE_AND_ROTATE_PREVIOUS_270
+    wedge_down_left  _X?_#X?_? 2
+    wedge_down_right ?X_X#_?_? REVERSE_PREVIOUS
 
-    wedge_top_left       4
-    wedge_top_right      REVERSE_PREVIOUS
-    wedge_bottom_left    2
-    wedge_bottom_right   REVERSE_PREVIOUS
-
-    wedge_top_point_left  2
-    wedge_top_point_right REVERSE_PREVIOUS
-
-    wedge_vertical_bottom_point_left  ROTATE_PREVIOUS_180
-    wedge_vertical_bottom_point_right ROTATE_PREVIOUS_180
-
-    wedge_bottom_point_left 2
-    wedge_bottom_point_right REVERSE_PREVIOUS
-
-    wedge_end_down_left  2
-    wedge_end_down_right REVERSE_PREVIOUS
-    wedge_bottom_point_out_left  ROTATE_PREVIOUS_270
-    wedge_bottom_point_out_right REVERSE_AND_ROTATE_PREVIOUS_90
-
-    wedge_end_up_left    2
-    wedge_end_up_right   REVERSE_PREVIOUS
-    wedge_bottom_point_in_left  ROTATE_PREVIOUS_270
-    wedge_bottom_point_in_right ROTATE_PREVIOUS_270
-
-    wedge_connector_bottom_left  2 
-    wedge_connector_bottom_right REVERSE_PREVIOUS
-
- :tilemap plant
+: ignore plant
     path asset_tilemaps/plant.png
     cell_size 24 24
     tile_size 16 16
@@ -385,6 +378,44 @@
     wedge_bottom_point_out_left  COPY_PREVIOUS
     wedge_bottom_point_out_right REVERSE_PREVIOUS
     
+: tilemap cobblestone
+    path asset_tilemaps/cobblestone.png
+    tile_size  16 16
+    cell_size  18 18
+    dimensions  5  5
+    tile ?_?_#_?_? 2
+    tile ?_?_#X?_? 2
+    tile ?_?X#_?_? REVERSE_PREVIOUS
+    tile ?X?_#_?_? ROTATE_PREVIOUS_270
+    tile ?_?_#_?X? ROTATE_PREVIOUS_90
+    tile ?_?_#X?X? 2 
+    tile ?_?X#_?X? ROTATE_PREVIOUS_90
+    tile ?X?X#_?_? ROTATE_PREVIOUS_180
+    tile ?X?_#X?_? ROTATE_PREVIOUS_270
+    tile ?_?X#X?_? 3
+    tile ?X?_#_?X? ROTATE_PREVIOUS_90
+    tile ?_?X#X?X? 3
+    tile ?X?_#X?X? ROTATE_PREVIOUS_270
+    tile ?X?X#_?X? ROTATE_PREVIOUS_90
+    tile ?X?X#X?_? ROTATE_PREVIOUS_180
+    tile ?X?X#X?X? 9 
+    # corners 
+    wedge_up_right   ?_?X#_?X? 2
+    wedge_up_left    ?_?_#X?X? ROTATE_PREVIOUS_270
+    wedge_down_right ?X?X#_?_? ROTATE_PREVIOUS_90
+    wedge_down_left  ?X?_#X?_? ROTATE_PREVIOUS_180
+    # ends 
+    wedge_up_right   ?_?X#_?_? 2
+    wedge_up_left    ?_?_#X?_? REVERSE_PREVIOUS
+    wedge_down_right ?_?X#_?_? V_REVERSE_PREVIOUS
+    wedge_down_left  ?_?_#X?_? HV_REVERSE_PREVIOUS
+    # points
+    wedge_up_right   ?_?_#_?X? REVERSE_AND_ROTATE_PREVIOUS_270
+    wedge_up_left    ?_?_#_?X? ROTATE_PREVIOUS_270
+    wedge_down_right ?X?_#_?_? ROTATE_PREVIOUS_90
+    wedge_down_left  ?X?_#_?_? REVERSE_AND_ROTATE_PREVIOUS_270
+    
+
 # //////////////////////////////////////////////////////////////////////////
 #                                    Fonts
 # //////////////////////////////////////////////////////////////////////////

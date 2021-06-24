@@ -118,17 +118,6 @@ struct asset_art {
  v2 Size;
 };
 
-typedef u8 tile_type;
-enum tile_type_ {
- TileType_None           = 0x00,
- TileType_Tile           = 0x01,
- TileType_WedgeUpLeft    = 0x02,
- TileType_WedgeUpRight   = 0x04 ,
- TileType_WedgeDownLeft  = 0x08,
- TileType_WedgeDownRight = 0x10,
- TileType_Connector      = 0x20
-};
-
 enum tilemap_tile_type {
  TilemapTileType_None,
  TilemapTileType_Single,
@@ -189,6 +178,8 @@ typedef u8 tile_transform;
 enum tile_transform_ {
  TileTransform_None,
  TileTransform_HorizontalReverse,
+ TileTransform_VerticalReverse,
+ TileTransform_HorizontalAndVerticalReverse,
  TileTransform_Rotate90,
  TileTransform_Rotate180,
  TileTransform_Rotate270,
@@ -205,6 +196,16 @@ enum tile_connetor_flags_ {
  TileConnector_Both  = TileConnector_Left | TileConnector_Right,
 };
 
+typedef u8 tile_type;
+enum tile_type_ {
+ TileType_None           = 0x00,
+ TileType_Tile           = 0x01,
+ TileType_WedgeUpLeft    = 0x02,
+ TileType_WedgeUpRight   = 0x04 ,
+ TileType_WedgeDownLeft  = 0x08,
+ TileType_WedgeDownRight = 0x10,
+ TileType_Connector      = 0x20
+};
 
 struct extra_tile_data {
  tile_transform Transform      : 4;
@@ -241,7 +242,7 @@ enum asset_loader_error {
 };
 
 //~ Asset system
-
+typedef dynamic_array<tilemap_tile_data> tile_array;
 struct asset_system {
  //~ Asset stuff
  memory_arena Memory;
@@ -303,7 +304,7 @@ struct asset_system {
  b8 ProcessEntity(file_reader *Reader);
  b8 ProcessArt(file_reader *Reader);
  b8 ProcessBackground(file_reader *Reader);
- b8 ProcessTilemapTile(file_reader *Reader, tilemap_tile_data *Tiles, u32 TileIndex, const char *TileName, u32 *TileOffset);
+ b8 ProcessTilemapTile(file_reader *Reader, tile_array *Tiles, const char *TileType, u32 *TileOffset);
  b8 ProcessTilemap(file_reader *Reader);
  b8 ProcessFont(file_reader *Reader);
  b8 ProcessIgnore(file_reader *Reader);
