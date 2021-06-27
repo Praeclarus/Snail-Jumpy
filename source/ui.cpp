@@ -831,7 +831,7 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority, os_k
  if(CompareElements(&Element, &ActiveElement)){
   //HoveredElement = Element;
   Result = UIBehavior_Activate;
-  if(!MouseButtonIsDown(MouseButton_Left)){
+  if(!MouseButtonIsDown(MouseButton_Left, KeyFlags)){
    ResetActiveElement();
    Result = UIBehavior_Hovered;
   }
@@ -840,7 +840,7 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority, os_k
   
   //HoveredElement = Element;
   Result = UIBehavior_Hovered;
-  if(MouseButtonJustDown(MouseButton_Left)){
+  if(MouseButtonJustDown(MouseButton_Left, KeyFlags)){
    SetValidElement(&Element);
   }
  }
@@ -997,7 +997,6 @@ internal inline ui_behavior
 EditorDraggableElement(ui_manager *Manager, u64 ID, rect R, v2 P, s32 Priority, 
                        render_options Options, 
                        os_key_flags KeyFlags=KeyFlag_None, b8 Disabled=false){
- 
  R = GameRenderer.WorldToScreen(R, Options);
  P = GameRenderer.WorldToScreen(P, Options);
  ui_behavior Result = UIBehavior_None;

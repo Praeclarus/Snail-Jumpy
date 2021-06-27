@@ -116,7 +116,7 @@ SelectorDoItem(selector_data *Selector, v2 Size, b8 IsSelected, u64 ID){
  C = MixColor(EDITOR_HOVERED_COLOR, C,  T);
  
  if(IsSelected) State->ActiveT += 3*OSInput.dTime; 
- else                      State->ActiveT -= 5*OSInput.dTime; 
+ else           State->ActiveT -= 5*OSInput.dTime; 
  State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
  
  f32 ActiveT = 1.0f - Square(1.0f-State->ActiveT);
@@ -321,12 +321,19 @@ world_editor::AddWorldEntity(){
  switch(EditThing){
   case EditThing_Tilemap: {
    entity_data *Entity = ArrayAlloc(&World->Entities);
+   asset_tilemap *Asset = AssetSystem.GetTilemap(TilemapToAdd);
+   
+   u32 WidthU32  = 10;
+   u32 HeightU32 = 10;
+   f32 Width  = (f32)WidthU32 * Asset->TileSize.X;
+   f32 Height = (f32)HeightU32 * Asset->TileSize.Y;
    
    Entity->Type = EntityType_Tilemap;
-   Entity->P = V2(0);
+   Entity->P = MouseP - 0.5f*V2(Width, Height);
+   Entity->P = MaximumV2(Entity->P, V2(0));
    Entity->Asset = TilemapToAdd;
-   Entity->Tilemap.Width = 10;
-   Entity->Tilemap.Height = 10;
+   Entity->Tilemap.Width = WidthU32;
+   Entity->Tilemap.Height = HeightU32;
    u32 MapSize = Entity->Tilemap.Width*Entity->Tilemap.Height;
    Entity->Tilemap.MapData = (u8 *)DefaultAlloc(MapSize);
    
@@ -773,14 +780,14 @@ EditorTilemapEdge(f32 X, f32 Y, f32 Width, f32 Height, u64 ID){
  R = RectFix(R);
  
  ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
- switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Left, 1, ScaledItem(1))){
+ switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Left, 1, ScaledItem(1), EDIT_TILEMAP_MODIFIER)){
   case UIBehavior_Activate: {
    State->ActiveT = 1.0f;
    Result = TilemapEdgeAction_Incrememt;
   }break;
  }
  
- switch(EditorButtonElement(&UIManager, WIDGET_ID_CHILD(ID, 1), R, MouseButton_Right, 1, ScaledItem(1))){
+ switch(EditorButtonElement(&UIManager, WIDGET_ID_CHILD(ID, 1), R, MouseButton_Right, 1, ScaledItem(1), EDIT_TILEMAP_MODIFIER)){
   case UIBehavior_Activate: {
    State->ActiveT = 1.0f;
    Result = TilemapEdgeAction_Decrement;
@@ -804,93 +811,45 @@ EditorTilemapEdge(f32 X, f32 Y, f32 Width, f32 Height, u64 ID){
 void
 world_editor::MaybeEditTilemap(){
  TIMED_FUNCTION();
+ 
  if(!Selected) return;
  if(Selected->Type != EntityType_Tilemap) return;
+ if(!OSInput.Modifier(EDIT_TILEMAP_MODIFIER)) return;
  
  world_data_tilemap *Tilemap = &Selected->Tilemap;
  asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
  
- //~ Move tilemap
- {
-  rect R = CenterRect(Tilemap->P, V2(8));
-  color C = EDITOR_BASE_COLOR;
-  switch(EditorDraggableElement(&UIManager, WIDGET_ID, R, Tilemap->P, 1, ScaledItem(1))){
-   case UIBehavior_Hovered: {
-    C = EDITOR_HOVERED_COLOR;
-   }break;
-   case UIBehavior_Activate: {
-    C = EDITOR_SELECTED_COLOR;
-    v2 Offset = GameRenderer.ScreenToWorld(UIManager.ActiveElement.Offset, ScaledItem(0));
-    
-    v2 WorldMouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(1));
-    Tilemap->P = WorldMouseP + Offset;
-    Tilemap->P = SnapToGrid(Tilemap->P, 1);
-   }break;
-  }
-  Tilemap->P = MaximumV2(Tilemap->P, V2(0));
-  RenderRect(CenterRect(Tilemap->P, V2(8)), -0.2f, C, GameItem(1));
- }
- 
  //~ Add tiles
  v2 TileP = MouseP - Tilemap->P;
  TileP = FloorV2(TileP);
- TileP /= TILE_SIDE;
+ TileP.X /= Asset->TileSize.X;
+ TileP.Y /= Asset->TileSize.Y;
  s32 X = (s32)(TileP.X);
  s32 Y = (s32)(TileP.Y);
  
  if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, false, 0, EDIT_TILEMAP_MODIFIER)){
-  if((X < 0)      || (Y < 0)       || 
+  if((X < 0)                    || (Y < 0)       || 
      (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height)){
   }else{
    Tilemap->MapData[Y*Tilemap->Width+X] = (u8)TileEditMode;
   }
  }
  
- if(OSInput.KeyJustDown(KeyCode_Escape)){ EditModeEntity(0); return; }
- 
  //~ Remove tiles
  if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Right, false, 0, EDIT_TILEMAP_MODIFIER)){
-  if((X < 0)      || (Y < 0)       || 
+  if((X < 0)                    || (Y < 0)       || 
      (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height)){
   }else{
    Tilemap->MapData[Y*Tilemap->Width+X] = 0;
   }
  }
  
-#if 0 
- //~ Remove tilemap
- if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Right, true, 0, KeyFlag_Control)){
-  if((X < 0)      || (Y < 0)       || 
-     (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height)){
-  }else{
-   CleanupEntity(Selected);
-   for(u32 I=0; I<World->Entities.Count; I++){
-    if(Selected == &World->Entities[I]){
-     ArrayUnorderedRemove(&World->Entities, I);
-     break;
-    }
-   }
-   
-   ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, (u64)Selected);
-   State->T = 0;
-   State->ActiveT = 0;
-   
-   UIManager.ResetActiveElement();
-   EditModeEntity(0);
-   return;
-  }
- }
-#endif
- 
  //~ Swap tiles
- 
- if(OSInput.OnlyModifier(EDIT_TILEMAP_MODIFIER)){
-  s32 Range = 100;
-  if((OSInput.ScrollMovement > Range) ||
-     (OSInput.ScrollMovement < -Range)){
-   if(TileEditMode == TileEditMode_Tile) TileEditMode = TileEditMode_Wedge; 
-   else TileEditMode = TileEditMode_Tile;
-  }
+ s32 Range = 100;
+ if((OSInput.ScrollMovement > Range) ||
+    (OSInput.ScrollMovement < -Range)){
+  if(TileEditMode == TileEditMode_Tile) TileEditMode = TileEditMode_Wedge; 
+  else TileEditMode = TileEditMode_Tile;
  }
  
  //~ Resizing 
@@ -899,7 +858,8 @@ world_editor::MaybeEditTilemap(){
   rect R = CenterRect(Selected->P, Size);
   f32 EdgeSize = 3;
   
-  tilemap_edge_action RightEdge = EditorTilemapEdge(R.Max.X, R.Min.Y, EdgeSize, Size.Y, WIDGET_ID);
+  //tilemap_edge_action RightEdge = EditorTilemapEdge(R.Max.X, R.Min.Y, EdgeSize, Size.Y, WIDGET_ID);
+  tilemap_edge_action RightEdge = TilemapEdgeAction_None;
   if(     OSInput.KeyRepeat(KeyCode_Right, EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) RightEdge = TilemapEdgeAction_Incrememt;
   else if(OSInput.KeyRepeat(KeyCode_Left,  EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) RightEdge = TilemapEdgeAction_Decrement;
   switch(RightEdge){
@@ -907,7 +867,8 @@ world_editor::MaybeEditTilemap(){
    case TilemapEdgeAction_Decrement: ResizeTilemapData(Tilemap, -1, 0); break;
   }
   
-  tilemap_edge_action TopEdge = EditorTilemapEdge(R.Min.X, R.Max.Y, Size.X, EdgeSize, WIDGET_ID);
+  //tilemap_edge_action TopEdge = EditorTilemapEdge(R.Min.X, R.Max.Y, Size.X, EdgeSize, WIDGET_ID);
+  tilemap_edge_action TopEdge = TilemapEdgeAction_None;
   if(     OSInput.KeyRepeat(KeyCode_Up,   EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) TopEdge = TilemapEdgeAction_Incrememt;
   else if(OSInput.KeyRepeat(KeyCode_Down, EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) TopEdge = TilemapEdgeAction_Decrement;
   switch(TopEdge){
@@ -926,26 +887,23 @@ world_editor::MaybeEditTilemap(){
  if((XOffset != 0) || (YOffset != 0)) MoveTilemapData(Tilemap, XOffset, YOffset); 
  
  //~ Render tile edit mode
- if(OSInput.Modifier(EDIT_TILEMAP_MODIFIER)){
-  v2 P = DEFAULT_SELECTOR_P + V2(100.0f, 0.0f);
-  tile_type Type = TileType_Tile;
-  switch(TileEditMode){
-   case TileEditMode_Tile:  Type = TileType_Tile;  break;
-   case TileEditMode_Wedge: Type = TileType_Wedge; break;
-  }
-  
-  u32 Index = 0;
-  for(u32 I=0; I<Asset->TileCount; I++){
-   tilemap_tile_data *Tile = &Asset->Tiles[I];
-   if(Tile->Type & Type){
-    Index = Tile->OffsetMin;
-    break;
-   }
-  }
-  
-  RenderTileAtIndex(Asset, P, -0.3f, 0, Index);
+ v2 P = DEFAULT_SELECTOR_P + V2(100.0f, 0.0f);
+ tile_type Type = TileType_Tile;
+ switch(TileEditMode){
+  case TileEditMode_Tile:  Type = TileType_Tile;  break;
+  case TileEditMode_Wedge: Type = TileType_Wedge; break;
  }
  
+ u32 Index = 0;
+ for(u32 I=0; I<Asset->TileCount; I++){
+  tilemap_tile_data *Tile = &Asset->Tiles[I];
+  if(Tile->Type & Type){
+   Index = Tile->OffsetMin;
+   break;
+  }
+ }
+ 
+ RenderTileAtIndex(Asset, P, -0.3f, 0, Index);
 }
 
 //~ 
@@ -964,33 +922,13 @@ world_editor::DeleteEntity(entity_data *Entity){
 
 inline b8
 world_editor::IsSelectionDisabled(entity_data *Entity, os_key_flags KeyFlags){
- b8 Result = !((Selected == Entity) || OSInput.OnlyModifier(KeyFlags));
+ b8 Result = !((Selected == Entity) || OSInput.OnlyModifier(KeyFlags)) || IsEditingTilemap();
  return(Result);
 }
 
 internal inline os_key_flags
 SelectionKeyFlags(b8 Special){
  os_key_flags Result = Special ? SPECIAL_SELECT_MODIFIER : KeyFlag_None;
- return(Result);
-}
-
-inline b8
-world_editor::DoSelectEntity(v2 P, v2 Size, entity_data *Entity, b8 Special){
- b8 Result = false;
- os_key_flags KeyFlags = SelectionKeyFlags(Special);
- u64 ID = (u64)Entity;
- 
- rect R = SizeRect(P, Size);
- switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Left, -2, ScaledItem(1), 
-                            KeyFlags, IsSelectionDisabled(Entity, KeyFlags))){
-  case UIBehavior_Activate: {
-   Result = true;
-  }break;
- }
- 
- RenderRectOutline(R, -0.3f, GetEditorColor(ID, (Selected == Entity), false), GameItem(1));
- 
- if(Selected == Entity) Result = false;
  return(Result);
 }
 
@@ -1002,7 +940,7 @@ world_editor::DoDragEntity(v2 *P, v2 Size, entity_data *Entity, b8 Special){
  
  rect R = SizeRect(*P, Size);
  switch(EditorDraggableElement(&UIManager, ID, R, *P, -2, ScaledItem(1), 
-                               KeyFlags, IsSelectionDisabled(Entity, KeyFlag_None))){
+                               KeyFlags, IsSelectionDisabled(Entity, KeyFlags))){
   case UIBehavior_Activate: {
    v2 Offset = GameRenderer.ScreenToWorld(UIManager.ActiveElement.Offset, ScaledItem(0));
    
@@ -1030,11 +968,8 @@ world_editor::DoDeleteEntity(v2 P, v2 Size, entity_data *Entity, b8 Special){
  
  switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Right, -1, ScaledItem(1), 
                             KeyFlags, IsSelectionDisabled(Entity, KeyFlags))){
-  case UIBehavior_Activate: {
-   Result = true;
-  }break;
+  case UIBehavior_Activate: Result = true; break;
  }
- 
  
  return(Result);
 }
@@ -1056,11 +991,10 @@ world_editor::UpdateAndRender(){
  LastMouseP = MouseP;
  MouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(1));
  CursorP = SnapToGrid(MouseP, TILE_SIDE);
- //GameRenderer.AddLight(MouseP, MakeColor(1.0f, 0.5f, 1.0f), 0.6f, TILE_SIDE, GameItem(1));
  
  ProcessInput();
  
- if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, false, -2, KeyFlag_Control)){
+ if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Middle, false, -2)){
   v2 Difference = OSInput.MouseP-OSInput.LastMouseP;
   v2 Movement = GameRenderer.ScreenToWorld(Difference, ScaledItem(0));
   GameRenderer.MoveCamera(-Movement);
@@ -1103,11 +1037,11 @@ world_editor::UpdateAndRender(){
     extra_tile_data *ExtraData = PushArray(&TransientStorageArena, extra_tile_data, MapSize);
     
     CalculateTilemapIndices(Asset, Tilemap->MapData, MapIndices, ExtraData, Tilemap->Width, Tilemap->Height);
-    RenderTilemap(Asset, MapIndices, ExtraData, Tilemap->Width, Tilemap->Height, Tilemap->P, 1, 1);
+    RenderTilemap(Asset, MapIndices, ExtraData, Tilemap->Width, Tilemap->Height, Tilemap->P, 1.0f, 1);
     
     v2 Size = Hadamard(V2((f32)Tilemap->Width, (f32)Tilemap->Height), Asset->TileSize);
-    if(DoSelectEntity(Entity->P, Size, Entity, true)) EditModeEntity(Entity);
-    //DoRemoveEntity(Entity->P, Size, Entity, &I, true);
+    if(DoDragEntity(&Entity->P, Size, Entity, true)) EditModeEntity(Entity);
+    Entity->P = MaximumV2(Entity->P, V2(0));
    }break;
    case EntityType_Enemy: {
     asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->Asset);
@@ -1134,8 +1068,8 @@ world_editor::UpdateAndRender(){
     if(DoDeleteEntity(Entity->P, Size, Entity)) DeleteEntity(Entity);
    }break;
    case EntityType_Teleporter: {
-    RenderRect(CenterRect(Entity->P, TILE_SIZE), 1.1f, GREEN, GameItem(1));
-    if(DoSelectEntity(Entity->P, TILE_SIZE, Entity)) EditModeEntity(Entity);
+    RenderRect(CenterRect(Entity->P, TILE_SIZE), 1.0f, GREEN, GameItem(1));
+    if(DoDragEntity(&Entity->P, TILE_SIZE, Entity)) EditModeEntity(Entity);
     if(DoDeleteEntity(Entity->P, TILE_SIZE, Entity)) DeleteEntity(Entity);
    }break;
    case EntityType_Door: {
@@ -1155,7 +1089,7 @@ world_editor::UpdateAndRender(){
    }break;
   }
   
-  if(EntityToDelete){
+  if(EntityToDelete == Entity){
    ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, (u64)Entity);
    EditModeEntity(0);
    CleanupEntity(Entity);

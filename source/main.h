@@ -26,10 +26,6 @@ global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
 global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant char *STARTUP_LEVEL = "Debug";
 
-global_constant color EDITOR_BASE_COLOR     = MakeColor(0.5f, 0.8f, 0.6f, 0.9f);
-global_constant color EDITOR_HOVERED_COLOR  = MakeColor(0.8f, 0.5f, 0.7f, 0.9f);
-global_constant color EDITOR_SELECTED_COLOR = MakeColor(1.0f, 0.7f, 0.4f, 0.9f);
-
 //~ TODO(Tyler): Things that need a better place to go
 enum entity_state {
  State_None,

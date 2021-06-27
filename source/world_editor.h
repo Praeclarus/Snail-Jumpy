@@ -90,7 +90,6 @@ struct world_editor {
  u8 *GetCursorTile();
  
  inline b8 IsSelectionDisabled(entity_data *Entity, os_key_flags KeyFlags);
- inline b8 DoSelectEntity(v2 P, v2 Size, entity_data *Entity, b8 Special=false);
  inline b8 DoDragEntity(v2 *P, v2 Size, entity_data *Entity, b8 Special=false);
  inline b8 DoDeleteEntity(v2 P, v2 Size, entity_data *Entity, b8 Special=false);
 };
@@ -103,29 +102,33 @@ global_constant edit_mode_thing WORLD_EDITOR_FORWARD_EDIT_MODE_TABLE[EditThing_T
  EditThing_Enemy,      // 2
  EditThing_Art,        // 3
  EditThing_Teleporter, // 4
- EditThing_TOTAL,         // 5
- EditThing_TOTAL,         // 6
- EditThing_TOTAL,         // 7
+ EditThing_TOTAL,      // 5
+ EditThing_TOTAL,      // 6
+ EditThing_TOTAL,      // 7
  EditThing_Door,       // 8
- EditThing_None,          // 9
+ EditThing_None,       // 9
 };
 global_constant edit_mode_thing WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_TOTAL] = {
  EditThing_Door,       // 0
- EditThing_None,          // 1
+ EditThing_None,       // 1
  EditThing_Tilemap,    // 2
  EditThing_CoinP,      // 3
  EditThing_Enemy,      // 4
- EditThing_TOTAL,         // 5
- EditThing_TOTAL,         // 6
- EditThing_TOTAL,         // 7
+ EditThing_TOTAL,      // 5
+ EditThing_TOTAL,      // 6
+ EditThing_TOTAL,      // 7
  EditThing_Art,        // 8
  EditThing_Teleporter, // 9
 };
 
-global_constant os_key_flags SPECIAL_SELECT_MODIFIER  = KeyFlag_Alt;
-global_constant os_key_flags SPECIAL_ADD_MODIFIER     = KeyFlag_Shift;
+global_constant os_key_flags SPECIAL_SELECT_MODIFIER  = KeyFlag_Shift;
+global_constant os_key_flags SPECIAL_ADD_MODIFIER     = KeyFlag_Control;
 global_constant os_key_flags SELECTOR_SCROLL_MODIFIER = KeyFlag_Shift;
 global_constant os_key_flags EDIT_TILEMAP_MODIFIER    = KeyFlag_Alt;
+
+global_constant color EDITOR_BASE_COLOR     = MakeColor(0.5f, 0.8f, 0.6f, 0.9f);
+global_constant color EDITOR_HOVERED_COLOR  = MakeColor(0.8f, 0.5f, 0.7f, 0.9f);
+global_constant color EDITOR_SELECTED_COLOR = MakeColor(1.0f, 0.7f, 0.4f, 0.9f);
 
 #endif //SNAIL_JUMPY_EDITOR_H
 
