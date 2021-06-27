@@ -11,6 +11,8 @@ struct selector_data {
  v2 P;
  f32 MaxItemSide;
  f32 WrapWidth;
+ 
+ b8 DidSelect = true;
  u32 SelectedIndex;
 };
 

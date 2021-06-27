@@ -93,8 +93,8 @@ SelectorClampSize(selector_data *Selector, v2 Size){
 }
 
 internal b8
-SelectorDoItem(selector_data *Selector, v2 Size, b8 IsSelected, u64 ID){
- b8 Result = false;
+SelectorDoItem(selector_data *Selector, u64 ID, v2 Size, b8 IsSelected, u32 Index){
+ b8 Result = IsSelected;
  ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
  
  rect R = SizeRect(Selector->P, Size);
@@ -115,8 +115,8 @@ SelectorDoItem(selector_data *Selector, v2 Size, b8 IsSelected, u64 ID){
  f32 T = 1.0f-Square(1.0f-State->T);
  C = MixColor(EDITOR_HOVERED_COLOR, C,  T);
  
- if(IsSelected) State->ActiveT += 3*OSInput.dTime; 
- else           State->ActiveT -= 5*OSInput.dTime; 
+ if(IsSelected) State->ActiveT += 10*OSInput.dTime; 
+ else           State->ActiveT -= 7*OSInput.dTime; 
  State->ActiveT = Clamp(State->ActiveT, 0.0f, 1.0f);
  
  f32 ActiveT = 1.0f - Square(1.0f-State->ActiveT);
@@ -131,18 +131,17 @@ SelectorDoItem(selector_data *Selector, v2 Size, b8 IsSelected, u64 ID){
   Selector->P.Y -= 50.0f;
  }
  
+ if(Result){
+  Selector->SelectedIndex = Index; 
+  Selector->DidSelect = true;
+ }
+ 
  return(Result);
 }
 
-internal void
-SelectorDoSelect(selector_data *Selector, b8 Condition, u32 Index){
- if(Condition){
-  Selector->SelectedIndex = Index;
- }
-}
-
 internal u32 
-SelectorDoScroll(selector_data *Selector, u32 Max){
+SelectorSelectItem(selector_data *Selector, u32 Max){
+ if(!Selector->DidSelect) Selector->SelectedIndex = 0;
  u32 Result = Selector->SelectedIndex;
  
  if(OSInput.OnlyModifier(SELECTOR_SCROLL_MODIFIER)){
@@ -160,16 +159,12 @@ SelectorDoScroll(selector_data *Selector, u32 Max){
 }
 
 #define StringSelectorDoItem(Size, Array) \
-if(SelectorDoItem(&Selector, Size, (Result==Array[I]), WIDGET_ID_CHILD(WIDGET_ID, I))){ \
+if(SelectorDoItem(&Selector, WIDGET_ID_CHILD(WIDGET_ID, I+1), Size, (Result==Array[I]), I)){ \
 Result = Array[I];       \
 }                               \
-StringSelectorDoSelect(Array);
 
-#define StringSelectorDoSelect(Array) \
-SelectorDoSelect(&Selector, (Result==Array[I]), I)
-
-#define StringSelectorDoScroll(Array) \
-Result = Array[SelectorDoScroll(&Selector, Array.Count)]
+#define StringSelectorSelectItem(Array) \
+Result = Array[SelectorSelectItem(&Selector, Array.Count)]
 
 internal string
 DoTilemapSelector(string Selected){
@@ -183,8 +178,6 @@ DoTilemapSelector(string Selected){
   if(Key.ID){ ArrayAdd(&Tilemaps, Key); }
  }
  
- if(!Result.ID) Result = Tilemaps[0];
- 
  selector_data Selector = BeginSelector(DEFAULT_SELECTOR_P);
  for(u32 I=0; I<Tilemaps.Count; I++){
   asset_tilemap *Tilemap = AssetSystem.GetTilemap(Tilemaps[I]);
@@ -194,7 +187,7 @@ DoTilemapSelector(string Selected){
   
   StringSelectorDoItem(Size, Tilemaps);
  }
- StringSelectorDoScroll(Tilemaps);
+ StringSelectorSelectItem(Tilemaps);
  
  return(Result);
 }
@@ -213,8 +206,6 @@ DoInfoSelector(string Selected){
   }
  }
  
- if(!Result.ID) Result = Entities[0];
- 
  selector_data Selector = BeginSelector(DEFAULT_SELECTOR_P);
  for(u32 I=0; I<Entities.Count; I++){
   asset_entity *Info = AssetSystem.GetEntity(Entities[I]);
@@ -226,7 +217,7 @@ DoInfoSelector(string Selected){
   StringSelectorDoItem(Size, Entities);
  }
  
- StringSelectorDoScroll(Entities);
+ StringSelectorSelectItem(Entities);
  
  return(Result);
 }
@@ -243,8 +234,6 @@ DoArtSelector(string Selected){
   if(Key.ID){ ArrayAdd(&Arts, Key); }
  }
  
- if(!Result.ID) Result = Arts[0];
- 
  selector_data Selector = BeginSelector(DEFAULT_SELECTOR_P);
  for(u32 I=0; I<Arts.Count; I++){
   asset_art *Asset = AssetSystem.GetArt(Arts[I]);
@@ -254,7 +243,7 @@ DoArtSelector(string Selected){
   
   StringSelectorDoItem(Size, Arts);
  }
- StringSelectorDoScroll(Arts);
+ StringSelectorSelectItem(Arts);
  
  return(Result);
 }

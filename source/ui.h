@@ -40,7 +40,7 @@ struct ui_theme {
 
 
 #define WIDGET_ID (HashKey(__FILE__) * __LINE__)
-#define WIDGET_ID_CHILD(Parent, Value) (HashKey(__FILE__) * __LINE__*Parent / 413*(Value))
+#define WIDGET_ID_CHILD(Parent, Value) (HashKey(__FILE__) * __LINE__*(Parent) / 413*(Value))
 
 //~ States
 struct ui_text_input_state {
