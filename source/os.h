@@ -87,7 +87,8 @@ struct os_input {
  os_key_flags KeyFlags;
  key_state KeyboardState[KeyCode_TOTAL];
  
- inline b8 TestModifier(os_key_flags Flags);
+ inline b8 Modifier(os_key_flags Flags);
+ inline b8 OnlyModifier(os_key_flags Flags);
  inline b8 KeyUp(      u32 Key, os_key_flags=KeyFlag_None);
  inline b8 KeyJustUp(  u32 Key, os_key_flags=KeyFlag_None);
  inline b8 KeyJustDown(u32 Key, os_key_flags=KeyFlag_None);
@@ -95,13 +96,19 @@ struct os_input {
  inline b8 KeyDown(    u32 Key, os_key_flags=KeyFlag_None);
 };
 
-//~ TODO(Tyler): Find a better home for these  procedures and variables
 global os_input OSInput;
+//~ Modifier
 
 inline b8
-os_input::TestModifier(os_key_flags Flags){
+os_input::OnlyModifier(os_key_flags Flags){
  b8 Result = (((OSInput.KeyFlags & Flags) == Flags) &&
               ((~OSInput.KeyFlags & ~Flags) == ~Flags));
+ return(Result);
+}
+
+inline b8
+os_input::Modifier(os_key_flags Flags){
+ b8 Result = !!(OSInput.KeyFlags & Flags);
  return(Result);
 }
 
@@ -109,7 +116,7 @@ os_input::TestModifier(os_key_flags Flags){
 inline b8 
 os_input::KeyUp(u32 Key, os_key_flags Flags){
  key_state KeyState = KeyboardState[Key];
- b8 Result = (!(KeyState & KeyState_IsDown) || !TestModifier(Flags));
+ b8 Result = !((KeyState & KeyState_IsDown) && OnlyModifier(Flags));
  
  return(Result);
 }
@@ -117,7 +124,7 @@ os_input::KeyUp(u32 Key, os_key_flags Flags){
 inline b8 
 os_input::KeyJustUp(u32 Key, os_key_flags Flags){
  key_state KeyState = KeyboardState[Key];
- b8 Result = ((KeyState & KeyState_JustUp) || !TestModifier(Flags));
+ b8 Result = ((KeyState & KeyState_JustUp) || !OnlyModifier(Flags));
  
  return(Result);
 }
@@ -125,7 +132,7 @@ os_input::KeyJustUp(u32 Key, os_key_flags Flags){
 inline b8 
 os_input::KeyJustDown(u32 Key, os_key_flags Flags){
  key_state KeyState = KeyboardState[Key];
- b8 Result = ((KeyState & KeyState_JustDown) && TestModifier(Flags));
+ b8 Result = ((KeyState & KeyState_JustDown) && OnlyModifier(Flags));
  
  return(Result);
 }
@@ -133,7 +140,7 @@ os_input::KeyJustDown(u32 Key, os_key_flags Flags){
 inline b8 
 os_input::KeyRepeat(u32 Key, os_key_flags Flags){
  key_state KeyState = KeyboardState[Key];
- b8 Result = ((KeyState & KeyState_RepeatDown) && TestModifier(Flags));
+ b8 Result = ((KeyState & KeyState_RepeatDown) && OnlyModifier(Flags));
  
  return(Result);
 }
@@ -141,7 +148,7 @@ os_input::KeyRepeat(u32 Key, os_key_flags Flags){
 inline b8 
 os_input::KeyDown(u32 Key, os_key_flags Flags){
  key_state KeyState = KeyboardState[Key];
- b8 Result = ((KeyState & KeyState_IsDown) && TestModifier(Flags));
+ b8 Result = ((KeyState & KeyState_IsDown) && OnlyModifier(Flags));
  
  return(Result);
 }
@@ -151,7 +158,7 @@ os_input::KeyDown(u32 Key, os_key_flags Flags){
 inline b8 
 os_input::MouseUp(os_mouse_button Button, os_key_flags Flags){
  key_state ButtonState = MouseState[Button];
- b8 Result = (!(ButtonState & KeyState_IsDown) || !TestModifier(Flags));
+ b8 Result = !((ButtonState & KeyState_IsDown) && OnlyModifier(Flags));
  
  return(Result);
 }
@@ -159,7 +166,7 @@ os_input::MouseUp(os_mouse_button Button, os_key_flags Flags){
 inline b8 
 os_input::MouseDown(os_mouse_button Button, os_key_flags Flags){
  key_state ButtonState = MouseState[Button];
- b8 Result = ((ButtonState & KeyState_IsDown) && TestModifier(Flags));
+ b8 Result = ((ButtonState & KeyState_IsDown) && OnlyModifier(Flags));
  
  return(Result);
 }
@@ -167,7 +174,7 @@ os_input::MouseDown(os_mouse_button Button, os_key_flags Flags){
 inline b8 
 os_input::MouseJustDown(os_mouse_button Button, os_key_flags Flags){
  key_state ButtonState = MouseState[Button];
- b8 Result = ((ButtonState & KeyState_JustDown) && TestModifier(Flags));
+ b8 Result = ((ButtonState & KeyState_JustDown) && OnlyModifier(Flags));
  
  return(Result);
 }

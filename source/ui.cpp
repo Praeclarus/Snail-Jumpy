@@ -822,7 +822,7 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, s32 Priority){
 }
 
 ui_behavior
-ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
+ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority, os_key_flags KeyFlags){
  ui_behavior Result = UIBehavior_None;
  
  ui_element Element = MakeElement(UIElementType_Draggable, ID, Priority);
@@ -994,10 +994,15 @@ ui_manager::ProcessEvent(os_event *Event){
 //~ Editor stuff
 
 internal inline ui_behavior
-EditorDraggableElement(ui_manager *Manager, u64 ID, rect R, v2 P, s32 Priority, render_options Options){
+EditorDraggableElement(ui_manager *Manager, u64 ID, rect R, v2 P, s32 Priority, 
+                       render_options Options, 
+                       os_key_flags KeyFlags=KeyFlag_None, b8 Disabled=false){
+ 
  R = GameRenderer.WorldToScreen(R, Options);
  P = GameRenderer.WorldToScreen(P, Options);
- ui_behavior Result = Manager->DoDraggableElement(ID, R, P, Priority);
+ ui_behavior Result = UIBehavior_None;
+ if(!Disabled) Result = Manager->DoDraggableElement(ID, R, P, Priority, KeyFlags);
+ 
  ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
  switch(Result){
   case UIBehavior_None: {
@@ -1007,20 +1012,24 @@ EditorDraggableElement(ui_manager *Manager, u64 ID, rect R, v2 P, s32 Priority, 
    State->T += 10*OSInput.dTime;
   }break;
  }
+ 
  return(Result);
 }
 
 internal inline ui_behavior
-EditorButtonElement(ui_manager *Manager, u64 ID, rect R, os_mouse_button Button, s32 Priority, render_options Options, os_key_flags Flags=KeyFlag_None){
+EditorButtonElement(ui_manager *Manager, u64 ID, rect R, os_mouse_button Button, 
+                    s32 Priority, render_options Options, 
+                    os_key_flags Flags=KeyFlag_None, b8 Disabled=false){
  R = GameRenderer.WorldToScreen(R, Options);
- ui_behavior Result = Manager->DoButtonElement(ID, R, Button, Priority, Flags);
+ ui_behavior Result = UIBehavior_None;
+ if(!Disabled) Result = Manager->DoButtonElement(ID, R, Button, Priority, Flags);
  ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
  switch(Result){
   case UIBehavior_None: {
    State->T -= 7*OSInput.dTime;
   }break;
   case UIBehavior_Hovered: {
-   State->T += 13*OSInput.dTime;
+   State->T += 10*OSInput.dTime;
   }break;
  }
  return(Result);

@@ -15,21 +15,15 @@ struct selector_data {
 };
 
 //~ Edit mode
-enum edit_mode_type {
- EditMode_None,
- EditMode_Entity,
- EditMode_Tilemap,
-};
-
 enum edit_mode_thing {
  EditThing_None,
- EditThing_AddTilemap    = EntityType_Tilemap,    // 1
- EditThing_AddCoinP      = EntityType_Coin,       // 2
- EditThing_AddEnemy      = EntityType_Enemy,      // 3
- EditThing_AddArt        = EntityType_Art,        // 4
+ EditThing_Tilemap    = EntityType_Tilemap,    // 1
+ EditThing_CoinP      = EntityType_Coin,       // 2
+ EditThing_Enemy      = EntityType_Enemy,      // 3
+ EditThing_Art        = EntityType_Art,        // 4
  
- EditThing_AddTeleporter = EntityType_Teleporter, // 8
- EditThing_AddDoor       = EntityType_Door,       // 9
+ EditThing_Teleporter = EntityType_Teleporter, // 8
+ EditThing_Door       = EntityType_Door,       // 9
  
  EditThing_TOTAL
 };
@@ -66,23 +60,26 @@ struct world_editor {
  
  world_data *World;
  
- edit_mode_type  EditType;
  edit_mode_thing EditThing;
  tile_edit_mode  TileEditMode;
  entity_data *Selected;
+ 
+ entity_data *EntityToDelete;
  
  //~
  inline entity_type GetSelectedThingType();
  void UpdateAndRender();
  void DoUI();
- b8   DoSelectorOverlay();
+ 
+ void DoSelectorOverlay();
  void DoSelectedThingUI();
  void DoCursor();
  
- void ProcessEditMode();
- void EditTilemap();
+ inline b8 IsEditingTilemap();
+ void MaybeEditTilemap();
+ 
  inline void EditModeEntity(entity_data *Entity);
- inline void EditModeTilemap(entity_data *Entity);
+ inline void DeleteEntity(entity_data *Entity);
  
  void ProcessInput();
  void ProcessHotKeys();
@@ -92,36 +89,43 @@ struct world_editor {
  
  u8 *GetCursorTile();
  
+ inline b8 IsSelectionDisabled(entity_data *Entity, os_key_flags KeyFlags);
  inline b8 DoSelectEntity(v2 P, v2 Size, entity_data *Entity, b8 Special=false);
- inline b8 DoDragEntity(v2 *P, v2 Size, entity_data *Entity);
- inline b8 DoRemoveEntity(v2 P, v2 Size, entity_data *Entity, u32 *I, b8 Special=false);
+ inline b8 DoDragEntity(v2 *P, v2 Size, entity_data *Entity, b8 Special=false);
+ inline b8 DoDeleteEntity(v2 P, v2 Size, entity_data *Entity, b8 Special=false);
 };
 
 //~ Constants
 global_constant f32 WORLD_EDITOR_CAMERA_MOVE_SPEED = 0.1f;
 global_constant edit_mode_thing WORLD_EDITOR_FORWARD_EDIT_MODE_TABLE[EditThing_TOTAL] = {
- EditThing_AddTilemap,    // 0
- EditThing_AddCoinP,      // 1
- EditThing_AddEnemy,      // 2
- EditThing_AddArt,        // 3
- EditThing_AddTeleporter, // 4
+ EditThing_Tilemap,    // 0
+ EditThing_CoinP,      // 1
+ EditThing_Enemy,      // 2
+ EditThing_Art,        // 3
+ EditThing_Teleporter, // 4
  EditThing_TOTAL,         // 5
  EditThing_TOTAL,         // 6
  EditThing_TOTAL,         // 7
- EditThing_AddDoor,       // 8
+ EditThing_Door,       // 8
  EditThing_None,          // 9
 };
 global_constant edit_mode_thing WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_TOTAL] = {
- EditThing_AddDoor,       // 0
+ EditThing_Door,       // 0
  EditThing_None,          // 1
- EditThing_AddTilemap,    // 2
- EditThing_AddCoinP,      // 3
- EditThing_AddEnemy,      // 4
+ EditThing_Tilemap,    // 2
+ EditThing_CoinP,      // 3
+ EditThing_Enemy,      // 4
  EditThing_TOTAL,         // 5
  EditThing_TOTAL,         // 6
  EditThing_TOTAL,         // 7
- EditThing_AddArt,        // 8
- EditThing_AddTeleporter, // 9
+ EditThing_Art,        // 8
+ EditThing_Teleporter, // 9
 };
 
+global_constant os_key_flags SPECIAL_SELECT_MODIFIER  = KeyFlag_Alt;
+global_constant os_key_flags SPECIAL_ADD_MODIFIER     = KeyFlag_Shift;
+global_constant os_key_flags SELECTOR_SCROLL_MODIFIER = KeyFlag_Shift;
+global_constant os_key_flags EDIT_TILEMAP_MODIFIER    = KeyFlag_Alt;
+
 #endif //SNAIL_JUMPY_EDITOR_H
+

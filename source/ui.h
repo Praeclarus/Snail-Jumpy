@@ -170,7 +170,7 @@ struct ui_manager {
  b8   DoHoverElement(ui_element *Element);
  ui_behavior DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button=MouseButton_Left, s32 Priority=0, os_key_flags Flags=KeyFlag_None);
  ui_behavior DoTextInputElement(u64 ID, rect ActionRect, s32 Priority=0);
- ui_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0);
+ ui_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0, os_key_flags KeyFlags=KeyFlag_None);
  ui_behavior DoWindowDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0);
  ui_behavior EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce=false, s32 Priority=0, os_key_flags KeyFlags=KeyFlag_None);
  
