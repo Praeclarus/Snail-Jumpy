@@ -256,8 +256,8 @@ WinMain(HINSTANCE Instance,
  //~ Setup console
  Assert(AllocConsole());
  SetConsoleCtrlHandler(Win32DefaultHandlerRoutine, true);
- ConsoleOutFile = (os_file *)GetStdHandle(STD_OUTPUT_HANDLE);
- ConsoleErrorFile = (os_file *)GetStdHandle(STD_ERROR_HANDLE);
+ OSInput.ConsoleOutFile = (os_file *)GetStdHandle(STD_OUTPUT_HANDLE);
+ OSInput.ConsoleErrorFile = (os_file *)GetStdHandle(STD_ERROR_HANDLE);
  
  
  WNDCLASS WindowClass = {};

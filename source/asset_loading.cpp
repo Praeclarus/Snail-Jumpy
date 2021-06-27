@@ -1,31 +1,6 @@
 
 //~ Initialization
 
-internal inline tilemap_tile_place
-StringToTilePlace(const char *S){
- u32 Count = CStringLength(S);
- if(Count != 9) return(0); 
- tilemap_tile_place Result = 0;
- for(u32 I=0; I<Count; I++){
-  char C = S[I];
-  if(C == '?'){
-   Result |= 0x03;
-  }else if(C == '_'){
-   Result |= 0x01;
-  }else if(C == 'X'){
-   Result |= 0x02;
-  }else if(C == '#'){
-   if(I != 4) return(0);
-   continue;
-  }else{
-   return(0);
-  }
-  if(I<(Count-1)) Result <<= 2;
- }
- 
- return(Result);
-}
-
 internal inline tilemap_tile_data
 MakeTileData(tile_type Type, const char *S){
  tilemap_tile_data Result = {};

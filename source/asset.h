@@ -201,10 +201,14 @@ enum tile_type_ {
  TileType_None           = 0x00,
  TileType_Tile           = 0x01,
  TileType_WedgeUpLeft    = 0x02,
- TileType_WedgeUpRight   = 0x04 ,
+ TileType_WedgeUpRight   = 0x04,
  TileType_WedgeDownLeft  = 0x08,
  TileType_WedgeDownRight = 0x10,
- TileType_Connector      = 0x20
+ TileType_Connector      = 0x20,
+ TileType_Wedge = (TileType_WedgeUpLeft   | 
+                   TileType_WedgeUpRight  | 
+                   TileType_WedgeDownLeft | 
+                   TileType_WedgeDownRight),
 };
 
 struct extra_tile_data {

@@ -41,7 +41,7 @@ MakeArena(memory_arena *Arena, umw Size){
 internal void *
 ArenaPush(memory_arena *Arena, umw Size, umw Alignment=4){
  Size = AlignValue(Size, Alignment);
- Assert((Arena->Used + Size) < Arena->Size);
+ Assert((Arena->Used + Size) <= Arena->Size);
  umw UnAligned = (umw)(Arena->Memory+Arena->Used);
  u8 *Result = (u8 *)AlignValue(UnAligned, Alignment);
  umw Difference = (umw)Result - UnAligned;

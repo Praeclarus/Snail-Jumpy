@@ -164,6 +164,25 @@ GameUpdateAndRender(){
  
  Counter += OSInput.dTime;
  
+ //~ Reset OS input
+ {
+  for(u32 I=0; I<KeyCode_TOTAL; I++){
+   key_state State = OSInput.KeyboardState[I];
+   OSInput.KeyboardState[I] &= ~KeyState_JustDown;
+   OSInput.KeyboardState[I] &= ~KeyState_RepeatDown;
+   OSInput.KeyboardState[I] &= ~KeyState_JustUp;
+  }
+  
+  for(u32 I=0; I<MouseButton_TOTAL; I++){
+   key_state State = OSInput.MouseState[I];
+   OSInput.MouseState[I] &= ~KeyState_JustDown;
+   OSInput.MouseState[I] &= ~KeyState_JustUp;
+  }
+  
+  OSInput.ScrollMovement = 0;
+ }
+ 
+ //~ Other
  if(StateChangeData.DidChange){
   if(StateChangeData.NewMode == GameMode_None){
    WorldManager.LoadWorld(StateChangeData.NewLevel);
@@ -196,12 +215,9 @@ ProcessDefaultEvent(os_event *Event){
  switch(Event->Kind){
   case OSEventKind_KeyDown: {
    switch((u32)Event->Key){
-    case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift; break;
-    case KeyCode_Ctrl:  {
-     OSInput.KeyFlags |= KeyFlag_Ctrl;  
-     //Assert(0);
-    }break;
-    case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;   break;
+    case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift;   break;
+    case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Control; break;
+    case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;     break;
     
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
     case KeyCode_F1: ToggleOverlay(DebugOverlay_Miscellaneous); break;
@@ -228,14 +244,33 @@ ProcessDefaultEvent(os_event *Event){
      PhysicsDebugger.Scale *= 1.01f;
     } break;
 #endif
+    
+   }
+   
+   OSInput.KeyboardState[Event->Key] |= KeyState_RepeatDown;
+   OSInput.KeyboardState[Event->Key] |= KeyState_IsDown;
+   if(Event->JustDown){
+    OSInput.KeyboardState[Event->Key] |= KeyState_JustDown;
    }
   }break;
   case OSEventKind_KeyUp: {
    switch((u32)Event->Key){
-    case KeyCode_Shift: OSInput.KeyFlags &= ~KeyFlag_Shift; break;
-    case KeyCode_Ctrl:  OSInput.KeyFlags &= ~KeyFlag_Ctrl;  break;
-    case KeyCode_Alt:   OSInput.KeyFlags &= ~KeyFlag_Alt;   break;
+    case KeyCode_Shift: OSInput.KeyFlags &= ~KeyFlag_Shift;   break;
+    case KeyCode_Ctrl:  OSInput.KeyFlags &= ~KeyFlag_Control; break;
+    case KeyCode_Alt:   OSInput.KeyFlags &= ~KeyFlag_Alt;     break;
    }
+   
+   OSInput.KeyboardState[Event->Key] = KeyState_JustUp;
+  }break;
+  case OSEventKind_MouseDown: {
+   OSInput.MouseState[Event->Button] |= KeyState_IsDown;
+   OSInput.MouseState[Event->Button] |= KeyState_JustDown;
+  }break;
+  case OSEventKind_MouseUp: {
+   OSInput.MouseState[Event->Button] = KeyState_JustUp;
+  }break;
+  case OSEventKind_MouseWheelMove: {
+   OSInput.ScrollMovement = Event->WheelMovement;
   }break;
  }
 }

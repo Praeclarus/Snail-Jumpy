@@ -408,10 +408,14 @@ entity_manager::UpdateAndRenderEntities(){
  //~ Walls @entity_tilemaps
  FOR_BUCKET_ARRAY(It, &Tilemaps){
   tilemap_entity *Tilemap = It.Item;  
+  asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
+  RenderTilemap(Asset, Tilemap->MapIndices, Tilemap->ExtraData,
+                Tilemap->MapWidth, Tilemap->MapHeight, Tilemap->P, Tilemap->ZLayer, 1);
   
+#if 0  
   for(u32 Y = 0; Y < Tilemap->MapHeight; Y++){
    for(u32 X = 0; X < Tilemap->MapWidth; X++){
-    u8 TileId = Tilemap->Map[(Y*Tilemap->MapWidth)+X];
+    u8 TileId = Tilemap->MapIndices[(Y*Tilemap->MapWidth)+X];
     
     if(TileId == EntityType_Wall){
      v2 TileP = V2((f32)X, (f32)Y);
@@ -424,6 +428,7 @@ entity_manager::UpdateAndRenderEntities(){
     }
    }
   }
+#endif
  }
  
  //~ Coins @entity_coin

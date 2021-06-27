@@ -56,6 +56,7 @@ void
 world_manager::LoadWorld(const char *LevelName){
  TIMED_FUNCTION();
  
+ ArenaClear(&TransientMemory);
  EntityManager.Reset();
  
  if(LevelName){
@@ -66,17 +67,6 @@ world_manager::LoadWorld(const char *LevelName){
    CurrentWorld = World;
    
    PhysicsSystem.Reload(World->Width, World->Height);
-   
-   //~ Walls
-   tilemap_entity *Tilemap = BucketArrayAlloc(&EntityManager.Tilemaps);
-   Tilemap->Map = World->Map;
-   Tilemap->ZLayer = 1.0f;
-   Tilemap->MapWidth  = World->Width;
-   Tilemap->MapHeight = World->Height;
-   Tilemap->TileSize = TILE_SIZE;
-   PhysicsSystem.AddTilemap(CurrentWorld->Map, EntityType_Wall, 
-                            CurrentWorld->Width, CurrentWorld->Height, 
-                            TILE_SIZE);
    
    //~ Coins
    {
@@ -124,9 +114,33 @@ world_manager::LoadWorld(const char *LevelName){
     entity_data *Entity = &CurrentWorld->Entities[I];
     switch(Entity->Type){
      
+     //~ Tilemaps
+     case EntityType_Tilemap: {
+      tilemap_entity *Tilemap = BucketArrayAlloc(&EntityManager.Tilemaps);
+      asset_tilemap *Asset = AssetSystem.GetTilemap(Entity->Asset);
+      world_data_tilemap *Data = &Entity->Tilemap;
+      u32 Width = Data->Width;
+      u32 Height = Data->Height;
+      
+      Tilemap->P = Data->P;
+      Tilemap->Asset = Data->Asset;
+      Tilemap->ZLayer = 1.0f;
+      Tilemap->MapWidth  = Width;
+      Tilemap->MapHeight = Height;
+      Tilemap->TileSize = TILE_SIZE;
+      PhysicsSystem.AddTilemap(Data->MapData, TileEditMode_Tile, 
+                               Width, Height, Asset->TileSize);
+      Tilemap->MapIndices = PushArray(&TransientMemory, u32, Width*Height);
+      Tilemap->ExtraData = PushArray(&TransientMemory, extra_tile_data, Width*Height);
+      CalculateTilemapIndices(Asset, Data->MapData, 
+                              Tilemap->MapIndices, Tilemap->ExtraData,
+                              Width, Height);
+      
+     }break;
+     
      //~ Enemies
      case EntityType_Enemy: {
-      asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->EntityInfo);
+      asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->Asset);
       //Assert(EntityInfo->Type == EntityType_Enemy);
       if(EntityInfo->Type != EntityType_Enemy){
        continue;
@@ -145,9 +159,9 @@ world_manager::LoadWorld(const char *LevelName){
       
       Enemy->ZLayer = 0.0f;
       
-      Enemy->Animation.Direction = Entity->Direction;
-      Enemy->PathStart = Entity->PathStart;
-      Enemy->PathEnd = Entity->PathEnd;
+      Enemy->Animation.Direction = Entity->Enemy.Direction;
+      Enemy->PathStart = Entity->Enemy.PathStart;
+      Enemy->PathEnd = Entity->Enemy.PathEnd;
       
       Enemy->Physics = PhysicsSystem.AddObject(EntityInfo->Boundaries, (u8)EntityInfo->BoundaryCount);
       Enemy->Physics->Response = EntityInfo->Response;
@@ -177,22 +191,22 @@ world_manager::LoadWorld(const char *LevelName){
       Teleporter->Type = EntityType_Teleporter;
       Teleporter->Physics = Physics;
       Teleporter->Bounds = TeleporterBoundary->Bounds;
-      Teleporter->Level = Entity->Level;
-      Teleporter->IsLocked = !IsLevelCompleted(Strings.GetString(Entity->TRequiredLevel));
+      Teleporter->Level = Entity->Teleporter.Level;
+      Teleporter->IsLocked = !IsLevelCompleted(Strings.GetString(Entity->Teleporter.RequiredLevel));
      }break;
      
      //~ Doors
      case EntityType_Door: {
       door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
       collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-      *Boundary = MakeCollisionRect(V20, Entity->Size);
+      *Boundary = MakeCollisionRect(V20, Entity->Door.Size);
       static_physics_object *Physics = PhysicsSystem.AddStaticObject(Boundary, 1);
       Physics->P = Entity->P;
       
       Door->Physics = Physics;
       Door->Bounds = Boundary->Bounds;
       
-      if(IsLevelCompleted(Strings.GetString(Entity->DRequiredLevel))){
+      if(IsLevelCompleted(Strings.GetString(Entity->Door.RequiredLevel))){
        OpenDoor(Door);
       }
      }break;
@@ -202,8 +216,8 @@ world_manager::LoadWorld(const char *LevelName){
       art_entity *Art = BucketArrayAlloc(&EntityManager.Arts);
       *Art = {};
       Art->P = Entity->P;
-      Art->Z = Entity->Z;
-      Art->Asset = Entity->Asset;
+      Art->Z = Entity->Art.Z;
+      Art->Asset = Entity->Art.Asset;
      }break;
      
      default: {
@@ -309,31 +323,31 @@ world_manager::LoadWorldFromFile(const char *Name){
    Entity->P      = *ConsumeType(&Stream, v2);
    Entity->Type   = *ConsumeType(&Stream, u32);
    const char *EntityInfoString = ConsumeString(&Stream);
-   Entity->EntityInfo = Strings.GetString(EntityInfoString);
+   Entity->Asset = Strings.GetString(EntityInfoString);
    switch(Entity->Type){
     case EntityType_Enemy: {
-     Entity->Direction = *ConsumeType(&Stream, direction);
-     Entity->PathStart = *ConsumeType(&Stream, v2);
-     Entity->PathEnd = *ConsumeType(&Stream, v2);
+     Entity->Enemy.Direction = *ConsumeType(&Stream, direction);
+     Entity->Enemy.PathStart = *ConsumeType(&Stream, v2);
+     Entity->Enemy.PathEnd = *ConsumeType(&Stream, v2);
     }break;
     case EntityType_Teleporter: {
-     Entity->Level = Strings.MakeBuffer();
+     Entity->Teleporter.Level = Strings.MakeBuffer();
      char *Level = ConsumeString(&Stream);
-     CopyCString(Entity->Level, Level, DEFAULT_BUFFER_SIZE);
-     Entity->TRequiredLevel = Strings.MakeBuffer();
+     CopyCString(Entity->Teleporter.Level, Level, DEFAULT_BUFFER_SIZE);
+     Entity->Teleporter.RequiredLevel = Strings.MakeBuffer();
      char *RequiredLevel = ConsumeString(&Stream);
-     CopyCString(Entity->TRequiredLevel, RequiredLevel, DEFAULT_BUFFER_SIZE);
+     CopyCString(Entity->Teleporter.RequiredLevel, RequiredLevel, DEFAULT_BUFFER_SIZE);
     }break;
     case EntityType_Door: {
-     Entity->Size = *ConsumeType(&Stream, v2);
-     Entity->DRequiredLevel = Strings.MakeBuffer();
+     Entity->Door.Size = *ConsumeType(&Stream, v2);
+     Entity->Door.RequiredLevel = Strings.MakeBuffer();
      char *RequiredLevel = ConsumeString(&Stream);
-     CopyCString(Entity->DRequiredLevel, RequiredLevel, DEFAULT_BUFFER_SIZE);
+     CopyCString(Entity->Door.RequiredLevel, RequiredLevel, DEFAULT_BUFFER_SIZE);
     }break;
     case EntityType_Art: {
      char *AssetInFile = ConsumeString(&Stream);
-     Entity->Asset = Strings.GetString(AssetInFile);
-     Entity->Z = *ConsumeType(&Stream, f32);
+     Entity->Art.Asset = Strings.GetString(AssetInFile);
+     Entity->Art.Z = *ConsumeType(&Stream, f32);
     }break;
     default: {
      RemoveWorld(String);
@@ -389,43 +403,46 @@ world_manager::WriteWorldsToFiles(){
    entity_data *Entity = &World->Entities[I];
    WriteVariableToFile(File, Offset, Entity->P);
    WriteVariableToFile(File, Offset, Entity->Type);
-   const char *EntityInfoName = Strings.GetString(Entity->EntityInfo);
+   const char *EntityInfoName = Strings.GetString(Entity->Asset);
    if(!EntityInfoName) EntityInfoName = "";
    u32 Length = CStringLength(EntityInfoName);
    WriteToFile(File, Offset, EntityInfoName, Length+1);
    Offset += Length+1;
    switch(Entity->Type){
     case EntityType_Enemy: {
-     WriteVariableToFile(File, Offset, Entity->Direction);
-     WriteVariableToFile(File, Offset, Entity->PathStart);
-     WriteVariableToFile(File, Offset, Entity->PathEnd);
+     WriteVariableToFile(File, Offset, Entity->Enemy.Direction);
+     WriteVariableToFile(File, Offset, Entity->Enemy.PathStart);
+     WriteVariableToFile(File, Offset, Entity->Enemy.PathEnd);
     }break;
     case EntityType_Teleporter: {
      {
-      u32 Length = CStringLength(Entity->Level);
-      WriteToFile(File, Offset, Entity->Level, Length+1);
+      u32 Length = CStringLength(Entity->Teleporter.Level);
+      WriteToFile(File, Offset, Entity->Teleporter.Level, Length+1);
       Offset += Length+1;
      }{
-      u32 Length = CStringLength(Entity->TRequiredLevel);
-      WriteToFile(File, Offset, Entity->TRequiredLevel, Length+1);
+      u32 Length = CStringLength(Entity->Teleporter.RequiredLevel);
+      WriteToFile(File, Offset, Entity->Teleporter.RequiredLevel, Length+1);
       Offset += Length+1;
      }
     }break;
     case EntityType_Door: {
      {
-      WriteVariableToFile(File, Offset, Entity->Size);
+      WriteVariableToFile(File, Offset, Entity->Door.Size);
      }{
-      u32 Length = CStringLength(Entity->DRequiredLevel);
-      WriteToFile(File, Offset, Entity->DRequiredLevel, Length+1);
+      u32 Length = CStringLength(Entity->Door.RequiredLevel);
+      WriteToFile(File, Offset, Entity->Door.RequiredLevel, Length+1);
       Offset += Length+1;
      }
     }break;
     case EntityType_Art: {
-     const char *AssetName = Strings.GetString(Entity->Asset);
+     const char *AssetName = Strings.GetString(Entity->Art.Asset);
      u32 Length = CStringLength(AssetName);
      WriteToFile(File, Offset, AssetName, Length+1);
      Offset += Length+1;
-     WriteVariableToFile(File, Offset, Entity->Z);
+     WriteVariableToFile(File, Offset, Entity->Art.Z);
+    }break;
+    case EntityType_Tilemap: {
+     // TODO(Tyler): Implement
     }break;
     default: INVALID_CODE_PATH; break;
    }
@@ -437,7 +454,8 @@ world_manager::WriteWorldsToFiles(){
 
 void
 world_manager::Initialize(memory_arena *Arena){
- Memory = MakeArena(Arena, Kilobytes(512));
+ Memory          = MakeArena(Arena, Kilobytes(512));
+ TransientMemory = MakeArena(Arena, Kilobytes(512));
  WorldTable = PushHashTable<string, world_data>(Arena, 512);
 }
 
@@ -461,7 +479,7 @@ world_manager::GetOrCreateWorld(string Name){
   Result->Height = 18;
   u32 MapSize = Result->Width*Result->Height;
   Result->Map = (u8 *)DefaultAlloc(MapSize);
-  Result->Entities = MakeArray<entity_data>(&Memory, MAX_WORLD_ENTITY);
+  Result->Entities = MakeArray<entity_data>(&Memory, MAX_WORLD_ENTITIES);
  }
  return(Result);
 }

@@ -174,6 +174,7 @@
 	   animation     player 
 	   mass          1.0
 	   speed         70
+#    speed 150
 	   boundary_pill 0 0 0 3 8
 	   collision_response PLAYER
 

@@ -57,7 +57,10 @@ struct entity {
 
 // TODO(Tyler): Have too much information from 'entity' for now
 struct tilemap_entity : public entity {
- u8 *Map;
+ v2 P;
+ string Asset;
+ u32 *MapIndices;
+ extra_tile_data*ExtraData;
  u32 MapWidth, MapHeight;
  v2 TileSize;
 };

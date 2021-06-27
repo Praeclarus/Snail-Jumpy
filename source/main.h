@@ -28,8 +28,7 @@ global_constant char *STARTUP_LEVEL = "Debug";
 
 global_constant color EDITOR_BASE_COLOR     = MakeColor(0.5f, 0.8f, 0.6f, 0.9f);
 global_constant color EDITOR_HOVERED_COLOR  = MakeColor(0.8f, 0.5f, 0.7f, 0.9f);
-global_constant color EDITOR_SELECTED_COLOR = MakeColor(0.6f, 0.8f, 0.9f, 0.9f);
-
+global_constant color EDITOR_SELECTED_COLOR = MakeColor(1.0f, 0.7f, 0.4f, 0.9f);
 
 //~ TODO(Tyler): Things that need a better place to go
 enum entity_state {
@@ -77,12 +76,12 @@ enum _entity_flags {
 enum entity_type {
  EntityType_None = 0,
  
- EntityType_Wall       = 1,
+ EntityType_Tilemap    = 1,
  EntityType_Coin       = 2,
  EntityType_Enemy      = 3,
  EntityType_Art        = 4,
  EntityType_Partices   = 5,
- // 6
+ EntityType_Gate       = 6,
  EntityType_Player     = 7,
  EntityType_Teleporter = 8,
  EntityType_Door       = 9,

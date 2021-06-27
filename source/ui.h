@@ -18,7 +18,7 @@ struct layout {
 
 //~ Basic API
 
-struct theme {
+struct ui_theme {
  font *TitleFont;
  font *NormalFont;
  
@@ -140,13 +140,11 @@ struct ui_window {
 
 
 struct ui_manager {
- theme Theme;
- // TODO(Tyler): With the way this is done, there is frame of latency between a button 
- // pressed and the UI action, this might be bad but shouldn't be noticeable. I do not 
- // believe this delay would be good for game input though. 
+ ui_theme Theme;
+ 
  ui_element ActiveElement;
  ui_element ValidElement;
- ui_element HoveredElement;
+ //ui_element HoveredElement;
  b8 ElementJustActive;
  
  b8 HideWindows;
@@ -160,26 +158,25 @@ struct ui_manager {
  u32 BufferIndex;
  u32 BackSpaceCount;
  s32 CursorMove;
+ 
+ //~ States
  hash_table<u64, ui_text_input_state> TextInputStates;
  hash_table<u64, ui_button_state> ButtonStates;
  hash_table<u64, ui_drop_down_state> DropDownStates;
  
  //~ Mouse input
- b8 PreviousMouseState[MouseButton_TOTAL];
- b8 MouseState[MouseButton_TOTAL];
- 
  void ResetActiveElement();
  void SetValidElement(ui_element *Element);
  b8   DoHoverElement(ui_element *Element);
- ui_behavior DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button=MouseButton_Left, s32 Priority=0);
+ ui_behavior DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button=MouseButton_Left, s32 Priority=0, os_key_flags Flags=KeyFlag_None);
  ui_behavior DoTextInputElement(u64 ID, rect ActionRect, s32 Priority=0);
  ui_behavior DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0);
  ui_behavior DoWindowDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority=0);
- ui_behavior EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce=false, s32 Priority=0);
+ ui_behavior EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce=false, s32 Priority=0, os_key_flags KeyFlags=KeyFlag_None);
  
- b8 MouseButtonJustDown(os_mouse_button Button);
- b8 MouseButtonJustUp(os_mouse_button Button);
- b8 MouseButtonIsDown(os_mouse_button Button);
+ b8 MouseButtonJustDown(os_mouse_button Button, os_key_flags Flags=KeyFlag_None);
+ b8 MouseButtonIsUp(os_mouse_button Button, os_key_flags Flags=KeyFlag_None);
+ b8 MouseButtonIsDown(os_mouse_button Button, os_key_flags Flags=KeyFlag_None);
  void BeginFrame();
  void EndFrame();
  void Initialize(memory_arena *Arena);

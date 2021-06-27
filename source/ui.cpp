@@ -93,21 +93,21 @@ EaseOutSquared(f32 T){
 //~ Other
 
 internal inline v2
-DefaultStringP(theme *Theme, font *Font, v2 P){
+DefaultStringP(ui_theme *Theme, font *Font, v2 P){
  v2 Result = P;
  Result.Y += -Font->Descent;
  return(Result);
 }
 
 internal inline v2
-HigherStringP(theme *Theme, font *Font, v2 P){
+HigherStringP(ui_theme *Theme, font *Font, v2 P){
  v2 Result = P;
  Result.Y += Theme->NormalFont->Ascent/2;
  return(Result);
 }
 
 internal inline v2
-HCenterStringP(theme *Theme, font *Font, v2 P, const char *String, f32 Width){
+HCenterStringP(ui_theme *Theme, font *Font, v2 P, const char *String, f32 Width){
  v2 Result = P;
  Result.X += Theme->Padding;
  f32 Advance = GetStringAdvance(Font, String);
@@ -116,14 +116,14 @@ HCenterStringP(theme *Theme, font *Font, v2 P, const char *String, f32 Width){
 }
 
 internal inline v2
-VCenterStringP(theme *Theme, font *Font, v2 P, f32 Height){
+VCenterStringP(ui_theme *Theme, font *Font, v2 P, f32 Height){
  v2 Result = P;
  Result.Y += 0.5f*(Height - Font->Ascent - Font->Descent);
  return(Result);
 }
 
 internal inline v2
-PadLeftStringP(theme *Theme, font *Font, v2 P){
+PadLeftStringP(ui_theme *Theme, font *Font, v2 P){
  v2 Result = P;
  Result.X += Theme->Padding;
  return(Result);
@@ -133,7 +133,7 @@ PadLeftStringP(theme *Theme, font *Font, v2 P){
 
 void
 ui_window::AdvanceAndVerify(f32 Amount, f32 Width){
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  DrawP.Y -= Amount+Theme->Padding;
  if(DrawP.Y < Rect.Min.Y){
@@ -166,7 +166,7 @@ ui_window::DrawRect(rect R, f32 Z_, color C){
 
 void 
 ui_window::VDrawString(font *Font, color C, v2 P, f32 Z_, const char *Format, va_list VarArgs){
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  f32 T = FadeT;
  C = Alphiphy(C, 1.0f-T);
@@ -186,7 +186,7 @@ b8
 ui_window::Button(const char *Text, u64 ID){
  if(DontUpdateOrRender()) return(false);
  
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  b8 Result = false;
  
  ui_button_state *State = FindOrCreateInHashTablePtr(&Manager->ButtonStates, ID);
@@ -201,10 +201,10 @@ ui_window::Button(const char *Text, u64 ID){
  f32 Speed = 0.0f;
  switch(Manager->DoButtonElement(ID, ButtonRect)){
   case UIBehavior_None:{
-   State->T -= 5.0f*OSInput.dTime;
+   State->T -= 7.0f*OSInput.dTime;
   }break;
   case UIBehavior_Hovered: {
-   State->T += 7.0f*OSInput.dTime;
+   State->T += 10.0f*OSInput.dTime;
   }break;
   case UIBehavior_Activate: {
    Result = true;
@@ -236,7 +236,7 @@ void
 ui_window::Text(const char *Text, ...){
  if(DontUpdateOrRender()) return;
  
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  va_list VarArgs;
  va_start(VarArgs, Text);
@@ -255,7 +255,7 @@ void
 ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
  if(DontUpdateOrRender()) return;;
  
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  ui_text_input_state *State = FindOrCreateInHashTablePtr(&Manager->TextInputStates, ID);
  
@@ -271,11 +271,11 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
  switch(Manager->DoTextInputElement(ID, TextBoxRect)){
   case UIBehavior_None: {
    State->T -= 5.0f*OSInput.dTime;
-   State->ActiveT -= 5.0f*OSInput.dTime;
+   State->ActiveT -= 7.0f*OSInput.dTime;
   }break;
   case UIBehavior_Hovered: {
    State->T += 7.0f*OSInput.dTime;
-   State->ActiveT -= 3.0f*OSInput.dTime;
+   State->ActiveT -= 10.0f*OSInput.dTime;
   }break;
   case UIBehavior_Activate: {
    for(u32 I = 0; 
@@ -345,7 +345,7 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
  
  if(DontUpdateOrRender()) return(Result);
  
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  ui_button_state *State = FindOrCreateInHashTablePtr(&Manager->ButtonStates, ID);
  
@@ -413,7 +413,7 @@ void
 ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID){
  if(DontUpdateOrRender()) return;;
  
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  ui_drop_down_state *State = FindOrCreateInHashTablePtr(&Manager->DropDownStates, ID);
  
@@ -501,7 +501,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 *Selected, u64 ID
  
  if(IsPointInRect(OSInput.MouseP, ActionRect)){
   if(!Manager->DoHoverElement(&Element)) return;
-  Manager->HoveredElement = Element;
+  //Manager->HoveredElement = Element;
   State->IsOpen = true;
  }else{
   State->T = 0.0f;
@@ -519,7 +519,7 @@ ui_window::ColorPicker(hsb_color Current, u64 ID){
  hsb_color Result = Current;
  if(DontUpdateOrRender()) return(Result);
  
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  v2 MouseP = OSInput.MouseP;
  
@@ -596,7 +596,7 @@ ui_window::ColorPicker(hsb_color Current, u64 ID){
 
 f32
 ui_window::Slider(f32 Current, u64 ID){
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  v2 MouseP = OSInput.MouseP;
  
  f32 Result = Current;
@@ -624,7 +624,7 @@ ui_window::Slider(f32 Current, u64 ID){
 
 void
 ui_window::End(){
- theme *Theme = &Manager->Theme;
+ ui_theme *Theme = &Manager->Theme;
  
  // Body
  rect BodyRect = Rect;
@@ -635,7 +635,7 @@ ui_window::End(){
 //~ ui_manager
 
 internal void
-SetupDefaultTheme(theme *Theme){
+SetupDefaultTheme(ui_theme *Theme){
  Theme->TitleFont = &TitleFont;
  Theme->NormalFont = &DebugFont;
  
@@ -646,7 +646,8 @@ SetupDefaultTheme(theme *Theme){
  
  Theme->BaseColor   = MakeColor(0.3f, 0.5f, 0.5f, 0.8f);
  Theme->HoverColor  = MakeColor(0.5f, 0.4f, 0.5f, 0.9f);
- Theme->ActiveColor = MakeColor(0.6f, 0.6f, 0.9f, 0.9f);
+ //Theme->ActiveColor = MakeColor(0.6f, 0.6f, 0.9f, 0.9f);
+ Theme->ActiveColor = MakeColor(0.8f, 0.6f, 0.3f, 0.9f);
  Theme->TextColorA  = MakeColor(0.9f, 0.9f, 0.9f, 1.0f);
  Theme->TextColorB  = MakeColor(0.0f, 0.0f, 0.0f, 1.0f);
  
@@ -761,8 +762,10 @@ b8
 ui_manager::DoHoverElement(ui_element *Element){
  b8 Result = true;
  
- if(HoveredElement.Priority > Element->Priority)     Result = false;
- if(HoveredElement.Type == UIElementType_DropDown)   Result = false;
+ if(ValidElement.Priority > Element->Priority)       Result = false;
+ if(ValidElement.Type == UIElementType_DropDown)     Result = false;
+ //if(HoveredElement.Priority > Element->Priority)     Result = false;
+ //if(HoveredElement.Type == UIElementType_DropDown)   Result = false;
  if(ActiveElement.Type == UIElementType_Draggable)   Result = false;
  if(ActiveElement.Type == UIElementType_MouseButton) Result = false;
  
@@ -770,21 +773,21 @@ ui_manager::DoHoverElement(ui_element *Element){
 }
 
 ui_behavior
-ui_manager::DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button, s32 Priority){
+ui_manager::DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button, s32 Priority, os_key_flags Flags){
  ui_behavior Result = UIBehavior_None;
  
  ui_element Element = MakeElement(UIElementType_Button, ID, Priority);
  
  if(CompareElements(&Element, &ActiveElement)){
-  HoveredElement = Element;
+  //HoveredElement = Element;
   Result = UIBehavior_Activate;
   ResetActiveElement();
  }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
   if(!DoHoverElement(&Element)) return(Result);
   
-  HoveredElement = Element;
+  //HoveredElement = Element;
   Result = UIBehavior_Hovered;
-  if(MouseButtonJustDown(Button)){
+  if(MouseButtonJustDown(Button, Flags)){
    SetValidElement(&Element);
   }
  }
@@ -799,7 +802,7 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, s32 Priority){
  ui_element Element = MakeElement(UIElementType_TextInput, ID, Priority);
  
  if(CompareElements(&Element, &ActiveElement)){
-  HoveredElement = Element;
+  //HoveredElement = Element;
   if(!IsPointInRect(OSInput.MouseP, ActionRect) &&
      MouseButtonIsDown(MouseButton_Left)){
    ResetActiveElement();
@@ -826,7 +829,7 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
  Element.Offset = P - OSInput.MouseP;
  
  if(CompareElements(&Element, &ActiveElement)){
-  HoveredElement = Element;
+  //HoveredElement = Element;
   Result = UIBehavior_Activate;
   if(!MouseButtonIsDown(MouseButton_Left)){
    ResetActiveElement();
@@ -835,7 +838,7 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority){
  }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
   if(!DoHoverElement(&Element)) return(Result);
   
-  HoveredElement = Element;
+  //HoveredElement = Element;
   Result = UIBehavior_Hovered;
   if(MouseButtonJustDown(MouseButton_Left)){
    SetValidElement(&Element);
@@ -853,7 +856,7 @@ ui_manager::DoWindowDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority
  Element.Offset = P - OSInput.MouseP;
  
  if(CompareElements(&Element, &ActiveElement)){
-  HoveredElement = Element;
+  //HoveredElement = Element;
   Result = UIBehavior_Activate;
   if(!MouseButtonIsDown(MouseButton_Left)){
    ResetActiveElement();
@@ -862,7 +865,7 @@ ui_manager::DoWindowDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority
  }else if(IsPointInRect(OSInput.MouseP, ActionRect)){
   if(!DoHoverElement(&Element)) return(Result);
   
-  HoveredElement = Element;
+  //HoveredElement = Element;
   Result = UIBehavior_Hovered;
   if(MouseButtonJustDown(MouseButton_Left)){
    SetValidElement(&Element);
@@ -873,23 +876,23 @@ ui_manager::DoWindowDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority
 }
 
 ui_behavior
-ui_manager::EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce, s32 Priority){
+ui_manager::EditorMouseDown(u64 ID, os_mouse_button Button, b8 OnlyOnce, s32 Priority, os_key_flags KeyFlags){
  ui_behavior Result = UIBehavior_None;
  
  ui_element Element = MakeElement(UIElementType_MouseButton, ID, Priority);
  
  if(CompareElements(&Element, &ActiveElement)){
   Result = UIBehavior_Activate;
-  HoveredElement = Element;
+  //HoveredElement = Element;
   if(OnlyOnce) ResetActiveElement();
   if(ElementJustActive) Result = UIBehavior_JustActivate;
-  if(MouseButtonJustUp(Button)){
+  if(MouseButtonIsUp(Button, KeyFlags)){
    Result = UIBehavior_Deactivate;
    ResetActiveElement();
   }
- }else if(MouseButtonJustDown(Button)){
+ }else if(MouseButtonJustDown(Button, KeyFlags)){
   if(!DoHoverElement(&Element)) return(Result);
-  HoveredElement = Element;
+  //HoveredElement = Element;
   SetValidElement(&Element);
  }
  return(Result);
@@ -906,8 +909,7 @@ ui_manager::Initialize(memory_arena *Arena){
 
 void
 ui_manager::BeginFrame(){
- HoveredElement  = DefaultElement();
- for(u32 I = 0; I < MouseButton_TOTAL; I++) PreviousMouseState[I] = MouseState[I];
+ //HoveredElement  = DefaultElement();
 }
 
 void
@@ -925,20 +927,20 @@ ui_manager::EndFrame(){
 }
 
 b8
-ui_manager::MouseButtonJustDown(os_mouse_button Button){
- b8 Result = (!PreviousMouseState[Button] && MouseState[Button]);
+ui_manager::MouseButtonJustDown(os_mouse_button Button, os_key_flags Flags){
+ b8 Result = OSInput.MouseJustDown(Button, Flags);
  return(Result);
 }
 
 b8
-ui_manager::MouseButtonJustUp(os_mouse_button Button){
- b8 Result = (PreviousMouseState[Button] && !MouseState[Button]);
+ui_manager::MouseButtonIsUp(os_mouse_button Button, os_key_flags Flags){
+ b8 Result = OSInput.MouseUp(Button, Flags);
  return(Result);
 }
 
 b8
-ui_manager::MouseButtonIsDown(os_mouse_button Button){
- b8 Result = (MouseState[Button]);
+ui_manager::MouseButtonIsDown(os_mouse_button Button, os_key_flags Flags){
+ b8 Result = OSInput.MouseDown(Button, Flags);
  return(Result);
 }
 
@@ -984,15 +986,6 @@ ui_manager::ProcessEvent(os_event *Event){
     Result = true;
    }
   }break;
-  case OSEventKind_MouseDown: {
-   Assert(Event->Button < MouseButton_TOTAL);
-   MouseState[Event->Button] = true;
-   
-  }break;
-  case OSEventKind_MouseUp: {
-   Assert(Event->Button < MouseButton_TOTAL);
-   MouseState[Event->Button] = false;
-  }break;
  }
  
  return(Result);
@@ -1005,13 +998,31 @@ EditorDraggableElement(ui_manager *Manager, u64 ID, rect R, v2 P, s32 Priority, 
  R = GameRenderer.WorldToScreen(R, Options);
  P = GameRenderer.WorldToScreen(P, Options);
  ui_behavior Result = Manager->DoDraggableElement(ID, R, P, Priority);
+ ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+ switch(Result){
+  case UIBehavior_None: {
+   State->T -= 7*OSInput.dTime;
+  }break;
+  case UIBehavior_Hovered: {
+   State->T += 10*OSInput.dTime;
+  }break;
+ }
  return(Result);
 }
 
 internal inline ui_behavior
-EditorButtonElement(ui_manager *Manager, u64 ID, rect R, os_mouse_button Button, s32 Priority, render_options Options){
+EditorButtonElement(ui_manager *Manager, u64 ID, rect R, os_mouse_button Button, s32 Priority, render_options Options, os_key_flags Flags=KeyFlag_None){
  R = GameRenderer.WorldToScreen(R, Options);
- ui_behavior Result = Manager->DoButtonElement(ID, R, Button, Priority);
+ ui_behavior Result = Manager->DoButtonElement(ID, R, Button, Priority, Flags);
+ ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
+ switch(Result){
+  case UIBehavior_None: {
+   State->T -= 7*OSInput.dTime;
+  }break;
+  case UIBehavior_Hovered: {
+   State->T += 13*OSInput.dTime;
+  }break;
+ }
  return(Result);
 }
 
