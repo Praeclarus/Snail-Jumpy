@@ -431,7 +431,7 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
  v2 BoundsSize = RectSize(CameraBounds);
  f32 Factor = 215.0f;
  f32 NewScale = Minimum(OutputSize.X/Factor, OutputSize.Y/Factor);
- NewScale = Clamp(NewScale, 4.0f, 6.0f);
+ NewScale = Maximum(NewScale, 4.0f);
  ChangeScale(NewScale);
  if((OldOutputSize.X != OutputSize.X) ||
     (OldOutputSize.Y != OutputSize.Y)){

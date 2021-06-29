@@ -3,8 +3,15 @@
 
 //~ Entity datas
 
+typedef u32 entity_data_flags;
+enum entity_data_flags_ {
+ EntityDataFlag_None = (0 << 0),
+ EntityDataEditFlag_Hide = (1 << 0),
+};
+
 struct world_data_entity_ {
  v2 P;
+ entity_data_flags Flags;
  string Asset;
  u32 Layer;
 };
@@ -54,6 +61,7 @@ struct entity_data {
  union {
   struct{
    v2 P;
+   entity_data_flags Flags;
    string Asset;
    u32 Layer;
   };

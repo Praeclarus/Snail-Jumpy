@@ -30,6 +30,40 @@ CleanupEntity(entity_data *Entity){
  }
 }
 
+internal entity_data
+CopyEntity(memory_arena *Arena, entity_data *Entity){
+ entity_data Result = *Entity;
+ switch(Result.Type){
+  case EntityType_Tilemap: {
+   u32 MapSize = Result.Tilemap.Width*Result.Tilemap.Height;
+   if(Arena){
+    Result.Tilemap.MapData = (u8 *)ArenaPush(Arena, MapSize);
+   }else{
+    Result.Tilemap.MapData = (u8 *)DefaultAlloc(MapSize);
+   }
+   CopyMemory(Result.Tilemap.MapData, Entity->Tilemap.MapData, MapSize);
+  }break;
+  case EntityType_Teleporter: {
+   if(Arena){
+    Result.Teleporter.Level = ArenaPushCString(Arena, Entity->Teleporter.Level);
+    Result.Teleporter.RequiredLevel = ArenaPushCString(Arena, Entity->Teleporter.RequiredLevel);
+   }else{
+    Result.Teleporter.Level = Strings.MakeBuffer();
+    Result.Teleporter.RequiredLevel = Strings.MakeBuffer();
+   }
+  }break;
+  case EntityType_Door: {
+   if(Arena){
+    Result.Door.RequiredLevel= ArenaPushCString(Arena, Entity->Door.RequiredLevel);
+   }else{
+    Result.Door.RequiredLevel = Strings.MakeBuffer();
+   }
+  }break;
+ }
+ 
+ return(Result);
+}
+
 internal inline v2
 SnapEntity(v2 P, v2 EntitySize, f32 GridSize){
  v2 Min = P - 0.5f*EntitySize;
@@ -77,16 +111,15 @@ world_editor::ClearActionHistory(){
  for(u32 I=0; I<Actions.Count; I++){
   editor_action *Action = &Actions[I];
   switch(Action->Type){
-   case EditorAction_AddEntity: { 
-    //CleanupEntity(&Action->Entity);
-   }break;
-   case EditorAction_DeleteEntity: {
-    //CleanupEntity(&Action->Entity);
-   }break;
+   case EditorAction_AddEntity: {}break;
+   case EditorAction_DeleteEntity: {}break;
   }
  }
  
  ArrayClear(&Actions);
+ ArenaClear(&ActionMemory);
+ 
+ ActionIndex = 0;
  IDCounter = 1;
 }
 
@@ -101,8 +134,8 @@ world_editor::Undo(){
    for(u32 I=0; I<World->Entities.Count; I++){
     entity_data *Entity = &World->Entities[I];
     if(Entity->ID == Action->Entity.ID){
-     Action->Entity = *Entity;
-     DeleteEntityAction(Entity, EditorDeleteFlags_UndoDeleteFlags);
+     Action->Entity = CopyEntity(&ActionMemory, Entity);
+     DeleteEntityAction(Entity, EditorDeleteFlag_UndoDeleteFlags);
      break;
     }
    }
@@ -110,7 +143,7 @@ world_editor::Undo(){
   }break;
   case EditorAction_DeleteEntity: {
    entity_data *Entity = AddEntityAction(false);
-   *Entity = Action->Entity;
+   *Entity = CopyEntity(0, &Action->Entity);
   }break;
  }
 }
@@ -125,16 +158,18 @@ world_editor::Redo(){
  switch(Action->Type){
   case EditorAction_AddEntity: {
    entity_data *Entity = AddEntityAction(false);
-   *Entity = Action->Entity;
+   *Entity = CopyEntity(0, &Action->Entity);
   }break;
   case EditorAction_DeleteEntity: {
    for(u32 I=0; I<World->Entities.Count; I++){
     entity_data *Entity = &World->Entities[I];
     if(Entity->ID == Action->Entity.ID){
-     DeleteEntityAction(Entity, EditorDeleteFlags_UndoDeleteFlags);
+     Action->Entity = CopyEntity(&ActionMemory, Entity);
+     DeleteEntityAction(Entity, EditorDeleteFlag_UndoDeleteFlags);
      break;
     }
    }
+   
   }break;
  }
 }
@@ -142,7 +177,6 @@ world_editor::Redo(){
 editor_action *
 world_editor::MakeAction(editor_action_type Type){
  while(ActionIndex < Actions.Count){
-  //CleanupAction(&Actions[ActionIndex]);
   ArrayOrderedRemove(&Actions, ActionIndex);
  }
  Assert(ActionIndex == Actions.Count);
@@ -159,7 +193,7 @@ world_editor::AddEntityAction(b8 Commit){
  Assert(Result->ID);
  if(Commit){
   editor_action *Action = MakeAction(EditorAction_AddEntity);
-  Action->Entity = *Result;
+  Action->Entity.ID = Result->ID;
  }
  return(Result);
 }
@@ -863,15 +897,16 @@ world_editor::DoUI(){
   World->CoinsToSpawn += 1;
  }
  
- TOGGLE_FLAG(Window, "Hide art",      EditorFlags, WorldEditorFlags_HideArt);
- TOGGLE_FLAG(Window, "Edit lighting", EditorFlags, WorldEditorFlags_EditLighting);
+ TOGGLE_FLAG(Window, "Hide art",      EditorFlags, WorldEditorFlag_HideArt);
+ TOGGLE_FLAG(Window, "Edit lighting", EditorFlags, WorldEditorFlag_EditLighting);
  
  Window->Text("ActionIndex: %u", ActionIndex);
+ Window->Text("ActionMemory used: %u", ActionMemory.Used);
  
  Window->End();
  
  //~ Lighitng
- if(EditorFlags & WorldEditorFlags_EditLighting){
+ if(EditorFlags & WorldEditorFlag_EditLighting){
   ui_window *Window = UIManager.BeginWindow("Lighting", 0.5f*OSInput.WindowSize);
   Window->Text("Ambient light color:");
   World->AmbientColor = Window->ColorPicker(World->AmbientColor, WIDGET_ID);
@@ -956,13 +991,13 @@ void
 world_editor::ProcessHotKeys(){
  if(OSInput.KeyJustDown(KeyCode_Tab)) UIManager.HideWindows = !UIManager.HideWindows; 
  if(OSInput.KeyJustDown('E', KeyFlag_Control)) ToggleWorldEditor(); 
- if(OSInput.KeyJustDown('A', KeyFlag_Control)) ToggleFlag(&EditorFlags, WorldEditorFlags_HideArt); 
- if(OSInput.KeyJustDown('L'))                  ToggleFlag(&EditorFlags, WorldEditorFlags_EditLighting); 
+ if(OSInput.KeyJustDown('A', KeyFlag_Control)) ToggleFlag(&EditorFlags, WorldEditorFlag_HideArt); 
+ if(OSInput.KeyJustDown('L'))                  ToggleFlag(&EditorFlags, WorldEditorFlag_EditLighting); 
  if(OSInput.KeyJustDown('S', KeyFlag_Control)) WorldManager.WriteWorldsToFiles();
  
- //if(OSInput.KeyJustDown('Z', KeyFlag_Control)) Undo();
- //if(OSInput.KeyJustDown('Y', KeyFlag_Control)) Redo();
- //if(OSInput.KeyJustDown('B')) ClearActionHistory();
+ if(OSInput.KeyJustDown('Z', KeyFlag_Control)) Undo();
+ if(OSInput.KeyJustDown('Y', KeyFlag_Control)) Redo();
+ if(OSInput.KeyJustDown('B')) ClearActionHistory();
  
  if(OSInput.KeyJustDown('1', KeyFlag_Shift)) EditThing = EditThing_None;          
  if(OSInput.KeyJustDown('2', KeyFlag_Shift)) EditThing = EditThing_Tilemap;
@@ -1136,7 +1171,7 @@ world_editor::UpdateAndRender(){
     if(DoDeleteEntity(Entity->P, Entity->Door.Size, Entity)) DeleteEntityAction(Entity);
    }break;
    case EntityType_Art: {
-    if(EditorFlags & WorldEditorFlags_HideArt) break;
+    if(EditorFlags & WorldEditorFlag_HideArt) break;
     
     asset_art *Asset = AssetSystem.GetArt(Entity->Art.Asset);
     v2 Size = Asset->Size;
@@ -1150,19 +1185,13 @@ world_editor::UpdateAndRender(){
   if(EntityToDelete == Entity){
    ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, (u64)Entity);
    
-   if(!(DeleteFlags & EditorDeleteFlags_DontCommit)){
+   if(!(DeleteFlags & EditorDeleteFlag_DontCommit)){
     editor_action *Action = MakeAction(EditorAction_DeleteEntity);
-    Action->Entity = *Entity;
-    switch(Entity->Type){
-     case EntityType_Tilemap: {
-      u32 MapSize = Entity->Tilemap.Width*Entity->Tilemap.Height;
-      Action->Entity.Tilemap.MapData = PushArray(&ActionMemory, u8, MapSize);
-      CopyMemory(Action->Entity.Tilemap.MapData, Entity->Tilemap.MapData, MapSize);
-     }break;
-    }
+    Action->Entity = CopyEntity(&ActionMemory, Entity);
    }
    
    EditModeEntity(0);
+   CleanupEntity(Entity);
    ArrayUnorderedRemove(&World->Entities, I);
    I--; // Repeat the last iteration because an item was removed
    State->T = 0.0f;
