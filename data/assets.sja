@@ -270,7 +270,6 @@
 
 : tilemap grass_and_dirt
     path asset_tilemaps/grass_and_dirt.png
-    cell_size 24 24
     tile_size 16 16
     dimensions 9 9
     tile           ?_?_#_?_? 4
@@ -324,7 +323,6 @@
 
 : ignore plant
     path asset_tilemaps/plant.png
-    cell_size 24 24
     tile_size 16 16
     dimensions 9 7
     single                3
@@ -382,7 +380,6 @@
 : tilemap cobblestone
     path asset_tilemaps/cobblestone.png
     tile_size  16 16
-    cell_size  18 18
     dimensions  5  5
     tile ?_?_#_?_? 2
     tile ?_?_#X?_? 2

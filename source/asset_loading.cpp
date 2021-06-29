@@ -932,6 +932,7 @@ asset_system::ProcessTilemap(file_reader *Reader){
  
  u32 TileOffset = 0;
  u32 TileCount = 0;
+ image *Image = 0;
  while(true){
   file_token Token = Reader->PeekToken();
   AssetLoaderHandleToken(Token);
@@ -942,7 +943,7 @@ asset_system::ProcessTilemap(file_reader *Reader){
    const char *Path = ExpectString(Reader);
    AssetLoaderHandleError();
    
-   image *Image = LoadImageFromPath(Path);
+   Image = LoadImageFromPath(Path);
    if(!Image){
     LogError(Reader->Line, "'%s' isn't a valid path to an image!", Path);
     return(false);
@@ -957,15 +958,6 @@ asset_system::ProcessTilemap(file_reader *Reader){
    AssetLoaderEnsurePositive(YSize);
    
    Tilemap->TileSize = V2((f32)XSize, (f32)YSize);
-  }else if(DoAttribute(String, "cell_size")){
-   s32 XSize = ExpectInteger(Reader);
-   AssetLoaderHandleError();
-   AssetLoaderEnsurePositive(XSize);
-   s32 YSize = ExpectInteger(Reader);
-   AssetLoaderHandleError();
-   AssetLoaderEnsurePositive(YSize);
-   
-   Tilemap->CellSize = V2((f32)XSize, (f32)YSize);
   }else if(DoAttribute(String, "dimensions")){
    s32 XTiles = ExpectInteger(Reader);
    AssetLoaderHandleError();
@@ -987,6 +979,21 @@ asset_system::ProcessTilemap(file_reader *Reader){
   }
  }
  
+ if(!Image){
+  LogError(Reader->Line, "An image was not specified!");
+  return(false);
+ }
+ 
+ if(Tilemap->XTiles == 0){
+  LogError(Reader->Line, "Tilemap dimensions(X) cannot be 0!");
+  return(false);
+ }
+ 
+ if(Tilemap->YTiles == 0){
+  LogError(Reader->Line, "Tilemap dimensions(Y) cannot be 0!");
+  return(false);
+ }
+ 
  Tilemap->TileCount = Tiles.Count;
  Tilemap->Tiles = PushArray(&Memory, tilemap_tile_data, Tiles.Count);
  for(u32 I=0; I<Tilemap->TileCount; I++){
@@ -994,6 +1001,12 @@ asset_system::ProcessTilemap(file_reader *Reader){
   if(Tiles[I].Type == TileType_Connector){
    Tilemap->ConnectorOffset = Tiles[I].OffsetMin+1;
   }
+ }
+ 
+ {
+  s32 XSize = Image->Size.X/Tilemap->XTiles;
+  s32 YSize = Image->Size.Y/Tilemap->YTiles;
+  Tilemap->CellSize = V2((f32)XSize, (f32)YSize);
  }
  
  return(true);

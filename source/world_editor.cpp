@@ -962,6 +962,7 @@ world_editor::ProcessHotKeys(){
  
  //if(OSInput.KeyJustDown('Z', KeyFlag_Control)) Undo();
  //if(OSInput.KeyJustDown('Y', KeyFlag_Control)) Redo();
+ //if(OSInput.KeyJustDown('B')) ClearActionHistory();
  
  if(OSInput.KeyJustDown('1', KeyFlag_Shift)) EditThing = EditThing_None;          
  if(OSInput.KeyJustDown('2', KeyFlag_Shift)) EditThing = EditThing_Tilemap;
@@ -971,7 +972,6 @@ world_editor::ProcessHotKeys(){
  if(OSInput.KeyJustDown('6', KeyFlag_Shift)) EditThing = EditThing_Teleporter;
  if(OSInput.KeyJustDown('7', KeyFlag_Shift)) EditThing = EditThing_Door;
  
- //if(OSInput.KeyJustDown('B')) ClearActionHistory();
 }
 
 //~ 
