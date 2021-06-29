@@ -74,21 +74,20 @@ world_editor::EditModeEntity(entity_data *Entity){
 
 void
 world_editor::ClearActionHistory(){
- IDCounter = 1;
- 
  for(u32 I=0; I<Actions.Count; I++){
   editor_action *Action = &Actions[I];
   switch(Action->Type){
    case EditorAction_AddEntity: { 
-    CleanupEntity(&Action->Entity);
+    //CleanupEntity(&Action->Entity);
    }break;
    case EditorAction_DeleteEntity: {
-    CleanupEntity(&Action->Entity);
+    //CleanupEntity(&Action->Entity);
    }break;
   }
  }
  
  ArrayClear(&Actions);
+ IDCounter = 1;
 }
 
 void 
@@ -961,8 +960,8 @@ world_editor::ProcessHotKeys(){
  if(OSInput.KeyJustDown('L'))                  ToggleFlag(&EditorFlags, WorldEditorFlags_EditLighting); 
  if(OSInput.KeyJustDown('S', KeyFlag_Control)) WorldManager.WriteWorldsToFiles();
  
- if(OSInput.KeyJustDown('Z', KeyFlag_Control)) Undo();
- if(OSInput.KeyJustDown('Y', KeyFlag_Control)) Redo();
+ //if(OSInput.KeyJustDown('Z', KeyFlag_Control)) Undo();
+ //if(OSInput.KeyJustDown('Y', KeyFlag_Control)) Redo();
  
  if(OSInput.KeyJustDown('1', KeyFlag_Shift)) EditThing = EditThing_None;          
  if(OSInput.KeyJustDown('2', KeyFlag_Shift)) EditThing = EditThing_Tilemap;
@@ -971,6 +970,8 @@ world_editor::ProcessHotKeys(){
  if(OSInput.KeyJustDown('5', KeyFlag_Shift)) EditThing = EditThing_Art;
  if(OSInput.KeyJustDown('6', KeyFlag_Shift)) EditThing = EditThing_Teleporter;
  if(OSInput.KeyJustDown('7', KeyFlag_Shift)) EditThing = EditThing_Door;
+ 
+ //if(OSInput.KeyJustDown('B')) ClearActionHistory();
 }
 
 //~ 

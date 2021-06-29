@@ -111,7 +111,6 @@ struct world_editor {
  
  void DoSelectedThingUI();
  void DoEnemyOverlay(world_data_enemy *Entity);
- void DoCursor();
  
  inline void EditModeEntity(entity_data *Entity);
  
@@ -124,6 +123,7 @@ struct world_editor {
  
  //~ Undo/redo
  dynamic_array<editor_action> Actions;
+ hash_table<u64, entity_data> EditingEntities;
  memory_arena ActionMemory;
  u32 ActionIndex;
  u64 IDCounter;
