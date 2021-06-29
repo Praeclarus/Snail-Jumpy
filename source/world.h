@@ -49,6 +49,7 @@ struct world_data_door : public world_data_entity_ {
 
 struct entity_data {
  u32 Type;
+ u64 ID;
  
  union {
   struct{
@@ -100,6 +101,7 @@ struct world_data {
  u32 CoinsToSpawn;
  u32 CoinsRequired;
  world_flags Flags;
+ 
  
  hsb_color AmbientColor;
  f32       Exposure;

@@ -522,16 +522,17 @@ entity_manager::UpdateAndRenderEntities(){
  FOR_BUCKET_ARRAY(It, &Doors){
   door_entity *Door = It.Item;
   Door->Cooldown -= OSInput.dTime;
+  rect R = Door->Bounds+Door->Physics->P;
   
   if(!Door->IsOpen){
-   RenderRect(Door->Bounds+Door->Physics->P, 0.0f, BROWN, GameItem(1));
+   RenderRect(R, 0.0f, BROWN, GameItem(1));
   }else{
    color Color = BROWN;
    Color.A = Door->Cooldown;
    if(Color.A < 0.3f){
     Color.A = 0.3f;
    }
-   RenderRect(Door->Bounds+Door->Physics->P, 0.0f, Color, GameItem(1));
+   RenderRect(R, 0.0f, Color, GameItem(1));
   }
  }
  

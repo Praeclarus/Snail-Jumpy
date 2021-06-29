@@ -108,7 +108,7 @@ world_manager::LoadWorld(const char *LevelName){
    
    //~ General entities
    collision_boundary *TeleporterBoundary = PhysicsSystem.AllocBoundaries(1);
-   *TeleporterBoundary = MakeCollisionRect(V20, TILE_SIZE);
+   *TeleporterBoundary = MakeCollisionRect(0.5f*TILE_SIZE, TILE_SIZE);
    
    for(u32 I = 0; I < CurrentWorld->Entities.Count; I++){
     entity_data *Entity = &CurrentWorld->Entities[I];
@@ -190,21 +190,24 @@ world_manager::LoadWorld(const char *LevelName){
       
       Teleporter->Type = EntityType_Teleporter;
       Teleporter->Physics = Physics;
-      Teleporter->Bounds = TeleporterBoundary->Bounds;
+      Teleporter->Bounds = SizeRect(V2(0), TILE_SIZE);
       Teleporter->Level = Entity->Teleporter.Level;
-      Teleporter->IsLocked = !IsLevelCompleted(Strings.GetString(Entity->Teleporter.RequiredLevel));
+      if(Entity->Teleporter.RequiredLevel[0] == 0){
+      }else{
+       Teleporter->IsLocked = !IsLevelCompleted(Strings.GetString(Entity->Teleporter.RequiredLevel));
+      }
      }break;
      
      //~ Doors
      case EntityType_Door: {
       door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
       collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-      *Boundary = MakeCollisionRect(V20, Entity->Door.Size);
+      *Boundary = MakeCollisionRect(0.5f*Entity->Door.Size, Entity->Door.Size);
       static_physics_object *Physics = PhysicsSystem.AddStaticObject(Boundary, 1);
       Physics->P = Entity->P;
       
       Door->Physics = Physics;
-      Door->Bounds = Boundary->Bounds;
+      Door->Bounds = SizeRect(V2(0), Entity->Door.Size);
       
       if(IsLevelCompleted(Strings.GetString(Entity->Door.RequiredLevel))){
        OpenDoor(Door);

@@ -65,6 +65,7 @@ ArrayAlloc(array<T> *Array, u32 N=1){
  }else{
   Assert(0);
  }
+ *Result = {};
  return(Result);
 }
 
@@ -174,6 +175,7 @@ ArrayAlloc(dynamic_array<T> *Array, u32 N=1){
  }
  Result = &Array->Items[Array->Count];
  Array->Count += N;
+ *Result = {};
  return(Result);
 }
 
@@ -197,7 +199,7 @@ template<typename T> internal inline void
 ArrayOrderedRemove(dynamic_array<T> *Array, u32 Index){
  MoveMemory(&Array->Items[Index], 
             &Array->Items[Index+1], 
-            (Array->Count-Index)*sizeof(teleporter_data));
+            (Array->Count-Index)*sizeof(T));
  Array->Count--;
 }
 

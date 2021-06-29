@@ -133,6 +133,8 @@ InitializeGame(){
  LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);
  AssetSystem.Initialize(&PermanentStorageArena);
  WorldManager.LoadWorld(STARTUP_LEVEL);
+ 
+ WorldEditor.Initialize();
 }
 
 internal void

@@ -36,12 +36,35 @@ enum tile_edit_mode {
  TileEditMode_Wedge,
 };
 
+//~ Undo/redo
+enum editor_action_type {
+ EditorAction_None,
+ EditorAction_AddEntity,
+ EditorAction_DeleteEntity,
+};
+
+typedef u32 editor_delete_flags;
+enum editor_delete_flags_ {
+ EditorDeleteFlags_None        = (0 << 0),
+ EditorDeleteFlags_DontCommit  = (1 << 1),
+ //EditorDeleteFlags_DontCleanup = (1 << 2),
+ EditorDeleteFlags_UndoDeleteFlags = EditorDeleteFlags_DontCommit,
+};
+
+struct editor_action {
+ editor_action_type Type;
+ memory_arena_marker Marker;
+ 
+ union{
+  entity_data Entity;
+ };
+};
+
 //~ Editor
 typedef u32 world_editor_flags;
 enum _world_editor_flags {
  WorldEditorFlags_None             = 0,
  WorldEditorFlags_HideArt          = (1 << 0),
- WorldEditorFlags_MakingRectEntity = (1 << 1),
  WorldEditorFlags_EditLighting     = (1 << 2),
 };
 
@@ -50,7 +73,7 @@ struct world_editor {
  string EntityInfoToAdd;
  string TilemapToAdd;
  
- world_editor_flags Flags;
+ world_editor_flags EditorFlags;
  char NameBuffer[DEFAULT_BUFFER_SIZE];
  
  v2 LastMouseP;
@@ -67,33 +90,51 @@ struct world_editor {
  entity_data *Selected;
  
  entity_data *EntityToDelete;
+ editor_delete_flags DeleteFlags;
  
  //~
- inline entity_type GetSelectedThingType();
+ void Initialize();
+ void ChangeWorld(world_data *W);
+ 
  void UpdateAndRender();
  void DoUI();
- 
- void DoSelectorOverlay();
- void DoSelectedThingUI();
- void DoCursor();
- 
- inline b8 IsEditingTilemap();
- void MaybeEditTilemap();
- 
- inline void EditModeEntity(entity_data *Entity);
- inline void DeleteEntity(entity_data *Entity);
  
  void ProcessInput();
  void ProcessHotKeys();
  
- b8   AddWorldEntity();
- void DoEnemyOverlay(world_data_enemy *Entity);
+ void DoEditThingTilemap();
+ void DoEditThingCoin();
+ void DoEditThingEnemy();
+ void DoEditThingArt();
+ void DoEditThingTeleporter();
+ void DoEditThingDoor();
  
- u8 *GetCursorTile();
+ void DoSelectedThingUI();
+ void DoEnemyOverlay(world_data_enemy *Entity);
+ void DoCursor();
+ 
+ inline void EditModeEntity(entity_data *Entity);
+ 
+ inline b8 IsEditingTilemap();
+ void MaybeEditTilemap();
  
  inline b8 IsSelectionDisabled(entity_data *Entity, os_key_flags KeyFlags);
  inline b8 DoDragEntity(v2 *P, v2 Size, entity_data *Entity, b8 Special=false);
  inline b8 DoDeleteEntity(v2 P, v2 Size, entity_data *Entity, b8 Special=false);
+ 
+ //~ Undo/redo
+ dynamic_array<editor_action> Actions;
+ memory_arena ActionMemory;
+ u32 ActionIndex;
+ u64 IDCounter;
+ 
+ void Undo();
+ void Redo();
+ 
+ void ClearActionHistory();
+ editor_action *MakeAction(editor_action_type Type);
+ entity_data *AddEntityAction(b8 Commit=true);
+ void DeleteEntityAction(entity_data *Entity, editor_delete_flags=EditorDeleteFlags_None);
 };
 
 //~ Constants
