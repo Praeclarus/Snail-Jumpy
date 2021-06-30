@@ -260,7 +260,7 @@ world_manager::LoadWorld(const char *LevelName){
 
 //~ File loading
 
-global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
+global_constant u32 CURRENT_WORLD_FILE_VERSION = 1;
 
 world_data *
 world_manager::LoadWorldFromFile(const char *Name){
@@ -283,11 +283,6 @@ world_manager::LoadWorldFromFile(const char *Name){
        (Header->Header[1] == 'J') && 
        (Header->Header[2] == 'W'))){
    LogMessage("LoadWorldFromFile: Invalid header: %.3s!", Header->Header);
-   RemoveWorld(String);
-   return(0);
-  }
-  if(Header->Version != CURRENT_WORLD_FILE_VERSION){
-   LogMessage("LoadWorldFromFile: Invalid version %u, current version: %u", Header->Version, CURRENT_WORLD_FILE_VERSION);
    RemoveWorld(String);
    return(0);
   }
@@ -321,11 +316,21 @@ world_manager::LoadWorldFromFile(const char *Name){
    Entity->Type   = *ConsumeType(&Stream, u32);
    const char *EntityInfoString = ConsumeString(&Stream);
    Entity->Asset = Strings.GetString(EntityInfoString);
+   Entity->Z     = *ConsumeType(&Stream, f32);
+   Entity->Layer = *ConsumeType(&Stream, u32);
    switch(Entity->Type){
+    case EntityType_Tilemap: {
+     Entity->Tilemap.Width  = *ConsumeType(&Stream, u32);
+     Entity->Tilemap.Height = *ConsumeType(&Stream, u32);
+     u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height;
+     u8 *MapData = ConsumeBytes(&Stream, Size);
+     Entity->Tilemap.MapData = (u8 *)DefaultAlloc(Size);
+     CopyMemory(Entity->Tilemap.MapData, MapData, Size);
+    }break;
     case EntityType_Enemy: {
      Entity->Enemy.Direction = *ConsumeType(&Stream, direction);
      Entity->Enemy.PathStart = *ConsumeType(&Stream, v2);
-     Entity->Enemy.PathEnd = *ConsumeType(&Stream, v2);
+     Entity->Enemy.PathEnd   = *ConsumeType(&Stream, v2);
     }break;
     case EntityType_Teleporter: {
      Entity->Teleporter.Level = Strings.MakeBuffer();
@@ -373,7 +378,6 @@ world_manager::WriteWorldsToFiles(){
   Header.Header[0] = 'S';
   Header.Header[1] = 'J';
   Header.Header[2] = 'W';
-  
   Header.Version = CURRENT_WORLD_FILE_VERSION;
   Header.WidthInTiles = World->Width;
   Header.HeightInTiles = World->Height;
@@ -400,12 +404,21 @@ world_manager::WriteWorldsToFiles(){
    entity_data *Entity = &World->Entities[I];
    WriteVariableToFile(File, Offset, Entity->P);
    WriteVariableToFile(File, Offset, Entity->Type);
-   const char *EntityInfoName = Strings.GetString(Entity->Asset);
-   if(!EntityInfoName) EntityInfoName = "";
-   u32 Length = CStringLength(EntityInfoName);
-   WriteToFile(File, Offset, EntityInfoName, Length+1);
+   const char *AssetName = Strings.GetString(Entity->Asset);
+   if(!AssetName) AssetName = "";
+   u32 Length = CStringLength(AssetName);
+   WriteToFile(File, Offset, AssetName, Length+1);
    Offset += Length+1;
+   WriteVariableToFile(File, Offset, Entity->Z);
+   WriteVariableToFile(File, Offset, Entity->Layer);
    switch(Entity->Type){
+    case EntityType_Tilemap: {
+     WriteVariableToFile(File, Offset, Entity->Tilemap.Width);
+     WriteVariableToFile(File, Offset, Entity->Tilemap.Height);
+     u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height;
+     WriteToFile(File, Offset, Entity->Tilemap.MapData, Size);
+     Offset += Size;
+    }break;
     case EntityType_Enemy: {
      WriteVariableToFile(File, Offset, Entity->Enemy.Direction);
      WriteVariableToFile(File, Offset, Entity->Enemy.PathStart);
@@ -437,9 +450,6 @@ world_manager::WriteWorldsToFiles(){
      WriteToFile(File, Offset, AssetName, Length+1);
      Offset += Length+1;
      WriteVariableToFile(File, Offset, Entity->Art.Z);
-    }break;
-    case EntityType_Tilemap: {
-     // TODO(Tyler): Implement
     }break;
     default: INVALID_CODE_PATH; break;
    }

@@ -17,9 +17,9 @@ struct world_data_entity_ {
 };
 
 struct world_data_tilemap : public world_data_entity_ {
- u8 *MapData;
  u32 Width;
  u32 Height;
+ u8 *MapData;
 };
 
 struct world_data_enemy : public world_data_entity_  {
@@ -63,6 +63,7 @@ struct entity_data {
    v2 P;
    entity_data_flags Flags;
    string Asset;
+   f32 Z;
    u32 Layer;
   };
   

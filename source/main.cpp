@@ -26,21 +26,22 @@ global world_editor WorldEditor;
 global string_manager Strings;
 
 global world_manager WorldManager;
-global world_data *CurrentWorld;
 
 global physics_system PhysicsSystem;
 
 global asset_system AssetSystem;
 
 //~ TODO(Tyler): Refactor these!
-global font MainFont;
+global font MainFont; // TODO(Tyler): Remove this one
 global font TitleFont;
 global font DebugFont;
 
 //~ Gameplay variables
 global s32 Score;
 global f32 CompletionCooldown;
+global world_data *CurrentWorld;
 
+//~ Hotloaded variables file!
 // TODO(Tyler): Load this from a variables file at startup
 global game_mode GameMode = GameMode_WorldEditor;
 
