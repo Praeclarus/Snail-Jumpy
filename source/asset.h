@@ -118,60 +118,6 @@ struct asset_art {
  v2 Size;
 };
 
-enum tilemap_tile_type {
- TilemapTileType_None,
- TilemapTileType_Single,
- TilemapTileType_SingleBottomMiddle,
- TilemapTileType_SingleBottomLeft,
- TilemapTileType_SingleBottomRight,
- TilemapTileType_HorizontalLeftEnd,
- TilemapTileType_HorizontalRightEnd,
- TilemapTileType_HorizontalMiddle,
- TilemapTileType_VerticalTopEnd,
- TilemapTileType_VerticalBottomEnd,
- TilemapTileType_VerticalMiddle,
- TilemapTileType_CornerTopLeft,
- TilemapTileType_CornerTopRight,
- TilemapTileType_CornerBottomLeft,
- TilemapTileType_CornerBottomRight,
- TilemapTileType_CornerInnerBottomLeft,
- TilemapTileType_CornerInnerBottomRight,
- TilemapTileType_EdgeTop,
- TilemapTileType_EdgeLeft,
- TilemapTileType_EdgeRight,
- TilemapTileType_EdgeBottom,
- TilemapTileType_Filler,
- TilemapTileType_CutoffFillerLeft,
- TilemapTileType_CutoffFillerRight,
- TilemapTileType_CutoffVerticalLeft,
- TilemapTileType_CutoffVerticalRight,
- TilemapTileType_CutoffVerticalBoth,
- TilemapTileType_ConnectorLeft,
- TilemapTileType_ConnectorRight,
- TilemapTileType_WedgeTopLeft,
- TilemapTileType_WedgeTopRight,
- TilemapTileType_WedgeBottomLeft,
- TilemapTileType_WedgeBottomRight,
- TilemapTileType_WedgeTopPointLeft,
- TilemapTileType_WedgeTopPointRight,
- TilemapTileType_WedgeBottomPointLeft,
- TilemapTileType_WedgeBottomPointRight,
- TilemapTileType_WedgeEndUpLeft,
- TilemapTileType_WedgeEndUpRight,
- TilemapTileType_WedgeEndDownLeft,
- TilemapTileType_WedgeEndDownRight,
- TilemapTileType_WedgeConnectorBottomLeft,
- TilemapTileType_WedgeConnectorBottomRight,
- TilemapTileType_WedgeVerticalBottomPointLeft,
- TilemapTileType_WedgeVerticalBottomPointRight,
- TilemapTileType_WedgeBottomPointOutLeft,
- TilemapTileType_WedgeBottomPointOutRight,
- TilemapTileType_WedgeBottomPointInLeft,
- TilemapTileType_WedgeBottomPointInRight,
- 
- TilemapTileType_TOTAL,
-};
-
 typedef u16 tilemap_tile_place;
 
 typedef u8 tile_transform;
@@ -188,32 +134,43 @@ enum tile_transform_ {
  TileTransform_ReverseAndRotate270
 };
 
-typedef u8 tile_connetor_flags;
-enum tile_connetor_flags_ {
- TileConnector_None,
- TileConnector_Left  = 0x01,
- TileConnector_Right = 0x02,
- TileConnector_Both  = TileConnector_Left | TileConnector_Right,
-};
-
-typedef u8 tile_type;
+typedef u32 tile_type;
 enum tile_type_ {
- TileType_None           = 0x00,
- TileType_Tile           = 0x01,
- TileType_WedgeUpLeft    = 0x02,
- TileType_WedgeUpRight   = 0x04,
- TileType_WedgeDownLeft  = 0x08,
- TileType_WedgeDownRight = 0x10,
- TileType_Connector      = 0x20,
+ TileType_None           = (0 << 0),
+ TileType_Tile           = (1 << 0),
+ TileType_WedgeUpLeft    = (1 << 1),
+ TileType_WedgeUpRight   = (1 << 2),
+ TileType_WedgeDownLeft  = (1 << 3),
+ TileType_WedgeDownRight = (1 << 4),
  TileType_Wedge = (TileType_WedgeUpLeft   | 
                    TileType_WedgeUpRight  | 
                    TileType_WedgeDownLeft | 
                    TileType_WedgeDownRight),
+ TileType_Connector      = (1 << 5),
+#if 0
+ TileType_ConnectorUpRight   = (1 << 6),
+ TileType_ConnectorUpLeft    = (1 << 5),
+ TileType_ConnectorDownLeft  = (1 << 7),
+ TileType_ConnectorDownRight = (1 << 8),
+ TileType_Connector = (TileType_ConnectorUpLeft   | 
+                       TileType_ConnectorUpRight  | 
+                       TileType_ConnectorDownLeft | 
+                       TileType_ConnectorDownRight),
+#endif
+ 
 };
 
-struct extra_tile_data {
- tile_transform Transform      : 4;
- tile_connetor_flags Connector : 4;
+struct tile_connector_data {
+ // The index of each bit specifies the offset into an array
+ u8 Selected;
+};
+
+struct tilemap_data {
+ u32 Width;
+ u32 Height;
+ u32 *Indices;
+ tile_transform *Transforms;
+ tile_connector_data *Connectors;
 };
 
 struct tilemap_tile_data {
@@ -234,7 +191,8 @@ struct asset_tilemap {
  
  u32 TileCount;
  tilemap_tile_data *Tiles;
- u32 ConnectorOffset;
+ u32 ConnectorCount;
+ tilemap_tile_data *Connectors[8];
 };
 
 //~ Asset loading
@@ -287,7 +245,6 @@ struct asset_system {
  hash_table<const char *, entity_state> StateTable;
  hash_table<const char *, entity_type>  EntityTypeTable;
  hash_table<const char *, collision_response_function *> CollisionResponses;
- hash_table<const char *, tilemap_tile_data> TilemapTileDatas;
  asset_loader_error LastError;
  
  void InitializeLoader(memory_arena *Arena);

@@ -165,7 +165,6 @@ global_constant edit_mode_thing WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_T
 };
 
 global_constant os_key_flags SPECIAL_SELECT_MODIFIER  = KeyFlag_Shift;
-global_constant os_key_flags SPECIAL_ADD_MODIFIER     = KeyFlag_Control;
 global_constant os_key_flags SELECTOR_SCROLL_MODIFIER = KeyFlag_Shift;
 global_constant os_key_flags EDIT_TILEMAP_MODIFIER    = KeyFlag_Alt;
 

@@ -297,6 +297,18 @@ RenderTileAtIndex(asset_tilemap *Tilemap, v2 P, f32 Z, u32 Layer,
    T2 = V2(Min.X, Max.Y);
    T3 = V2(Min.X, Min.Y);
   }break;
+  case TileTransform_VerticalReverse: {
+   T0 = V2(Min.X, Max.Y);
+   T1 = V2(Min.X, Min.Y);
+   T2 = V2(Max.X, Min.Y);
+   T3 = V2(Max.X, Max.Y);
+  }break;
+  case TileTransform_HorizontalAndVerticalReverse: {
+   T0 = V2(Max.X, Max.Y);
+   T1 = V2(Max.X, Min.Y);
+   T2 = V2(Min.X, Min.Y);
+   T3 = V2(Min.X, Max.Y);
+  }break;
   case TileTransform_Rotate90: {
    T0 = V2(Max.X, Min.Y);
    T1 = V2(Min.X, Min.Y);
@@ -345,17 +357,36 @@ RenderTileAtIndex(asset_tilemap *Tilemap, v2 P, f32 Z, u32 Layer,
             V2(R.Max.X, R.Min.Y), T3, WHITE);
 }
 
+#if 0
 internal inline extra_tile_data
-ExtraTileData(tile_connetor_flags Connector=TileConnector_None, tile_transform Transform=TileTransform_None){
+ExtraTileData(tile_connector_flags Connector=TileConnector_None, tile_transform Transform=TileTransform_None){
  extra_tile_data Result = {};
  Result.Connector = Connector;
  Result.Transform = Transform;
  return(Result);
 }
+#endif
+
+internal inline tilemap_data
+MakeTilemapData(memory_arena *Arena, u32 Width, u32 Height){
+ tilemap_data Result = {};
+ Result.Width  = Width;
+ Result.Height = Height;
+ Result.Indices = PushArray(Arena, u32, Width*Height);
+ Result.Transforms = PushArray(Arena, tile_transform, Width*Height);
+ Result.Connectors = PushArray(Arena, tile_connector_data, Width*Height);
+ return(Result);
+}
+
+internal inline u32
+ChooseTileIndex(tilemap_tile_data *Tile, u32 Seed){
+ u32 OffsetSize = Tile->OffsetMax - Tile->OffsetMin;
+ u32 Result = Tile->OffsetMin + (Seed%OffsetSize);
+ return(Result);
+}
 
 internal inline void 
-RenderTilemap(asset_tilemap *Tilemap, u32 *MapData, extra_tile_data *ExtraData, 
-              u32 Width, u32 Height, v2 P, f32 Z, u32 Layer){
+RenderTilemap(asset_tilemap *Tilemap, tilemap_data *Data, v2 P, f32 Z, u32 Layer){
  TIMED_FUNCTION();
  
  v2 Size = Tilemap->TileSize;
@@ -365,25 +396,30 @@ RenderTilemap(asset_tilemap *Tilemap, u32 *MapData, extra_tile_data *ExtraData,
  
  u32 MapIndex = 0;
  v2 TileP = P;
- for(u32 Y=0; Y<Height; Y++){
-  for(u32 X=0; X<Width; X++){
-   u32 TileIndex = MapData[MapIndex];
+ for(u32 Y=0; Y<Data->Height; Y++){
+  for(u32 X=0; X<Data->Width; X++){
+   u32 TileIndex = Data->Indices[MapIndex];
    if(TileIndex > 0){
     TileIndex--;
-    extra_tile_data Extra = ExtraData[MapIndex];
+    tile_transform Transform = Data->Transforms[MapIndex];
     
     RenderTileAtIndex(Tilemap, TileP, Z, Layer, TileIndex, 
-                      Extra.Transform);
-    if(Tilemap->ConnectorOffset > 0){
-     u32 ConnectorOffset = Tilemap->ConnectorOffset-1;
-     if(Extra.Connector & TileConnector_Left){
-      RenderTileAtIndex(Tilemap, TileP, Z-0.1f, Layer, ConnectorOffset);
-     }
-     if(Extra.Connector & TileConnector_Right){
-      RenderTileAtIndex(Tilemap, TileP, Z-0.1f, Layer, ConnectorOffset,
-                        TileTransform_HorizontalReverse);
+                      Transform);
+    
+    
+    // TODO(Tyler): This could likely be more efficient, but then again, 
+    // the entire rendering system probably could be.
+    tile_connector_data Connector = Data->Connectors[MapIndex];
+    if(Connector.Selected){
+     for(u32 I=0; I<8; I++){
+      if(Connector.Selected & (1 << I)){
+       u32 ConnectorOffset = ChooseTileIndex(Tilemap->Connectors[I], MapIndex);
+       RenderTileAtIndex(Tilemap, TileP, Z-0.1f, Layer, ConnectorOffset,
+                         Tilemap->Connectors[I]->Transform);
+      }
      }
     }
+    
    }
    
    TileP.X += Size.X;
@@ -450,8 +486,11 @@ CalculatePlace(u8 *MapData, s32 Width, s32 Height, s32 X, s32 Y, b8 BoundsTiles=
 }
 
 internal void 
-CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, u32 *MapIndices, extra_tile_data *ExtraData, s32 Width, s32 Height){
+CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data){
  TIMED_FUNCTION();
+ 
+ s32 Width = (s32)Data->Width;
+ s32 Height = (s32)Data->Height;
  
  u32 MapIndex = 0;
  for(s32 Y=0; Y<Height; Y++){
@@ -481,17 +520,16 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, u32 *MapIndices, ex
       if(Tile->Type & Type){
        u32 PopCount = PopCountU32(TilePlace);
        if(PopCount < LastPopCount){
-        u32 OffsetSize = Tile->OffsetMax - Tile->OffsetMin;
-        u32 Offset = Tile->OffsetMin + ((X+Y*(Width-1))%OffsetSize);
-        MapIndices[MapIndex] = Offset+1;
-        ExtraData[MapIndex].Transform = Tile->Transform;
+        Data->Indices[MapIndex] = ChooseTileIndex(Tile, (X+Y*(Width-1)))+1;
+        Data->Transforms[MapIndex] = Tile->Transform;
         LastPopCount = PopCount;
        }
-      }else if(Tile->Type == TileType_Connector){
-       if(Tile->Transform == TileTransform_HorizontalReverse){
-        ExtraData[MapIndex].Connector |= TileConnector_Right;
-       }else{
-        ExtraData[MapIndex].Connector |= TileConnector_Left;
+      }else if(Tile->Type & TileType_Connector){
+       for(u32 J=0; J < Tilemap->ConnectorCount; J++){
+        if(Tilemap->Connectors[J] == Tile){
+         Data->Connectors[MapIndex].Selected |= (1 << J);
+         break;
+        }
        }
       }
      }

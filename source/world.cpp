@@ -125,17 +125,11 @@ world_manager::LoadWorld(const char *LevelName){
       Tilemap->P = Data->P;
       Tilemap->Asset = Data->Asset;
       Tilemap->ZLayer = 1.0f;
-      Tilemap->MapWidth  = Width;
-      Tilemap->MapHeight = Height;
-      Tilemap->TileSize = TILE_SIZE;
+      Tilemap->TilemapData = MakeTilemapData(&TransientMemory, Width, Height);
+      
+      CalculateTilemapIndices(Asset, Data->MapData, &Tilemap->TilemapData);
       PhysicsSystem.AddTilemap(Data->MapData, TileEditMode_Tile, 
                                Width, Height, Asset->TileSize);
-      Tilemap->MapIndices = PushArray(&TransientMemory, u32, Width*Height);
-      Tilemap->ExtraData = PushArray(&TransientMemory, extra_tile_data, Width*Height);
-      CalculateTilemapIndices(Asset, Data->MapData, 
-                              Tilemap->MapIndices, Tilemap->ExtraData,
-                              Width, Height);
-      
      }break;
      
      //~ Enemies

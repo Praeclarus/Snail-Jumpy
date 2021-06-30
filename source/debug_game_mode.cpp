@@ -43,6 +43,7 @@ UpdateAndRenderDebug(){
  GameRenderer.SetLightingConditions(WHITE, 1.0f);
  GameRenderer.SetCameraSettings(0.5f);
  
+#if 0 
  asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("grass_and_dirt"));
  //asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("plant"));
  //asset_tilemap *Tilemap = AssetSystem.GetTilemap(Strings.GetString("cobblestone"));
@@ -56,7 +57,6 @@ UpdateAndRenderDebug(){
  local_persist u32 *MapIndices = 0;
  local_persist extra_tile_data *ExtraData = 0;
  
-#if 0 
  if(!MapData){
   MapData    = (u8 *)DefaultAlloc(Width*Height*sizeof(*MapData));
   MapIndices = (u32 *)DefaultAlloc(Width*Height*sizeof(*MapIndices));

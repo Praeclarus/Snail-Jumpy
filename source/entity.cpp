@@ -409,8 +409,7 @@ entity_manager::UpdateAndRenderEntities(){
  FOR_BUCKET_ARRAY(It, &Tilemaps){
   tilemap_entity *Tilemap = It.Item;  
   asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
-  RenderTilemap(Asset, Tilemap->MapIndices, Tilemap->ExtraData,
-                Tilemap->MapWidth, Tilemap->MapHeight, Tilemap->P, Tilemap->ZLayer, 1);
+  RenderTilemap(Asset, &Tilemap->TilemapData, Tilemap->P, Tilemap->ZLayer, 1);
   
 #if 0  
   for(u32 Y = 0; Y < Tilemap->MapHeight; Y++){

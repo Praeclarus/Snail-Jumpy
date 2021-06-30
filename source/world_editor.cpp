@@ -144,6 +144,7 @@ world_editor::Undo(){
   case EditorAction_DeleteEntity: {
    entity_data *Entity = AddEntityAction(false);
    *Entity = CopyEntity(0, &Action->Entity);
+   EditModeEntity(Entity);
   }break;
  }
 }
@@ -159,6 +160,7 @@ world_editor::Redo(){
   case EditorAction_AddEntity: {
    entity_data *Entity = AddEntityAction(false);
    *Entity = CopyEntity(0, &Action->Entity);
+   EditModeEntity(Entity);
   }break;
   case EditorAction_DeleteEntity: {
    for(u32 I=0; I<World->Entities.Count; I++){
@@ -169,7 +171,6 @@ world_editor::Redo(){
      break;
     }
    }
-   
   }break;
  }
 }
@@ -338,7 +339,7 @@ world_editor::DoEditThingTilemap(){
  RenderTileAtIndex(Asset, P, 0.0f, 1, 0);
  
  //~ Adding
- if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, true, -2, KeyFlag_Control)){
+ if(UIManager.EditorMouseDown(WIDGET_ID, MouseButton_Left, true, -2)){
   entity_data *Entity = AddEntityAction();
   
   u32 WidthU32  = 10;
@@ -355,6 +356,7 @@ world_editor::DoEditThingTilemap(){
   u32 MapSize = Entity->Tilemap.Width*Entity->Tilemap.Height;
   Entity->Tilemap.MapData = (u8 *)DefaultAlloc(MapSize);
   
+  EditThing = EditThing_None;
   EditModeEntity(Entity);
  }
 }
@@ -1125,12 +1127,10 @@ world_editor::UpdateAndRender(){
     asset_tilemap *Asset = AssetSystem.GetTilemap(Entity->Asset);
     world_data_tilemap *Tilemap = &Entity->Tilemap;
     
-    u32 MapSize = Tilemap->Width*Tilemap->Height;
-    u32 *MapIndices = PushArray(&TransientStorageArena, u32, MapSize);
-    extra_tile_data *ExtraData = PushArray(&TransientStorageArena, extra_tile_data, MapSize);
+    tilemap_data Data = MakeTilemapData(&TransientStorageArena, Tilemap->Width, Tilemap->Height);
     
-    CalculateTilemapIndices(Asset, Tilemap->MapData, MapIndices, ExtraData, Tilemap->Width, Tilemap->Height);
-    RenderTilemap(Asset, MapIndices, ExtraData, Tilemap->Width, Tilemap->Height, Tilemap->P, 1.0f, 1);
+    CalculateTilemapIndices(Asset, Tilemap->MapData, &Data);
+    RenderTilemap(Asset, &Data, Tilemap->P, 1.0f, 1);
     
     v2 Size = Hadamard(V2((f32)Tilemap->Width, (f32)Tilemap->Height), Asset->TileSize);
     if(DoDragEntity(&Entity->P, Size, Entity, true)) EditModeEntity(Entity);

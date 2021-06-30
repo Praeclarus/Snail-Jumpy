@@ -59,10 +59,7 @@ struct entity {
 struct tilemap_entity : public entity {
  v2 P;
  string Asset;
- u32 *MapIndices;
- extra_tile_data*ExtraData;
- u32 MapWidth, MapHeight;
- v2 TileSize;
+ tilemap_data TilemapData;
 };
 
 struct coin_entity : public entity {

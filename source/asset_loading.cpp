@@ -45,56 +45,6 @@ asset_system::InitializeLoader(memory_arena *Arena){
  InsertIntoHashTable(&CollisionResponses, "PLAYER",    PlayerCollisionResponse);
  InsertIntoHashTable(&CollisionResponses, "ENEMY",     EnemyCollisionResponse);
  InsertIntoHashTable(&CollisionResponses, "DRAGONFLY", DragonflyCollisionResponse);
- 
- TilemapTileDatas = PushHashTable<const char *, tilemap_tile_data>(Arena, TilemapTileType_TOTAL);
- InsertIntoHashTable(&TilemapTileDatas, "single",                            MakeTileData(TileType_Tile,           "?_?_#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "single_bottom_middle",              MakeTileData(TileType_Tile,           "XXX_#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "single_bottom_left",                MakeTileData(TileType_Tile,           "_XX_#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "single_bottom_right",               MakeTileData(TileType_Tile,           "XX__#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "horizontal_left_end",               MakeTileData(TileType_Tile,           "?_?_#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "horizontal_right_end",              MakeTileData(TileType_Tile,           "?_?X#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "horizontal_middle",                 MakeTileData(TileType_Tile,           "?_?X#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "vertical_top_end",                  MakeTileData(TileType_Tile,           "?_?_#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "vertical_bottom_end",               MakeTileData(TileType_Tile,           "_X__#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "vertical_middle",                   MakeTileData(TileType_Tile,           "_X__#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "corner_top_left",                   MakeTileData(TileType_Tile,           "?_?_#X?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "corner_top_right",                  MakeTileData(TileType_Tile,           "?_?X#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "corner_bottom_left",                MakeTileData(TileType_Tile,           "_X?_#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "corner_bottom_right",               MakeTileData(TileType_Tile,           "?X_X#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "corner_inner_bottom_left",          MakeTileData(TileType_Tile,           "XX?_#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "corner_inner_bottom_right",         MakeTileData(TileType_Tile,           "?XXX#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "edge_top",                          MakeTileData(TileType_Tile,           "?_?X#X?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "edge_left",                         MakeTileData(TileType_Tile,           "_X?_#X?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "edge_right",                        MakeTileData(TileType_Tile,           "?X_X#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "edge_bottom",                       MakeTileData(TileType_Tile,           "?X?X#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "filler",                            MakeTileData(TileType_Tile,           "?X?X#X?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "cutoff_filler_left",                MakeTileData(TileType_Tile,           "XX?_#X?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "cutoff_filler_right",               MakeTileData(TileType_Tile,           "?XXX#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "cutoff_vertical_left",              MakeTileData(TileType_Tile,           "XX__#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "cutoff_vertical_right",             MakeTileData(TileType_Tile,           "_XX_#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "cutoff_vertical_both",              MakeTileData(TileType_Tile,           "XXX_#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "connector_left",                    MakeTileData(TileType_Connector,      "_X?X#????"));
- InsertIntoHashTable(&TilemapTileDatas, "connector_right",                   MakeTileData(TileType_Connector,      "?X_?#X???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_top_left",                    MakeTileData(TileType_WedgeUpLeft,    "?_?_#X?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_top_right",                   MakeTileData(TileType_WedgeUpRight,   "?_?X#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_left",                 MakeTileData(TileType_WedgeDownLeft,  "XX?_#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_right",                MakeTileData(TileType_WedgeDownRight, "?XXX#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_top_point_left",              MakeTileData(TileType_WedgeUpLeft,    "???_#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_top_point_right",             MakeTileData(TileType_WedgeUpRight,   "???_#_?X?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_point_left",           MakeTileData(TileType_WedgeDownLeft,  "XXX_#_???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_point_right",          MakeTileData(TileType_WedgeDownRight, "XXX_#_???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_end_up_left",                 MakeTileData(TileType_WedgeUpLeft,    "?_?_#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_end_up_right",                MakeTileData(TileType_WedgeUpRight,   "?_?X#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_end_down_left",               MakeTileData(TileType_WedgeDownLeft,  "?_?_#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_end_down_right",              MakeTileData(TileType_WedgeDownRight, "?_?X#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_connector_bottom_left",       MakeTileData(TileType_WedgeDownLeft,  "_X?_#X?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_connector_bottom_right",      MakeTileData(TileType_WedgeDownRight, "?X_X#_?_?"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_vertical_bottom_point_left",  MakeTileData(TileType_WedgeDownLeft,  "_X__#_???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_vertical_bottom_point_right", MakeTileData(TileType_WedgeDownRight, "_X__#_???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_point_out_left",       MakeTileData(TileType_WedgeDownLeft,  "_XX_#_???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_point_out_right",      MakeTileData(TileType_WedgeDownRight, "XX__#_???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_point_in_left",        MakeTileData(TileType_WedgeDownLeft,  "_XX_#_???"));
- InsertIntoHashTable(&TilemapTileDatas, "wedge_bottom_point_in_right",       MakeTileData(TileType_WedgeDownRight, "XX__#_???"));
 }
 
 //~ Base
@@ -867,6 +817,18 @@ asset_system::ProcessTilemapTile(file_reader *Reader, tile_array *Tiles, const c
   return(false);
  }
  
+#if 0
+ else if(CompareStrings(TileType, "connector_up_left")){
+  Tile->Type = TileType_ConnectorUpLeft;
+ }else if(CompareStrings(TileType, "connector_up_right")){
+  Tile->Type = TileType_ConnectorUpRight;
+ }else if(CompareStrings(TileType, "connector_down_left")){
+  Tile->Type = TileType_ConnectorDownLeft;
+ }else if(CompareStrings(TileType, "connector_down_right")){
+  Tile->Type = TileType_ConnectorDownRight;
+ }
+#endif
+ 
  const char *PlaceString = ExpectString(Reader);
  AssetLoaderHandleError();
  tilemap_tile_place Place = StringToTilePlace(PlaceString);
@@ -899,6 +861,7 @@ asset_system::ProcessTilemapTile(file_reader *Reader, tile_array *Tiles, const c
   }else if(Token.Type == FileTokenType_Integer){
    u32 Count = ExpectInteger(Reader);
    AssetLoaderHandleError();
+   AssetLoaderEnsurePositive(Count);
    
    Tile->OffsetMin = *TileOffset;
    *TileOffset += Count;
@@ -968,6 +931,11 @@ asset_system::ProcessTilemap(file_reader *Reader){
    
    Tilemap->XTiles = XTiles;
    Tilemap->YTiles = YTiles;
+  }else if(DoAttribute(String, "skip_tiles")){
+   s32 Count = ExpectInteger(Reader);
+   AssetLoaderHandleError();
+   AssetLoaderEnsurePositive(Count);
+   TileOffset += Count;
   }else{
    if(!ProcessTilemapTile(Reader, &Tiles, String, &TileOffset)) return(false);
    
@@ -999,7 +967,7 @@ asset_system::ProcessTilemap(file_reader *Reader){
  for(u32 I=0; I<Tilemap->TileCount; I++){
   Tilemap->Tiles[I]  = Tiles[I];
   if(Tiles[I].Type == TileType_Connector){
-   Tilemap->ConnectorOffset = Tiles[I].OffsetMin+1;
+   Tilemap->Connectors[Tilemap->ConnectorCount++] = &Tilemap->Tiles[I];
   }
  }
  
