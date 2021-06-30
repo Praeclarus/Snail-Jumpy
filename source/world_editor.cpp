@@ -698,14 +698,17 @@ world_editor::MaybeEditTilemap(){
    case TileEditMode_Wedge: Type = TileType_Wedge; break;
   }
   
+  b8 FoundTile = false;
   u32 Index = 0;
   for(u32 I=0; I<Asset->TileCount; I++){
    tilemap_tile_data *Tile = &Asset->Tiles[I];
    if(Tile->Type & Type){
     Index = Tile->OffsetMin;
+    FoundTile = true;
     break;
    }
   }
+  if(!FoundTile){ TileEditMode = TileEditMode_Tile; }
   
   RenderTileAtIndex(Asset, P, -0.3f, 0, Index);
  }
