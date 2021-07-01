@@ -122,20 +122,34 @@ world_manager::LoadWorld(const char *LevelName){
       u32 Width = Data->Width;
       u32 Height = Data->Height;
       
+      
       Tilemap->P = Data->P;
       Tilemap->Asset = Data->Asset;
       Tilemap->ZLayer = 1.0f;
       Tilemap->TilemapData = MakeTilemapData(&TransientMemory, Width, Height);
       
-      CalculateTilemapIndices(Asset, Data->MapData, &Tilemap->TilemapData);
-      PhysicsSystem.AddTilemap(Data->MapData, TileEditMode_Tile, 
-                               Width, Height, Asset->TileSize);
+      u8 BoundaryCount = 5;
+      collision_boundary *Boundaries = PhysicsSystem.AllocBoundaries(BoundaryCount);
+      v2 TS = Asset->TileSize;
+      Boundaries[0] = MakeCollisionRect(V2(0), Asset->TileSize);
+      Boundaries[1] = MakeCollisionWedge(V2( 0.5f*TS.Y, -0.5f*TS.Y), -TS.X,  TS.Y);
+      Boundaries[2] = MakeCollisionWedge(V2(-0.5f*TS.Y, -0.5f*TS.Y),  TS.X,  TS.Y);
+      Boundaries[3] = MakeCollisionWedge(V2( 0.5f*TS.Y,  0.5f*TS.Y), -TS.X, -TS.Y);
+      Boundaries[4] = MakeCollisionWedge(V2(-0.5f*TS.Y,  0.5f*TS.Y),  TS.X, -TS.Y);
+      
+      u8 *PhysicsMap = PushArray(&TransientMemory, u8, Width*Height);
+      
+      CalculateTilemapIndices(Asset, Data->MapData, &Tilemap->TilemapData, PhysicsMap);
+      
+      physics_tilemap *Physics = PhysicsSystem.AddTilemap(PhysicsMap, Width, Height, 
+                                                          Asset->TileSize, 
+                                                          Boundaries, BoundaryCount);
+      Physics->P = Tilemap->P;
      }break;
      
      //~ Enemies
      case EntityType_Enemy: {
       asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->Asset);
-      //Assert(EntityInfo->Type == EntityType_Enemy);
       if(EntityInfo->Type != EntityType_Enemy){
        continue;
       }

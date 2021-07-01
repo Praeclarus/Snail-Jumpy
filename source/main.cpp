@@ -218,9 +218,9 @@ ProcessDefaultEvent(os_event *Event){
  switch(Event->Kind){
   case OSEventKind_KeyDown: {
    switch((u32)Event->Key){
-    case KeyCode_Shift: OSInput.KeyFlags |= KeyFlag_Shift;   break;
-    case KeyCode_Ctrl:  OSInput.KeyFlags |= KeyFlag_Control; break;
-    case KeyCode_Alt:   OSInput.KeyFlags |= KeyFlag_Alt;     break;
+    case KeyCode_Shift:   OSInput.KeyFlags |= KeyFlag_Shift;   break;
+    case KeyCode_Control: OSInput.KeyFlags |= KeyFlag_Control; break;
+    case KeyCode_Alt:     OSInput.KeyFlags |= KeyFlag_Alt;     break;
     
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
     case KeyCode_F1: ToggleOverlay(DebugOverlay_Miscellaneous); break;
@@ -258,9 +258,9 @@ ProcessDefaultEvent(os_event *Event){
   }break;
   case OSEventKind_KeyUp: {
    switch((u32)Event->Key){
-    case KeyCode_Shift: OSInput.KeyFlags &= ~KeyFlag_Shift;   break;
-    case KeyCode_Ctrl:  OSInput.KeyFlags &= ~KeyFlag_Control; break;
-    case KeyCode_Alt:   OSInput.KeyFlags &= ~KeyFlag_Alt;     break;
+    case KeyCode_Shift:   OSInput.KeyFlags &= ~KeyFlag_Shift;   break;
+    case KeyCode_Control: OSInput.KeyFlags &= ~KeyFlag_Control; break;
+    case KeyCode_Alt:     OSInput.KeyFlags &= ~KeyFlag_Alt;     break;
    }
    
    OSInput.KeyboardState[Event->Key] = KeyState_JustUp;

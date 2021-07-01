@@ -142,19 +142,20 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 };
 
 //~ Includes
+#include "os.h"
 #include "debug.h"
 #include "random.h"
 #include "helpers.cpp"
 #include "memory_arena.cpp"
+#include "array.cpp"
 #include "hash_table.cpp"
 #include "strings.cpp"
-#include "array.cpp"
 #include "render.h"
-#include "os.h"
+#include "fonts.cpp"
 #include "ui.h"
 #include "file_processing.h"
 #include "physics.h"
-#include "asset.h"
+#include "asset.h" 
 #include "entity.h"
 #include "world.h"
 #include "world_editor.h"

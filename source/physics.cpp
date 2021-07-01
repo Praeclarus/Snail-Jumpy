@@ -390,15 +390,15 @@ physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
 }
 
 physics_tilemap *
-physics_system::AddTilemap(u8 *Tilemap, u8 Value, u32 Width, u32 Height, v2 TileSize){
+physics_system::AddTilemap(u8 *Tilemap, u32 Width, u32 Height, v2 TileSize,
+                           collision_boundary *Boundaries, u8 BoundaryCount){
  physics_tilemap *Result = BucketArrayAlloc(&Tilemaps);
  Result->Map       = Tilemap;
- Result->Value     = Value;
  Result->MapWidth  = Width;
  Result->MapHeight = Height;
- Result->TileSize  = TileSize;
- Result->Boundary  = AllocBoundaries(1);
- *Result->Boundary = MakeCollisionRect(V20, TileSize);
+ Result->TileSize = TileSize;
+ Result->BoundaryCount = BoundaryCount;
+ Result->Boundaries  = Boundaries;
  
  return(Result);
 }
@@ -780,6 +780,7 @@ void
 physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta){
  if((Delta.X == 0.0f) && (Delta.Y == 0.0f)) { return; }
  
+ //~ Static objects
  FOR_BUCKET_ARRAY(ItB, &StaticObjects){
   static_physics_object *ObjectB = ItB.Item;
   if(ObjectB->State & PhysicsObjectState_Inactive) continue;
@@ -796,9 +797,11 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
   }
  }
  
+ //~ Tilemaps
  FOR_BUCKET_ARRAY(ItB, &Tilemaps){
   physics_tilemap *Tilemap = ItB.Item;
-  rect Bounds = Boundary->Bounds + (Boundary->Offset+P);
+  v2 RelativeP = P - Tilemap->P;
+  rect Bounds = Boundary->Bounds + (Boundary->Offset+RelativeP);
   Bounds = RectSweep(Bounds, Delta);
   Bounds.Min.X /= Tilemap->TileSize.X;
   Bounds.Min.Y /= Tilemap->TileSize.Y;
@@ -814,20 +817,24 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
   
   for(s32 Y = BoundsS32.Min.Y; Y < BoundsS32.Max.Y; Y++){
    for(s32 X = BoundsS32.Min.X; X < BoundsS32.Max.X; X++){
-    u8 TileId = Tilemap->Map[(Y*Tilemap->MapWidth)+X];
+    u8 TileID = Tilemap->Map[(Y*Tilemap->MapWidth)+X];
     v2 TileP = V2((f32)X, (f32)Y);
     TileP += V2(0.5f);
     TileP.X *= Tilemap->TileSize.X;
     TileP.Y *= Tilemap->TileSize.Y;
+    TileP += Tilemap->P;
     rect TileBounds = CenterRect(V20, Tilemap->TileSize);
     
-    if(TileId == Tilemap->Value){
-     physics_collision Collision = DoCollision(Boundary, P, Tilemap->Boundary, TileP, Delta);
+    if(TileID > 0){
+     TileID--;
+     Assert(TileID < Tilemap->BoundaryCount);
+     
+     physics_collision Collision = DoCollision(Boundary, P, &Tilemap->Boundaries[TileID], TileP, Delta);
      Collision.ObjectB = PushStruct(&TransientStorageArena, physics_object);
      Collision.ObjectB->P          = TileP;
      Collision.ObjectB->Bounds     = TileBounds;
      Collision.ObjectB->Mass       = F32_POSITIVE_INFINITY;
-     Collision.ObjectB->Boundaries = Tilemap->Boundary;
+     Collision.ObjectB->Boundaries = &Tilemap->Boundaries[TileID];
      Collision.ObjectB->BoundaryCount = 1;
      if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
       *OutCollision = Collision;
@@ -840,6 +847,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
 
 void 
 physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta){
+ //~ Triggers
  FOR_BUCKET_ARRAY(ItB, &TriggerObjects){
   trigger_physics_object *ObjectB = ItB.Item;
   if(ObjectB->State & PhysicsObjectState_Inactive) continue;
@@ -860,11 +868,9 @@ physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_bound
 
 void
 physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtLocation=false, bucket_location StartLocation={}){
- if(!StartAtLocation){ 
-  StartLocation = {}; 
- }else{
-  StartLocation.ItemIndex++; 
- }
+ //~ Moving object collisions
+ if(!StartAtLocation){  StartLocation = {}; }
+ else{ StartLocation.ItemIndex++; }
  FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartLocation){
   dynamic_physics_object *ObjectB = ItB.Item;
   if(ObjectB->State & PhysicsObjectState_Inactive) continue;
@@ -891,6 +897,7 @@ physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_
 // NOTE(Tyler): No BIndexOffset
 void
 physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject=0){
+ //~ Moving object collisions without delta
  FOR_BUCKET_ARRAY(ItB, &Objects){
   dynamic_physics_object *ObjectB = ItB.Item;
   if(ObjectB == SkipObject) continue; 

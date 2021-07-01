@@ -209,7 +209,7 @@
     animation_var STUN_TIME 2.0
 	   mass          0.7
 	   speed         100
-	   boundary_rect 0 0 0 11 11
+    boundary_circle 0 0 0 6
 	   damage        1
 	   collision_response ENEMY
 	   CAN_BE_STUNNED
@@ -321,7 +321,7 @@
     wedge_down_left  _X?_#X?_? 2
     wedge_down_right ?X_X#_?_? REVERSE_PREVIOUS
     
-: tilemap cobblestone
+ : tilemap cobblestone
     path asset_tilemaps/cobblestone_platform.png
     tile_size 16 16
     dimensions 5 5

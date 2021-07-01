@@ -350,6 +350,7 @@ world_editor::DoEditThingTilemap(){
   Entity->Type = EntityType_Tilemap;
   Entity->P = MouseP - 0.5f*V2(Width, Height);
   Entity->P = MaximumV2(Entity->P, V2(0));
+  Entity->P = SnapToGrid(Entity->P, 1);
   Entity->Asset = TilemapToAdd;
   Entity->Tilemap.Width = WidthU32;
   Entity->Tilemap.Height = HeightU32;
@@ -420,6 +421,7 @@ world_editor::DoEditThingEnemy(){
   
   Entity->Type = EntityType_Enemy;
   Entity->P = P;
+  Entity->P = SnapToGrid(Entity->P, 1);
   Entity->Asset = EntityInfoToAdd;
   Entity->Enemy.Direction = Direction_Left;
   
@@ -465,6 +467,7 @@ world_editor::DoEditThingArt(){
   entity_data *Entity = AddEntityAction();
   
   Entity->P = P;
+  Entity->P = SnapToGrid(Entity->P, 1);
   Entity->Type = EntityType_Art;
   Entity->Art.Asset = ArtToAdd;
   
@@ -487,6 +490,7 @@ world_editor::DoEditThingTeleporter(){
   Entity->Teleporter.RequiredLevel = Strings.MakeBuffer();
   Entity->Type = EntityType_Teleporter;
   Entity->P = CursorP;
+  Entity->P = SnapToGrid(Entity->P, 1);
   
   EditModeEntity(Entity);
  }
@@ -511,7 +515,9 @@ world_editor::DoEditThingDoor(){
    rect R = SnapToGrid(DragRect, TILE_SIDE);
    Entity->Type = EntityType_Door;
    Entity->P = R.Min;
+   Entity->P = SnapToGrid(Entity->P, 1);
    Entity->Door.Size = RectSize(R);
+   Entity->Door.Size = SnapToGrid(Entity->Door.Size, 1);
    Entity->Door.RequiredLevel = Strings.MakeBuffer();
    EditModeEntity(Entity);
   }break;
@@ -804,7 +810,8 @@ world_editor::DoSelectedThingUI(){
   case EntityType_Tilemap: {
    ui_window *Window = UIManager.BeginWindow("Edit tilemap", WindowP);
    Window->Text("Hold 'Alt' to edit tilemap");
-   if(Window->Button("Delete tilemap", WIDGET_ID)){
+   if(Window->Button("Delete tilemap", WIDGET_ID) ||
+      OSInput.KeyJustDown(KeyCode_Delete)){
     DeleteEntityAction(Selected);
    }
    
@@ -907,6 +914,7 @@ world_editor::DoUI(){
  
  Window->Text("ActionIndex: %u", ActionIndex);
  Window->Text("ActionMemory used: %u", ActionMemory.Used);
+ Window->Text("Scale: %f", GameRenderer.CameraScale);
  
  Window->End();
  
@@ -977,6 +985,7 @@ world_editor::DoDeleteEntity(v2 P, v2 Size, entity_data *Entity, b8 Special){
                             KeyFlags, IsSelectionDisabled(Entity, KeyFlags))){
   case UIBehavior_Activate: Result = true; break;
  }
+ if(OSInput.KeyJustDown(KeyCode_Delete)){ Result = true; }
  
  return(Result);
 }

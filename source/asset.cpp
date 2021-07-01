@@ -486,7 +486,7 @@ CalculatePlace(u8 *MapData, s32 Width, s32 Height, s32 X, s32 Y, b8 BoundsTiles=
 }
 
 internal void 
-CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data){
+CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data, u8 *PhysicsMap=0){
  TIMED_FUNCTION();
  
  s32 Width = (s32)Data->Width;
@@ -523,6 +523,12 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data)
         Data->Indices[MapIndex] = ChooseTileIndex(Tile, (X+Y*(Width-1)))+1;
         Data->Transforms[MapIndex] = Tile->Transform;
         LastPopCount = PopCount;
+        if(PhysicsMap){
+         bit_scan_result BitScan = ScanForLeastSignificantSetBit(Tile->Type);
+         Assert(BitScan.Found);
+         Assert(BitScan.Index < 5);
+         PhysicsMap[MapIndex] = (u8)BitScan.Index+1;
+        }
        }
       }else if(Tile->Type & TileType_Connector){
        for(u32 J=0; J < Tilemap->ConnectorCount; J++){

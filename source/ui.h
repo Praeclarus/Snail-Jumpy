@@ -1,13 +1,6 @@
 #ifndef SNAIL_JUMPY_UI_H
 #define SNAIL_JUMPY_UI_H
 
-struct font {
- stbtt_bakedchar CharData[93];
- render_texture Texture;
- u32 TextureWidth, TextureHeight;
- f32 Size, Ascent, Descent;
-};
-
 struct layout {
  v2 BaseP;
  v2 CurrentP;
