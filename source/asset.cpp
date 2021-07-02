@@ -11,7 +11,8 @@ asset_system::Initialize(memory_arena *Arena){
  
  //~ Dummy assets
  u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};
- render_texture InvalidTexture = CreateRenderTexture(InvalidColor, 1, 1, false);
+ render_texture InvalidTexture = MakeTexture();
+ TextureUpload(InvalidTexture, InvalidColor, 1, 1);
  
  for(u32 I = 0; I < State_TOTAL; I++){
   for(u32 J = 0; J < Direction_TOTAL; J++){

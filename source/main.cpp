@@ -31,6 +31,8 @@ global physics_system PhysicsSystem;
 
 global asset_system AssetSystem;
 
+global font_system FontSystem;
+
 //~ TODO(Tyler): Refactor these!
 global font MainFont; // TODO(Tyler): Remove this one
 global font TitleFont;
@@ -44,6 +46,14 @@ global world_data *CurrentWorld;
 //~ Hotloaded variables file!
 // TODO(Tyler): Load this from a variables file at startup
 global game_mode GameMode = GameMode_WorldEditor;
+
+//~ Helpers
+internal inline string
+String(const char *S){
+ string Result = Strings.GetString(S);
+ return(Result);
+}
+
 
 //~ Includes
 #include "logging.cpp"
@@ -63,41 +73,6 @@ global game_mode GameMode = GameMode_WorldEditor;
 #include "game.cpp"
 
 //~ 
-
-// TODO(Tyler): This should be done at compile time
-internal void
-LoadFont(memory_arena *Arena,
-         font *Font, const char *FontPath, f32 Size){
- const u32 Width = 512;
- const u32 Height = 512;
- os_file *File = OpenFile(FontPath, OpenFile_Read);
- u64 FileSize = GetFileSize(File);
- u8 *FileData = PushArray(Arena, u8, FileSize);
- ReadFile(File, 0, FileData, FileSize);
- CloseFile(File);
- 
- u8 *Bitmap = PushArray(Arena, u8, Width*Height);
- u32 *Pixels = PushArray(Arena, u32, Width*Height);
- 
- f32 Ascent, Descent, LineGap;
- stbtt_GetScaledFontVMetrics(FileData, 0, Size, &Ascent, &Descent, &LineGap);
- stbtt_BakeFontBitmap(FileData, 0, Size, Bitmap, Width, Height, 32, 93, Font->CharData);
- stbtt_BakeFontBitmap(FileData, 0, Size, Bitmap, Width, Height, 32, 93, Font->CharData);
- 
- // TODO(Tyler): Make this better!!! Maybe sse?
- for(u32 Y = 0; Y < Height; Y++){
-  for(u32 X = 0; X < Width; X++){
-   Pixels[((Y*Width)+X)] = (Bitmap[(Y*Width) + X]<<24)+0x00FFFFFF;
-  }
- }
- 
- Font->Texture = CreateRenderTexture((u8 *)Pixels, Width, Height, true);
- Font->TextureWidth = Width;
- Font->TextureHeight = Height;
- Font->Size = Size;
- Font->Ascent = Ascent;
- Font->Descent = Descent;
-}
 
 internal void
 InitializeGame(){
@@ -121,9 +96,14 @@ InitializeGame(){
  GameRenderer.Initialize(&PermanentStorageArena, OSInput.WindowSize);
  
  Strings.Initialize(&PermanentStorageArena);
- LoadFont(&TransientStorageArena, &DebugFont, "asset_font/Roboto-Regular.ttf", 22);
- LoadFont(&TransientStorageArena, &TitleFont, "asset_font/Roboto-Regular.ttf", 30);
- LoadFont(&TransientStorageArena, &MainFont,  "asset_font/Press-Start-2P.ttf", 26);
+ FontSystem.Initialize(&PermanentStorageArena);
+ 
+ FontSystem.LoadFont(String("debug_font"), "asset_fonts/Roboto-Regular.ttf", 22);
+ FontSystem.LoadFont(String("title_font"), "asset_fonts/Roboto-Regular.ttf", 30);
+ FontSystem.LoadFont(String("main_font"),  "asset_fonts/Press-Start-2P.ttf", 26);
+ MainFont  = *FontSystem.FindFont(String("main_font"));
+ TitleFont = *FontSystem.FindFont(String("title_font"));
+ DebugFont = *FontSystem.FindFont(String("debug_font"));
  
  EntityManager.Initialize(&PermanentStorageArena);
  WorldManager.Initialize(&PermanentStorageArena);
@@ -136,6 +116,9 @@ InitializeGame(){
  WorldManager.LoadWorld(STARTUP_LEVEL);
  
  WorldEditor.Initialize();
+ 
+ //~ Debug
+ FontSystem.LoadFont(String("my_font"), "asset_fonts/Roboto-Regular.ttf", 100);
 }
 
 internal void

@@ -18,8 +18,12 @@ global_constant color ORANGE     = MakeColor(1.0f,  0.5f,  0.0f, 1.0f);
 
 //~ Primitive types
 typedef u32 render_texture;
-typedef u32 vertex_array;
-typedef u32 vertex_buffer;
+
+typedef u32 texture_flags;
+enum texture_flags_ {
+ TextureFlag_None  = (0 << 0),
+ TextureFlag_Blend = (1 << 0),
+};
 
 struct basic_shader {
  u32 ID;
@@ -53,6 +57,7 @@ enum render_type {
  RenderType_Game,                 // Low resolution for game
  
  RenderType_Scaled,               // Normal resolution but game scale
+ RenderType_Font,                 // Normal resolution but game scale
  
  RenderType_TOTAL,
 };
@@ -100,8 +105,8 @@ struct game_renderer {
  basic_shader  GameShader;
  screen_shader GameScreenShader;
  basic_shader  DefaultShader;
+ basic_shader  FontShader;
  framebuffer   GameScreenFramebuffer;
- 
  v2    OutputSize;
  color ClearColor;
  rect  CurrentClipRect;
@@ -116,6 +121,7 @@ struct game_renderer {
    render_node *DefaultNode;
    render_node *PixelNode;
    render_node *ScaledNode;
+   render_node *FontNode;
   };
   render_node *Nodes[RenderType_TOTAL];
  };
@@ -166,14 +172,16 @@ struct game_renderer {
 internal b8 InitializeRendererBackend();
 internal void RendererRenderAll(game_renderer *Renderer);
 
-internal render_texture CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
-internal void RemakeRenderTexture(render_texture Texture, u8 *Pixels, u32 Width, u32 Height, b8 Blend=false);
-internal void DeleteRenderTexture(render_texture Texture);
+internal render_texture MakeTexture(texture_flags Flags=TextureFlag_None);
+internal void TextureUpload(render_texture Texture, u8 *Pixels, 
+                            u32 Width, u32 Height, u32 Channels=4);
+internal void DeleteTexture(render_texture Texture);
 
 // TODO(Tyler): Maybe move these into renderer backend initialization
 internal basic_shader  MakeGameShader();
 internal screen_shader MakeGameScreenShader();
 internal basic_shader  MakeDefaultShader();
+internal basic_shader  MakeFontShader();
 
 internal void InitializeFramebuffer(framebuffer *Framebuffer, v2 Size);
 internal void ResizeFramebuffer(framebuffer *Framebuffer, v2 NewSize);

@@ -1,4 +1,37 @@
 
+//~ Render options
+internal inline render_options
+GameItem(u32 Layer){
+ render_options Result = {};
+ Result.Type = RenderType_Game;
+ Result.Layer = Layer;
+ return(Result);
+}
+
+internal inline render_options
+ScaledItem(u32 Layer){
+ render_options Result = {};
+ Result.Type = RenderType_Scaled;
+ Result.Layer = Layer;
+ return(Result);
+}
+
+internal inline render_options
+UIItem(u32 Layer){
+ render_options Result = {};
+ Result.Type = RenderType_UI;
+ Result.Layer = Layer;
+ return(Result);
+}
+
+internal inline render_options
+FontItem(u32 Layer){
+ render_options Result = {};
+ Result.Type = RenderType_Font;
+ Result.Layer = Layer;
+ return(Result);
+}
+
 //~ Basic rendering primitives
 
 internal inline b8
@@ -131,14 +164,13 @@ RenderTexture(rect R, f32 Z, render_texture Texture, render_options Options,
 
 internal void
 RenderString(font *Font, color Color, v2 P, f32 Z, const char *String){
- 
  v2 OutputSize = GameRenderer.OutputSize;
  
  P.Y = OutputSize.Y - P.Y;
  
  u32 Length = CStringLength(String);
  
- render_options Options = {};
+ render_options Options = FontItem(0);
  render_item *RenderItem = GameRenderer.NewRenderItem(Font->Texture, Options, true, Z);
  
  basic_vertex *Vertices = GameRenderer.AddVertices(RenderItem, 4*Length);
@@ -278,31 +310,6 @@ RenderCenteredString(font *Font, color Color, v2 Center,
  va_end(VarArgs);
 }
 
-//~ Render options
-internal inline render_options
-GameItem(u32 Layer){
- render_options Result = {};
- Result.Type = RenderType_Game;
- Result.Layer = Layer;
- return(Result);
-}
-
-internal inline render_options
-ScaledItem(u32 Layer){
- render_options Result = {};
- Result.Type = RenderType_Scaled;
- Result.Layer = Layer;
- return(Result);
-}
-
-internal inline render_options
-UIItem(u32 Layer){
- render_options Result = {};
- Result.Type = RenderType_UI;
- Result.Layer = Layer;
- return(Result);
-}
-
 //~ Z sorting
 // NOTE(Tyler): Bottom-up merge sort implementation
 // There is almost certainly a better sorting algorithm I could use, but this one will 
@@ -377,13 +384,16 @@ game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
  
  //~ Other
  u8 TemplateColor[] = {0xff, 0xff, 0xff, 0xff};
- GameRenderer.WhiteTexture = CreateRenderTexture(TemplateColor, 1, 1);
+ WhiteTexture = MakeTexture();
+ TextureUpload(WhiteTexture, TemplateColor, 1, 1);
  
  GameShader       = MakeGameShader();
  GameScreenShader = MakeGameScreenShader();
  InitializeFramebuffer(&GameScreenFramebuffer, OutputSize/CameraScale);
  
  DefaultShader = MakeDefaultShader();
+ 
+ FontShader = MakeFontShader();
  
  InitializeArray(&Vertices, 2000);
  InitializeArray(&Indices,  2000);

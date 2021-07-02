@@ -36,7 +36,7 @@ MakeArray(memory_arena *Arena, u32 MaxCount){
 template<typename T> internal inline array<T>
 MakeFullArray(memory_arena *Arena, u32 Count, umw Alignment=4){
  array<T> Result = {};
- Result.Items = PushAlignedArray(Arena, T, Count, Alignment);
+ Result.Items = PushSpecialArray(Arena, T, Count, ZeroAndAlign(Alignment));
  Result.Count = Count;
  Result.MaxCount = Count;
  return(Result);

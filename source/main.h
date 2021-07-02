@@ -173,6 +173,8 @@ struct state_change_data {
  const char *NewLevel;
 };
 
+
+
 //~ Forward declarations
 internal inline void ChangeState(game_mode NewMode, string NewLevel);
 internal inline void ProcessDefaultEvent(os_event *Event);

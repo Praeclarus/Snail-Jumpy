@@ -11,6 +11,13 @@ struct layout {
 
 //~ Basic API
 
+struct button_theme {
+ color BaseColor   = MakeColor(0.3f, 0.5f, 0.5f, 0.8f);;
+ color HoverColor  = MakeColor(0.5f, 0.4f, 0.5f, 0.9f);;
+ color ActiveColor = MakeColor(0.8f, 0.6f, 0.3f, 0.9f);
+ //ActiveColor = MakeColor(0.6f, 0.6f, 0.9f, 0.9f);;
+};
+
 struct ui_theme {
  font *TitleFont;
  font *NormalFont;

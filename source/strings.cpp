@@ -122,3 +122,5 @@ string_manager::FindInHashTablePtr(hash_table<string, T> *Table, const char *Key
  T *Result = ::FindInHashTablePtr(Table, String);
  return(Result);
 }
+
+

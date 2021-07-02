@@ -7,13 +7,14 @@ global opengl_backend OpenGL;
 
 internal b8
 InitializeRendererBackend(){
+ glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+ glPixelStorei(GL_PACK_ALIGNMENT,  1);
  
  //~ Setup default objects
  {
   glGenVertexArrays(1, &OpenGL.VertexArray);
   glBindVertexArray(OpenGL.VertexArray);
   
-  //GLuint VertexBuffer;
   glGenBuffers(1, &OpenGL.VertexBuffer);
   glBindBuffer(GL_ARRAY_BUFFER, OpenGL.VertexBuffer);
   
@@ -335,6 +336,58 @@ MakeDefaultShader(){
  return(Result);
 };
 
+internal basic_shader
+MakeFontShader(){
+ const char *VertexShader = BEGIN_STRING
+ (
+#version 330 core \n
+  
+  layout (location = 0) in vec3 InPosition;
+  layout (location = 1) in vec2 InUV;
+  layout (location = 2) in vec4 InColor;
+  
+  out vec4 FragmentColor;
+  out vec2 FragmentUV;
+  uniform mat4 InProjection;
+  
+  void main(){
+   gl_Position = InProjection * vec4(InPosition, 1.0);
+   FragmentColor = InColor;
+   FragmentUV = InUV;
+  };
+  );
+ 
+ const char *FragmentShader = BEGIN_STRING
+ (
+#version 330 core \n
+  
+  out vec4 OutColor;
+  
+  in vec4 FragmentColor;
+  in vec2 FragmentUV;
+  uniform sampler2D InTexture;
+  
+  void main(){
+   OutColor = FragmentColor;
+   OutColor *= vec4(1.0, 1.0, 1.0, texture(InTexture, FragmentUV).r);
+   //OutColor = vec4(texture(InTexture, FragmentUV).rrrr);
+   if(OutColor.a == 0.0){ discard; }
+  }
+  
+  );
+ 
+ GLuint Program = GLCompileShaderProgram(VertexShader, FragmentShader);
+ 
+ basic_shader Result = {};
+ Result.ID = Program;
+ 
+ glUseProgram(Program);
+ Result.ProjectionLocation = glGetUniformLocation(Program, "InProjection");
+ Assert(Result.ProjectionLocation != -1);
+ 
+ return(Result);
+};
+
 
 internal screen_shader
 MakeGameScreenShader(){
@@ -544,13 +597,13 @@ opengl_backend::RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffe
 
 //~ Textures
 
-internal render_texture 
-CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend){
- u32 Result;
+internal render_texture
+MakeTexture(texture_flags Flags){
+ render_texture Result;
  glGenTextures(1, &Result);
  glBindTexture(GL_TEXTURE_2D, Result);
  
- if(Blend){
+ if(Flags & TextureFlag_Blend){
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
  }else{
@@ -561,33 +614,25 @@ CreateRenderTexture(u8 *Pixels, u32 Width, u32 Height, b8 Blend){
  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
  glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);
  
- glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
  glBindTexture(GL_TEXTURE_2D, 0);
  return(Result);
 }
 
-internal void 
-RemakeRenderTexture(render_texture Texture, u8 *Pixels, u32 Width, u32 Height, b8 Blend){
- glBindTexture(GL_TEXTURE_2D, Texture);
- 
- if(Blend){
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
- }else{
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
- }
- glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
- glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
- glTexEnvi(GL_TEXTURE_2D, GL_TEXTURE_ENV_MODE, GL_MODULATE);
- 
- glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
- glBindTexture(GL_TEXTURE_2D, 0);
+internal void
+DeleteTexture(render_texture Texture){
+ glDeleteTextures(1, &Texture);
 }
 
 internal void
-DeleteRenderTexture(render_texture Texture){
- glDeleteTextures(1, &Texture);
+TextureUpload(render_texture Texture, u8 *Pixels, u32 Width, u32 Height, u32 Channels){
+ glBindTexture(GL_TEXTURE_2D, Texture);
+ if(Channels == 1){
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, Width, Height, 0, GL_RED, GL_UNSIGNED_BYTE, Pixels);
+ }else if(Channels == 4){
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
+ }else{ INVALID_CODE_PATH; }
+ 
+ glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 //~ Rendering
@@ -676,4 +721,8 @@ RendererRenderAll(game_renderer *Renderer){
  //~ Default items
  GLUseBasicShader(&Renderer->DefaultShader, OutputSize, 1000);
  GLRenderNodes(Renderer, Renderer->DefaultNode, ZsA, ZsB, ZItemCount);
+ 
+ //~ Font item
+ GLUseBasicShader(&Renderer->FontShader, OutputSize, 1000);
+ GLRenderNodes(Renderer, Renderer->FontNode, ZsA, ZsB, ZItemCount);
 }

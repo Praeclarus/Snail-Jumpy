@@ -646,7 +646,7 @@ SetupDefaultTheme(ui_theme *Theme){
  
  Theme->BaseColor   = MakeColor(0.3f, 0.5f, 0.5f, 0.8f);
  Theme->HoverColor  = MakeColor(0.5f, 0.4f, 0.5f, 0.9f);
- //Theme->ActiveColor = MakeColor(0.6f, 0.6f, 0.9f, 0.9f);
+ 
  Theme->ActiveColor = MakeColor(0.8f, 0.6f, 0.3f, 0.9f);
  Theme->TextColorA  = MakeColor(0.9f, 0.9f, 0.9f, 1.0f);
  Theme->TextColorB  = MakeColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -660,40 +660,14 @@ ui_window *
 ui_manager::BeginWindow(const char *Name, v2 TopLeft){
  ui_window *Window = FindOrCreateInHashTablePtr(&WindowTable, Name);
  if(!Window->Name){
-  v2 Size = V2(400, 200);
-  Window->WindowP = TopLeft;
-  Window->Rect = TopLeftRect(TopLeft, Size);
   Window->Name = Name;
   Window->Z = -10.0f;
  }
  Window->Manager = this;
  
- f32 TitleBarHeight = Theme.TitleBarHeight;
- 
- rect TitleBarRect = Window->Rect;
- TitleBarRect.Min.Y = TitleBarRect.Max.Y - TitleBarHeight;
- color C = Theme.TitleBarColor;
- 
- if(!Window->DontUpdateOrRender()){
-  switch(DoDraggableElement(WIDGET_ID_CHILD(WIDGET_ID, (u64)Window), TitleBarRect,  Window->WindowP, 3)){
-   case UIBehavior_Activate: {
-    Window->WindowP = OSInput.MouseP + ActiveElement.Offset;
-   }
-   case UIBehavior_Hovered: {
-    C = Theme.TitleBarHoverColor;
-   }break;
-   case UIBehavior_None: {
-    if((ActiveElement.Type == UIElementType_Draggable) ||
-       (ActiveElement.Type == UIElementType_MouseButton)){
-     if(IsPointInRect(OSInput.MouseP, Window->Rect) &&
-        (Window->FadeMode != UIWindowFadeMode_Hidden)){
-      Window->FadeMode = UIWindowFadeMode_Faded;
-     }
-    }
-   }break;
-  }
- }
- Window->Rect = TopLeftRect(Window->WindowP, RectSize(Window->Rect));
+ v2 Size = V2(400, 200);
+ Window->WindowP = TopLeft;
+ Window->Rect = TopLeftRect(TopLeft, Size);
  
  switch(Window->FadeMode){
   case UIWindowFadeMode_None: {
@@ -724,14 +698,17 @@ ui_manager::BeginWindow(const char *Name, v2 TopLeft){
  Window->Rect += Fix;
  Window->WindowP += Fix;
  
- TitleBarRect = Window->Rect;
+ 
+ f32 TitleBarHeight = Theme.TitleBarHeight;
+ 
+ rect TitleBarRect = Window->Rect;
  TitleBarRect.Min.Y = TitleBarRect.Max.Y - TitleBarHeight;
  
  // Title bar
  v2 P = VCenterStringP(&Theme, Theme.TitleFont, TitleBarRect.Min, TitleBarHeight);
  P = PadLeftStringP(&Theme, Theme.TitleFont, P);
  
- Window->DrawRect(TitleBarRect, Window->Z, C);
+ Window->DrawRect(TitleBarRect, Window->Z, Theme.TitleBarColor);
  Window->DrawString(Theme.TitleFont, Theme.TitleColor, P, Window->Z-0.1f, Name);
  
  Window->ContentWidth = RectSize(Window->Rect).X - 2*Theme.Padding;

@@ -40,8 +40,7 @@ LoadImageFromPath(const char *Path){
                                            (int)File.Size,
                                            &Result->Width, &Result->Height,
                                            &Components, 4);
-   DeleteRenderTexture(Result->Texture);
-   Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height, false);
+   TextureUpload(Result->Texture, ImageData, Result->Width, Result->Height);
    stbi_image_free(ImageData);
   }
  }else{
@@ -57,7 +56,8 @@ LoadImageFromPath(const char *Path){
   Result->HasBeenLoadedBefore = true;
   Result->LastWriteTime = LastFileWriteTime,
   Result->IsTranslucent = true;
-  Result->Texture = CreateRenderTexture(ImageData, Result->Width, Result->Height, false);
+  Result->Texture = MakeTexture();
+  TextureUpload(Result->Texture, ImageData, Result->Width, Result->Height);
   
   stbi_image_free(ImageData);
  }

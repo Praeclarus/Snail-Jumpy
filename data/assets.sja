@@ -271,6 +271,11 @@
 : tilemap grass_and_dirt
     path asset_tilemaps/grass_and_dirt_platform.png
     tile_size 16 16
+#    boundary_tile             DEFAULT
+#    boundary_wedge_up_left    DEFAULT
+#    boundary_wedge_up_right   DEFAULT
+#    boundary_wedge_down_left  DEFAULT
+#    boundary_wedge_down_right DEFAULT
     dimensions 9 9
     tile           ?_?_#_?_? 4
     tile           XXX_#_?_? 2
