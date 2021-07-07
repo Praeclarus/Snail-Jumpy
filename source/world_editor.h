@@ -92,6 +92,8 @@ struct world_editor {
  entity_data *EntityToDelete;
  editor_delete_flags DeleteFlags;
  
+ b8 OverrideEditTilemap;
+ 
  //~
  void Initialize();
  void ChangeWorld(world_data *W);

@@ -529,9 +529,11 @@ world_editor::DoEditThingDoor(){
 
 inline b8
 world_editor::IsEditingTilemap(){
+ Assert(!OverrideEditTilemap || (Selected && (Selected->Type == EntityType_Tilemap)));
+ b8 DoEdit = OverrideEditTilemap||OSInput.TestModifier(KeyFlag_Any|EDIT_TILEMAP_MODIFIER);
  b8 Result = (Selected && 
-              (Selected->Type == EntityType_Tilemap) && 
-              OSInput.Modifier(EDIT_TILEMAP_MODIFIER));
+              (Selected->Type == EntityType_Tilemap)&& 
+              DoEdit);
  return(Result);
 }
 
@@ -623,6 +625,8 @@ world_editor::MaybeEditTilemap(){
  
  if(!Selected) return;
  if(Selected->Type != EntityType_Tilemap) return;
+ if(!IsEditingTilemap()) return;
+ 
  
  world_data_tilemap *Tilemap = &Selected->Tilemap;
  asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
@@ -635,7 +639,7 @@ world_editor::MaybeEditTilemap(){
  s32 X = (s32)(TileP.X);
  s32 Y = (s32)(TileP.Y);
  
- if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, 0, EDIT_TILEMAP_MODIFIER)){
+ if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, -1, KeyFlag_Any)){
   if((X < 0)                    || (Y < 0)       || 
      (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height)){
   }else{
@@ -644,7 +648,7 @@ world_editor::MaybeEditTilemap(){
  }
  
  //~ Remove tiles
- if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Right, false, 0, EDIT_TILEMAP_MODIFIER)){
+ if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Right, false, -1, KeyFlag_Any)){
   if((X < 0)                    || (Y < 0)       || 
      (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height)){
   }else{
@@ -653,7 +657,7 @@ world_editor::MaybeEditTilemap(){
  }
  
  //~ Swap tiles
- if(UIManager.DoScrollElement(WIDGET_ID, -1, EDIT_TILEMAP_MODIFIER)){
+ if(UIManager.DoScrollElement(WIDGET_ID, -1)){
   s32 Range = 100;
   s32 Scroll = UIManager.ActiveElement.Scroll;
   if((Scroll > Range) ||
@@ -665,6 +669,7 @@ world_editor::MaybeEditTilemap(){
  
  
  //~ Resizing 
+ b8 DidResize = false;
  {
   v2 Size = V2(10);
   rect R = CenterRect(Selected->P, Size);
@@ -672,55 +677,57 @@ world_editor::MaybeEditTilemap(){
   
   //tilemap_edge_action RightEdge = EditorTilemapEdge(R.Max.X, R.Min.Y, EdgeSize, Size.Y, WIDGET_ID);
   tilemap_edge_action RightEdge = TilemapEdgeAction_None;
-  if(     OSInput.KeyRepeat(KeyCode_Right, EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) RightEdge = TilemapEdgeAction_Incrememt;
-  else if(OSInput.KeyRepeat(KeyCode_Left,  EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) RightEdge = TilemapEdgeAction_Decrement;
+  if(     OSInput.KeyRepeat(KeyCode_Right, KeyFlag_Any|KeyFlag_Control)) RightEdge = TilemapEdgeAction_Incrememt;
+  else if(OSInput.KeyRepeat(KeyCode_Left,  KeyFlag_Any|KeyFlag_Control)) RightEdge = TilemapEdgeAction_Decrement;
   switch(RightEdge){
    case TilemapEdgeAction_Incrememt: ResizeTilemapData(Tilemap,  1, 0); break;
    case TilemapEdgeAction_Decrement: ResizeTilemapData(Tilemap, -1, 0); break;
   }
+  if(RightEdge != TilemapEdgeAction_None) DidResize = true;
   
   //tilemap_edge_action TopEdge = EditorTilemapEdge(R.Min.X, R.Max.Y, Size.X, EdgeSize, WIDGET_ID);
   tilemap_edge_action TopEdge = TilemapEdgeAction_None;
-  if(     OSInput.KeyRepeat(KeyCode_Up,   EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) TopEdge = TilemapEdgeAction_Incrememt;
-  else if(OSInput.KeyRepeat(KeyCode_Down, EDIT_TILEMAP_MODIFIER|KeyFlag_Control)) TopEdge = TilemapEdgeAction_Decrement;
+  if(     OSInput.KeyRepeat(KeyCode_Up,   KeyFlag_Any|KeyFlag_Control)) TopEdge = TilemapEdgeAction_Incrememt;
+  else if(OSInput.KeyRepeat(KeyCode_Down, KeyFlag_Any|KeyFlag_Control)) TopEdge = TilemapEdgeAction_Decrement;
   switch(TopEdge){
    case TilemapEdgeAction_Incrememt: ResizeTilemapData(Tilemap, 0,  1); break;
    case TilemapEdgeAction_Decrement: ResizeTilemapData(Tilemap, 0, -1);break;
   }
+  if(TopEdge != TilemapEdgeAction_None) DidResize = true;
  }
  
  //~ Moving map
- s32 XOffset = 0;
- s32 YOffset = 0;
- if(     OSInput.KeyRepeat(KeyCode_Up,    EDIT_TILEMAP_MODIFIER)) { YOffset = -1; } 
- else if(OSInput.KeyRepeat(KeyCode_Down,  EDIT_TILEMAP_MODIFIER)) { YOffset =  1; }
- if(     OSInput.KeyRepeat(KeyCode_Left,  EDIT_TILEMAP_MODIFIER)) { XOffset =  1; } 
- else if(OSInput.KeyRepeat(KeyCode_Right, EDIT_TILEMAP_MODIFIER)) { XOffset = -1; }
- if((XOffset != 0) || (YOffset != 0)) MoveTilemapData(Tilemap, XOffset, YOffset); 
+ if(!DidResize){
+  s32 XOffset = 0;
+  s32 YOffset = 0;
+  if(     OSInput.KeyRepeat(KeyCode_Up, KeyFlag_Any)) { YOffset = -1; } 
+  else if(OSInput.KeyRepeat(KeyCode_Down, KeyFlag_Any)) { YOffset =  1; }
+  if(     OSInput.KeyRepeat(KeyCode_Left, KeyFlag_Any)) { XOffset =  1; } 
+  else if(OSInput.KeyRepeat(KeyCode_Right, KeyFlag_Any)) { XOffset = -1; }
+  if((XOffset != 0) || (YOffset != 0)) MoveTilemapData(Tilemap, XOffset, YOffset); 
+ }
  
  //~ Render tile edit mode
- if(OSInput.Modifier(EDIT_TILEMAP_MODIFIER)){
-  v2 P = DEFAULT_SELECTOR_P + V2(100.0f, 0.0f);
-  tile_type Type = TileType_Tile;
-  switch(TileEditMode){
-   case TileEditMode_Tile:  Type = TileType_Tile;  break;
-   case TileEditMode_Wedge: Type = TileType_Wedge; break;
-  }
-  
-  b8 FoundTile = false;
-  u32 Index = 0;
-  for(u32 I=0; I<Asset->TileCount; I++){
-   tilemap_tile_data *Tile = &Asset->Tiles[I];
-   if(Tile->Type & Type){
-    Index = Tile->OffsetMin;
-    FoundTile = true;
-    break;
-   }
-  }
-  if(!FoundTile){ TileEditMode = TileEditMode_Tile; }
-  
-  RenderTileAtIndex(Asset, P, -0.3f, 0, Index);
+ v2 P = DEFAULT_SELECTOR_P + V2(100.0f, 0.0f);
+ tile_type Type = TileType_Tile;
+ switch(TileEditMode){
+  case TileEditMode_Tile:  Type = TileType_Tile;  break;
+  case TileEditMode_Wedge: Type = TileType_Wedge; break;
  }
+ 
+ b8 FoundTile = false;
+ u32 Index = 0;
+ for(u32 I=0; I<Asset->TileCount; I++){
+  tilemap_tile_data *Tile = &Asset->Tiles[I];
+  if(Tile->Type & Type){
+   Index = Tile->OffsetMin;
+   FoundTile = true;
+   break;
+  }
+ }
+ if(!FoundTile){ TileEditMode = TileEditMode_Tile; }
+ 
+ RenderTileAtIndex(Asset, P, -0.3f, 0, Index);
 }
 
 //~ Selected thing
@@ -813,6 +820,9 @@ world_editor::DoSelectedThingUI(){
   case EntityType_Tilemap: {
    ui_window *Window = UIManager.BeginWindow("Edit tilemap", WindowP);
    Window->Text("Hold 'Alt' to edit tilemap");
+   OverrideEditTilemap = Window->ToggleBox("Edit tilemap", OverrideEditTilemap, WIDGET_ID);
+   if(OSInput.KeyJustDown('E')) OverrideEditTilemap = !OverrideEditTilemap;
+   
    if(Window->Button("Delete tilemap", WIDGET_ID) ||
       OSInput.KeyJustDown(KeyCode_Delete)){
     DeleteEntityAction(Selected);
@@ -971,7 +981,7 @@ world_editor::DoUI(){
 
 inline b8
 world_editor::IsSelectionDisabled(entity_data *Entity, os_key_flags KeyFlags){
- b8 Result = !((Selected == Entity) || OSInput.OnlyModifier(KeyFlags)) || IsEditingTilemap();
+ b8 Result = !((Selected == Entity) || OSInput.TestModifier(KeyFlags)) || IsEditingTilemap();
  return(Result);
 }
 

@@ -288,7 +288,7 @@ ui_manager::DoScrollElement(u64 ID, s32 Priority, os_key_flags KeyFlags, b8 IsVa
  Element.Scroll = OSInput.ScrollMovement;
  
  ui_behavior Result = DoElement(&Element, 
-                                IsValid&&OSInput.OnlyModifier(KeyFlags), 
+                                IsValid&&OSInput.TestModifier(KeyFlags), 
                                 (Element.Scroll != 0),
                                 (Element.Scroll == 0));
  
