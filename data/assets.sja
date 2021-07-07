@@ -325,7 +325,41 @@
     wedge_down_right XX__#_??? REVERSE_AND_ROTATE_PREVIOUS_270
     wedge_down_left  _X?_#X?_? 2
     wedge_down_right ?X_X#_?_? REVERSE_PREVIOUS
-    
+
+: tilemap dirt
+    path asset_tilemaps/dirt_platform.png
+    tile_size 16 16
+    dimensions 7 6
+    tile           ?_?_#_?_? 3
+    tile           ?X?_#_?_? 2
+    tile           ?_?_#X?_? 4
+    tile           ?_?X#_?_? REVERSE_PREVIOUS
+    tile           ?_?X#X?_? 4
+    tile           ?_?_#_?X? 2
+    tile           ?X?_#_?X? 3
+    tile           ?_?_#X?X? 4
+    tile           ?_?X#_?X? REVERSE_PREVIOUS
+    tile           ?X?_#X?_? 4
+    tile           ?X?X#_?_? REVERSE_PREVIOUS
+    tile           ?_?X#X?X? 5
+    tile           ?X?_#X?X? ROTATE_PREVIOUS_270 
+    tile           ?X?X#_?X? ROTATE_PREVIOUS_90
+    tile           ?X?X#X?X? 3
+    wedge_down_left  ?X?_#X?_? 2
+    wedge_down_right ?X?X#_?_? REVERSE_PREVIOUS
+    wedge_up_left    ?_?_#X?X? V_REVERSE_PREVIOUS
+    wedge_up_right   ?_?X#_?X? HV_REVERSE_PREVIOUS
+    wedge_down_left  ?X?_#_??? 2
+    wedge_down_right ?X?_#_??? REVERSE_PREVIOUS
+    wedge_up_left    ???_#_?X? REVERSE_AND_ROTATE_PREVIOUS_180
+    wedge_up_right   ???_#_?X? ROTATE_PREVIOUS_180
+    wedge_down_left  ?_?_#X?_? REVERSE_AND_ROTATE_PREVIOUS_90
+    wedge_down_right ?_?X#_?_? ROTATE_PREVIOUS_270
+    wedge_up_left    ?_?_#X?_? ROTATE_PREVIOUS_90
+    wedge_up_right   ?_?X#_?_? REVERSE_AND_ROTATE_PREVIOUS_270 
+    tile           ?X?X#X?_? 4
+
+
  : tilemap cobblestone
     path asset_tilemaps/cobblestone_platform.png
     tile_size 16 16
@@ -414,25 +448,41 @@
     wedge_up_left ?_?_#X?_? 2
     wedge_up_right ?_?X#_?_? REVERSE_PREVIOUS
 
-: tilemap wood_plank
+# Doesn’t work yet, art tiles not implemented yet!
+# : tilemap wood_plank
+: ignore
     path asset_tilemaps/wood_plank_platform.png
     tile_size 16 16
     dimensions 4 4
     # normal tiles
-    tile ???_#_?_? 2
+    tile ???_#_?_? 3
     tile ???_#X?_? 1
     tile ???X#_?_? 1
     tile ???X#X??? 3
     tile ???_#_?X? 1
     tile ???_#X?X? 1
     tile ???X#_?X? 1
+    tile ???_#X_X_ 1
+    tile ???X#__X_ 1
     # wedges
-    wedge_up_left    ?_?_#X??? 1
-    wedge_up_right   ?_?X#_??? 1
+    wedge_up_left    ?_?_#XX?? 1
+    wedge_up_right   ?_?X#_??X 1
     wedge_down_right ???X#_?_? 1
     wedge_down_left  ???_#X?_? 1
     # normal tiles
     tile ???X#X_X_ 1
+    # more wedges
+    wedge_up_left    ?_?_#_X?? 1
+    wedge_up_right   ?_?_#_??X 1
+    wedge_up_left    ?_X_#_?_? 1
+    wedge_up_right   X_?_#_?_? 1
+    #ropes
+    art ?_?_#_?X? 1
+    art ?X?_#_?X? 1
+    art ?_?_#X?X? 1
+    art ?X?_#X?X? 1
+    art ?_?X#_?X? 1
+    art ?X?X#_?X? 1
 
 : tilemap metal_gate_art
     path asset_tilemaps/metal_gate_art.png
@@ -453,6 +503,73 @@
     tile ???_#X??? 4
     tile ???X#_??? REVERSE_PREVIOUS
     tile ???X#X??? 2
+
+: tilemap snail
+    path asset_tilemaps/snailsheet.png
+    tile_size 16 16
+    dimensions 7 4
+    tile ?_?_#_?_? 1
+    # shell end
+    tile ?_?_#X?_X 1
+    tile ?_?_#_?XX ROTATE_PREVIOUS_90
+    # back ends
+    tile ?X?_#_?_? 1
+    tile ?_?_#X?__ 1
+    # front ends
+    tile ?_?X#_?_? 1
+    tile ?_?_#_?X_ ROTATE_PREVIOUS_270
+    # horizontal
+    tile ?_?X#X?_? 2
+    # vertical
+    tile ?X?_#_?X_ ROTATE_PREVIOUS_270
+    tile ?X?_#_?XX 1
+    # edges
+    tile ?X?X#X?_? 2
+    tile ?X?X#_?X? ROTATE_PREVIOUS_270
+    tile ?_?X#X?X? 2
+    tile ?X?_#X?X? ROTATE_PREVIOUS_270
+    tile ?X?X#_?XX 1
+    tile ?X?X#X?_X 1
+    # corners
+    tile ?X?X#_?_? 2
+    tile ?_?_#X?X_ 1
+    tile ?X?_#X?__ 1
+    tile ?_?_#X?XX 1
+    tile ?_?X#_?XX REVERSE_PREVIOUS
+    tile ?X?_#X?_? V_REVERSE_PREVIOUS
+    # weird tiles
+    tile ?_?X#X?X_ 1
+    tile ?X?X#X?X_ 1
+    tile ?X?_#X?X_ 1
+    tile ?X?X#X?X? 2
+    # top right corner
+    tile ?_?X#_?X_ 1
+    # more weird tiles (I didn't order this very good)
+    tile ?_?X#X?_X 1
+    # tile ?_?X#_?XX 1
+    connector _X?X#???? 1
+    connector ?X_?#X??? REVERSE_PREVIOUS
+    connector ???X#?_X? V_REVERSE_PREVIOUS
+
+: tilemap cactus
+    path asset_tilemaps/cactus.png
+    tile_size 16 16
+    dimensions 5 3
+    tile ?_?_#_??? 3
+    tile ?_?_#X?_? ROTATE_PREVIOUS_270
+    tile ?_?X#_?_? ROTATE_PREVIOUS_90
+    tile ?X?_#_?_? 1
+    tile ?X?_#X?_? 1
+    tile ?X?X#_?_? REVERSE_PREVIOUS
+    tile ?_?_#X?X? V_REVERSE_PREVIOUS
+    tile ?_?X#_?X? HV_REVERSE_PREVIOUS
+    tile ?X?_#_?X? 2
+    tile ?_?X#X?_? ROTATE_PREVIOUS_90
+    tile ?X?_#X?X? 1
+    tile ?X?X#_?X? REVERSE_PREVIOUS
+    tile ?X?X#X?_? ROTATE_PREVIOUS_270
+    tile ?_?X#X?X? ROTATE_PREVIOUS_90
+    tile ?X?X#X?X? 2
 
 
 # //////////////////////////////////////////////////////////////////////////

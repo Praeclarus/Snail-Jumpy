@@ -962,13 +962,21 @@ asset_system::ProcessTilemap(file_reader *Reader){
   return(false);
  }
  
+ tilemap_tile_place CombinedPlacesTiles = 0;
  Tilemap->TileCount = Tiles.Count;
  Tilemap->Tiles = PushArray(&Memory, tilemap_tile_data, Tiles.Count);
  for(u32 I=0; I<Tilemap->TileCount; I++){
   Tilemap->Tiles[I]  = Tiles[I];
+  if(Tiles[I].Type & TileType_Tile)  CombinedPlacesTiles  |= Tiles[I].Place;
   if(Tiles[I].Type == TileType_Connector){
    Tilemap->Connectors[Tilemap->ConnectorCount++] = &Tilemap->Tiles[I];
   }
+ }
+ 
+ if(CombinedPlacesTiles != U16_MAX){
+  // TODO(Tyler): Improve error message
+  LogError(Reader->Line, "Tilemap tiles do not work in all places!");
+  return(false);
  }
  
  {

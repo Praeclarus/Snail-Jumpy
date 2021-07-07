@@ -148,6 +148,7 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
 #include "helpers.cpp"
 #include "memory_arena.cpp"
 #include "array.cpp"
+#include "stack.cpp"
 #include "hash_table.cpp"
 #include "strings.cpp"
 #include "render.h"

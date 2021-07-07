@@ -66,7 +66,6 @@ typedef u32 world_editor_flags;
 enum world_editor_flags_ {
  WorldEditorFlag_None             = 0,
  WorldEditorFlag_HideArt          = (1 << 0),
- WorldEditorFlag_EditLighting     = (1 << 2),
 };
 
 struct world_editor {

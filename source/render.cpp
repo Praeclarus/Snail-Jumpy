@@ -47,11 +47,11 @@ RenderQuad(render_texture Texture, render_options Options, f32 Z,
            v2 P2, v2 T2, color C2, 
            v2 P3, v2 T3, color C3,
            b8 HasAlpha_=false){
- b8 HasAlpha = (ColorHasAlpha(C0) ||
+ b8 HasAlpha = (HasAlpha_         ||
+                ColorHasAlpha(C0) ||
                 ColorHasAlpha(C1) ||
                 ColorHasAlpha(C2) ||
-                ColorHasAlpha(C3)||
-                HasAlpha_);
+                ColorHasAlpha(C3));
  
  render_item *RenderItem = GameRenderer.NewRenderItem(Texture, Options, HasAlpha, Z);
  
@@ -103,7 +103,7 @@ RenderCircle(v2 P, f32 Radius, f32 Z, color Color, render_options Options,
  render_item *RenderItem = GameRenderer.NewRenderItem(GameRenderer.WhiteTexture, Options, ColorHasAlpha(Color), Z);
  
  basic_vertex *Vertices = GameRenderer.AddVertices(RenderItem, Sides+2);
- Vertices[0] = {P.X, P.Y, Z, Color.R, Color.G, Color.B, Color.A, 0.0f, 0.0f};
+ Vertices[0] = {P, Z, 0.0f, 0.0f, Color};
  for(u32 I = 0; I <= Sides; I++){
   v2 Offset = V2(Cos(T*TAU), Sin(T*TAU));
   Vertices[I+1] = {P+Radius*Offset, Z, V2(0.0f, 0.0f), Color};
@@ -158,6 +158,153 @@ RenderTexture(rect R, f32 Z, render_texture Texture, render_options Options,
             V2(R.Max.X, R.Max.Y), V2(TextureRect.Max.X, TextureRect.Max.Y), Color,
             V2(R.Max.X, R.Min.Y), V2(TextureRect.Max.X, TextureRect.Min.Y), Color,
             HasAlpha);
+}
+
+internal void
+RenderRoundedRect(rect R, f32 Z, f32 Roundness, color C, render_options Options){
+ R = RectFix(R);
+ v2 Size = RectSize(R);
+ 
+ f32 Radius;
+ if(Roundness < 0){
+  Radius = 0.5f*Minimum(Size.Width, Size.Height) * -Roundness;
+ }else{
+  Radius = Roundness;
+ }
+ 
+ b8 HasAlpha = ColorHasAlpha(C);
+ 
+ u32 Segments = (u32)Round(TAU*Radius / 10.0f);
+ 
+ v2 R0 = V2(R.Min.X, R.Max.Y);
+ v2 R1 = V2(R.Max.X, R.Max.Y);
+ v2 R2 = V2(R.Max.X, R.Min.Y);
+ v2 R3 = V2(R.Min.X, R.Min.Y);
+ 
+ v2 I0 = R0 + V2( Radius, -Radius);
+ v2 I1 = R1 + V2(-Radius, -Radius);
+ v2 I2 = R2 + V2(-Radius,  Radius);
+ v2 I3 = R3 + V2( Radius,  Radius);
+ 
+ v2 O0 = R0 + V2( Radius,       0);
+ v2 O1 = R1 + V2(-Radius,       0);
+ v2 O2 = R1 + V2(      0, -Radius);
+ v2 O3 = R2 + V2(      0,  Radius);
+ v2 O4 = R2 + V2(-Radius,       0);
+ v2 O5 = R3 + V2( Radius,       0);
+ v2 O6 = R3 + V2(      0,  Radius);
+ v2 O7 = R0 + V2(      0, -Radius);
+ render_item *Item = GameRenderer.NewRenderItem(GameRenderer.WhiteTexture, Options, HasAlpha, Z);
+ u32 VertexCount = 4*5 + 4*2*Segments;
+ u32 IndexCount  = 6*5 + 4*3*Segments;
+ basic_vertex *Vertices = GameRenderer.AddVertices(Item, VertexCount);
+ u32 *Indices = GameRenderer.AddIndices(Item, IndexCount);
+ 
+ Vertices[ 0] = {I0, Z, V2(0, 1), C};
+ Vertices[ 1] = {I1, Z, V2(1, 1), C};
+ Vertices[ 2] = {I2, Z, V2(1, 0), C};
+ Vertices[ 3] = {I3, Z, V2(0, 0), C};
+ Indices[ 0] = 0;
+ Indices[ 1] = 1;
+ Indices[ 2] = 2;
+ Indices[ 3] = 0;
+ Indices[ 4] = 2;
+ Indices[ 5] = 3;
+ 
+ Vertices[ 4] = {O0, Z, V2(0, 1), C};
+ Vertices[ 5] = {O1, Z, V2(1, 1), C};
+ Vertices[ 6] = {I1, Z, V2(1, 0), C};
+ Vertices[ 7] = {I0, Z, V2(0, 0), C};
+ Indices[ 6] = 4;
+ Indices[ 7] = 5;
+ Indices[ 8] = 6;
+ Indices[ 9] = 4;
+ Indices[10] = 6;
+ Indices[11] = 7;
+ 
+ Vertices[ 8] = {I1, Z, V2(0, 1), C};
+ Vertices[ 9] = {O2, Z, V2(1, 1), C};
+ Vertices[10] = {O3, Z, V2(1, 0), C};
+ Vertices[11] = {I2, Z, V2(0, 0), C};
+ Indices[12] =  8;
+ Indices[13] =  9;
+ Indices[14] = 10;
+ Indices[15] =  8;
+ Indices[16] = 10;
+ Indices[17] = 11;
+ 
+ Vertices[12] = {I3, Z, V2(0, 1), C};
+ Vertices[13] = {I2, Z, V2(1, 1), C};
+ Vertices[14] = {O4, Z, V2(1, 0), C};
+ Vertices[15] = {O5, Z, V2(0, 0), C};
+ Indices[18] = 12;
+ Indices[19] = 13;
+ Indices[20] = 14;
+ Indices[21] = 12;
+ Indices[22] = 14;
+ Indices[23] = 15;
+ 
+ Vertices[16] = {O7, Z, V2(0, 1), C};
+ Vertices[17] = {I0, Z, V2(1, 1), C};
+ Vertices[18] = {I3, Z, V2(1, 0), C};
+ Vertices[19] = {O6, Z, V2(0, 0), C};
+ Indices[24] = 16;
+ Indices[25] = 17;
+ Indices[26] = 18;
+ Indices[27] = 16;
+ Indices[28] = 18;
+ Indices[29] = 19;
+ 
+ f32 T = 0.0f;
+ f32 Step = 0.25f * 1.0f/(f32)Segments;
+ 
+ u32 VO0 = 20+0*2*Segments;
+ u32 VO1 = 20+1*2*Segments;
+ u32 VO2 = 20+2*2*Segments;
+ u32 VO3 = 20+3*2*Segments;
+ 
+ u32 IO0 = 30+0*3*Segments;
+ u32 IO1 = 30+1*3*Segments;
+ u32 IO2 = 30+2*3*Segments;
+ u32 IO3 = 30+3*3*Segments;
+ 
+ for(u32 I=0; I<Segments; I++){
+  
+  f32 T0 = T;
+  T += Step;
+  f32 T1 = T;
+  
+  f32 C0 = Cos(T0*TAU);
+  f32 S0 = Sin(T0*TAU);
+  f32 C1 = Cos(T1*TAU);
+  f32 S1 = Sin(T1*TAU);
+  
+  Indices[IO0++] = 0;
+  Vertices[VO0] = {I0+Radius*V2(-C0, S0), Z, V2(0.0f, 0.0f), C};
+  Indices[IO0++] = VO0++;
+  Vertices[VO0] = {I0+Radius*V2(-C1, S1), Z, V2(0.0f, 0.0f), C};
+  Indices[IO0++] = VO0++;
+  
+  Indices[IO1++] = 1;
+  Vertices[VO1] = {I1+Radius*V2(C0, S0), Z, V2(0.0f, 0.0f), C};
+  Indices[IO1++] = VO1++;
+  Vertices[VO1] = {I1+Radius*V2(C1, S1), Z, V2(0.0f, 0.0f), C};
+  Indices[IO1++] = VO1++;
+  
+  Indices[IO2++] = 2;
+  Vertices[VO2] = {I2+Radius*V2(C0, -S0), Z, V2(0.0f, 0.0f), C};
+  Indices[IO2++] = VO2++;
+  Vertices[VO2] = {I2+Radius*V2(C1, -S1), Z, V2(0.0f, 0.0f), C};
+  Indices[IO2++] = VO2++;
+  
+  Indices[IO3++] = 3;
+  Vertices[VO3] = {I3+Radius*V2(-C0, -S0), Z, V2(0.0f, 0.0f), C};
+  Indices[IO3++] = VO3++;
+  Vertices[VO3] = {I3+Radius*V2(-C1, -S1), Z, V2(0.0f, 0.0f), C};
+  Indices[IO3++] = VO3++;
+ }
+ 
+ GameRenderer.DoParallax(Item, Options, VertexCount);
 }
 
 //~ String rendering
@@ -374,6 +521,7 @@ MergeSortZs(render_item_z *ZsA, render_item_z *ZsB, u32 Count){
 void
 game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
  OutputSize = OutputSize_;
+ ClipRects = MakeStack<rect>(Arena, MAX_CLIP_RECTS);
  
  //~ Camera
  CameraScale = 5;
@@ -414,7 +562,8 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
  v2 OldOutputSize = OutputSize;
  OutputSize = OutputSize_;
  ClearColor = ClearColor_;
- CurrentClipRect = SizeRect(V2(0), OutputSize);
+ StackClear(&ClipRects);
+ StackPush(&ClipRects, SizeRect(V2(0), OutputSize));
  
  //~ Render items
  RenderItemCount = 0;
@@ -464,7 +613,7 @@ game_renderer::NewRenderItem(render_texture Texture, render_options Options, b8 
  
  u32 Index = Node->Count++;
  render_item *Result = &Node->Items[Index];
- Result->ClipRect = CurrentClipRect;
+ Result->ClipRect = StackPeek(&ClipRects);
  Result->Texture = Texture;
  if(HasAlpha){
   Node->ItemZs[Index] = Z;
@@ -526,12 +675,12 @@ game_renderer::DoParallax(render_item *Item, render_options Options, u32 VertexC
 
 void
 game_renderer::BeginClipRect(rect ClipRect){
- CurrentClipRect = ClipRect;
+ StackPush(&ClipRects, RectFix(ClipRect));
 }
 
 void
 game_renderer::EndClipRect(){
- CurrentClipRect = SizeRect(V2(0), OutputSize);
+ StackPop(&ClipRects);
 }
 
 //~ Light stuff

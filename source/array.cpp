@@ -95,7 +95,7 @@ template<typename T> internal inline void
 ArrayOrderedRemove(array<T> *Array, u32 Index){
  MoveMemory(&Array->Items[Index], 
             &Array->Items[Index+1], 
-            (Array->Count-Index)*sizeof(teleporter_data));
+            (Array->Count-Index)*sizeof(T));
  Array->Count--;
 }
 

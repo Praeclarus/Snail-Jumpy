@@ -61,6 +61,7 @@ String(const char *S){
 #include "stream.cpp"
 #include "file_processing.cpp"
 #include "ui.cpp"
+#include "ui_window.cpp"
 #include "physics.cpp"
 #include "asset.cpp"
 #include "asset_loading.cpp"
@@ -99,7 +100,7 @@ InitializeGame(){
  FontSystem.Initialize(&PermanentStorageArena);
  
  FontSystem.LoadFont(String("debug_font"), "asset_fonts/Roboto-Regular.ttf", 22);
- FontSystem.LoadFont(String("title_font"), "asset_fonts/Roboto-Regular.ttf", 30);
+ FontSystem.LoadFont(String("title_font"), "asset_fonts/Roboto-Regular.ttf", 35);
  FontSystem.LoadFont(String("main_font"),  "asset_fonts/Press-Start-2P.ttf", 26);
  MainFont  = *FontSystem.FindFont(String("main_font"));
  TitleFont = *FontSystem.FindFont(String("title_font"));
@@ -116,9 +117,6 @@ InitializeGame(){
  WorldManager.LoadWorld(STARTUP_LEVEL);
  
  WorldEditor.Initialize();
- 
- //~ Debug
- FontSystem.LoadFont(String("my_font"), "asset_fonts/Roboto-Regular.ttf", 100);
 }
 
 internal void

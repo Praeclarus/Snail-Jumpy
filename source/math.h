@@ -664,6 +664,14 @@ operator*(rect A, f32 B){
 }
 
 internal inline rect
+operator*(f32 B, rect A){
+ rect Result;
+ Result.Min = A.Min * B;
+ Result.Max = A.Max * B;
+ return(Result);
+}
+
+internal inline rect
 operator/(rect A, f32 B){
  rect Result;
  Result.Min = A.Min / B;
@@ -840,6 +848,14 @@ SnapToGrid(rect R, f32 UnitSize){
  // TODO(Tyler): Maybe fix rect?
  Result = RectFix(Result);
  
+ return(Result);
+}
+
+internal inline rect
+RectLerp(rect A, rect B, f32 T){
+ rect Result;
+ Result.Min = Lerp(A.Min, B.Min, T);
+ Result.Max = Lerp(A.Max, B.Max, T);
  return(Result);
 }
 

@@ -283,7 +283,7 @@ WinMain(HINSTANCE Instance,
   if(MainWindow){
    Win32InitOpenGl(Instance, &MainWindow);
    ToggleFullscreen(MainWindow);
-   //wglSwapIntervalEXT(1);
+   wglSwapIntervalEXT(1);
    
    InitializeGame();
    
@@ -552,6 +552,7 @@ PollEvents(os_event *Event){
      Event->Key = (os_key_code)VKCode; 
     }else{
      switch(VKCode){
+      //~ Special keys
       case VK_UP: Event->Key = KeyCode_Up;               break;
       case VK_DOWN:      Event->Key = KeyCode_Down;      break;
       case VK_LEFT:      Event->Key = KeyCode_Left;      break;
@@ -563,8 +564,6 @@ PollEvents(os_event *Event){
       case VK_ESCAPE:    Event->Key = KeyCode_Escape;    break;
       case VK_BACK:      Event->Key = KeyCode_BackSpace; break;
       case VK_DELETE:    Event->Key = KeyCode_Delete;    break;
-      case VK_OEM_MINUS: Event->Key = KeyCode_Minus;     break;
-      case VK_OEM_PLUS:  Event->Key = (os_key_code)'=';  break;
       case VK_RETURN:    Event->Key = KeyCode_Return;    break;
       case VK_MENU:      Event->Key = KeyCode_Alt;       break;
       case VK_F1:        Event->Key = KeyCode_F1;        break;
@@ -579,6 +578,20 @@ PollEvents(os_event *Event){
       case VK_F10:       Event->Key = KeyCode_F10;       break;
       case VK_F11:       Event->Key = KeyCode_F11;       break;
       case VK_F12:       Event->Key = KeyCode_F12;       break;
+      
+      //~ Normal ascii
+      
+      case VK_OEM_1:      Event->Key = (os_key_code)';'; break;
+      case VK_OEM_PLUS:   Event->Key = (os_key_code)'='; break; 
+      case VK_OEM_COMMA:  Event->Key = (os_key_code)','; break;
+      case VK_OEM_MINUS:  Event->Key = (os_key_code)'-'; break;
+      case VK_OEM_PERIOD: Event->Key = (os_key_code)'.'; break;
+      case VK_OEM_2:      Event->Key = (os_key_code)'/'; break;
+      case VK_OEM_3:      Event->Key = (os_key_code)'`'; break;
+      case VK_OEM_4:      Event->Key = (os_key_code)'['; break;
+      case VK_OEM_5:      Event->Key = (os_key_code)'\\'; break;
+      case VK_OEM_6:      Event->Key = (os_key_code)']'; break;
+      case VK_OEM_7:      Event->Key = (os_key_code)'\''; break;
      }
     }
     

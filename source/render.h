@@ -97,6 +97,8 @@ struct render_light {
  f32 R, G, B;
 };
 
+global u32 MAX_CLIP_RECTS = 128;
+
 struct world_data;
 struct game_renderer {
  //~
@@ -109,7 +111,7 @@ struct game_renderer {
  framebuffer   GameScreenFramebuffer;
  v2    OutputSize;
  color ClearColor;
- rect  CurrentClipRect;
+ stack<rect> ClipRects;
  
  //~ Rendering variables
  u32 RenderItemCount;
