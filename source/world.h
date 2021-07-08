@@ -3,26 +3,27 @@
 
 //~ Entity datas
 
-typedef u32 entity_data_flags;
-enum entity_data_flags_ {
- EntityDataFlag_None = (0 << 0),
- EntityDataEditFlag_Hide = (1 << 0),
+typedef u32 world_entity_flags;
+enum world_entity_flags_ {
+ WorldEntityFlag_None = (0 << 0),
+ WorldEntityEditFlag_Hide = (1 << 0),
 };
 
-struct world_data_entity_ {
+struct world_entity_ {
  v2 P;
- entity_data_flags Flags;
+ world_entity_flags Flags;
  string Asset;
+ f32 Z;
  u32 Layer;
 };
 
-struct world_data_tilemap : public world_data_entity_ {
+struct world_entity_tilemap : public world_entity_ {
  u32 Width;
  u32 Height;
  u8 *MapData;
 };
 
-struct world_data_enemy : public world_data_entity_  {
+struct world_entity_enemy : public world_entity_  {
  direction Direction;
  union{
   struct { v2 PathStart, PathEnd; };
@@ -30,23 +31,23 @@ struct world_data_enemy : public world_data_entity_  {
  };
 };
 
-struct world_data_art : public world_data_entity_ {
- f32 Z;
+struct world_entity_art : public world_entity_ {
 };
 
-struct world_data_gate : public world_data_entity_ {
+struct world_entity_gate : public world_entity_ {
  u32 CoinsRequiredToOpen;
 };
 
-struct world_data_player : public world_data_entity_ {
+struct world_entity_player : public world_entity_ {
+ direction Direction;
 };
 
-struct world_data_teleporter : public world_data_entity_ {
+struct world_entity_teleporter : public world_entity_ {
  char *Level;
  char *RequiredLevel;
 };
 
-struct world_data_door : public world_data_entity_ {
+struct world_entity_door : public world_entity_ {
  union {
   struct { f32 Width, Height; };
   v2 Size;
@@ -54,39 +55,39 @@ struct world_data_door : public world_data_entity_ {
  char *RequiredLevel;
 };
 
-struct entity_data {
- u32 Type;
+struct world_entity {
+ entity_type Type;
  u64 ID;
  
  union {
   struct{
    v2 P;
-   entity_data_flags Flags;
+   world_entity_flags Flags;
    string Asset;
    f32 Z;
    u32 Layer;
   };
   
   // Tilemap 
-  world_data_tilemap Tilemap;
+  world_entity_tilemap Tilemap;
   
   // Enemy
-  world_data_enemy Enemy;
+  world_entity_enemy Enemy;
   
   // Teleporter
-  world_data_teleporter Teleporter;
+  world_entity_teleporter Teleporter;
   
   // Door
-  world_data_door Door;
+  world_entity_door Door;
   
   // Player
-  world_data_player Player;
+  world_entity_player Player;
   
   // Gate
-  world_data_gate Gate;
+  world_entity_gate Gate;
   
   // Art
-  world_data_art Art;
+  world_entity_art Art;
  };
 };
 
@@ -105,7 +106,7 @@ struct world_data {
  u8 *Map;
  u32 Width;
  u32 Height;
- array<entity_data> Entities;
+ array<world_entity> Entities;
  
  u32 CoinsToSpawn;
  u32 CoinsRequired;

@@ -177,10 +177,10 @@ ui_manager::DoElement(ui_element *Element, b8 IsHovered, b8 DoActivate, b8 DoDea
  if(CompareElements(Element, &ActiveElement)){
   Result = UIBehavior_Activate;
   if(ElementJustActive) Result = UIBehavior_JustActivate;
+  if(Element->Flags | UIElementFlag_Persist) KeepElementActive = true;
   if(DoDeactivate){
    Result = UIBehavior_Deactivate;
    ActiveElement.Flags &= ~UIElementFlag_Persist;
-   //ResetActiveElement();
   }
   
  }else if(IsHovered){
@@ -273,9 +273,7 @@ ui_manager::DoClickElement(u64 ID, os_mouse_button Button, b8 OnlyOnce, s32 Prio
  ui_behavior Result = DoElement(&Element, true, 
                                 MouseButtonJustDown(Button, KeyFlags),
                                 MouseButtonIsUp(Button, KeyFlags));
- if(Result == UIBehavior_JustActivate){
-  Result = UIBehavior_Activate;
- }else if(Result == UIBehavior_Hovered){
+ if(Result == UIBehavior_Hovered){
   Result = UIBehavior_None;
  }
  
@@ -320,11 +318,13 @@ void
 ui_manager::EndFrame(){
  ElementJustActive = false;
  
- if(!(ActiveElement.Flags & UIElementFlag_Persist)){
+ if(!(ActiveElement.Flags & UIElementFlag_Persist) ||
+    !KeepElementActive){
   ActiveElement = ValidElement;
   ElementJustActive = true;
  }
  
+ KeepElementActive = false;
  ValidElement = DefaultElement();
 }
 

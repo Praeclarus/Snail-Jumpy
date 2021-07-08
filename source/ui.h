@@ -301,8 +301,9 @@ struct ui_manager {
  ui_element ValidElement;
  //ui_element HoveredElement;
  b8 ElementJustActive;
- 
+ b8 KeepElementActive;
  b8 HideWindows;
+ 
  
  //~ Window stuff
  font *FontTable[UIFont_TOTAL];

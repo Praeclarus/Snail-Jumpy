@@ -482,10 +482,10 @@ entity_manager::UpdateAndRenderEntities(){
  FOR_BUCKET_ARRAY(It, &Arts){
   art_entity *Art = It.Item;
   asset_art *Asset = AssetSystem.GetArt(Art->Asset);
-  RenderArt(Asset, Art->P, Art->Z, 1);
+  RenderArt(Asset, Art->P, Art->Z, Art->Layer);
   v2 Center = Art->P+0.5f*Asset->Size;
   f32 Radius = Asset->Size.Width;
-  GameRenderer.AddLight(Center, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
+  GameRenderer.AddLight(Center, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(Art->Layer));
  }
  
  //~ Teleporters @entity_teleporters

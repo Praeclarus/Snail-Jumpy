@@ -76,7 +76,7 @@ enum entity_type {
  EntityType_Coin       = 2,
  EntityType_Enemy      = 3,
  EntityType_Art        = 4,
- EntityType_Partices   = 5,
+ EntityType_Particles  = 5,
  EntityType_Gate       = 6,
  EntityType_Player     = 7,
  EntityType_Teleporter = 8,

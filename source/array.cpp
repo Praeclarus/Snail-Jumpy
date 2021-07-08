@@ -105,6 +105,12 @@ ArrayUnorderedRemove(array<T> *Array, u32 Index){
  Array->Count--;
 }
 
+template<typename T> internal inline void
+ArraySwap(array<T> Array, u32 IndexA, u32 IndexB){
+ T Temp = Array[IndexA];
+ Array[IndexA] = Array[IndexB];
+ Array[IndexB] = Temp;
+}
 
 //~ Dynamic array
 template <typename T>

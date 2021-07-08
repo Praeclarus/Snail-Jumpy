@@ -25,11 +25,10 @@ struct coin_data {
 
 //~ Entities
 
-// TODO(Tyler): These ('art_entity') might not work best as an entity
-// they might be better handled in a different way.
 struct art_entity {
  v2 P;
  f32 Z;
+ u32 Layer;
  string Asset;
 };
 
@@ -41,6 +40,7 @@ struct entity {
  animation_state Animation;
  
  f32 ZLayer;
+ u32 Layer;
  
  u8 BoundarySet;
  

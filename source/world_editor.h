@@ -57,15 +57,16 @@ struct editor_action {
  editor_action_type Type;
  
  union{
-  entity_data Entity;
+  world_entity Entity;
  };
 };
 
 //~ Editor
 typedef u32 world_editor_flags;
 enum world_editor_flags_ {
- WorldEditorFlag_None             = 0,
- WorldEditorFlag_HideArt          = (1 << 0),
+ WorldEditorFlag_None         = 0,
+ WorldEditorFlag_HideArt      = (1 << 0),
+ WorldEditorFlag_HideOverlays = (1 << 1),
 };
 
 struct world_editor {
@@ -87,9 +88,9 @@ struct world_editor {
  
  edit_mode_thing EditThing;
  tile_edit_mode  TileEditMode;
- entity_data *Selected;
+ world_entity *Selected;
  
- entity_data *EntityToDelete;
+ world_entity *EntityToDelete;
  editor_delete_flags DeleteFlags;
  
  b8 OverrideEditTilemap;
@@ -111,16 +112,18 @@ struct world_editor {
  void DoEditThingTeleporter();
  void DoEditThingDoor();
  
- inline void EditModeEntity(entity_data *Entity);
+ inline void EditModeEntity(world_entity *Entity);
+ inline u32  GetEntityIndex(u64 ID);
  
+ b8 DoButton(rect R, u64 ID);
  void DoSelectedThingUI();
- void DoEnemyOverlay(world_data_enemy *Entity);
+ void DoEnemyOverlay(world_entity_enemy *Entity);
  inline b8 IsEditingTilemap();
  void MaybeEditTilemap();
  
- inline b8 IsSelectionDisabled(entity_data *Entity, os_key_flags KeyFlags);
- inline b8 DoDragEntity(v2 *P, v2 Size, entity_data *Entity, b8 Special=false);
- inline b8 DoDeleteEntity(v2 P, v2 Size, entity_data *Entity, b8 Special=false);
+ inline b8 IsSelectionDisabled(world_entity *Entity, os_key_flags KeyFlags);
+ inline b8 DoDragEntity(v2 *P, v2 Size, world_entity *Entity, b8 Special=false);
+ inline b8 DoDeleteEntity(v2 P, v2 Size, world_entity *Entity, b8 Special=false);
  
  //~ Undo/redo
  dynamic_array<editor_action> Actions;
@@ -134,8 +137,8 @@ struct world_editor {
  
  void ClearActionHistory();
  editor_action *MakeAction(editor_action_type Type);
- entity_data *AddEntityAction(b8 Commit=true);
- void DeleteEntityAction(entity_data *Entity, editor_delete_flags=EditorDeleteFlag_None);
+ world_entity *AddEntityAction(b8 Commit=true);
+ void DeleteEntityAction(world_entity *Entity, editor_delete_flags=EditorDeleteFlag_None);
 };
 
 //~ Constants
