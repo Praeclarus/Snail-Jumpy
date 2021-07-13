@@ -275,54 +275,54 @@
     boundary 2 Boundary_Wedge( 0  0  16  16)
     boundary 3 Boundary_Wedge( 0  0 -16 -16)
     boundary 4 Boundary_Wedge( 0  0  16 -16)
-    tile           "?_?_#_?_?" 4
-    tile           "XXX_#_?_?" 2
-    tile           "_XX_#_?_?" 2
-    tile           "XX__#_?_?" REVERSE_PREVIOUS
-    tile           "?_?_#X?_?" 6
-    tile           "?_?X#_?_?" REVERSE_PREVIOUS
-    tile           "?_?X#X?_?" 7
-    tile           "?_?_#_?X?" 2
-    tile           "_X__#_?_?" 2
-    tile           "_X__#_?X?" 4
-    tile           "?_?_#X?X?" 4
-    tile           "?_?X#_?X?" REVERSE_PREVIOUS
-    tile           "_X?_#X?_?" 4
-    tile           "?X_X#_?_?" REVERSE_PREVIOUS
-    tile           "XX?_#X?_?" 4
-    tile           "?XXX#_?_?" REVERSE_PREVIOUS
-    tile           "?_?X#X?X?" 9
-    tile           "_X?_#X?X?" ROTATE_PREVIOUS_270 
-    tile           "?X_X#_?X?" ROTATE_PREVIOUS_90
-    tile           "?X?X#X?_?" 5
-    tile           "?X?X#X?X?" 3
-    tile           "XX?_#X?X?" 2
-    tile           "?XXX#_?X?" REVERSE_PREVIOUS
-    tile           "XX__#_?X?" 2
-    tile           "_XX_#_?X?" REVERSE_PREVIOUS
-    tile           "XXX_#_?X?" 2
+    tile 0           "?_?_#_?_?" 4
+    tile 0           "XXX_#_?_?" 2
+    tile 0           "_XX_#_?_?" 2
+    tile 0           "XX__#_?_?" REVERSE_PREVIOUS
+    tile 0           "?_?_#X?_?" 6
+    tile 0           "?_?X#_?_?" REVERSE_PREVIOUS
+    tile 0           "?_?X#X?_?" 7
+    tile 0           "?_?_#_?X?" 2
+    tile 0           "_X__#_?_?" 2
+    tile 0           "_X__#_?X?" 4
+    tile 0           "?_?_#X?X?" 4
+    tile 0           "?_?X#_?X?" REVERSE_PREVIOUS
+    tile 0           "_X?_#X?_?" 4
+    tile 0           "?X_X#_?_?" REVERSE_PREVIOUS
+    tile 0           "XX?_#X?_?" 4
+    tile 0           "?XXX#_?_?" REVERSE_PREVIOUS
+    tile 0           "?_?X#X?X?" 9
+    tile 0           "_X?_#X?X?" ROTATE_PREVIOUS_270 
+    tile 0           "?X_X#_?X?" ROTATE_PREVIOUS_90
+    tile 0           "?X?X#X?_?" 5
+    tile 0           "?X?X#X?X?" 3
+    tile 0           "XX?_#X?X?" 2
+    tile 0           "?XXX#_?X?" REVERSE_PREVIOUS
+    tile 0           "XX__#_?X?" 2
+    tile 0           "_XX_#_?X?" REVERSE_PREVIOUS
+    tile 0           "XXX_#_?X?" 2
     connector      "_X?X#????" 1
     connector      "?X_?#X???" REVERSE_PREVIOUS
-    wedge_up_left    "?_?_#X?X?" 4
-    wedge_up_right   "?_?X#_?X?" REVERSE_PREVIOUS
-    wedge_down_left  "XX?_#X?_?" 2
-    wedge_down_right "?XXX#_?_?" REVERSE_PREVIOUS
-    wedge_up_left    "?_?_#_?X?" 2
-    wedge_up_right   "?_?_#_?X?" REVERSE_PREVIOUS
-    wedge_down_left  "_X__#_?_?" REVERSE_AND_ROTATE_PREVIOUS_180
-    wedge_down_right "_X__#_?_?" ROTATE_PREVIOUS_180
-    wedge_down_left  "XXX_#_???" 2
-    wedge_down_right "XXX_#_???" REVERSE_PREVIOUS
-    wedge_down_left  "?_?_#X?_?" 2
-    wedge_down_right "?_?X#_?_?" REVERSE_PREVIOUS
-    wedge_down_left  "_XX_#_???" ROTATE_PREVIOUS_270
-    wedge_down_right "XX__#_???" REVERSE_AND_ROTATE_PREVIOUS_90
-    wedge_up_left    "?_?_#X?_?" 2
-    wedge_up_right   "?_?X#_?_?" REVERSE_PREVIOUS
-    wedge_down_left  "_XX_#_???" ROTATE_PREVIOUS_270
-    wedge_down_right "XX__#_???" REVERSE_AND_ROTATE_PREVIOUS_270
-    wedge_down_left  "_X?_#X?_?" 2
-    wedge_down_right "?X_X#_?_?" REVERSE_PREVIOUS
+    wedge_up_left 1    "?_?_#X?X?" 4
+    wedge_up_right 2   "?_?X#_?X?" REVERSE_PREVIOUS
+    wedge_down_left 3  "XX?_#X?_?" 2
+    wedge_down_right 4 "?XXX#_?_?" REVERSE_PREVIOUS
+    wedge_up_left 1    "?_?_#_?X?" 2
+    wedge_up_right 2   "?_?_#_?X?" REVERSE_PREVIOUS
+    wedge_down_left 3  "_X__#_?_?" REVERSE_AND_ROTATE_PREVIOUS_180
+    wedge_down_right 4 "_X__#_?_?" ROTATE_PREVIOUS_180
+    wedge_down_left 3  "XXX_#_???" 2
+    wedge_down_right 4 "XXX_#_???" REVERSE_PREVIOUS
+    wedge_down_left 3  "?_?_#X?_?" 2
+    wedge_down_right 4 "?_?X#_?_?" REVERSE_PREVIOUS
+    wedge_down_left 3  "_XX_#_???" ROTATE_PREVIOUS_270
+    wedge_down_right 4 "XX__#_???" REVERSE_AND_ROTATE_PREVIOUS_90
+    wedge_up_left 1    "?_?_#X?_?" 2
+    wedge_up_right 2   "?_?X#_?_?" REVERSE_PREVIOUS
+    wedge_down_left 3  "_XX_#_???" ROTATE_PREVIOUS_270
+    wedge_down_right 4 "XX__#_???" REVERSE_AND_ROTATE_PREVIOUS_270
+    wedge_down_left 3  "_X?_#X?_?" 2
+    wedge_down_right 4 "?X_X#_?_?" REVERSE_PREVIOUS
 
 : Tilemap dirt
     path "asset_tilemaps/dirt_platform.png"
@@ -333,34 +333,34 @@
     boundary 2 Boundary_Wedge( 0  0  16  16)
     boundary 3 Boundary_Wedge( 0  0 -16 -16)
     boundary 4 Boundary_Wedge( 0  0  16 -16)
-    tile           "?_?_#_?_?" 3
-    tile           "?X?_#_?_?" 2
-    tile           "?_?_#X?_?" 4
-    tile           "?_?X#_?_?" REVERSE_PREVIOUS
-    tile           "?_?X#X?_?" 4
-    tile           "?_?_#_?X?" 2
-    tile           "?X?_#_?X?" 3
-    tile           "?_?_#X?X?" 4
-    tile           "?_?X#_?X?" REVERSE_PREVIOUS
-    tile           "?X?_#X?_?" 4
-    tile           "?X?X#_?_?" REVERSE_PREVIOUS
-    tile           "?_?X#X?X?" 5
-    tile           "?X?_#X?X?" ROTATE_PREVIOUS_270 
-    tile           "?X?X#_?X?" ROTATE_PREVIOUS_90
-    tile           "?X?X#X?X?" 3
-    wedge_down_left  "?X?_#X?_?" 2
-    wedge_down_right "?X?X#_?_?" REVERSE_PREVIOUS
-    wedge_up_left    "?_?_#X?X?" V_REVERSE_PREVIOUS
-    wedge_up_right   "?_?X#_?X?" HV_REVERSE_PREVIOUS
-    wedge_down_left  "?X?_#_???" 2
-    wedge_down_right "?X?_#_???" REVERSE_PREVIOUS
-    wedge_up_left    "???_#_?X?" REVERSE_AND_ROTATE_PREVIOUS_180
-    wedge_up_right   "???_#_?X?" ROTATE_PREVIOUS_180
-    wedge_down_left  "?_?_#X?_?" REVERSE_AND_ROTATE_PREVIOUS_90
-    wedge_down_right "?_?X#_?_?" ROTATE_PREVIOUS_270
-    wedge_up_left    "?_?_#X?_?" ROTATE_PREVIOUS_90
-    wedge_up_right   "?_?X#_?_?" REVERSE_AND_ROTATE_PREVIOUS_270 
-    tile             "?X?X#X?_?" 4
+    tile 0           "?_?_#_?_?" 3
+    tile 0           "?X?_#_?_?" 2
+    tile 0           "?_?_#X?_?" 4
+    tile 0           "?_?X#_?_?" REVERSE_PREVIOUS
+    tile 0           "?_?X#X?_?" 4
+    tile 0           "?_?_#_?X?" 2
+    tile 0           "?X?_#_?X?" 3
+    tile 0           "?_?_#X?X?" 4
+    tile 0           "?_?X#_?X?" REVERSE_PREVIOUS
+    tile 0           "?X?_#X?_?" 4
+    tile 0           "?X?X#_?_?" REVERSE_PREVIOUS
+    tile 0           "?_?X#X?X?" 5
+    tile 0           "?X?_#X?X?" ROTATE_PREVIOUS_270 
+    tile 0           "?X?X#_?X?" ROTATE_PREVIOUS_90
+    tile 0           "?X?X#X?X?" 3
+    wedge_down_left 3  "?X?_#X?_?" 2
+    wedge_down_right 4 "?X?X#_?_?" REVERSE_PREVIOUS
+    wedge_up_left 1    "?_?_#X?X?" V_REVERSE_PREVIOUS
+    wedge_up_right 2   "?_?X#_?X?" HV_REVERSE_PREVIOUS
+    wedge_down_left 3  "?X?_#_???" 2
+    wedge_down_right 4 "?X?_#_???" REVERSE_PREVIOUS
+    wedge_up_left 1    "???_#_?X?" REVERSE_AND_ROTATE_PREVIOUS_180
+    wedge_up_right 2   "???_#_?X?" ROTATE_PREVIOUS_180
+    wedge_down_left 3  "?_?_#X?_?" REVERSE_AND_ROTATE_PREVIOUS_90
+    wedge_down_right 4 "?_?X#_?_?" ROTATE_PREVIOUS_270
+    wedge_up_left 1    "?_?_#X?_?" ROTATE_PREVIOUS_90
+    wedge_up_right 2   "?_?X#_?_?" REVERSE_AND_ROTATE_PREVIOUS_270 
+    tile 0             "?X?X#X?_?" 4
 
 : Tilemap cobblestone
     path "asset_tilemaps/cobblestone_platform.png"
@@ -371,41 +371,41 @@
     boundary 2 Boundary_Wedge( 0  0  16  16)
     boundary 3 Boundary_Wedge( 0  0 -16 -16)
     boundary 4 Boundary_Wedge( 0  0  16 -16)
-    tile "?_?_#_?_?" 2 
-    tile "?_?_#X?_?" 2
-    tile "?_?_#_?X?" ROTATE_PREVIOUS_90
-    tile "?_?X#_?_?" ROTATE_PREVIOUS_180
-    tile "?X?_#_?_?" ROTATE_PREVIOUS_270
-    tile "?_?_#X?X?" 2
-   	tile "?_?X#_?X?" ROTATE_PREVIOUS_90
-   	tile "?X?X#_?_?" ROTATE_PREVIOUS_180
-   	tile "?X?_#X?_?" ROTATE_PREVIOUS_270
-   	tile "?_?X#X?_?" 3
-   	tile "?X?_#_?X?" ROTATE_PREVIOUS_90
-   	tile "?_?X#X?X?" 3
-   	tile "?X?X#_?X?" ROTATE_PREVIOUS_90
-   	tile "?X?X#X?_?" ROTATE_PREVIOUS_180
-   	tile "?X?_#X?X?" ROTATE_PREVIOUS_270
-   	tile "?X?X#X?X?" 5
+    tile 0 "?_?_#_?_?" 2 
+    tile 0 "?_?_#X?_?" 2
+    tile 0 "?_?_#_?X?" ROTATE_PREVIOUS_90
+    tile 0 "?_?X#_?_?" ROTATE_PREVIOUS_180
+    tile 0 "?X?_#_?_?" ROTATE_PREVIOUS_270
+    tile 0 "?_?_#X?X?" 2
+   	tile 0 "?_?X#_?X?" ROTATE_PREVIOUS_90
+   	tile 0 "?X?X#_?_?" ROTATE_PREVIOUS_180
+   	tile 0 "?X?_#X?_?" ROTATE_PREVIOUS_270
+   	tile 0 "?_?X#X?_?" 3
+   	tile 0 "?X?_#_?X?" ROTATE_PREVIOUS_90
+   	tile 0 "?_?X#X?X?" 3
+   	tile 0 "?X?X#_?X?" ROTATE_PREVIOUS_90
+   	tile 0 "?X?X#X?_?" ROTATE_PREVIOUS_180
+   	tile 0 "?X?_#X?X?" ROTATE_PREVIOUS_270
+   	tile 0 "?X?X#X?X?" 5
     connector "_X?X#????" 2
    	connector "?X_?#X???" REVERSE_PREVIOUS
    	connector "???X#?_X?" V_REVERSE_PREVIOUS
    	connector "????#X?X_" HV_REVERSE_PREVIOUS
    	# corners
-    wedge_up_right "?_?X#_?X?" 2
-   	wedge_up_left  "?_?_#X?X?" REVERSE_PREVIOUS
-   	wedge_down_right "?X?X#_?_?" V_REVERSE_PREVIOUS
-   	wedge_down_left "?X?_#X?_?" HV_REVERSE_PREVIOUS
+    wedge_up_right 2 "?_?X#_?X?" 2
+   	wedge_up_left 1  "?_?_#X?X?" REVERSE_PREVIOUS
+   	wedge_down_right 4 "?X?X#_?_?" V_REVERSE_PREVIOUS
+   	wedge_down_left 3 "?X?_#X?_?" HV_REVERSE_PREVIOUS
    	# ends
-    wedge_up_right "?_?X#_?_?" 2
-    wedge_up_left "?_?_#X?_?" REVERSE_PREVIOUS
-    wedge_down_right "?_?X#_?_?" V_REVERSE_PREVIOUS
-    wedge_down_left "?_?_#X?_?" HV_REVERSE_PREVIOUS
+    wedge_up_right 2 "?_?X#_?_?" 2
+    wedge_up_left 1 "?_?_#X?_?" REVERSE_PREVIOUS
+    wedge_down_right 4 "?_?X#_?_?" V_REVERSE_PREVIOUS
+    wedge_down_left 3 "?_?_#X?_?" HV_REVERSE_PREVIOUS
     # points
-    wedge_up_right "?_?_#_?X?" REVERSE_AND_ROTATE_PREVIOUS_270
-    wedge_up_left "?_?_#_?X?"  ROTATE_PREVIOUS_270
-    wedge_down_right "?X?_#_?_?" ROTATE_PREVIOUS_90
-    wedge_down_left "?X?_#_?_?" REVERSE_AND_ROTATE_PREVIOUS_90
+    wedge_up_right 2 "?_?_#_?X?" REVERSE_AND_ROTATE_PREVIOUS_270
+    wedge_up_left 1 "?_?_#_?X?"  ROTATE_PREVIOUS_270
+    wedge_down_right 4 "?X?_#_?_?" ROTATE_PREVIOUS_90
+    wedge_down_left 3 "?X?_#_?_?" REVERSE_AND_ROTATE_PREVIOUS_90
 
 : Tilemap plant
     path "asset_tilemaps/plant_platform.png"
@@ -417,48 +417,48 @@
     boundary 3 Boundary_Wedge( 0  0 -16 -16)
     boundary 4 Boundary_Wedge( 0  0  16 -16)
     # normal tiles
-    tile "?_?_#_?_?" 3
-    tile "XXX_#_?_?" 2
-    tile "_XX_#_?_?" 2
-    tile "XX__#_?_?" REVERSE_PREVIOUS
-    tile "?_?_#X?_?" 4
-    tile "?_?X#_?_?" REVERSE_PREVIOUS
-    tile "?_?X#X?_?" 5
-    tile "?_?_#_?X?" 2
-    tile "_X__#_?_?" 2
-    tile "?X?_#_?X?" 5
-    tile "?_?_#X?X?" 2
-    tile "?_?X#_?X?" REVERSE_PREVIOUS
-    tile "_X?_#X?_?" 3
-    tile "?X_X#_?_?" REVERSE_PREVIOUS
-    tile "XX?_#X?_?" 2
-    tile "?XXX#_?_?" REVERSE_PREVIOUS
-    tile "?_?X#X?X?" 5
-    tile "?X?X#_?X?" ROTATE_PREVIOUS_90
-    tile "?X?_#X?X?" ROTATE_PREVIOUS_270
-    tile "?X?X#X?_?" 3
-    tile "?X?X#X?X?" 3
-    tile "XX?_#X?X?" 2
-    tile "?XXX#_?X?" REVERSE_PREVIOUS
-    tile "XX?_#_?X?" 2
-    tile "?XX_#_?X?" REVERSE_PREVIOUS
-    tile "XXX_#_?X?" 2
-    tile "XXX_#_?X?" REVERSE_PREVIOUS
+    tile 0 "?_?_#_?_?" 3
+    tile 0 "XXX_#_?_?" 2
+    tile 0 "_XX_#_?_?" 2
+    tile 0 "XX__#_?_?" REVERSE_PREVIOUS
+    tile 0 "?_?_#X?_?" 4
+    tile 0 "?_?X#_?_?" REVERSE_PREVIOUS
+    tile 0 "?_?X#X?_?" 5
+    tile 0 "?_?_#_?X?" 2
+    tile 0 "_X__#_?_?" 2
+    tile 0 "?X?_#_?X?" 5
+    tile 0 "?_?_#X?X?" 2
+    tile 0 "?_?X#_?X?" REVERSE_PREVIOUS
+    tile 0 "_X?_#X?_?" 3
+    tile 0 "?X_X#_?_?" REVERSE_PREVIOUS
+    tile 0 "XX?_#X?_?" 2
+    tile 0 "?XXX#_?_?" REVERSE_PREVIOUS
+    tile 0 "?_?X#X?X?" 5
+    tile 0 "?X?X#_?X?" ROTATE_PREVIOUS_90
+    tile 0 "?X?_#X?X?" ROTATE_PREVIOUS_270
+    tile 0 "?X?X#X?_?" 3
+    tile 0 "?X?X#X?X?" 3
+    tile 0 "XX?_#X?X?" 2
+    tile 0 "?XXX#_?X?" REVERSE_PREVIOUS
+    tile 0 "XX?_#_?X?" 2
+    tile 0 "?XX_#_?X?" REVERSE_PREVIOUS
+    tile 0 "XXX_#_?X?" 2
+    tile 0 "XXX_#_?X?" REVERSE_PREVIOUS
     # wedges
     # corners
-    wedge_up_left "?_?_#X?X?" 2
-    wedge_up_right "?_?X#_?X?" REVERSE_PREVIOUS
-    wedge_down_left "?X?_#X???" 2
-    wedge_down_right "?X?X#_???" REVERSE_PREVIOUS
+    wedge_up_left 1 "?_?_#X?X?" 2
+    wedge_up_right 2 "?_?X#_?X?" REVERSE_PREVIOUS
+    wedge_down_left 3 "?X?_#X???" 2
+    wedge_down_right 4 "?X?X#_???" REVERSE_PREVIOUS
     # points
-    wedge_up_left "?_?_#_?X?" 2
-    wedge_up_right "?_?_#_?X?" REVERSE_PREVIOUS
-    wedge_down_left "?X?_#_?_?" 2
-    wedge_down_right "?X?_#_?_?" REVERSE_PREVIOUS
-    wedge_down_left "?_?_#X?_?" 2
-    wedge_down_right "?_?X#_?_?" REVERSE_PREVIOUS
-    wedge_up_left "?_?_#X?_?" 2
-    wedge_up_right "?_?X#_?_?" REVERSE_PREVIOUS
+    wedge_up_left 1 "?_?_#_?X?" 2
+    wedge_up_right 2 "?_?_#_?X?" REVERSE_PREVIOUS
+    wedge_down_left 3 "?X?_#_?_?" 2
+    wedge_down_right 4 "?X?_#_?_?" REVERSE_PREVIOUS
+    wedge_down_left 3 "?_?_#X?_?" 2
+    wedge_down_right 4 "?_?X#_?_?" REVERSE_PREVIOUS
+    wedge_up_left 1 "?_?_#X?_?" 2
+    wedge_up_right 2 "?_?X#_?_?" REVERSE_PREVIOUS
 
 : Tilemap wood_plank
     path "asset_tilemaps/wood_plank_platform.png"
@@ -470,100 +470,100 @@
     boundary 3 Boundary_Wedge( 5  5 -6 -6)
     boundary 4 Boundary_Wedge(-5  5  6 -6)
     # normal tiles
-    tile "???_#_?_?" 3
-    tile "???_#X?_?" 1
-    tile "???X#_?_?" 1
-    tile "???X#X???" 3
-    tile "???_#_?X?" 1
-    tile "???_#X?X?" 1
-    tile "???X#_?X?" 1
-    tile "???_#X_X_" 1
-    tile "???X#__X_" 1
+    tile 0 "???_#_?_?" 3
+    tile 0 "???_#X?_?" 1
+    tile 0 "???X#_?_?" 1
+    tile 0 "???X#X???" 3
+    tile 0 "???_#_?X?" 1
+    tile 0 "???_#X?X?" 1
+    tile 0 "???X#_?X?" 1
+    tile 0 "???_#X_X_" 1
+    tile 0 "???X#__X_" 1
     # wedges
-    wedge_up_left    "?_?_#XX??" 1
-    wedge_up_right   "?_?X#_??X" 1
-    wedge_down_right "???X#_?_?" 1
-    wedge_down_left  "???_#X?_?" 1
+    wedge_up_left 1    "?_?_#XX??" 1
+    wedge_up_right 2   "?_?X#_??X" 1
+    wedge_down_right 4 "???X#_?_?" 1
+    wedge_down_left 3  "???_#X?_?" 1
     # normal tiles
-    tile "???X#X_X_" 1
+    tile 0 "???X#X_X_" 1
     # more wedges
-    wedge_up_left    "?_?_#_X??" 1
-    wedge_up_right   "?_?_#_??X" 1
-    wedge_up_left    "?_X_#_?_?" 1
-    wedge_up_right   "X_?_#_?_?" 1
+    wedge_up_left 1    "?_?_#_X??" 1
+    wedge_up_right 2   "?_?_#_??X" 1
+    wedge_up_left 1    "?_X_#_?_?" 1
+    wedge_up_right 2   "X_?_#_?_?" 1
     #ropes
-    art tile "?_?_#_?X?" 1
-    art tile "?X?_#_?X?" 1
-    art tile "?_?_#X?X?" 1
-    art tile "?X?_#X?X?" 1
-    art tile "?_?X#_?X?" 1
-    art tile "?X?X#_?X?" 1
+    art tile 0 "?_?_#_?X?" 1
+    art tile 0 "?X?_#_?X?" 1
+    art tile 0 "?_?_#X?X?" 1
+    art tile 0 "?X?_#X?X?" 1
+    art tile 0 "?_?X#_?X?" 1
+    art tile 0 "?X?X#_?X?" 1
 
 : Tilemap metal_gate_art
     path "asset_tilemaps/metal_gate_art.png"
     tile_size 16 32
     dimensions 5 2
-    art tile "?_?_#_???" 2
-    art tile "?_?_#X???" 2
-    art tile "?_?X#_???" 2
-    art tile "?X??#X???" 1
-    art tile "?X??#_???" 1
-    art tile "?_?X#X???" 1
+    art tile 0 "?_?_#_???" 2
+    art tile 0 "?_?_#X???" 2
+    art tile 0 "?_?X#_???" 2
+    art tile 0 "?X??#X???" 1
+    art tile 0 "?X??#_???" 1
+    art tile 0 "?_?X#X???" 1
     
 : Tilemap flower_box
     path "asset_tilemaps/flower_box_platform.png"
     tile_size 16 16
     boundary 0 Boundary_Rect(0 0 16 16)
     dimensions 4 2
-    tile "???_#_???" 2
-    tile "???_#X???" 4
-    tile "???X#_???" REVERSE_PREVIOUS
-    tile "???X#X???" 2
+    tile 0 "???_#_???" 2
+    tile 0 "???_#X???" 4
+    tile 0 "???X#_???" REVERSE_PREVIOUS
+    tile 0 "???X#X???" 2
 
 : Tilemap snail
     path "asset_tilemaps/snailsheet.png"
     tile_size 16 16
     dimensions 7 4
     boundary 0 Boundary_Rect(0 0 16 16)
-    tile "?_?_#_?_?" 1
+    tile 0 "?_?_#_?_?" 1
     # shell end
-    tile "?_?_#X?_X" 1
-    tile "?_?_#_?XX" ROTATE_PREVIOUS_90
+    tile 0 "?_?_#X?_X" 1
+    tile 0 "?_?_#_?XX" ROTATE_PREVIOUS_90
     # back ends
-    tile "?X?_#_?_?" 1
-    tile "?_?_#X?__" 1
+    tile 0 "?X?_#_?_?" 1
+    tile 0 "?_?_#X?__" 1
     # front ends
-    tile "?_?X#_?_?" 1
-    tile "?_?_#_?X_" ROTATE_PREVIOUS_270
+    tile 0 "?_?X#_?_?" 1
+    tile 0 "?_?_#_?X_" ROTATE_PREVIOUS_270
     # horizontal
-    tile "?_?X#X?_?" 2
+    tile 0 "?_?X#X?_?" 2
     # vertical
-    tile "?X?_#_?X_" ROTATE_PREVIOUS_270
-    tile "?X?_#_?XX" 1
+    tile 0 "?X?_#_?X_" ROTATE_PREVIOUS_270
+    tile 0 "?X?_#_?XX" 1
     # edges
-    tile "?X?X#X?_?" 2
-    tile "?X?X#_?X?" ROTATE_PREVIOUS_270
-    tile "?_?X#X?X?" 2
-    tile "?X?_#X?X?" ROTATE_PREVIOUS_270
-    tile "?X?X#_?XX" 1
-    tile "?X?X#X?_X" 1
+    tile 0 "?X?X#X?_?" 2
+    tile 0 "?X?X#_?X?" ROTATE_PREVIOUS_270
+    tile 0 "?_?X#X?X?" 2
+    tile 0 "?X?_#X?X?" ROTATE_PREVIOUS_270
+    tile 0 "?X?X#_?XX" 1
+    tile 0 "?X?X#X?_X" 1
     # corners
-    tile "?X?X#_?_?" 2
-    tile "?_?_#X?X_" 1
-    tile "?X?_#X?__" 1
-    tile "?_?_#X?XX" 1
-    tile "?_?X#_?XX" REVERSE_PREVIOUS
-    tile "?X?_#X?_?" V_REVERSE_PREVIOUS
+    tile 0 "?X?X#_?_?" 2
+    tile 0 "?_?_#X?X_" 1
+    tile 0 "?X?_#X?__" 1
+    tile 0 "?_?_#X?XX" 1
+    tile 0 "?_?X#_?XX" REVERSE_PREVIOUS
+    tile 0 "?X?_#X?_?" V_REVERSE_PREVIOUS
     # weird tiles
-    tile "?_?X#X?X_" 1
-    tile "?X?X#X?X_" 1
-    tile "?X?_#X?X_" 1
-    tile "?X?X#X?X?" 2
+    tile 0 "?_?X#X?X_" 1
+    tile 0 "?X?X#X?X_" 1
+    tile 0 "?X?_#X?X_" 1
+    tile 0 "?X?X#X?X?" 2
     # top right corner
-    tile "?_?X#_?X_" 1
+    tile 0 "?_?X#_?X_" 1
     # more weird tiles (I didn't order this very good)
-    tile "?_?X#X?_X" 1
-    # tile ?_?X#_?XX 1
+    tile 0 "?_?X#X?_X" 1
+    # tile 0 ?_?X#_?XX 1
     connector "_X?X#????" 1
     connector "?X_?#X???" REVERSE_PREVIOUS
     connector "???X#?_X?" V_REVERSE_PREVIOUS
@@ -573,22 +573,21 @@
     tile_size 16 16
     dimensions 5 3
     boundary 0 Boundary_Rect(0 0 16 16)
-    tile "?_?_#_???" 3
-    tile "?_?_#X?_?" ROTATE_PREVIOUS_270
-    tile "?_?X#_?_?" ROTATE_PREVIOUS_90
-    tile "?X?_#_?_?" 1
-    tile "?X?_#X?_?" 1
-    tile "?X?X#_?_?" REVERSE_PREVIOUS
-    tile "?_?_#X?X?" V_REVERSE_PREVIOUS
-    tile "?_?X#_?X?" HV_REVERSE_PREVIOUS
-    tile "?X?_#_?X?" 2
-    tile "?_?X#X?_?" ROTATE_PREVIOUS_90
-    tile "?X?_#X?X?" 1
-    tile "?X?X#_?X?" REVERSE_PREVIOUS
-    tile "?X?X#X?_?" ROTATE_PREVIOUS_270
-    tile "?_?X#X?X?" ROTATE_PREVIOUS_90
-    tile "?X?X#X?X?" 2
-
+    tile 0 "?_?_#_???" 3
+    tile 0 "?_?_#X?_?" ROTATE_PREVIOUS_270
+    tile 0 "?_?X#_?_?" ROTATE_PREVIOUS_90
+    tile 0 "?X?_#_?_?" 1
+    tile 0 "?X?_#X?_?" 1
+    tile 0 "?X?X#_?_?" REVERSE_PREVIOUS
+    tile 0 "?_?_#X?X?" V_REVERSE_PREVIOUS
+    tile 0 "?_?X#_?X?" HV_REVERSE_PREVIOUS
+    tile 0 "?X?_#_?X?" 2
+    tile 0 "?_?X#X?_?" ROTATE_PREVIOUS_90
+    tile 0 "?X?_#X?X?" 1
+    tile 0 "?X?X#_?X?" REVERSE_PREVIOUS
+    tile 0 "?X?X#X?_?" ROTATE_PREVIOUS_270
+    tile 0 "?_?X#X?X?" ROTATE_PREVIOUS_90
+    tile 0 "?X?X#X?X?" 2
 
 # //////////////////////////////////////////////////////////////////////////
 #                                    Fonts

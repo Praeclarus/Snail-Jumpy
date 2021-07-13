@@ -824,6 +824,11 @@ asset_system::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
   return(false);
  }
  
+ if(!(Tile->Type & TileType_Connector)){
+  u32 BoundaryIndex = ExpectPositiveInteger();
+  Tile->BoundaryIndex = (u8)BoundaryIndex;
+ }
+ 
  CurrentAttribute = TileType;
  
  const char *PlaceString = Expect(String);
@@ -835,12 +840,12 @@ asset_system::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
  Tile->Place = Place;
  
  // NOTE(Tyler): This while(true) is here for macro reasons
- while(true){
+ 
+ file_token Token = Reader.PeekToken();
+ if(Token.Type == FileTokenType_Identifier){
+  const char *S = Expect(Identifier);
   
-  file_token Token = Reader.PeekToken();
-  if(Token.Type == FileTokenType_Identifier){
-   const char *S = Expect(Identifier);
-   
+  do{
    AssetLoaderProcessTilemapTransform("COPY_PREVIOUS",       TileTransform_None);
    AssetLoaderProcessTilemapTransform("REVERSE_PREVIOUS",    TileTransform_HorizontalReverse);
    AssetLoaderProcessTilemapTransform("V_REVERSE_PREVIOUS",  TileTransform_VerticalReverse);
@@ -854,15 +859,14 @@ asset_system::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
    
    LogError("'%s' is not a valid string", S);
    return(false);
-  }else{
-   u32 Count = Expect(Integer);
-   
-   Tile->OffsetMin = *TileOffset;
-   *TileOffset += Count;
-   Tile->OffsetMax = *TileOffset;
-  }
+  }while(false);
   
-  break;
+ }else{
+  u32 Count = Expect(Integer);
+  
+  Tile->OffsetMin = *TileOffset;
+  *TileOffset += Count;
+  Tile->OffsetMax = *TileOffset;
  }
  
  return(true);
@@ -965,6 +969,12 @@ asset_system::ProcessTilemap(){
  tilemap_tile_data *UnsortedTiles = PushArray(&TransientStorageArena, tilemap_tile_data, Tiles.Count);
  Tilemap->Connectors = PushArray(&Memory, tilemap_tile_data, 8);
  for(u32 I=0; I<Tiles.Count; I++){
+  if(Tiles[I].BoundaryIndex > BoundaryCount){
+   LogError("Tile's boundary index cannot be greater than the number of boundaries specified(%u)",
+            BoundaryCount);
+   return(false);
+  }
+  
   if(Tiles[I].Type == TileType_Connector){
    Tilemap->Connectors[Tilemap->ConnectorCount++] = Tiles[I];
   }else{
@@ -997,12 +1007,6 @@ asset_system::ProcessTilemap(){
  
  for(u32 I=0; I<BoundaryCount; I++){
   collision_boundary *Boundary = &Boundaries[I];
-#if 0 
-  v2 Size = RectSize(Boundary->Bounds);
-  v2 Min   = Boundary->Bounds.Min;
-  Boundary->Offset.Y -= Min.Y;
-  Boundary->Offset.X += 0.5f*(Entity->Size.Width);
-#endif
   Tilemap->Boundaries[I] = *Boundary;
  }
  
