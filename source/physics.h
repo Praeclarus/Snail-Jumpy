@@ -68,12 +68,6 @@ struct collision_boundary {
    v2 *FreeFormPoints;
    u32 FreeFormPointCount;
   };
-  
-  // Wedges
-  struct {
-   // but a direction is needed
-   v2 WedgePoints[3];
-  };
  };
 };
 

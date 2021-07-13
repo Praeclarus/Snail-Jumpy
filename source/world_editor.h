@@ -2,18 +2,21 @@
 #define SNAIL_JUMPY_EDITOR_H
 
 //~ Selector
-global_constant v2 DEFAULT_SELECTOR_P = V2(10.0f, 175.0f);
+global_constant v2 DEFAULT_SELECTOR_P = V2(10.0f, 10.0f);
 
 struct selector_data {
  const f32 Thickness = 1.0f;
  const f32 Spacer    = 2.0f;
+ os_key_flags ScrollModifier;
  v2 StartP;
  v2 P;
  f32 MaxItemSide;
  f32 WrapWidth;
  
- b8 DidSelect = true;
+ b8 DidSelect;
  u32 SelectedIndex;
+ u32 MaxIndex;
+ b8 *ValidIndices; // Has 'MaxIndex' elements
 };
 
 //~ Edit mode
@@ -34,6 +37,10 @@ enum tile_edit_mode {
  TileEditMode_None,
  TileEditMode_Tile,
  TileEditMode_Wedge,
+ TileEditMode_ArtTile,
+ TileEditMode_ArtWedge,
+ 
+ TileEditMode_TOTAL,
 };
 
 //~ Undo/redo
@@ -166,6 +173,30 @@ global_constant edit_mode_thing WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_T
  EditThing_TOTAL,      // 7
  EditThing_Art,        // 8
  EditThing_Teleporter, // 9
+};
+
+global_constant tile_edit_mode FORWARD_TILE_EDIT_MODE_TABLE[TileEditMode_TOTAL] = {
+ TileEditMode_None, 
+ TileEditMode_Wedge, 
+ TileEditMode_ArtTile, 
+ TileEditMode_ArtWedge, 
+ TileEditMode_Tile, 
+};
+
+global_constant tile_edit_mode REVERSE_TILE_EDIT_MODE_TABLE[TileEditMode_TOTAL] = {
+ TileEditMode_None, 
+ TileEditMode_ArtWedge, 
+ TileEditMode_Tile, 
+ TileEditMode_Wedge, 
+ TileEditMode_ArtTile, 
+};
+
+global_constant tile_type TILE_EDIT_MODE_TILE_TYPE_TABLE[TileEditMode_TOTAL] = {
+ TileType_None, 
+ TileType_Tile, 
+ TileType_Wedge, 
+ TileTypeFlag_Art|TileType_Tile, 
+ TileTypeFlag_Art|TileType_Wedge, 
 };
 
 global_constant os_key_flags SPECIAL_SELECT_MODIFIER  = KeyFlag_Shift;

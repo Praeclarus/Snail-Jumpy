@@ -215,6 +215,71 @@ RenderArt(asset_art *Art, v2 P, f32 Z, u32 Layer){
 }
 
 //~ Tilemaps
+
+
+#if 0
+{
+ __m128 XYs = _mm_set_ps(Max.Y, Min.Y, Min.X, Max.X);
+ __m128 Xs;
+ __m128 Ys;
+ 
+ const u32 MinSX = 0;
+ const u32 MaxSX = 1;
+ const u32 MinSY = 2;
+ const u32 MaxSY = 3;
+ 
+ switch(Transform){
+  case TileTransform_None: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSX, MinSX, MaxSX, MaxSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSY, MaxSY, MaxSY, MinSY));
+  }break;
+  case TileTransform_HorizontalReverse: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSX, MaxSX, MinSX, MinSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSY, MaxSY, MaxSY, MinSY));
+  }break;
+  case TileTransform_VerticalReverse: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSX, MinSX, MaxSX, MaxSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSY, MinSY, MinSY, MaxSY));
+  }break;
+  case TileTransform_HorizontalAndVerticalReverse: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSX, MaxSX, MinSX, MinSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSY, MinSY, MinSY, MaxSY));
+  }break;
+  case TileTransform_Rotate90: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSX, MinSX, MinSX, MaxSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSY, MinSY, MaxSY, MaxSY));
+  }break;
+  case TileTransform_Rotate180: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSX, MaxSX, MinSX, MinSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSY, MinSY, MinSY, MaxSY));
+  }break;
+  case TileTransform_Rotate270: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSX, MaxSX, MaxSX, MinSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSY, MaxSY, MinSY, MinSY));
+  }break;
+  case TileTransform_ReverseAndRotate90: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSX, MaxSX, MaxSX, MinSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSY, MinSY, MaxSY, MaxSY));
+  }break;
+  case TileTransform_ReverseAndRotate180: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MinSX, MinSX, MaxSX, MaxSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSY, MinSY, MinSY, MaxSY));
+  }break;
+  case TileTransform_ReverseAndRotate270: {
+   Xs = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSX, MaxSX, MaxSX, MaxSX));
+   Ys = _mm_shuffle_ps(XYs, XYs, _MM_SHUFFLE(MaxSY, MaxSY, MinSX, MinSX));
+  }break;
+  default: { INVALID_CODE_PATH; }break;
+ }
+ 
+ v2 T0 = V2(M(Xs, 0), M(Ys, 0));
+ v2 T1 = V2(M(Xs, 1), M(Ys, 1));
+ v2 T2 = V2(M(Xs, 2), M(Ys, 2));
+ v2 T3 = V2(M(Xs, 3), M(Ys, 3));
+}
+#endif
+
+
 internal inline tilemap_tile_place
 StringToTilePlace(const char *S){
  u32 Count = CStringLength(S);
@@ -278,8 +343,9 @@ RenderTileAtIndex(asset_tilemap *Tilemap, v2 P, f32 Z, u32 Layer,
  Row = (Tilemap->YTiles - 1) - Row;
  Assert((0 <= Row) && (Row < Tilemap->YTiles));
  
- v2 Min = V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
+ v2 Min = V2(0);
  v2 Max = Min + V2(CellSize.X/TextureSize.X, CellSize.Y/TextureSize.Y);
+ 
  v2 T0 = {};
  v2 T1 = {};
  v2 T2 = {};
@@ -341,13 +407,18 @@ RenderTileAtIndex(asset_tilemap *Tilemap, v2 P, f32 Z, u32 Layer,
    T3 = V2(Max.X, Max.Y);
   }break;
   case TileTransform_ReverseAndRotate270: {
-   T0 = V2(Max.X, Max.Y);
-   T1 = V2(Min.X, Max.Y);
-   T2 = V2(Min.X, Min.Y);
-   T3 = V2(Max.X, Min.Y);
+   T0 = V2(Min.X, Min.Y);
+   T1 = V2(Max.X, Min.Y);
+   T2 = V2(Max.X, Max.Y);
+   T3 = V2(Min.X, Max.Y);
   }break;
   default: { INVALID_CODE_PATH; }break;
  }
+ 
+ T0 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
+ T1 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
+ T2 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
+ T3 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
  
  
  rect R = SizeRect(P, RenderSize);
@@ -357,16 +428,6 @@ RenderTileAtIndex(asset_tilemap *Tilemap, v2 P, f32 Z, u32 Layer,
             V2(R.Max.X, R.Max.Y), T2, WHITE,
             V2(R.Max.X, R.Min.Y), T3, WHITE);
 }
-
-#if 0
-internal inline extra_tile_data
-ExtraTileData(tile_connector_flags Connector=TileConnector_None, tile_transform Transform=TileTransform_None){
- extra_tile_data Result = {};
- Result.Connector = Connector;
- Result.Transform = Transform;
- return(Result);
-}
-#endif
 
 internal inline tilemap_data
 MakeTilemapData(memory_arena *Arena, u32 Width, u32 Height){
@@ -400,13 +461,13 @@ RenderTilemap(asset_tilemap *Tilemap, tilemap_data *Data, v2 P, f32 Z, u32 Layer
  for(u32 Y=0; Y<Data->Height; Y++){
   for(u32 X=0; X<Data->Width; X++){
    u32 TileIndex = Data->Indices[MapIndex];
-   if(TileIndex > 0){
+   if(TileIndex){
+    
     TileIndex--;
     tile_transform Transform = Data->Transforms[MapIndex];
     
     RenderTileAtIndex(Tilemap, TileP, Z, Layer, TileIndex, 
                       Transform);
-    
     
     // TODO(Tyler): This could likely be more efficient, but then again, 
     // the entire rendering system probably could be.
@@ -414,9 +475,9 @@ RenderTilemap(asset_tilemap *Tilemap, tilemap_data *Data, v2 P, f32 Z, u32 Layer
     if(Connector.Selected){
      for(u32 I=0; I<8; I++){
       if(Connector.Selected & (1 << I)){
-       u32 ConnectorOffset = ChooseTileIndex(Tilemap->Connectors[I], MapIndex);
+       u32 ConnectorOffset = ChooseTileIndex(&Tilemap->Connectors[I], MapIndex);
        RenderTileAtIndex(Tilemap, TileP, Z-0.1f, Layer, ConnectorOffset,
-                         Tilemap->Connectors[I]->Transform);
+                         Tilemap->Connectors[I].Transform);
       }
      }
     }
@@ -487,7 +548,8 @@ CalculatePlace(u8 *MapData, s32 Width, s32 Height, s32 X, s32 Y, b8 BoundsTiles=
 }
 
 internal void 
-CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data, u8 *PhysicsMap=0){
+CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data, 
+                        u8 *PhysicsMap=0, b8 TreatEdgesAsTiles=false){
  TIMED_FUNCTION();
  
  s32 Width = (s32)Data->Width;
@@ -498,51 +560,65 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data,
   for(s32 X=0; X<Width; X++){
    u8 HasTile = MapData[MapIndex];
    if(HasTile){
-    tilemap_tile_place Place = CalculatePlace(MapData, Width, Height, X, Y);
-    //tilemap_tile_place Place = CalculatePlace(MapData, Width, Height, X, Y, true);
+    tilemap_tile_place Place = CalculatePlace(MapData, Width, Height, X, Y, 
+                                              TreatEdgesAsTiles);
     
-    tile_type Type = TileType_Tile;
-    if(HasTile == TileEditMode_Wedge){
-     for(u32 I=0; I<ArrayCount(WedgePlaces); I++){
-      if((WedgePlaces[I] & Place) == Place){
-       u32 Offset = I % 4;
-       Type &= ~TileType_Tile;
-       Type |= (tile_type)(TileType_WedgeUpLeft<<Offset);
-      }
-     }
+    tile_type Type = HasTile;
+    tile_flags Flags = 0;
+    if(HasTile & TileTypeFlag_Art){
+     Flags |= TileFlag_Art;
     }
     
-    u32 LastPopCount = U32_MAX;
+    tilemap_tile_data *FoundNormalTile = 0;
+    tilemap_tile_data *FoundTile = 0;
+    
     for(u32 I=0; I<Tilemap->TileCount; I++){
      tilemap_tile_data *Tile = &Tilemap->Tiles[I];
      tilemap_tile_place TilePlace = Tile->Place;
      
      if((TilePlace & Place) == Place){
-      if(Tile->Type & Type){
-       u32 PopCount = PopCountU32(TilePlace);
-       if(PopCount < LastPopCount){
-        Data->Indices[MapIndex] = ChooseTileIndex(Tile, (X+Y*(Width-1)))+1;
-        Data->Transforms[MapIndex] = Tile->Transform;
-        LastPopCount = PopCount;
-        if(PhysicsMap){
-         bit_scan_result BitScan = ScanForLeastSignificantSetBit(Tile->Type);
-         Assert(BitScan.Found);
-         Assert(BitScan.Index < 5);
-         PhysicsMap[MapIndex] = (u8)BitScan.Index+1;
-        }
-       }
-      }else if(Tile->Type & TileType_Connector){
-       for(u32 J=0; J < Tilemap->ConnectorCount; J++){
-        if(Tilemap->Connectors[J] == Tile){
-         Data->Connectors[MapIndex].Selected |= (1 << J);
-         break;
-        }
-       }
+      if((Tile->Type & Type) && (Tile->Flags == Flags)){
+       FoundTile = Tile;
+       break;
+      }else if(!FoundNormalTile &&
+               (Tile->Type & TileType_Tile) &&
+               (Tile->Flags == Flags)){
+       FoundNormalTile = Tile;
       }
      }
     }
+    
+    for(u32 I=0; I<Tilemap->ConnectorCount; I++){
+     tilemap_tile_data *Tile = &Tilemap->Connectors[I];
+     tilemap_tile_place TilePlace = Tile->Place;
+     
+     if((TilePlace & Place) == Place){
+      Data->Connectors[MapIndex].Selected |= (1 << I);
+     }
+    }
+    
+    if(FoundTile){
+     Data->Indices[MapIndex] = ChooseTileIndex(FoundTile, MapIndex)+1;
+     Data->Transforms[MapIndex] = FoundTile->Transform;
+     if(PhysicsMap && 
+        !(FoundTile->Flags & TileFlag_Art)){
+      bit_scan_result BitScan = ScanForLeastSignificantSetBit(FoundTile->Type);
+      Assert((BitScan.Found) && (BitScan.Index < 5));
+      PhysicsMap[MapIndex] = (u8)BitScan.Index+1;
+     }
+    }else if(FoundNormalTile){
+     Data->Indices[MapIndex] = ChooseTileIndex(FoundNormalTile, MapIndex)+1;
+     Data->Transforms[MapIndex] = FoundNormalTile->Transform;
+     if(PhysicsMap){
+      bit_scan_result BitScan = ScanForLeastSignificantSetBit(FoundNormalTile->Type);
+      Assert((BitScan.Found) && (BitScan.Index < 5));
+      PhysicsMap[MapIndex] = (u8)BitScan.Index+1;
+     }
+    }else{
+     POTENTIAL_BREAK_POINT;
+    }
+    
    }
-   
    MapIndex++;
   }
  }

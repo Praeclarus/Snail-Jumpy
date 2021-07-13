@@ -137,6 +137,7 @@ world_manager::LoadWorld(const char *LevelName){
       Tilemap->Layer = Entity->Layer;
       Tilemap->TilemapData = MakeTilemapData(&TransientMemory, Width, Height);
       
+#if 0
       u8 BoundaryCount = 5;
       collision_boundary *Boundaries = PhysicsSystem.AllocBoundaries(BoundaryCount);
       v2 TS = Asset->TileSize;
@@ -145,14 +146,17 @@ world_manager::LoadWorld(const char *LevelName){
       Boundaries[2] = MakeCollisionWedge(V2(-0.5f*TS.Y, -0.5f*TS.Y),  TS.X,  TS.Y);
       Boundaries[3] = MakeCollisionWedge(V2( 0.5f*TS.Y,  0.5f*TS.Y), -TS.X, -TS.Y);
       Boundaries[4] = MakeCollisionWedge(V2(-0.5f*TS.Y,  0.5f*TS.Y),  TS.X, -TS.Y);
+#endif
       
       u8 *PhysicsMap = PushArray(&TransientMemory, u8, Width*Height);
       
-      CalculateTilemapIndices(Asset, Data->MapData, &Tilemap->TilemapData, PhysicsMap);
+      CalculateTilemapIndices(Asset, Data->MapData, &Tilemap->TilemapData, 
+                              PhysicsMap, 
+                              (Entity->Flags&WorldEntityTilemapFlag_TreatEdgesAsTiles));
       
       physics_tilemap *Physics = PhysicsSystem.AddTilemap(PhysicsMap, Width, Height, 
                                                           Asset->TileSize, 
-                                                          Boundaries, BoundaryCount);
+                                                          Asset->Boundaries, (u8)Asset->BoundaryCount);
       Physics->P = Tilemap->P;
      }break;
      
@@ -367,6 +371,7 @@ world_manager::LoadWorldFromFile(const char *Name){
   for(u32 I = 0; I < NewWorld->Entities.Count; I++){
    world_entity *Entity = &NewWorld->Entities[I];
    Entity->P      = *ConsumeType(&Stream, v2);
+   Entity->Flags  = *ConsumeType(&Stream, world_entity_flags);
    Entity->Type   = *ConsumeType(&Stream, entity_type);
    const char *EntityInfoString = ConsumeString(&Stream);
    Entity->Asset = Strings.GetString(EntityInfoString);
@@ -460,6 +465,7 @@ world_manager::WriteWorldsToFiles(){
   for(u32 I = 0; I < World->Entities.Count; I++){
    world_entity *Entity = &World->Entities[I];
    WriteVariableToFile(File, Offset, Entity->P);
+   WriteVariableToFile(File, Offset, Entity->Flags);
    WriteVariableToFile(File, Offset, Entity->Type);
    const char *AssetName = Strings.GetString(Entity->Asset);
    if(!AssetName) AssetName = "";

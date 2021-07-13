@@ -41,10 +41,14 @@ global const char * const ASSET_ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
 
 //~ Assets
 
+global_constant u32 SJA_MAX_ARRAY_ITEM_COUNT = 32;
+
 global_constant u32 MAX_ASSETS_PER_TYPE = 128;
 global_constant u32 MAX_SPRITE_SHEET_ANIMATIONS  = 32;
 global_constant u32 MAX_ENTITY_PIECES = 4;
 global_constant u32 MAX_ENTITY_ASSET_BOUNDARIES = 8;
+
+global_constant u32 MAX_TILEMAP_BOUNDARIES = 8;
 
 struct asset_sprite_sheet {
  u32 StateTable[State_TOTAL][Direction_TOTAL];
@@ -118,6 +122,8 @@ struct asset_art {
  v2 Size;
 };
 
+
+//~ Tilemaps
 typedef u16 tilemap_tile_place;
 
 typedef u8 tile_transform;
@@ -134,7 +140,7 @@ enum tile_transform_ {
  TileTransform_ReverseAndRotate270
 };
 
-typedef u32 tile_type;
+typedef u8 tile_type;
 enum tile_type_ {
  TileType_None           = (0 << 0),
  TileType_Tile           = (1 << 0),
@@ -147,17 +153,13 @@ enum tile_type_ {
                    TileType_WedgeDownLeft | 
                    TileType_WedgeDownRight),
  TileType_Connector      = (1 << 5),
-#if 0
- TileType_ConnectorUpRight   = (1 << 6),
- TileType_ConnectorUpLeft    = (1 << 5),
- TileType_ConnectorDownLeft  = (1 << 7),
- TileType_ConnectorDownRight = (1 << 8),
- TileType_Connector = (TileType_ConnectorUpLeft   | 
-                       TileType_ConnectorUpRight  | 
-                       TileType_ConnectorDownLeft | 
-                       TileType_ConnectorDownRight),
-#endif
- 
+ TileTypeFlag_Art        = (1 << 6),
+};
+
+typedef u8 tile_flags;
+enum tile_flags_ {
+ TileFlag_None = (0 << 0),
+ TileFlag_Art  = (1 << 0),
 };
 
 struct tile_connector_data {
@@ -175,10 +177,12 @@ struct tilemap_data {
 
 struct tilemap_tile_data {
  tile_type Type;
+ tile_flags Flags;
  tilemap_tile_place Place;
  u32 OffsetMin;
  u32 OffsetMax;
  tile_transform Transform;
+ u8 BoundaryIndex;
 };
 
 // TODO(Tyler): Implement tilemaps
@@ -192,15 +196,10 @@ struct asset_tilemap {
  u32 TileCount;
  tilemap_tile_data *Tiles;
  u32 ConnectorCount;
- tilemap_tile_data *Connectors[8];
-};
-
-//~ Asset loading
-enum asset_loader_error {
- AssetLoaderError_None,
- AssetLoaderError_InvalidToken,
- AssetLoaderError_InvalidValue,
- AssetLoaderError_InvalidAttribute,
+ tilemap_tile_data *Connectors;
+ 
+ u32 BoundaryCount;
+ collision_boundary *Boundaries;
 };
 
 //~ Asset system
@@ -236,39 +235,42 @@ struct asset_system {
  const char *CurrentAttribute;
  
  void BeginCommand(const char *Name);
- void LogError(u32 Line, const char *Format, ...);
- void LogInvalidAttribute(u32 Line, const char *Attribute);
+ void LogError(const char *Format, ...);
+ void LogInvalidAttribute(const char *Attribute);
  
- //~ File loading
+ //~ SJA reading and parsing
  u64 LastFileWriteTime;
  hash_table<const char *, direction>    DirectionTable;
  hash_table<const char *, entity_state> StateTable;
  hash_table<const char *, entity_type>  EntityTypeTable;
  hash_table<const char *, collision_response_function *> CollisionResponses;
- asset_loader_error LastError;
+ 
+ file_reader Reader;
+ file_token ExpectToken(file_token_type Type);
+ u32        ExpectPositiveInteger_();
+ 
+ collision_boundary ExpectTypeBoundary();
+ array<s32>         ExpectTypeArrayS32();
  
  void InitializeLoader(memory_arena *Arena);
  
- const char *ExpectString(file_reader *Reader);
- s32         ExpectInteger(file_reader *Reader);
- f32         ExpectFloat(file_reader *Reader);
- b8          DoAttribute(const char *String, const char *Attribute);
+ b8 DoAttribute(const char *String, const char *Attribute);
  
- entity_state ReadState(file_reader *Reader);
- b8 IsInvalidEntityType(u32 Line, asset_entity *Entity, entity_type Target);
+ entity_state ReadState();
+ b8 IsInvalidEntityType(asset_entity *Entity, entity_type Target);
  
  void LoadAssetFile(const char *Path);
- b8 ProcessCommand(file_reader *Reader);
- b8 ProcessSpriteSheet(file_reader *Reader);
- b8 ProcessSpriteSheetStates(file_reader *Reader, const char *StateName, asset_sprite_sheet *Sheet);
- b8 ProcessAnimation(file_reader *Reader);
- b8 ProcessEntity(file_reader *Reader);
- b8 ProcessArt(file_reader *Reader);
- b8 ProcessBackground(file_reader *Reader);
- b8 ProcessTilemapTile(file_reader *Reader, tile_array *Tiles, const char *TileType, u32 *TileOffset);
- b8 ProcessTilemap(file_reader *Reader);
- b8 ProcessFont(file_reader *Reader);
- b8 ProcessIgnore(file_reader *Reader);
+ b8 ProcessCommand();
+ b8 ProcessSpriteSheet();
+ b8 ProcessSpriteSheetStates(const char *StateName, asset_sprite_sheet *Sheet);
+ b8 ProcessAnimation();
+ b8 ProcessEntity();
+ b8 ProcessArt();
+ b8 ProcessBackground();
+ b8 ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *TileOffset);
+ b8 ProcessTilemap();
+ b8 ProcessFont();
+ b8 ProcessIgnore();
 };
 
 #endif //SNAIL_JUMPY_ASSET_H

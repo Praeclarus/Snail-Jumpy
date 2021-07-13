@@ -25,6 +25,7 @@ global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
 
 global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant char *STARTUP_LEVEL = "Debug";
+//global_constant char *STARTUP_LEVEL = "Test_Level";
 
 //~ TODO(Tyler): Things that need a better place to go
 enum entity_state {

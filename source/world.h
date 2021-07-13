@@ -6,7 +6,7 @@
 typedef u32 world_entity_flags;
 enum world_entity_flags_ {
  WorldEntityFlag_None = (0 << 0),
- WorldEntityEditFlag_Hide = (1 << 0),
+ WorldEntityTilemapFlag_TreatEdgesAsTiles = (1 << 1),
 };
 
 struct world_entity_ {

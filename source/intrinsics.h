@@ -60,7 +60,7 @@ ZeroMemory(void *Memory, umw Size) {
 }
 
 internal u32 
-PopCountU32(u32 A){
+PopcountU32(u32 A){
  u32 Result = _mm_popcnt_u32(A);
  return(Result);
 }

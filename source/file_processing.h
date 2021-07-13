@@ -17,12 +17,27 @@ struct stream {
 //~ File reader
 enum file_token_type {
  FileTokenType_None, 
+ 
  FileTokenType_String, 
  FileTokenType_Integer, 
  FileTokenType_Float, 
+ 
  FileTokenType_BeginCommand, 
- FileTokenType_EndFile, 
+ FileTokenType_Identifier,
+ 
+ FileTokenType_BeginArguments,
+ FileTokenType_EndArguments,
+ 
+ FileTokenType_BeginSpecial,
+ FileTokenType_EndSpecial,
+ 
  FileTokenType_Invalid, 
+ FileTokenType_EndFile, 
+};
+
+enum file_reader_error {
+ FileReaderError_None,
+ FileReaderError_InvalidToken,
 };
 
 struct file_token {
@@ -30,15 +45,20 @@ struct file_token {
  u32 Line;
  
  union {
+  const char *Identifier;
   const char *String;
   s32 Integer;
   f32 Float;
+  char Char;
  };
 };
 
+struct sja_boundary;
 struct file_reader {
  stream Stream;
  u32    Line;
+ const char *Header;
+ file_reader_error LastError;
  
  file_token NextToken();
  file_token PeekToken();

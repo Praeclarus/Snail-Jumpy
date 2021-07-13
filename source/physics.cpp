@@ -158,11 +158,8 @@ RenderBoundary(collision_boundary *Boundary, f32 Z, v2 Offset){
   default: INVALID_CODE_PATH;
  }
  
-#if 1
  rect R = Boundary->Bounds + Offset;
- // TODO(Tyler): FIX ME! This is a hack!!!
  RenderRectOutline(R, Z-0.1f, RED, ScaledItem(1), Thickness);
-#endif
 }
 
 internal inline void
@@ -226,7 +223,7 @@ MakeCollisionCircle(v2 Offset, f32 Radius, u32 Segments, memory_arena *Arena=0){
  Result.Offset = Offset;
  Result.Bounds = CenterRect(V20, 2*V2(Radius));
  
- // TODO(Tyler): There is a likely a better way to do this that doesn't require
+ // TODO(Tyler): There might be a better way to do this that doesn't require
  // calculation beforehand
  Result.FreeFormPointCount = Segments;
  Result.FreeFormPoints = PushArray(Arena, v2, Segments);
@@ -242,7 +239,6 @@ MakeCollisionCircle(v2 Offset, f32 Radius, u32 Segments, memory_arena *Arena=0){
 
 internal inline collision_boundary
 MakeCollisionPill(v2 Offset, f32 Radius, f32 Height, u32 HalfSegments, memory_arena *Arena=0){
- // TODO(Tyler): Formalize this?
  if(!Arena) Arena = &PhysicsSystem.BoundaryMemory;
  
  collision_boundary Result = {};
@@ -448,12 +444,20 @@ DoSupport(collision_boundary *Boundary,
    if(Dot(V2(0, 1), Direction) > 0.0f) { Result.Y = Max.Y; }
   }break;
   case BoundaryType_FreeForm: {
+   b8 Found = false;
    for(u32 I = 0; I < Boundary->FreeFormPointCount; I++){
     v2 Point = Boundary->FreeFormPoints[I];
     if(Dot(Point, Direction) > Dot(Result, Direction)){
      Result = Point;
+     Found = true;
     }
    }
+   
+   // TODO(Tyler): This should be further investigated
+   if(!Found){
+    LogMessage("Unable to find a valid point!");
+   }
+   
   }break;
   case BoundaryType_None: break;
   case BoundaryType_Point: break;
@@ -829,6 +833,13 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
      TileID--;
      Assert(TileID < Tilemap->BoundaryCount);
      
+#if defined(SNAIL_JUMPY_DEBUG_BUILD)
+     if(DebugConfig.Overlay & DebugOverlay_Boundaries){
+      collision_boundary *B = &Tilemap->Boundaries[TileID];
+      RenderBoundary(B, -10.0f, TileP);
+     }
+#endif
+     
      physics_collision Collision = DoCollision(Boundary, P, &Tilemap->Boundaries[TileID], TileP, Delta);
      Collision.ObjectB = PushStruct(&TransientStorageArena, physics_object);
      Collision.ObjectB->P          = TileP;
@@ -1041,8 +1052,7 @@ physics_system::DoPhysics(){
  //~ DEBUG
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
  if(DebugConfig.Overlay & DebugOverlay_Boundaries){
-  // NOTE(Tyler): This doesn't need to be done here, but it is nice to have 
-  // as few #ifs as possible
+  // NOTE(Tyler): This doesn't need to be done here, but it is nicer here
   FOR_BUCKET_ARRAY(It, &Objects){
    RenderObject(It.Item);
   }

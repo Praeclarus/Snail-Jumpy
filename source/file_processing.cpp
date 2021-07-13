@@ -65,6 +65,83 @@ LoadImageFromPath(const char *Path){
  return(Result);
 }
 
+//~ File reader tokens
+
+file_token
+MaybeTokenIntegerToFloat(file_token Integer){
+ file_token Result = Integer;
+ if(Integer.Type == FileTokenType_Integer){
+  Result.Type = FileTokenType_Float;
+  Result.Float = (f32)Integer.Integer;
+ }
+ return(Result);
+}
+
+const char *
+TokenTypeName(file_token_type Type){
+ const char *Result = 0;
+ switch(Type){
+  case FileTokenType_Float:      Result = "float"; break;
+  case FileTokenType_Integer:    Result = "integer"; break;
+  case FileTokenType_Identifier: Result = "identifier"; break;
+  case FileTokenType_String:     Result = "string"; break;
+  case FileTokenType_BeginCommand: Result = ":"; break;
+  case FileTokenType_EndFile:    Result = "EOF"; break;
+  
+ }
+ 
+ return(Result);
+}
+
+const char *
+TokenToString(file_token Token){
+ const char *Result = 0;
+ 
+ switch(Token.Type){
+  case FileTokenType_Identifier: {
+   Result = Token.String;
+  }break;
+  case FileTokenType_String: {
+   u32 Size = CStringLength(Token.String)+2;
+   char *Buffer = PushArray(&TransientStorageArena, char, Size);
+   stbsp_snprintf(Buffer, Size, "\"%s\"", Token.String);
+   Result = Buffer;
+  }break;
+  case FileTokenType_Integer: {
+   char *Buffer = PushArray(&TransientStorageArena, char, DEFAULT_BUFFER_SIZE);
+   stbsp_snprintf(Buffer, DEFAULT_BUFFER_SIZE, "%d", Token.Integer);
+   Result = Buffer;
+  }break;
+  case FileTokenType_Float: {
+   char *Buffer = PushArray(&TransientStorageArena, char, DEFAULT_BUFFER_SIZE);
+   stbsp_snprintf(Buffer, DEFAULT_BUFFER_SIZE, "%d", Token.Float);
+   Result = Buffer;
+  }break;
+  case FileTokenType_BeginCommand: {
+   Result = ":";
+  }break;
+  case FileTokenType_Invalid: {
+   char *Buffer = PushArray(&TransientStorageArena, char, 2);
+   stbsp_snprintf(Buffer, 2, "%c", Token.Char);
+   Result = Buffer;
+  }break;
+  case FileTokenType_EndFile: {
+   Result = "EOF";
+  }break;
+  case FileTokenType_BeginArguments: {
+   Result = "(";
+  }break;
+  case FileTokenType_EndArguments: {
+   Result = ")";
+  }break;
+  default: INVALID_CODE_PATH; break;
+ }
+ 
+ 
+ Assert(Result);
+ return(Result);
+}
+
 //~ File reader
 
 internal void
@@ -91,7 +168,7 @@ ConsumeTextWhiteSpace(stream *Stream){
 }
 
 internal char *
-ConsumeTextString(stream *Stream){
+ConsumeTextIdentifier(stream *Stream){
  char *Buffer = PushArray(&TransientStorageArena, char, DEFAULT_BUFFER_SIZE);
  u32 BufferIndex = 0;
  u8 *CharPtr = ConsumeBytes(Stream, 1);
@@ -100,12 +177,33 @@ ConsumeTextString(stream *Stream){
   while((('a' <= Char) && (Char <= 'z')) ||
         (('A' <= Char) && (Char <= 'Z')) ||
         (('0' <= Char) && (Char <= '9')) ||
-        (Char == '_')  ||
-        (Char == '.')  ||
-        (Char == '/')  ||
-        (Char == '\\') ||
-        (Char == '#')  ||
-        (Char == '?')){
+        (Char == '_')){
+   if(BufferIndex >= DEFAULT_BUFFER_SIZE-1) break;
+   Buffer[BufferIndex++] = Char;
+   CharPtr = ConsumeBytes(Stream, 1);
+   if(!CharPtr) break;
+   Char = *CharPtr;
+  }
+  Stream->CurrentIndex--;
+  Buffer[BufferIndex] = '\0';
+ }else{
+  Buffer[0] = '\0';
+ }
+ 
+ return(Buffer);
+}
+
+internal char *
+ConsumeTextString(stream *Stream){
+ char *Buffer = PushArray(&TransientStorageArena, char, DEFAULT_BUFFER_SIZE);
+ 
+ u32 BufferIndex = 0;
+ u8 *CharPtr = ConsumeBytes(Stream, 1);
+ Assert(*CharPtr == '"');
+ CharPtr = ConsumeBytes(Stream, 1);
+ if(CharPtr){
+  u8 Char = *CharPtr;
+  while(Char != '"'){
    if(BufferIndex >= DEFAULT_BUFFER_SIZE-1) break;
    Buffer[BufferIndex++] = Char;
    CharPtr = ConsumeBytes(Stream, 1);
@@ -242,11 +340,10 @@ file_reader::NextToken(){
   }
   
   if(IsALetter(*NextBytePtr) ||
-     (*NextBytePtr == '_')   ||
-     (*NextBytePtr == '?')){
-   Result.Type = FileTokenType_String;
+     (*NextBytePtr == '_')){
+   Result.Type = FileTokenType_Identifier;
    Result.Line = Line;
-   Result.String = ConsumeTextString(&Stream);
+   Result.Identifier = ConsumeTextIdentifier(&Stream);
    break;
    
   }else if(*NextBytePtr == ':'){
@@ -266,7 +363,7 @@ file_reader::NextToken(){
    
    if(*B == '-'){
     IsNegative = true;
-    ConsumeBytes(&Stream , 1);
+    ConsumeBytes(&Stream, 1);
    }
    
    while(true){
@@ -320,8 +417,39 @@ file_reader::NextToken(){
     ConsumeBytes(&Stream, 1);
    }
    
+  }else if(*NextBytePtr == '"'){
+   Result.Type = FileTokenType_String;
+   Result.Line = Line;
+   Result.String = ConsumeTextString(&Stream);
+   break;
+   
+  }else if(*NextBytePtr == '('){
+   Result.Type = FileTokenType_BeginArguments;
+   Result.Line = Line;
+   ConsumeBytes(&Stream, 1);
+   break;
+   
+  }else if(*NextBytePtr == ')'){
+   Result.Type = FileTokenType_EndArguments;
+   Result.Line = Line;
+   ConsumeBytes(&Stream, 1);
+   break;
+   
+  }else if(*NextBytePtr == '{'){
+   Result.Type = FileTokenType_BeginSpecial;
+   Result.Line = Line;
+   ConsumeBytes(&Stream, 1);
+   break;
+   
+  }else if(*NextBytePtr == '}'){
+   Result.Type = FileTokenType_EndSpecial;
+   Result.Line = Line;
+   ConsumeBytes(&Stream, 1);
+   break;
+   
   }else{
    Result.Type = FileTokenType_Invalid;
+   Result.Char = *NextBytePtr;
    break;
   }
  }
@@ -339,12 +467,24 @@ file_reader::PeekToken(){
  return(Result);
 }
 
-file_token
-TokenIntegerToFloat(file_token Integer){
- file_token Result = Integer;
- if(Integer.Type == FileTokenType_Integer){
-  Result.Type = FileTokenType_Float;
-  Result.Float = (f32)Integer.Integer;
+
+#if 0
+array<file_token>
+file_reader::ReadArguments(){
+ array<file_token> Tokens = MakeArray<file_token>(&TransientStorageArena, SJA_MAX_ARGUMENTS);
+ file_token Token = PeekToken();
+ if(Token.Type != FileTokenType_BeginArguments){
+  LastError = FileReaderError_InvalidToken;
+  return(Tokens);
  }
- return(Result);
+ 
+ Token = NextToken();
+ while(Token.Type != FileTokenType_EndArguments){
+  ArrayAdd(&Tokens, Token);
+  
+  Token = NextToken();
+ }
+ 
+ return(Tokens);
 }
+#endif

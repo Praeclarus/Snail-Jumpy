@@ -49,6 +49,7 @@ typedef double f64;
 
 #define INVALID_CODE_PATH   Assert(0)
 #define NOT_IMPLEMENTED_YET Assert(0)
+#define POTENTIAL_BREAK_POINT int A=0; A++;
 
 #define U8_MAX  0xff
 #define U16_MAX 0xffff
