@@ -447,16 +447,13 @@ DoSupport(collision_boundary *Boundary,
    b8 Found = false;
    for(u32 I = 0; I < Boundary->FreeFormPointCount; I++){
     v2 Point = Boundary->FreeFormPoints[I];
-    if(Dot(Point, Direction) > Dot(Result, Direction)){
+    if((Dot(Point, Direction) > Dot(Result, Direction)) ||
+       (!Found)){
      Result = Point;
      Found = true;
     }
    }
-   
-   // TODO(Tyler): This should be further investigated
-   if(!Found){
-    LogMessage("Unable to find a valid point!");
-   }
+   Assert(Found);
    
   }break;
   case BoundaryType_None: break;

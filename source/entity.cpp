@@ -33,7 +33,7 @@ internal inline void ChangeEntityBoundaries(entity *Entity, u8 SetID);
 
 inline void
 entity_manager::DamagePlayer(u32 Damage){
- Player->Physics->P = V2(30.0f, 30.0f);
+ Player->Physics->P = Player->StartP;
  Player->DynamicPhysics->dP = V2(0);
  EntityManager.Player->Health -= Damage;
  if(EntityManager.Player->Health <= 0){

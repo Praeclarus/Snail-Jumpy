@@ -524,12 +524,22 @@ asset_system::ProcessAnimation(){
    }else if(Token.Type == FileTokenType_Float){
     ChangeData.Condition = ChangeCondition_CooldownOver;
     ChangeData.Cooldown = Token.Float;
+    
+   }else{
+    LogError("Expected a string or float, instead read: %s", TokenToString(Token));
+    return(false);
    }
    
    entity_state From = ReadState();
-   if(From == State_None) return(false);
+   if(From == State_None){
+    LogError("State cannot be: state_none");
+    return(false);
+   }
    entity_state To = ReadState();
-   if(To == State_None) return(false);
+   if(To == State_None){
+    LogError("State cannot be: state_none");
+    return(false);
+   }
    
    Animation->ChangeDatas[From] = ChangeData;
    Animation->NextStates[From] = To;
@@ -637,7 +647,7 @@ asset_system::ProcessEntity(){
    }
    if(IsInvalidEntityType(Entity, EntityType_Enemy)) return(false);
    
-   const char *VarName = Expect(Identifier);
+   const char *VarName = Expect(String);
    u64 VarHash = HashString(VarName);
    
    f32 Time = Expect(Float);

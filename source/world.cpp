@@ -234,7 +234,7 @@ world_manager::LoadWorld(const char *LevelName){
       Physics->Response = PlayerCollisionResponse;
       Physics->Entity = Player;
       Physics->P = Entity->P;
-      
+      Player->StartP = Entity->P;
      }break;
      
      //~ Teleporters

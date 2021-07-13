@@ -87,7 +87,7 @@ struct player_entity : public entity {
  s32 Health;
  f32 JumpTime;
  f32 WeaponChargeTime;
- enemy_entity *RidingDragonfly;
+ v2 StartP;
 };
 
 struct projectile_entity : public entity {

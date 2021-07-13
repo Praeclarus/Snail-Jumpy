@@ -102,7 +102,7 @@ TokenToString(file_token Token){
    Result = Token.String;
   }break;
   case FileTokenType_String: {
-   u32 Size = CStringLength(Token.String)+2;
+   u32 Size = CStringLength(Token.String)+3;
    char *Buffer = PushArray(&TransientStorageArena, char, Size);
    stbsp_snprintf(Buffer, Size, "\"%s\"", Token.String);
    Result = Buffer;

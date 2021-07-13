@@ -2,10 +2,10 @@
 #                                 Animations
 # //////////////////////////////////////////////////////////////////////////
 : Animation enemy
-    on_finish            state_turning    state_moving
-	   on_finish            state_retreating state_stunned
-	   after_time STUN_TIME state_stunned    state_returning
-	   on_finish            state_returning  state_moving
+    on_finish              state_turning    state_moving
+	   on_finish              state_retreating state_stunned
+	   after_time "stun_time" state_stunned    state_returning
+	   on_finish              state_returning  state_moving
 	   blocking state_retreating
 	   blocking state_stunned
 	   blocking state_returning
@@ -180,7 +180,7 @@
    	type          enemy
 	   piece         snail 0
 	   animation     enemy
-    animation_var STUN_TIME 3.0
+    animation_var "stun_time" 3.0
 	   mass          1.0  
 	   speed         50  
 	   boundary      0 Boundary_Circle(0 0 6)
@@ -192,7 +192,7 @@
    	type          enemy
 	   piece         sally 0
 	   animation     enemy
-    animation_var STUN_TIME 4.0
+    animation_var "stun_time" 4.0
 	   mass          2.0
 	   speed         30
 	   boundary      0 Boundary_Circle(0 0 13)
@@ -204,7 +204,7 @@
    	type          enemy
 	   piece         speedy 0
 	   animation     enemy
-    animation_var STUN_TIME 2.0
+    animation_var "stun_time" 2.0
 	   mass          0.7
 	   speed         100
     boundary      0 Boundary_Circle(0 0 6)
@@ -216,7 +216,7 @@
    	type          enemy
 	   piece         dragonfly 0
 	   animation     enemy
-    animation_var STUN_TIME 0.0
+    animation_var "stun_time" 0.0
 	   mass          1.5
 	   speed         50
 	   boundary      0 Boundary_Rect(0 8 31 3)
@@ -466,13 +466,7 @@
     dimensions 5 6
     boundary 0 Boundary_Rect(0 5 16 6)
     boundary 1 Boundary_Quad(-8 -8  0  0   6 0  16 10 16 16)
-    
-    # Boundary 2 is specified quite odd, because boundaries in the physics system must contain
-    # the origin(without the offset). So the actual boundary 2 is just applying the 
-    # offset to the points specified to 'Boundary_Quad'
-    # The original: boundary 2 Boundary_Quad(-8 -8  16 0  10 0   0 10  0 16)
-    boundary 2 Boundary_Quad( 0  0  8 -8  2 -8  -8  2 -8 8)
-
+    boundary 2 Boundary_Quad(-8 -8  16 0  10 0   0 10  0 16)
     boundary 3 Boundary_Wedge( 5  5 -6 -6)
     boundary 4 Boundary_Wedge(-5  5  6 -6)
     # normal tiles
