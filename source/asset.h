@@ -158,8 +158,9 @@ enum tile_type_ {
 
 typedef u8 tile_flags;
 enum tile_flags_ {
- TileFlag_None = (0 << 0),
- TileFlag_Art  = (1 << 0),
+ TileFlag_None   = (0 << 0),
+ TileFlag_Art    = (1 << 0),
+ TileFlag_Manual = (1 << 1),
 };
 
 struct tile_connector_data {
@@ -178,7 +179,10 @@ struct tilemap_data {
 struct tilemap_tile_data {
  tile_type Type;
  tile_flags Flags;
+ 
+ u32 ID;
  tilemap_tile_place Place;
+ 
  u32 OffsetMin;
  u32 OffsetMax;
  tile_transform Transform;

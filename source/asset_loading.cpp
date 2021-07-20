@@ -1,11 +1,11 @@
 
 //~ Initialization
 
-internal inline tilemap_tile_data
-MakeTileData(tile_type Type, const char *S){
- tilemap_tile_data Result = {};
- Result.Type = Type;
- Result.Place = StringToTilePlace(S);
+internal inline u32 
+MakeTileID(tile_type Type, tile_flags Flags, u16 ID){
+ u32 Result = (((u32)Type << 24) | 
+               ((u32)Flags << 16) |
+               ID);
  return(Result);
 }
 
@@ -526,7 +526,7 @@ asset_system::ProcessAnimation(){
     ChangeData.Cooldown = Token.Float;
     
    }else{
-    LogError("Expected a string or float, instead read: %s", TokenToString(Token));
+    LogError("Expected a string or a float, instead read: %s", TokenToString(Token));
     return(false);
    }
    
@@ -782,10 +782,10 @@ asset_system::ProcessBackground(){
 
 //~ Tilemaps
 
-#define AssetLoaderProcessTilemapTransform(Name_, Transform_) \
+#define AssetLoaderProcessTilemapTransform(Array, Name_, Transform_) \
 if(CompareStrings(S, Name_)){                             \
-if(Tiles->Count > 1){                                 \
-tilemap_tile_data *PreviousTile = &(*Tiles)[Tiles->Count-2]; \
+if((Array)->Count > 1){                                 \
+tilemap_tile_data *PreviousTile = &(*(Array))[(Array)->Count-2]; \
 Tile->OffsetMin = PreviousTile->OffsetMin;        \
 Tile->OffsetMax = PreviousTile->OffsetMax;        \
 Tile->Transform = Transform_;                     \
@@ -839,25 +839,25 @@ asset_system::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
  }
  Tile->Place = Place;
  
- // NOTE(Tyler): This while(true) is here for macro reasons
- 
+ Tile->ID = MakeTileID(Tile->Type, Tile->Flags, Tile->Place);
  file_token Token = Reader.PeekToken();
  if(Token.Type == FileTokenType_Identifier){
   const char *S = Expect(Identifier);
   
+  // NOTE(Tyler): This do while is here for macro reasons
   do{
-   AssetLoaderProcessTilemapTransform("COPY_PREVIOUS",       TileTransform_None);
-   AssetLoaderProcessTilemapTransform("REVERSE_PREVIOUS",    TileTransform_HorizontalReverse);
-   AssetLoaderProcessTilemapTransform("V_REVERSE_PREVIOUS",  TileTransform_VerticalReverse);
-   AssetLoaderProcessTilemapTransform("HV_REVERSE_PREVIOUS", TileTransform_HorizontalAndVerticalReverse);
-   AssetLoaderProcessTilemapTransform("ROTATE_PREVIOUS_90",  TileTransform_Rotate90);
-   AssetLoaderProcessTilemapTransform("ROTATE_PREVIOUS_180", TileTransform_Rotate180);
-   AssetLoaderProcessTilemapTransform("ROTATE_PREVIOUS_270", TileTransform_Rotate270);
-   AssetLoaderProcessTilemapTransform("REVERSE_AND_ROTATE_PREVIOUS_90",  TileTransform_ReverseAndRotate90);
-   AssetLoaderProcessTilemapTransform("REVERSE_AND_ROTATE_PREVIOUS_180", TileTransform_ReverseAndRotate180);
-   AssetLoaderProcessTilemapTransform("REVERSE_AND_ROTATE_PREVIOUS_270", TileTransform_ReverseAndRotate270);
+   AssetLoaderProcessTilemapTransform(Tiles, "COPY_PREVIOUS",       TileTransform_None);
+   AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_PREVIOUS",    TileTransform_HorizontalReverse);
+   AssetLoaderProcessTilemapTransform(Tiles, "V_REVERSE_PREVIOUS",  TileTransform_VerticalReverse);
+   AssetLoaderProcessTilemapTransform(Tiles, "HV_REVERSE_PREVIOUS", TileTransform_HorizontalAndVerticalReverse);
+   AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_90",  TileTransform_Rotate90);
+   AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_180", TileTransform_Rotate180);
+   AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_270", TileTransform_Rotate270);
+   AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_90",  TileTransform_ReverseAndRotate90);
+   AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_180", TileTransform_ReverseAndRotate180);
+   AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_270", TileTransform_ReverseAndRotate270);
    
-   LogError("'%s' is not a valid string", S);
+   LogError("'%s' is not a valid transformation", S);
    return(false);
   }while(false);
   
@@ -936,6 +936,60 @@ asset_system::ProcessTilemap(){
    if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
    Boundaries[Index] = ExpectTypeBoundary();
    HandleError();
+  }else if(DoAttribute(String, "manual_tile")){
+   tilemap_tile_data *Tile = ArrayAlloc(&Tiles);
+   Tile->Type  |= TileType_Tile;
+   Tile->Flags |= TileFlag_Manual;
+   
+   {
+    file_token Token = Reader.NextToken();
+    if(Token.Type == FileTokenType_Identifier){
+     if(CompareStrings(Token.Identifier, "art")){
+      Tile->Flags |= TileFlag_Art;
+     }
+    }else if(Token.Type == FileTokenType_Integer){
+     EnsurePositive(Token.Integer);
+     Tile->BoundaryIndex = (u8)Token.Integer;
+    }else{
+     LogError("Expected an identifier or an integer, instead read: %s", TokenToString(Token));
+     return(false);
+    }
+   }
+   
+   u32 ID = Expect(Integer);
+   Tile->ID = MakeTileID(Tile->Type, Tile->Flags, (u16)ID);
+   Tile->Place = 0xffff;
+   
+   file_token Token = Reader.PeekToken();
+   if(Token.Type == FileTokenType_Identifier){
+    const char *S = Expect(Identifier);
+    
+    // NOTE(Tyler): This do while is here for macro reasons
+    do{
+     AssetLoaderProcessTilemapTransform(&Tiles, "COPY_PREVIOUS",       TileTransform_None);
+     AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_PREVIOUS",    TileTransform_HorizontalReverse);
+     AssetLoaderProcessTilemapTransform(&Tiles, "V_REVERSE_PREVIOUS",  TileTransform_VerticalReverse);
+     AssetLoaderProcessTilemapTransform(&Tiles, "HV_REVERSE_PREVIOUS", TileTransform_HorizontalAndVerticalReverse);
+     AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_90",  TileTransform_Rotate90);
+     AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_180", TileTransform_Rotate180);
+     AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_270", TileTransform_Rotate270);
+     AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_90",  TileTransform_ReverseAndRotate90);
+     AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_180", TileTransform_ReverseAndRotate180);
+     AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_270", TileTransform_ReverseAndRotate270);
+     
+     LogError("'%s' is not a valid string", S);
+     return(false);
+    }while(false);
+    
+   }else{
+    u32 Count = Expect(Integer);
+    
+    Tile->OffsetMin = TileOffset;
+    TileOffset += Count;
+    Tile->OffsetMax = TileOffset;
+   }
+   
+   
   }else{
    if(!ProcessTilemapTile(&Tiles, String, &TileOffset)) return(false);
    

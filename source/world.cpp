@@ -137,21 +137,10 @@ world_manager::LoadWorld(const char *LevelName){
       Tilemap->Layer = Entity->Layer;
       Tilemap->TilemapData = MakeTilemapData(&TransientMemory, Width, Height);
       
-#if 0
-      u8 BoundaryCount = 5;
-      collision_boundary *Boundaries = PhysicsSystem.AllocBoundaries(BoundaryCount);
-      v2 TS = Asset->TileSize;
-      Boundaries[0] = MakeCollisionRect(V2(0), Asset->TileSize);
-      Boundaries[1] = MakeCollisionWedge(V2( 0.5f*TS.Y, -0.5f*TS.Y), -TS.X,  TS.Y);
-      Boundaries[2] = MakeCollisionWedge(V2(-0.5f*TS.Y, -0.5f*TS.Y),  TS.X,  TS.Y);
-      Boundaries[3] = MakeCollisionWedge(V2( 0.5f*TS.Y,  0.5f*TS.Y), -TS.X, -TS.Y);
-      Boundaries[4] = MakeCollisionWedge(V2(-0.5f*TS.Y,  0.5f*TS.Y),  TS.X, -TS.Y);
-#endif
-      
       u8 *PhysicsMap = PushArray(&TransientMemory, u8, Width*Height);
       
-      CalculateTilemapIndices(Asset, Data->MapData, &Tilemap->TilemapData, 
-                              PhysicsMap, 
+      CalculateTilemapIndices(Asset, Data->MapData, Data->OverrideIDs, 
+                              &Tilemap->TilemapData, PhysicsMap, 
                               (Entity->Flags&WorldEntityTilemapFlag_TreatEdgesAsTiles));
       
       physics_tilemap *Physics = PhysicsSystem.AddTilemap(PhysicsMap, Width, Height, 

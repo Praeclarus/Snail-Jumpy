@@ -315,12 +315,15 @@
     wedge_down_right 4 "XXX_#_???" REVERSE_PREVIOUS
     wedge_down_left 3  "?_?_#X?_?" 2
     wedge_down_right 4 "?_?X#_?_?" REVERSE_PREVIOUS
-    wedge_down_left 3  "_XX_#_???" ROTATE_PREVIOUS_270
-    wedge_down_right 4 "XX__#_???" REVERSE_AND_ROTATE_PREVIOUS_90
+# NOTE(Tyler): These are commented out because they have the same place "_XX_#_???" and "XX__#_???" as 
+# the one below them. And are essentially duplicate tiles(not visually of course
+#    wedge_down_left 3  "_XX_#_???" ROTATE_PREVIOUS_270
+#    wedge_down_right 4 "XX__#_???" REVERSE_AND_ROTATE_PREVIOUS_90
     wedge_up_left 1    "?_?_#X?_?" 2
     wedge_up_right 2   "?_?X#_?_?" REVERSE_PREVIOUS
     wedge_down_left 3  "_XX_#_???" ROTATE_PREVIOUS_270
     wedge_down_right 4 "XX__#_???" REVERSE_AND_ROTATE_PREVIOUS_270
+
     wedge_down_left 3  "_X?_#X?_?" 2
     wedge_down_right 4 "?X_X#_?_?" REVERSE_PREVIOUS
 
@@ -509,7 +512,8 @@
     art tile 0 "?X??#X???" 1
     art tile 0 "?X??#_???" 1
     art tile 0 "?_?X#X???" 1
-    
+    manual_tile art 0 1
+
 : Tilemap flower_box
     path "asset_tilemaps/flower_box_platform.png"
     tile_size 16 16

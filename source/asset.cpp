@@ -1,7 +1,7 @@
 
 void
 asset_system::Initialize(memory_arena *Arena){
- Memory = MakeArena(Arena, Kilobytes(8));
+ Memory = MakeArena(Arena, Kilobytes(16));
  SpriteSheets = PushHashTable<string, asset_sprite_sheet>(Arena, MAX_ASSETS_PER_TYPE);
  Entities     = PushHashTable<string, asset_entity>(Arena, MAX_ASSETS_PER_TYPE);
  Animations   = PushHashTable<string, asset_animation>(Arena, MAX_ASSETS_PER_TYPE);
@@ -548,7 +548,7 @@ CalculatePlace(u8 *MapData, s32 Width, s32 Height, s32 X, s32 Y, b8 BoundsTiles=
 }
 
 internal void 
-CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data, 
+CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, u32 *OverrideIDs, tilemap_data *Data, 
                         u8 *PhysicsMap=0, b8 TreatEdgesAsTiles=false){
  TIMED_FUNCTION();
  
@@ -572,20 +572,37 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data,
     tilemap_tile_data *FoundNormalTile = 0;
     tilemap_tile_data *FoundTile = 0;
     
-    for(u32 I=0; I<Tilemap->TileCount; I++){
-     tilemap_tile_data *Tile = &Tilemap->Tiles[I];
-     tilemap_tile_place TilePlace = Tile->Place;
-     
-     if((TilePlace & Place) == Place){
-      if((Tile->Type & Type) && (Tile->Flags == Flags)){
+    //~ 
+    if(OverrideIDs && (OverrideIDs[MapIndex] > 0)){
+     u32 ID = OverrideIDs[MapIndex]-1;
+     for(u32 I=0; I<Tilemap->TileCount; I++){
+      tilemap_tile_data *Tile = &Tilemap->Tiles[I];
+      tilemap_tile_place TilePlace = Tile->Place;
+      
+      if(Tile->ID == ID){
        FoundTile = Tile;
        break;
-      }else if(!FoundNormalTile &&
-               (Tile->Type & TileType_Tile) &&
-               (Tile->Flags == Flags)){
-       FoundNormalTile = Tile;
       }
      }
+    }else{
+     
+     //~ Search tiles
+     for(u32 I=0; I<Tilemap->TileCount; I++){
+      tilemap_tile_data *Tile = &Tilemap->Tiles[I];
+      tilemap_tile_place TilePlace = Tile->Place;
+      
+      if((TilePlace & Place) == Place){
+       if((Tile->Type & Type) && (Tile->Flags == Flags)){
+        FoundTile = Tile;
+        break;
+       }else if(!FoundNormalTile &&
+                (Tile->Type & TileType_Tile) &&
+                (Tile->Flags == Flags)){
+        FoundNormalTile = Tile;
+       }
+      }
+     }
+     
     }
     
     for(u32 I=0; I<Tilemap->ConnectorCount; I++){
@@ -600,24 +617,18 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, u8 *MapData, tilemap_data *Data,
     if(FoundTile){
      Data->Indices[MapIndex] = ChooseTileIndex(FoundTile, MapIndex)+1;
      Data->Transforms[MapIndex] = FoundTile->Transform;
-     if(PhysicsMap && 
-        !(FoundTile->Flags & TileFlag_Art)){
-      bit_scan_result BitScan = ScanForLeastSignificantSetBit(FoundTile->Type);
-      Assert((BitScan.Found) && (BitScan.Index < 5));
-      PhysicsMap[MapIndex] = (u8)BitScan.Index+1;
+     if(PhysicsMap && !(FoundTile->Flags & TileFlag_Art)){
+      PhysicsMap[MapIndex] = FoundTile->BoundaryIndex+1;
      }
     }else if(FoundNormalTile){
      Data->Indices[MapIndex] = ChooseTileIndex(FoundNormalTile, MapIndex)+1;
      Data->Transforms[MapIndex] = FoundNormalTile->Transform;
-     if(PhysicsMap){
-      bit_scan_result BitScan = ScanForLeastSignificantSetBit(FoundNormalTile->Type);
-      Assert((BitScan.Found) && (BitScan.Index < 5));
-      PhysicsMap[MapIndex] = (u8)BitScan.Index+1;
+     if(PhysicsMap && !(FoundNormalTile->Flags & TileFlag_Art)){
+      PhysicsMap[MapIndex] = FoundNormalTile->BoundaryIndex+1;
      }
     }else{
      POTENTIAL_BREAK_POINT;
     }
-    
    }
    MapIndex++;
   }

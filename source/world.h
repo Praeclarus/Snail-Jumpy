@@ -21,6 +21,7 @@ struct world_entity_tilemap : public world_entity_ {
  u32 Width;
  u32 Height;
  u8 *MapData;
+ u32 *OverrideIDs;
 };
 
 struct world_entity_enemy : public world_entity_  {

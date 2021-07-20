@@ -100,7 +100,10 @@ ToggleFlag(u32 *Flag, u32 Value){
 
 inline void
 world_editor::EditModeEntity(world_entity *Entity){
- TileEditMode = TileEditMode_Tile;
+ TilemapDoSelectorOverlay = true;
+ TilemapEditMode = TilemapEditMode_Auto;
+ AutoTileMode = AutoTile_Tile;
+ ManualTileIndex = 0;
  Selected = Entity;
  OverrideEditTilemap = false;
 }
@@ -218,11 +221,16 @@ world_editor::DeleteEntityAction(world_entity *Entity, editor_delete_flags Flags
  DeleteFlags = Flags;
 }
 
+inline f32
+world_editor::GetCursorZ(){
+ f32 Result = (f32)World->Entities.Count + 1.0f;
+ return(Result);
+}
 
 //~ Selector
-internal inline selector_data 
+internal inline selector_context 
 BeginSelector(v2 StartP, u32 SelectedIndex, u32 Max, os_key_flags ScrollModifier=SELECTOR_SCROLL_MODIFIER){
- selector_data Result = {};
+ selector_context Result = {};
  Result.StartP = StartP;
  Result.P = Result.StartP;
  Result.MaxItemSide = 100;
@@ -236,7 +244,7 @@ BeginSelector(v2 StartP, u32 SelectedIndex, u32 Max, os_key_flags ScrollModifier
 }
 
 internal inline v2
-SelectorClampSize(selector_data *Selector, v2 Size){
+SelectorClampSize(selector_context *Selector, v2 Size){
  v2 Result = Size;
  f32 AspectRatio = Size.Y/Size.X;
  if(Size.X > Selector->MaxItemSide){
@@ -252,18 +260,12 @@ SelectorClampSize(selector_data *Selector, v2 Size){
 }
 
 internal void
-SelectorDoItem(selector_data *Selector, u64 ID, v2 Size, u32 Index){
+SelectorDoItem(selector_context *Selector, u64 ID, v2 Size, u32 Index){
  b8 Result = (Index==Selector->SelectedIndex);
  ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
  
  rect R = SizeRect(Selector->P, Size);
- switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Left, -1, UIItem(0))){
-  case UIBehavior_None: {
-   State->T -= 5*OSInput.dTime;
-  }break;
-  case UIBehavior_Hovered: {
-   State->T += 7*OSInput.dTime;
-  }break;
+ switch(EditorButtonElement(&UIManager, ID, R, MouseButton_Left, 0, UIItem(0), KeyFlag_Any)){
   case UIBehavior_Activate: {
    Result = true;
   }break;
@@ -298,7 +300,7 @@ SelectorDoItem(selector_data *Selector, u64 ID, v2 Size, u32 Index){
 }
 
 internal u32 
-SelectorSelectItem(selector_data *Selector){
+SelectorSelectItem(selector_context *Selector){
  u32 Result = Selector->SelectedIndex;
  
  if(!Selector->DidSelect){
@@ -346,7 +348,7 @@ world_editor::DoEditThingTilemap(){
   }
  }
  
- selector_data Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Tilemaps.Count);
+ selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Tilemaps.Count);
  for(u32 I=0; I<Tilemaps.Count; I++){
   asset_tilemap *Tilemap = AssetSystem.GetTilemap(Tilemaps[I]);
   v2 Size = SelectorClampSize(&Selector, Tilemap->CellSize);
@@ -364,7 +366,7 @@ world_editor::DoEditThingTilemap(){
  v2 P = MouseP - 0.5f*Size;
  P = SnapEntity(P, Size, 1);
  
- RenderTileAtIndex(Asset, P, 0.0f, 1, 0);
+ RenderTileAtIndex(Asset, P, GetCursorZ(), 1, 0);
  
  //~ Adding
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
@@ -424,7 +426,7 @@ world_editor::DoEditThingEnemy(){
   }
  }
  
- selector_data Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Entities.Count);
+ selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Entities.Count);
  for(u32 I=0; I<Entities.Count; I++){
   asset_entity *Info = AssetSystem.GetEntity(Entities[I]);
   if(Info->Type == EntityType_Player) continue;
@@ -445,7 +447,7 @@ world_editor::DoEditThingEnemy(){
  v2 P = MouseP - 0.5f*Size;
  P = SnapEntity(P, Size, 1);
  
- RenderSpriteSheetFrame(EntityInfo->Pieces[0], P, 0.0f, 1, 0);
+ RenderSpriteSheetFrame(EntityInfo->Pieces[0], P, GetCursorZ(), 1, 0);
  
  //~ Adding
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
@@ -479,7 +481,7 @@ world_editor::DoEditThingArt(){
   }
  }
  
- selector_data Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Arts.Count);
+ selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Arts.Count);
  for(u32 I=0; I<Arts.Count; I++){
   asset_art *Asset = AssetSystem.GetArt(Arts[I]);
   v2 Size = SelectorClampSize(&Selector, 0.5f*Asset->Size);
@@ -497,7 +499,7 @@ world_editor::DoEditThingArt(){
  v2 P = MouseP - 0.5f*Size;
  P = SnapEntity(P, Size, 1);
  
- RenderArt(Asset, P, 0.0f, 1);
+ RenderArt(Asset, P, GetCursorZ(), 1);
  
  //~ Adding
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
@@ -516,7 +518,7 @@ void
 world_editor::DoEditThingTeleporter(){
  //~ Cursor
  rect R = SizeRect(CursorP, TILE_SIZE);
- RenderRect(R, 0.0f, GREEN, GameItem(1));
+ RenderRect(R, GetCursorZ(), GREEN, GameItem(1));
  RenderRectOutline(R, -0.1f, BLACK, GameItem(1));
  
  //~ Adding
@@ -537,7 +539,7 @@ void
 world_editor::DoEditThingDoor(){
  switch(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, -2)){
   case UIBehavior_None: {
-   RenderRect(SizeRect(CursorP, TILE_SIZE), 0.0f, BROWN, GameItem(1));
+   RenderRect(SizeRect(CursorP, TILE_SIZE), GetCursorZ(), BROWN, GameItem(1));
   }break;
   case UIBehavior_JustActivate: {
    DragRect.Min = MouseP;
@@ -545,7 +547,7 @@ world_editor::DoEditThingDoor(){
    DragRect.Max = MouseP;
    
    rect R = SnapToGrid(DragRect, TILE_SIDE);
-   RenderRect(R, 0.0f, BROWN, GameItem(1));
+   RenderRect(R, GetCursorZ(), BROWN, GameItem(1));
   }break;
   case UIBehavior_Deactivate: {
    world_entity *Entity = ArrayAlloc(&World->Entities);
@@ -655,6 +657,13 @@ EditorTilemapEdge(f32 X, f32 Y, f32 Width, f32 Height, u64 ID){
  return(Result);
 }
 
+internal inline b8
+IsInTilemap(world_entity_tilemap *Tilemap, s32 X, s32 Y){
+ b8 Result = !((X < 0)                    || (Y < 0)       || 
+               (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height));
+ return(Result);
+}
+
 void
 world_editor::MaybeEditTilemap(){
  TIMED_FUNCTION();
@@ -666,61 +675,17 @@ world_editor::MaybeEditTilemap(){
  world_entity_tilemap *Tilemap = &Selected->Tilemap;
  asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
  
- //~ Add tiles
+ // TODO(Tyler): Remove this, it is a hack!
+ if(!Tilemap->OverrideIDs){
+  Tilemap->OverrideIDs = (u32 *)DefaultAlloc(Tilemap->Width*Tilemap->Height*sizeof(*Tilemap->OverrideIDs));
+ }
  v2 TileP = MouseP - Tilemap->P;
  TileP = FloorV2(TileP);
  TileP.X /= Asset->TileSize.X;
  TileP.Y /= Asset->TileSize.Y;
  s32 X = (s32)(TileP.X);
  s32 Y = (s32)(TileP.Y);
- 
- if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, -1, KeyFlag_Any)){
-  if((X < 0)                    || (Y < 0)       || 
-     (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height)){
-  }else{
-   Tilemap->MapData[Y*Tilemap->Width+X] = (u8)TILE_EDIT_MODE_TILE_TYPE_TABLE[TileEditMode];
-  }
- }
- 
- //~ Remove tiles
- if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Right, false, -1, KeyFlag_Any)){
-  if((X < 0)                    || (Y < 0)       || 
-     (X >= (s32)Tilemap->Width) || (Y >= (s32)Tilemap->Height)){
-  }else{
-   Tilemap->MapData[Y*Tilemap->Width+X] = 0;
-  }
- }
- 
- //~ Change tile edit mode
- selector_data Selector = BeginSelector(DEFAULT_SELECTOR_P, TileEditMode, TileEditMode_TOTAL, KeyFlag_Any);
- for(s32 I=0; I < TileEditMode_TOTAL; I++){
-  tile_type PreType = TILE_EDIT_MODE_TILE_TYPE_TABLE[I];
-  
-  tile_type Type = PreType;
-  tile_flags Flags = 0;
-  if(PreType & TileTypeFlag_Art){
-   Flags |= TileFlag_Art;
-  }
-  
-  b8 FoundTile = false;
-  u32 Index = 0;
-  for(u32 I=0; I<Asset->TileCount; I++){
-   tilemap_tile_data *Tile = &Asset->Tiles[I];
-   if(((Tile->Type & Type)) &&
-      (Tile->Flags == Flags)){
-    Index = Tile->OffsetMin;
-    FoundTile = true;
-    break;
-   }
-  }
-  if(!FoundTile){ continue; }
-  
-  v2 Size = SelectorClampSize(&Selector, Asset->CellSize);
-  RenderTileAtIndex(Asset, Selector.P, -2.0f, 0, Index);
-  
-  SelectorDoItem(&Selector, WIDGET_ID_CHILD(WIDGET_ID, I+1), Size, I);
- }
- TileEditMode = (tile_edit_mode)SelectorSelectItem(&Selector);
+ u32 MapIndex = Y*Tilemap->Width+X;
  
  //~ Resizing 
  b8 DidResize = false;
@@ -761,20 +726,130 @@ world_editor::MaybeEditTilemap(){
   if((XOffset != 0) || (YOffset != 0)) MoveTilemapData(Tilemap, XOffset, YOffset); 
  }
  
- // TODO(Tyler): Tilemaps should be able to have specific tiles set by certain attributes
-#if 0
- tile_type Type = TileType_Tile;
- if(HasTile & TileType_Wedge){
-  for(u32 I=0; I<ArrayCount(WedgePlaces); I++){
-   if((WedgePlaces[I] & Place) == Place){
-    u32 Offset = I % 4;
-    Type &= ~TileType_Tile;
-    //Type |= (tile_type)(TileType_WedgeUpLeft<<Offset);
-    Type = (tile_type)(TileType_WedgeUpLeft<<Offset);
+ //~ Remove tiles
+ if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Right, false, -1, KeyFlag_Any) &&
+    IsInTilemap(Tilemap, X, Y)){
+  Tilemap->MapData[MapIndex] = 0;
+  Tilemap->OverrideIDs[MapIndex] = 0;
+ }
+ 
+ //~ Edit mode
+ if(OSInput.KeyJustDown('T', KeyFlag_Any)){
+  TilemapDoSelectorOverlay = true;
+  if(TilemapEditMode == TilemapEditMode_Auto){
+   TilemapEditMode = TilemapEditMode_Manual;
+  }else if(TilemapEditMode == TilemapEditMode_Manual){
+   TilemapEditMode = TilemapEditMode_Auto;
+  }else{ INVALID_CODE_PATH; }
+ }
+ 
+ //~ Manual tiles scrolling
+ if(UIManager.DoScrollElement(WIDGET_ID, 0, KeyFlag_Shift|KeyFlag_Any) && 
+    IsInTilemap(Tilemap, X, Y)){
+  if(Tilemap->MapData[MapIndex]){
+   u32 Index = 0;
+   if(Tilemap->OverrideIDs[MapIndex] == 0){
+    Index = 0;
+   }else{
+    for(u32 I=0; I<Asset->TileCount; I++){
+     if(Asset->Tiles[I].ID == (Tilemap->OverrideIDs[MapIndex]-1)){
+      Index = I;
+      break;
+     }
+    }
+    
+    s32 Range = 100;
+    s32 Scroll = UIManager.ActiveElement.Scroll;
+    if(Scroll > Range){
+     Index++;
+     Index %= Asset->TileCount;
+    }else if(Scroll < Range){
+     if(Index > 0) Index--;
+     else Index = Asset->TileCount-1;
+    }
    }
+   
+   Tilemap->OverrideIDs[MapIndex] = Asset->Tiles[Index].ID+1;
   }
  }
-#endif
+ 
+ //~ Toggle selector 
+ if(OSInput.KeyJustDown('S', KeyFlag_Any)){
+  TilemapDoSelectorOverlay = !TilemapDoSelectorOverlay;
+ }
+ 
+ //~ Reset tile
+ if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Middle, true, -1, KeyFlag_Shift|KeyFlag_Any) &&
+    IsInTilemap(Tilemap, X, Y)){
+  Tilemap->OverrideIDs[MapIndex] = 0;
+ }
+ 
+ if(TilemapEditMode == TilemapEditMode_Auto){
+  //~ Auto tile selector
+  if(TilemapDoSelectorOverlay){
+   selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, AutoTileMode, AutoTile_TOTAL, KeyFlag_Any);
+   for(s32 I=0; I < AutoTile_TOTAL; I++){
+    tile_type PreType = TILE_EDIT_MODE_TILE_TYPE_TABLE[I];
+    
+    tile_type Type = PreType;
+    tile_flags Flags = 0;
+    if(PreType & TileTypeFlag_Art){
+     Flags |= TileFlag_Art;
+    }
+    
+    b8 FoundTile = false;
+    u32 Index = 0;
+    for(u32 I=0; I<Asset->TileCount; I++){
+     tilemap_tile_data *Tile = &Asset->Tiles[I];
+     if(((Tile->Type & Type)) &&
+        (Tile->Flags == Flags)){
+      Index = Tile->OffsetMin;
+      FoundTile = true;
+      break;
+     }
+    }
+    if(!FoundTile){ continue; }
+    
+    v2 Size = SelectorClampSize(&Selector, Asset->CellSize);
+    RenderTileAtIndex(Asset, Selector.P, -2.0f, 0, Index);
+    
+    SelectorDoItem(&Selector, WIDGET_ID_CHILD(WIDGET_ID, I+1), Size, I);
+   }
+   AutoTileMode = (auto_tile)SelectorSelectItem(&Selector);
+  }
+  
+  //~ Add auto tiles
+  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, -1, KeyFlag_Any) &&
+     IsInTilemap(Tilemap, X, Y)){
+   Tilemap->MapData[MapIndex] = (u8)TILE_EDIT_MODE_TILE_TYPE_TABLE[AutoTileMode];
+   Tilemap->OverrideIDs[MapIndex] = 0;
+  }
+  
+ }else if(TilemapEditMode == TilemapEditMode_Manual){
+  
+  //~ Manual tile selector
+  if(TilemapDoSelectorOverlay){
+   selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, ManualTileIndex, Asset->TileCount, KeyFlag_Any);
+   for(u32 I=0; I < Asset->TileCount; I++){
+    tilemap_tile_data *Tile = &Asset->Tiles[I];
+    
+    v2 Size = SelectorClampSize(&Selector, Asset->CellSize);
+    RenderTileAtIndex(Asset, Selector.P, -2.0f, 0, Tile->OffsetMin, Tile->Transform);
+    
+    SelectorDoItem(&Selector, WIDGET_ID_CHILD(WIDGET_ID, I+1), Size, I);
+   }
+   ManualTileIndex = (u16)SelectorSelectItem(&Selector);
+  }
+  
+  //~ Add manual tiles
+  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, -1, KeyFlag_Any) &&
+     IsInTilemap(Tilemap, X, Y)){
+   Tilemap->MapData[MapIndex] = (u8)1;
+   Tilemap->OverrideIDs[MapIndex] = Asset->Tiles[ManualTileIndex].ID+1;
+  }
+  
+  
+ }else{ INVALID_CODE_PATH };
  
 }
 
@@ -917,8 +992,7 @@ world_editor::DoSelectedThingUI(){
     
     Window->Text("Hold 'Alt' to edit tilemap");
     
-    if(Window->Button("Delete tilemap", WIDGET_ID) ||
-       OSInput.KeyJustDown(KeyCode_Delete)){
+    if(Window->Button("Delete tilemap", WIDGET_ID)){
      DeleteEntityAction(Selected);
     }
     
@@ -1144,7 +1218,7 @@ world_editor::DoDeleteEntity(v2 P, v2 Size, world_entity *Entity, b8 Special){
                             KeyFlags, IsSelectionDisabled(Entity, KeyFlags))){
   case UIBehavior_Activate: Result = true; break;
  }
- if(OSInput.KeyJustDown(KeyCode_Delete)){ Result = true; }
+ if((Selected == Entity) && OSInput.KeyJustDown(KeyCode_Delete)){ Result = true; }
  
  return(Result);
 }
@@ -1311,13 +1385,15 @@ world_editor::UpdateAndRender(){
     
     tilemap_data Data = MakeTilemapData(&TransientStorageArena, Tilemap->Width, Tilemap->Height);
     
-    CalculateTilemapIndices(Asset, Tilemap->MapData, &Data, 0, 
+    CalculateTilemapIndices(Asset, Tilemap->MapData, Tilemap->OverrideIDs, &Data, 0, 
                             (Tilemap->Flags&WorldEntityTilemapFlag_TreatEdgesAsTiles));
     RenderTilemap(Asset, &Data, Tilemap->P, Entity->Z, Entity->Layer);
     
     v2 Size = Hadamard(V2((f32)Tilemap->Width, (f32)Tilemap->Height), Asset->TileSize);
     if(DoDragEntity(&Entity->P, Size, Entity, true)) EditModeEntity(Entity);
     Entity->P = MaximumV2(Entity->P, V2(0));
+    
+    if((Selected == Entity) && OSInput.KeyJustDown(KeyCode_Delete)) DeleteEntityAction(Entity);
    }break;
    case EntityType_Enemy: {
     Entity->Layer = 1;
@@ -1401,7 +1477,7 @@ world_editor::UpdateAndRender(){
    
    EditModeEntity(0);
    CleanupEntity(Entity);
-   ArrayUnorderedRemove(&World->Entities, I);
+   ArrayOrderedRemove(&World->Entities, I);
    I--; // Repeat the last iteration because an item was removed
    State->T = 0.0f;
    State->ActiveT = 0.0f;

@@ -4,7 +4,7 @@
 //~ Selector
 global_constant v2 DEFAULT_SELECTOR_P = V2(10.0f, 10.0f);
 
-struct selector_data {
+struct selector_context {
  const f32 Thickness = 1.0f;
  const f32 Spacer    = 2.0f;
  os_key_flags ScrollModifier;
@@ -33,14 +33,19 @@ enum edit_mode_thing {
  EditThing_TOTAL
 };
 
-enum tile_edit_mode {
- TileEditMode_None,
- TileEditMode_Tile,
- TileEditMode_Wedge,
- TileEditMode_ArtTile,
- TileEditMode_ArtWedge,
+enum auto_tile {
+ AutoTile_None,
+ AutoTile_Tile,
+ AutoTile_Wedge,
+ AutoTile_ArtTile,
+ AutoTile_ArtWedge,
  
- TileEditMode_TOTAL,
+ AutoTile_TOTAL,
+};
+
+enum tilemap_edit_mode {
+ TilemapEditMode_Auto,
+ TilemapEditMode_Manual,
 };
 
 //~ Undo/redo
@@ -94,13 +99,9 @@ struct world_editor {
  world_data *World;
  
  edit_mode_thing EditThing;
- tile_edit_mode  TileEditMode;
  world_entity *Selected;
- 
  world_entity *EntityToDelete;
  editor_delete_flags DeleteFlags;
- 
- b8 OverrideEditTilemap;
  
  //~
  void Initialize();
@@ -119,18 +120,27 @@ struct world_editor {
  void DoEditThingTeleporter();
  void DoEditThingDoor();
  
+ inline f32 world_editor::GetCursorZ();
  inline void EditModeEntity(world_entity *Entity);
  inline u32  GetEntityIndex(u64 ID);
  
  b8 DoButton(rect R, u64 ID);
  void DoSelectedThingUI();
  void DoEnemyOverlay(world_entity_enemy *Entity);
- inline b8 IsEditingTilemap();
- void MaybeEditTilemap();
  
  inline b8 IsSelectionDisabled(world_entity *Entity, os_key_flags KeyFlags);
  inline b8 DoDragEntity(v2 *P, v2 Size, world_entity *Entity, b8 Special=false);
  inline b8 DoDeleteEntity(v2 P, v2 Size, world_entity *Entity, b8 Special=false);
+ 
+ //~ Editing tilemap
+ tilemap_edit_mode TilemapEditMode;
+ b8 TilemapDoSelectorOverlay;
+ u16 ManualTileIndex;
+ auto_tile AutoTileMode;
+ 
+ b8 OverrideEditTilemap;
+ inline b8 IsEditingTilemap();
+ void MaybeEditTilemap();
  
  //~ Undo/redo
  dynamic_array<editor_action> Actions;
@@ -175,23 +185,23 @@ global_constant edit_mode_thing WORLD_EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_T
  EditThing_Teleporter, // 9
 };
 
-global_constant tile_edit_mode FORWARD_TILE_EDIT_MODE_TABLE[TileEditMode_TOTAL] = {
- TileEditMode_None, 
- TileEditMode_Wedge, 
- TileEditMode_ArtTile, 
- TileEditMode_ArtWedge, 
- TileEditMode_Tile, 
+global_constant auto_tile FORWARD_TILE_EDIT_MODE_TABLE[AutoTile_TOTAL] = {
+ AutoTile_None, 
+ AutoTile_Wedge, 
+ AutoTile_ArtTile, 
+ AutoTile_ArtWedge, 
+ AutoTile_Tile, 
 };
 
-global_constant tile_edit_mode REVERSE_TILE_EDIT_MODE_TABLE[TileEditMode_TOTAL] = {
- TileEditMode_None, 
- TileEditMode_ArtWedge, 
- TileEditMode_Tile, 
- TileEditMode_Wedge, 
- TileEditMode_ArtTile, 
+global_constant auto_tile REVERSE_TILE_EDIT_MODE_TABLE[AutoTile_TOTAL] = {
+ AutoTile_None, 
+ AutoTile_ArtWedge, 
+ AutoTile_Tile, 
+ AutoTile_Wedge, 
+ AutoTile_ArtTile, 
 };
 
-global_constant tile_type TILE_EDIT_MODE_TILE_TYPE_TABLE[TileEditMode_TOTAL] = {
+global_constant tile_type TILE_EDIT_MODE_TILE_TYPE_TABLE[AutoTile_TOTAL] = {
  TileType_None, 
  TileType_Tile, 
  TileType_Wedge, 
