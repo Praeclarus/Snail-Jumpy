@@ -1,7 +1,7 @@
 #ifndef SNAIL_JUMPY_WORLD_H
 #define SNAIL_JUMPY_WORLD_H
 
-//~ Entity datas
+//~ World entities
 
 typedef u32 world_entity_flags;
 enum world_entity_flags_ {
@@ -113,12 +113,13 @@ struct world_data {
  u32 CoinsRequired;
  world_flags Flags;
  
- 
  hsb_color AmbientColor;
  f32       Exposure;
 };
 
 //~ World manager
+
+global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
 
 struct world_manager {
  memory_arena Memory;

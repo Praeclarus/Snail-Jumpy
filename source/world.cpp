@@ -307,8 +307,6 @@ world_manager::LoadWorld(const char *LevelName){
 
 //~ File loading
 
-global_constant u32 CURRENT_WORLD_FILE_VERSION = 1;
-
 world_data *
 world_manager::LoadWorldFromFile(const char *Name){
  TIMED_FUNCTION();
@@ -353,7 +351,6 @@ world_manager::LoadWorldFromFile(const char *Name){
   
   u32 MapSize = NewWorld->Width*NewWorld->Height;
   u8 *Map = ConsumeBytes(&Stream, MapSize);
-  //NewWorld->MapData = PushArray(&MapDataMemory, u8, MapSize);
   NewWorld->Map = (u8 *)DefaultAlloc(MapSize);
   CopyMemory(NewWorld->Map, Map, MapSize);
   
@@ -373,7 +370,13 @@ world_manager::LoadWorldFromFile(const char *Name){
      u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height;
      u8 *MapData = ConsumeBytes(&Stream, Size);
      Entity->Tilemap.MapData = (u8 *)DefaultAlloc(Size);
-     CopyMemory(Entity->Tilemap.MapData, MapData, Size);
+     CopyMemory(Entity->Tilemap.MapData, MapData, Size*sizeof(*Entity->Tilemap.MapData));
+     
+     Entity->Tilemap.OverrideIDs = (u32 *)DefaultAlloc(Size*sizeof(*Entity->Tilemap.OverrideIDs));
+     if(Header->Version >= 2){
+      u8 *OverrideIDs = ConsumeBytes(&Stream, Size*sizeof(*Entity->Tilemap.OverrideIDs));
+      CopyMemory(Entity->Tilemap.OverrideIDs, OverrideIDs, Size*sizeof(*Entity->Tilemap.OverrideIDs));
+     }
     }break;
     case EntityType_Enemy: {
      Entity->Enemy.Direction = *ConsumeType(&Stream, direction);
@@ -470,6 +473,8 @@ world_manager::WriteWorldsToFiles(){
      u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height;
      WriteToFile(File, Offset, Entity->Tilemap.MapData, Size);
      Offset += Size;
+     WriteToFile(File, Offset, Entity->Tilemap.OverrideIDs, Size*sizeof(*Entity->Tilemap.OverrideIDs));
+     Offset += Size*sizeof(*Entity->Tilemap.OverrideIDs);
     }break;
     case EntityType_Enemy: {
      WriteVariableToFile(File, Offset, Entity->Enemy.Direction);

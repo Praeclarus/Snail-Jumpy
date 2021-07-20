@@ -386,6 +386,7 @@ world_editor::DoEditThingTilemap(){
   Entity->Tilemap.Height = HeightU32;
   u32 MapSize = Entity->Tilemap.Width*Entity->Tilemap.Height;
   Entity->Tilemap.MapData = (u8 *)DefaultAlloc(MapSize);
+  Entity->Tilemap.OverrideIDs = (u32 *)DefaultAlloc(MapSize*sizeof(*Entity->Tilemap.OverrideIDs));
   
   EditThing = EditThing_None;
   EditModeEntity(Entity);
@@ -675,10 +676,6 @@ world_editor::MaybeEditTilemap(){
  world_entity_tilemap *Tilemap = &Selected->Tilemap;
  asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
  
- // TODO(Tyler): Remove this, it is a hack!
- if(!Tilemap->OverrideIDs){
-  Tilemap->OverrideIDs = (u32 *)DefaultAlloc(Tilemap->Width*Tilemap->Height*sizeof(*Tilemap->OverrideIDs));
- }
  v2 TileP = MouseP - Tilemap->P;
  TileP = FloorV2(TileP);
  TileP.X /= Asset->TileSize.X;
