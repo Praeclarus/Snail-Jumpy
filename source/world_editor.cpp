@@ -19,6 +19,7 @@ CleanupEntity(world_entity *Entity){
  switch(Entity->Type){
   case EntityType_Tilemap: {
    DefaultFree(Entity->Tilemap.MapData);
+   DefaultFree(Entity->Tilemap.OverrideIDs);
   }break;
   case EntityType_Teleporter: {
    Strings.RemoveBuffer(Entity->Teleporter.Level);
