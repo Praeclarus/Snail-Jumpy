@@ -592,9 +592,18 @@ ResizeTilemapData(world_entity_tilemap *Tilemap, s32 XChange, s32 YChange){
    NewMapData[Y*Width + X] = Tilemap->MapData[Y*OldWidth + X];;
   }
  }
- 
  DefaultFree(Tilemap->MapData);
  Tilemap->MapData = NewMapData;
+ 
+ u32 *NewOverrideIDs    = (u32 *)DefaultAlloc(Width*Height*sizeof(*NewOverrideIDs));
+ for(u32 Y=0; Y < Minimum(OldHeight, Height); Y++){
+  for(u32 X=0; X < Minimum(OldWidth, Width); X++){
+   NewOverrideIDs[Y*Width + X] = Tilemap->OverrideIDs[Y*OldWidth + X];;
+  }
+ }
+ DefaultFree(Tilemap->OverrideIDs);
+ Tilemap->OverrideIDs = NewOverrideIDs;
+ 
 }
 
 internal void
