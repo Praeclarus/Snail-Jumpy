@@ -18,8 +18,7 @@ internal void
 CleanupEntity(world_entity *Entity){
  switch(Entity->Type){
   case EntityType_Tilemap: {
-   DefaultFree(Entity->Tilemap.MapData);
-   DefaultFree(Entity->Tilemap.OverrideIDs);
+   DefaultFree(Entity->Tilemap.Tiles);
   }break;
   case EntityType_Teleporter: {
    Strings.RemoveBuffer(Entity->Teleporter.Level);
@@ -36,13 +35,13 @@ CopyEntity(memory_arena *Arena, world_entity *Entity){
  world_entity Result = *Entity;
  switch(Result.Type){
   case EntityType_Tilemap: {
-   u32 MapSize = Result.Tilemap.Width*Result.Tilemap.Height;
+   u32 MapSize = Result.Tilemap.Width*Result.Tilemap.Height*sizeof(*Entity->Tilemap.Tiles);;
    if(Arena){
-    Result.Tilemap.MapData = (u8 *)ArenaPush(Arena, MapSize);
+    Entity->Tilemap.Tiles= (tilemap_tile *)ArenaPush(Arena, MapSize);
    }else{
-    Result.Tilemap.MapData = (u8 *)DefaultAlloc(MapSize);
+    Entity->Tilemap.Tiles = (tilemap_tile *)DefaultAlloc(MapSize);
    }
-   CopyMemory(Result.Tilemap.MapData, Entity->Tilemap.MapData, MapSize);
+   CopyMemory(Result.Tilemap.Tiles, Entity->Tilemap.Tiles, MapSize);
   }break;
   case EntityType_Teleporter: {
    if(Arena){
@@ -61,15 +60,6 @@ CopyEntity(memory_arena *Arena, world_entity *Entity){
    }
   }break;
  }
- 
- return(Result);
-}
-
-internal inline v2
-SnapEntity(v2 P, v2 EntitySize, f32 GridSize){
- v2 Min = P - 0.5f*EntitySize;
- v2 NewMin = SnapToGrid(Min, GridSize);
- v2 Result = P + (NewMin-Min);
  
  return(Result);
 }
@@ -118,6 +108,47 @@ world_editor::GetEntityIndex(u64 ID){
  }
  INVALID_CODE_PATH;
  return(0);
+}
+
+//~ Snapping
+
+internal inline v2
+SnapToGrid(v2 P, editor_grid Grid){
+ P.X /= Grid.CellSize.X;
+ P.Y /= Grid.CellSize.Y;
+ v2 Result = V2(Round(P.X), Round(P.Y));
+ Result.X *= Grid.CellSize.X;
+ Result.Y *= Grid.CellSize.Y;
+ 
+ return(Result);
+}
+
+internal inline rect
+SnapToGrid(rect R, editor_grid Grid){
+ rect Result;
+ if(R.Min.X < R.Max.X){
+  Result.Min.X = Floor(R.Min.X/Grid.CellSize.X);
+  Result.Max.X =  Ceil(R.Max.X/Grid.CellSize.X);
+ }else{
+  Result.Min.X =  Ceil(R.Min.X/Grid.CellSize.X);
+  Result.Max.X = Floor(R.Max.X/Grid.CellSize.X);
+ }
+ if(R.Min.Y < R.Max.Y){
+  Result.Min.Y = Floor(R.Min.Y/Grid.CellSize.Y);
+  Result.Max.Y =  Ceil(R.Max.Y/Grid.CellSize.Y);
+ }else{
+  Result.Min.Y =  Ceil(R.Min.Y/Grid.CellSize.Y);
+  Result.Max.Y = Floor(R.Max.Y/Grid.CellSize.Y);
+ }
+ Result.X0 *= Grid.CellSize.X;
+ Result.X1 *= Grid.CellSize.X;
+ Result.Y0 *= Grid.CellSize.Y;
+ Result.Y1 *= Grid.CellSize.Y;
+ 
+ // TODO(Tyler): Maybe fix rect?
+ Result = RectFix(Result);
+ 
+ return(Result);
 }
 
 //~ Undo/redo
@@ -364,8 +395,7 @@ world_editor::DoEditThingTilemap(){
  asset_tilemap *Asset = AssetSystem.GetTilemap(TilemapToAdd);
  v2 Size = Asset->CellSize;
  
- v2 P = MouseP - 0.5f*Size;
- P = SnapEntity(P, Size, 1);
+ v2 P = SnapToGrid(MouseP, Grid);
  
  RenderTileAtIndex(Asset, P, GetCursorZ(), 1, 0);
  
@@ -381,13 +411,12 @@ world_editor::DoEditThingTilemap(){
   Entity->Type = EntityType_Tilemap;
   Entity->P = MouseP - 0.5f*V2(Width, Height);
   Entity->P = MaximumV2(Entity->P, V2(0));
-  Entity->P = SnapToGrid(Entity->P, 1);
+  Entity->P = SnapToGrid(Entity->P, Grid);
   Entity->Asset = TilemapToAdd;
   Entity->Tilemap.Width = WidthU32;
   Entity->Tilemap.Height = HeightU32;
-  u32 MapSize = Entity->Tilemap.Width*Entity->Tilemap.Height;
-  Entity->Tilemap.MapData = (u8 *)DefaultAlloc(MapSize);
-  Entity->Tilemap.OverrideIDs = (u32 *)DefaultAlloc(MapSize*sizeof(*Entity->Tilemap.OverrideIDs));
+  u32 MapSize = Entity->Tilemap.Width*Entity->Tilemap.Height*sizeof(*Entity->Tilemap.Tiles);
+  Entity->Tilemap.Tiles = (tilemap_tile *)DefaultAlloc(MapSize);
   
   EditThing = EditThing_None;
   EditModeEntity(Entity);
@@ -446,8 +475,7 @@ world_editor::DoEditThingEnemy(){
  //~ Cursor
  asset_entity *EntityInfo = AssetSystem.GetEntity(EntityInfoToAdd);
  v2 Size = EntityInfo->Size;
- v2 P = MouseP - 0.5f*Size;
- P = SnapEntity(P, Size, 1);
+ v2 P = SnapToGrid(MouseP, Grid);
  
  RenderSpriteSheetFrame(EntityInfo->Pieces[0], P, GetCursorZ(), 1, 0);
  
@@ -457,14 +485,14 @@ world_editor::DoEditThingEnemy(){
   
   Entity->Type = EntityType_Enemy;
   Entity->P = P;
-  Entity->P = SnapToGrid(Entity->P, 1);
+  Entity->P = SnapToGrid(Entity->P, Grid);
   Entity->Asset = EntityInfoToAdd;
   Entity->Enemy.Direction = Direction_Left;
   
   Entity->Enemy.PathStart = P + V2(-0.5f*Size.X, 0.5f*Size.Y);
-  Entity->Enemy.PathStart = SnapToGrid(Entity->Enemy.PathStart, 1);
+  Entity->Enemy.PathStart = SnapToGrid(Entity->Enemy.PathStart, Grid);
   Entity->Enemy.PathEnd   = P + V2(1.5f*Size.X, 0.5f*Size.Y);
-  Entity->Enemy.PathEnd   = SnapToGrid(Entity->Enemy.PathEnd, 1);
+  Entity->Enemy.PathEnd   = SnapToGrid(Entity->Enemy.PathEnd, Grid);
   
   EditModeEntity(Entity);
  }
@@ -498,8 +526,7 @@ world_editor::DoEditThingArt(){
  asset_art *Asset = AssetSystem.GetArt(ArtToAdd);
  v2 Size = Asset->Size;
  
- v2 P = MouseP - 0.5f*Size;
- P = SnapEntity(P, Size, 1);
+ v2 P = SnapToGrid(MouseP, Grid);
  
  RenderArt(Asset, P, GetCursorZ(), 1);
  
@@ -508,7 +535,7 @@ world_editor::DoEditThingArt(){
   world_entity *Entity = AddEntityAction();
   
   Entity->P = P;
-  Entity->P = SnapToGrid(Entity->P, 1);
+  Entity->P = SnapToGrid(Entity->P, Grid);
   Entity->Type = EntityType_Art;
   Entity->Art.Asset = ArtToAdd;
   
@@ -531,7 +558,7 @@ world_editor::DoEditThingTeleporter(){
   Entity->Teleporter.RequiredLevel = Strings.MakeBuffer();
   Entity->Type = EntityType_Teleporter;
   Entity->P = CursorP;
-  Entity->P = SnapToGrid(Entity->P, 1);
+  Entity->P = SnapToGrid(Entity->P, Grid);
   
   EditModeEntity(Entity);
  }
@@ -548,17 +575,17 @@ world_editor::DoEditThingDoor(){
   }case UIBehavior_Activate: {
    DragRect.Max = MouseP;
    
-   rect R = SnapToGrid(DragRect, TILE_SIDE);
+   rect R = SnapToGrid(DragRect, Grid);
    RenderRect(R, GetCursorZ(), BROWN, GameItem(1));
   }break;
   case UIBehavior_Deactivate: {
    world_entity *Entity = ArrayAlloc(&World->Entities);
-   rect R = SnapToGrid(DragRect, TILE_SIDE);
+   rect R = SnapToGrid(DragRect, Grid);
    Entity->Type = EntityType_Door;
    Entity->P = R.Min;
-   Entity->P = SnapToGrid(Entity->P, 1);
+   Entity->P = SnapToGrid(Entity->P, Grid);
    Entity->Door.Size = RectSize(R);
-   Entity->Door.Size = SnapToGrid(Entity->Door.Size, 1);
+   Entity->Door.Size = SnapToGrid(Entity->Door.Size, Grid);
    Entity->Door.RequiredLevel = Strings.MakeBuffer();
    EditModeEntity(Entity);
   }break;
@@ -587,44 +614,33 @@ ResizeTilemapData(world_entity_tilemap *Tilemap, s32 XChange, s32 YChange){
  
  u32 Width = Tilemap->Width;
  u32 Height = Tilemap->Height;
- u8 *NewMapData    = (u8 *)DefaultAlloc(Width*Height*sizeof(*NewMapData));
+ tilemap_tile *NewTiles = (tilemap_tile *)DefaultAlloc(Width*Height*sizeof(*Tilemap->Tiles));
  for(u32 Y=0; Y < Minimum(OldHeight, Height); Y++){
   for(u32 X=0; X < Minimum(OldWidth, Width); X++){
-   NewMapData[Y*Width + X] = Tilemap->MapData[Y*OldWidth + X];;
+   NewTiles[Y*Width + X] = Tilemap->Tiles[Y*OldWidth + X];;
   }
  }
- DefaultFree(Tilemap->MapData);
- Tilemap->MapData = NewMapData;
- 
- u32 *NewOverrideIDs    = (u32 *)DefaultAlloc(Width*Height*sizeof(*NewOverrideIDs));
- for(u32 Y=0; Y < Minimum(OldHeight, Height); Y++){
-  for(u32 X=0; X < Minimum(OldWidth, Width); X++){
-   NewOverrideIDs[Y*Width + X] = Tilemap->OverrideIDs[Y*OldWidth + X];;
-  }
- }
- DefaultFree(Tilemap->OverrideIDs);
- Tilemap->OverrideIDs = NewOverrideIDs;
- 
+ DefaultFree(Tilemap->Tiles);
+ Tilemap->Tiles = NewTiles;
 }
 
 internal void
 MoveTilemapData(world_entity_tilemap *Tilemap, s32 XOffset, s32 YOffset){
  u32 Width = Tilemap->Width;
  u32 Height = Tilemap->Height;
- u8 *Temp = PushArray(&TransientStorageArena, u8, Width*Height);
+ tilemap_tile *TempTiles = PushArray(&TransientStorageArena, tilemap_tile, Width*Height);
  for(u32 Y=0; Y<Height; Y++){
   for(u32 X=0; X < Width; X++){
    s32 OldX = X+XOffset;
    s32 OldY = Y+YOffset;
-   u8 Value = 0;
+   TempTiles[Y*Width + X] = {};
    if((0 <= OldX) && (OldX < (s32)Width) && 
       (0 <= OldY) && (OldY < (s32)Height)){
-    Value = Tilemap->MapData[OldY*Width + OldX];
+    TempTiles[Y*Width + X] = Tilemap->Tiles[OldY*Width + OldX];
    }
-   Temp[Y*Width + X] = Value;
   }
  }
- CopyMemory(Tilemap->MapData, Temp, Width*Height*sizeof(u8));
+ CopyMemory(Tilemap->Tiles, TempTiles, Width*Height*sizeof(*Tilemap->Tiles));
 }
 
 enum tilemap_edge_action {
@@ -736,8 +752,7 @@ world_editor::MaybeEditTilemap(){
  //~ Remove tiles
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Right, false, -1, KeyFlag_Any) &&
     IsInTilemap(Tilemap, X, Y)){
-  Tilemap->MapData[MapIndex] = 0;
-  Tilemap->OverrideIDs[MapIndex] = 0;
+  Tilemap->Tiles[MapIndex] = {};
  }
  
  //~ Edit mode
@@ -753,13 +768,13 @@ world_editor::MaybeEditTilemap(){
  //~ Manual tiles scrolling
  if(UIManager.DoScrollElement(WIDGET_ID, 0, KeyFlag_Shift|KeyFlag_Any) && 
     IsInTilemap(Tilemap, X, Y)){
-  if(Tilemap->MapData[MapIndex]){
+  if(Tilemap->Tiles[MapIndex].Type){
    u32 Index = 0;
-   if(Tilemap->OverrideIDs[MapIndex] == 0){
+   if(Tilemap->Tiles[MapIndex].OverrideID == 0){
     Index = 0;
    }else{
     for(u32 I=0; I<Asset->TileCount; I++){
-     if(Asset->Tiles[I].ID == (Tilemap->OverrideIDs[MapIndex]-1)){
+     if(Asset->Tiles[I].ID == (Tilemap->Tiles[MapIndex].OverrideID-1)){
       Index = I;
       break;
      }
@@ -776,7 +791,7 @@ world_editor::MaybeEditTilemap(){
     }
    }
    
-   Tilemap->OverrideIDs[MapIndex] = Asset->Tiles[Index].ID+1;
+   Tilemap->Tiles[MapIndex].OverrideID = Asset->Tiles[Index].ID+1;
   }
  }
  
@@ -788,7 +803,7 @@ world_editor::MaybeEditTilemap(){
  //~ Reset tile
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Middle, true, -1, KeyFlag_Shift|KeyFlag_Any) &&
     IsInTilemap(Tilemap, X, Y)){
-  Tilemap->OverrideIDs[MapIndex] = 0;
+  Tilemap->Tiles[MapIndex].OverrideID = 0;
  }
  
  if(TilemapEditMode == TilemapEditMode_Auto){
@@ -807,7 +822,7 @@ world_editor::MaybeEditTilemap(){
     b8 FoundTile = false;
     u32 Index = 0;
     for(u32 I=0; I<Asset->TileCount; I++){
-     tilemap_tile_data *Tile = &Asset->Tiles[I];
+     asset_tilemap_tile_data *Tile = &Asset->Tiles[I];
      if(((Tile->Type & Type)) &&
         (Tile->Flags == Flags)){
       Index = Tile->OffsetMin;
@@ -828,8 +843,8 @@ world_editor::MaybeEditTilemap(){
   //~ Add auto tiles
   if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, -1, KeyFlag_Any) &&
      IsInTilemap(Tilemap, X, Y)){
-   Tilemap->MapData[MapIndex] = (u8)TILE_EDIT_MODE_TILE_TYPE_TABLE[AutoTileMode];
-   Tilemap->OverrideIDs[MapIndex] = 0;
+   Tilemap->Tiles[MapIndex].Type = (u8)TILE_EDIT_MODE_TILE_TYPE_TABLE[AutoTileMode];
+   Tilemap->Tiles[MapIndex].OverrideID = 0;
   }
   
  }else if(TilemapEditMode == TilemapEditMode_Manual){
@@ -838,7 +853,7 @@ world_editor::MaybeEditTilemap(){
   if(TilemapDoSelectorOverlay){
    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, ManualTileIndex, Asset->TileCount, KeyFlag_Any);
    for(u32 I=0; I < Asset->TileCount; I++){
-    tilemap_tile_data *Tile = &Asset->Tiles[I];
+    asset_tilemap_tile_data *Tile = &Asset->Tiles[I];
     
     v2 Size = SelectorClampSize(&Selector, Asset->CellSize);
     RenderTileAtIndex(Asset, Selector.P, -2.0f, 0, Tile->OffsetMin, Tile->Transform);
@@ -851,8 +866,8 @@ world_editor::MaybeEditTilemap(){
   //~ Add manual tiles
   if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, false, -1, KeyFlag_Any) &&
      IsInTilemap(Tilemap, X, Y)){
-   Tilemap->MapData[MapIndex] = (u8)1;
-   Tilemap->OverrideIDs[MapIndex] = Asset->Tiles[ManualTileIndex].ID+1;
+   Tilemap->Tiles[MapIndex].Type = (u8)1;
+   Tilemap->Tiles[MapIndex].OverrideID = Asset->Tiles[ManualTileIndex].ID+1;
   }
   
   
@@ -911,7 +926,7 @@ world_editor::DoEnemyOverlay(world_entity_enemy *Entity){
     v2 Offset = GameRenderer.ScreenToWorld(UIManager.ActiveElement.Offset, ScaledItem(0));
     
     *Point = MouseP + Offset;
-    *Point = SnapToGrid(*Point, 1);
+    *Point = SnapToGrid(*Point, Grid);
     
     Active = true;
    }break;
@@ -996,11 +1011,20 @@ world_editor::DoSelectedThingUI(){
  switch(Selected->Type){
   case EntityType_Tilemap: {
    if(Window->BeginSection("Edit tilemap", WIDGET_ID, 10, true)){
+    world_entity_tilemap *Tilemap = &Selected->Tilemap;
     
     Window->Text("Hold 'Alt' to edit tilemap");
     
     if(Window->Button("Delete tilemap", WIDGET_ID)){
      DeleteEntityAction(Selected);
+    }
+    
+    if(Window->Button("Match tilemap to world", WIDGET_ID)){
+     Tilemap->P = V2(0);
+     
+     ResizeTilemapData(Tilemap, 
+                       (s32)World->Width-(s32)Tilemap->Width,
+                       (s32)World->Height-(s32)Tilemap->Height);
     }
     
     OverrideEditTilemap = Window->ToggleBox("Edit tilemap(E)", OverrideEditTilemap, WIDGET_ID);
@@ -1197,10 +1221,7 @@ world_editor::DoDragEntity(v2 *P, v2 Size, world_entity *Entity, b8 Special){
   case UIBehavior_Activate: {
    v2 Offset = GameRenderer.ScreenToWorld(UIManager.ActiveElement.Offset, ScaledItem(0));
    
-   v2 NewP = MouseP + Offset;
-   NewP = SnapEntity(NewP, Size, 1);
-   
-   *P = NewP;
+   *P = SnapToGrid(MouseP + Offset, Grid);
    
    Result = true;
   }break;
@@ -1250,6 +1271,21 @@ world_editor::ProcessHotKeys(){
  if(OSInput.KeyJustDown('A')) ToggleFlag(&EditorFlags, WorldEditorFlag_HideArt); 
  if(OSInput.KeyJustDown('O')) ToggleFlag(&EditorFlags, WorldEditorFlag_HideOverlays); 
  
+ if(OSInput.KeyJustDown('F', KeyFlag_Control)){
+  world_entity_player *Player = 0;
+  for(u32 I=0; I<World->Entities.Count; I++){
+   if(World->Entities[I].Type == EntityType_Player){
+    Player = &World->Entities[I].Player;
+    break;
+   }
+  }
+  Assert(Player);
+  
+  asset_entity *EntityInfo = AssetSystem.GetEntity(Player->Asset);
+  v2 Center = Player->P + 0.5f*EntityInfo->Size;
+  GameRenderer.SetCameraTarget(Center);
+ }
+ 
  //if(OSInput.KeyJustDown('Z', KeyFlag_Control)) Undo();
  //if(OSInput.KeyJustDown('Y', KeyFlag_Control)) Redo();
  //if(OSInput.KeyJustDown('B')) ClearActionHistory();
@@ -1292,6 +1328,8 @@ world_editor::UpdateAndRender(){
  if(!World){
   ChangeWorld(CurrentWorld);
   EntityInfoToAdd = Strings.GetString("snail");
+  Grid.Offset = V2(0);
+  Grid.CellSize = TILE_SIZE;
   EditModeEntity(0);
  }
  
@@ -1305,7 +1343,7 @@ world_editor::UpdateAndRender(){
  
  LastMouseP = MouseP;
  MouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(1));
- CursorP = SnapToGrid(MouseP, TILE_SIDE);
+ CursorP = SnapToGrid(MouseP, Grid);
  
  //~ Dragging
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Middle, false, -2)){
@@ -1392,7 +1430,7 @@ world_editor::UpdateAndRender(){
     
     tilemap_data Data = MakeTilemapData(&TransientStorageArena, Tilemap->Width, Tilemap->Height);
     
-    CalculateTilemapIndices(Asset, Tilemap->MapData, Tilemap->OverrideIDs, &Data, 0, 
+    CalculateTilemapIndices(Asset, Tilemap->Tiles, &Data, 0, 
                             (Tilemap->Flags&WorldEntityTilemapFlag_TreatEdgesAsTiles));
     RenderTilemap(Asset, &Data, Tilemap->P, Entity->Z, Entity->Layer);
     

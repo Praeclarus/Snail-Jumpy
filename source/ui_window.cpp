@@ -768,7 +768,7 @@ ui_window::Begin(v2 TopLeft, b8 DoHide){
  }
  FadeT = Clamp(FadeT, 0.0f, 1.0f);
  
- v2 Fix = V20;
+ v2 Fix = V2(0);
  if(Rect.Max.X > OSInput.WindowSize.X){
   Fix += V2(OSInput.WindowSize.X-Rect.Max.X, 0.0f);
  }else if(Rect.Min.X < 0.0f){

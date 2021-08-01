@@ -20,8 +20,8 @@ struct world_entity_ {
 struct world_entity_tilemap : public world_entity_ {
  u32 Width;
  u32 Height;
- u8 *MapData;
- u32 *OverrideIDs;
+ 
+ tilemap_tile *Tiles;
 };
 
 struct world_entity_enemy : public world_entity_  {
@@ -119,7 +119,7 @@ struct world_data {
 
 //~ World manager
 
-global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
+global_constant u32 CURRENT_WORLD_FILE_VERSION = 1;
 
 struct world_manager {
  memory_arena Memory;

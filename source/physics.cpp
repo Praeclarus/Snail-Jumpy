@@ -6,7 +6,7 @@ physics_debugger::Begin(){
  Current = {};
  Layout = MakeLayout(1500, 700, 30, DebugFont.Size, 100, -10.2f);
  Origin = V2(100.0f, 100.0f);
- DrawPoint(Origin, V20, WHITE);
+ DrawPoint(Origin, V2(0), WHITE);
 }
 
 inline void
@@ -109,9 +109,9 @@ physics_debugger::DrawPolygon(v2 *Points, u32 PointCount){
 inline void
 physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount){
  if(!(Flags & PhysicsDebuggerFlags_StepPhysics)) return;
- PhysicsDebugger.DrawPoint(AP, V20, WHITE);
- PhysicsDebugger.DrawPoint(BP, V20, DARK_GREEN);
- PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V20, Delta, ORANGE);
+ PhysicsDebugger.DrawPoint(AP, V2(0), WHITE);
+ PhysicsDebugger.DrawPoint(BP, V2(0), DARK_GREEN);
+ PhysicsDebugger.DrawLineFrom(PhysicsDebugger.Origin, V2(0), Delta, ORANGE);
  PhysicsDebugger.DrawPolygon(Points, PointCount);
  PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
 } 
@@ -186,7 +186,7 @@ MakeCollisionRect(v2 Offset, v2 Size){
  collision_boundary Result = {};
  Result.Type = BoundaryType_Rect;
  Result.Offset = Offset;
- Result.Bounds = CenterRect(V20, Size);
+ Result.Bounds = CenterRect(V2(0), Size);
  return(Result);
 }
 
@@ -207,7 +207,7 @@ MakeCollisionWedge(v2 Offset, f32 X, f32 Y, memory_arena *Arena=0){
  
  Result.FreeFormPointCount = 3;
  Result.FreeFormPoints = PushArray(Arena, v2, 3);
- Result.FreeFormPoints[0] = V20;
+ Result.FreeFormPoints[0] = V2(0);
  Result.FreeFormPoints[1] = V2(X, 0.0f);
  Result.FreeFormPoints[2] = V2(0.0f, Y);
  
@@ -221,7 +221,7 @@ MakeCollisionCircle(v2 Offset, f32 Radius, u32 Segments, memory_arena *Arena=0){
  collision_boundary Result = {};
  Result.Type = BoundaryType_FreeForm;
  Result.Offset = Offset;
- Result.Bounds = CenterRect(V20, 2*V2(Radius));
+ Result.Bounds = CenterRect(V2(0), 2*V2(Radius));
  
  // TODO(Tyler): There might be a better way to do this that doesn't require
  // calculation beforehand
@@ -472,7 +472,7 @@ DoSupport(collision_boundary *Boundary,
 
 internal inline v2 
 CalculateSupport(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, v2 BP, v2 Delta, v2 Direction){
- v2 Result = DoSupport(BoundaryA, AP, Delta, Direction) - DoSupport(BoundaryB, BP, V20, -Direction);
+ v2 Result = DoSupport(BoundaryA, AP, Delta, Direction) - DoSupport(BoundaryB, BP, V2(0), -Direction);
  return(Result);
 }
 
@@ -635,9 +635,9 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
       ((-Epsilon <= BAlongDeltaNormal) && (BAlongDeltaNormal <= Epsilon))){
     FoundEdge = FoundEdge_Colinear;
     EdgeIndex = I;
-    InverseNormal = V20;
+    InverseNormal = V2(0);
     EdgeDistance = Dot(InverseNormal, -A);
-    IntersectionPoint = V20;
+    IntersectionPoint = V2(0);
    }else if(((AAlongDeltaNormal >= 0) && (BAlongDeltaNormal <= 0)) || 
             ((AAlongDeltaNormal <= 0) && (BAlongDeltaNormal >= 0))){ // The delta line  intersects
     AAlongDeltaNormal = AbsoluteValue(AAlongDeltaNormal);
@@ -670,7 +670,7 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
   PhysicsDebugger.BreakWhen(FoundEdge == FoundEdge_None);
   
   f32 Distance;
-  v2 NewPoint = V20;
+  v2 NewPoint = V2(0);
   if((InverseNormal.X == 0.0f) && (InverseNormal.Y == 0.0f)){
    Distance = EdgeDistance;
   }else{
@@ -731,7 +731,7 @@ DoDeltaEPA(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB, 
  if(PhysicsDebugger.IsCurrent()){
   PhysicsDebugger.DrawBaseGJK(AP, BP, Delta, Polytope.Items, Polytope.Count);
   
-  PhysicsDebugger.DrawNormal(PhysicsDebugger.Origin, V20, Result.Normal, PINK);
+  PhysicsDebugger.DrawNormal(PhysicsDebugger.Origin, V2(0), Result.Normal, PINK);
   
   PhysicsDebugger.DrawString("Polytope.Count: %u", Polytope.Count);
   PhysicsDebugger.DrawString("Time of impact: %f", Result.TimeOfImpact);
@@ -824,7 +824,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
     TileP.X *= Tilemap->TileSize.X;
     TileP.Y *= Tilemap->TileSize.Y;
     TileP += Tilemap->P;
-    rect TileBounds = CenterRect(V20, Tilemap->TileSize);
+    rect TileBounds = CenterRect(V2(0), Tilemap->TileSize);
     
     if(TileID > 0){
      TileID--;
@@ -971,9 +971,9 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=5.0f){
  if(PhysicsDebugger.IsCurrent()){
   physics_object *ObjectB = Collision.ObjectB;
   PhysicsDebugger.DrawString("Yes floor");
-  PhysicsDebugger.DrawPoint(Object->P, V20, WHITE);
-  PhysicsDebugger.DrawPoint(ObjectB->P, V20, DARK_GREEN);
-  PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision.Normal, PINK);
+  PhysicsDebugger.DrawPoint(Object->P, V2(0), WHITE);
+  PhysicsDebugger.DrawPoint(ObjectB->P, V2(0), DARK_GREEN);
+  PhysicsDebugger.DrawNormal(ObjectB->P, V2(0), Collision.Normal, PINK);
   PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision.TimeOfImpact);
   PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision.Correction.X, Collision.Correction.Y);
   PhysicsDebugger.DrawString("MassA: %f, MassB: %f", Object->Mass, ObjectB->Mass);
@@ -1135,7 +1135,7 @@ physics_system::DoPhysics(){
    ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
    ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
    if(PhysicsDebugger.IsCurrent()){
-    PhysicsDebugger.DrawPoint(ObjectA->P, V20, YELLOW);
+    PhysicsDebugger.DrawPoint(ObjectA->P, V2(0), YELLOW);
    }
    
    if(Triggers[It.I].IsValid){
@@ -1173,11 +1173,11 @@ physics_system::DoPhysics(){
      //~ DEBUG
      if(PhysicsDebugger.IsCurrent()){
       PhysicsDebugger.DrawString("Yes collision");
-      PhysicsDebugger.DrawPoint(ObjectA->P-CorrectionPercent*Collision->Correction, V20, YELLOW);
-      PhysicsDebugger.DrawPoint(ObjectA->P, V20, WHITE);
+      PhysicsDebugger.DrawPoint(ObjectA->P-CorrectionPercent*Collision->Correction, V2(0), YELLOW);
+      PhysicsDebugger.DrawPoint(ObjectA->P, V2(0), WHITE);
       if(ObjectB) { 
-       PhysicsDebugger.DrawPoint(ObjectB->P, V20, DARK_GREEN);
-       PhysicsDebugger.DrawNormal(ObjectB->P, V20, Collision->Normal, PINK);
+       PhysicsDebugger.DrawPoint(ObjectB->P, V2(0), DARK_GREEN);
+       PhysicsDebugger.DrawNormal(ObjectB->P, V2(0), Collision->Normal, PINK);
        PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
       }
       PhysicsDebugger.DrawString("CurrentTimeOfImpact: %f", CurrentTimeOfImpact);

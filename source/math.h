@@ -222,7 +222,6 @@ NormalizeDegrees(s32 D){
 
 //~ V2s
 
-#define V20 V2(0)
 union v2
 {
  struct
@@ -509,15 +508,6 @@ CeilV2(v2 V){
  v2 Result;
  Result.X = Ceil(V.X);
  Result.Y = Ceil(V.Y);
- return(Result);
-}
-
-internal inline v2
-SnapToGrid(v2 P, f32 UnitSize){
- P /= UnitSize;
- v2 Result = V2(Floor(P.X), Floor(P.Y));
- Result *= UnitSize;
- 
  return(Result);
 }
 
@@ -822,31 +812,6 @@ RectSweep(rect RectA, v2 Delta){
  rect Result;
  Result.Min = MinimumV2(RectA.Min, RectB.Min);
  Result.Max = MaximumV2(RectA.Max, RectB.Max);
- 
- return(Result);
-}
-
-internal inline rect
-SnapToGrid(rect R, f32 UnitSize){
- rect Result;
- if(R.Min.X < R.Max.X){
-  Result.Min.X = Floor(R.Min.X/UnitSize);
-  Result.Max.X =  Ceil(R.Max.X/UnitSize);
- }else{
-  Result.Min.X =  Ceil(R.Min.X/UnitSize);
-  Result.Max.X = Floor(R.Max.X/UnitSize);
- }
- if(R.Min.Y < R.Max.Y){
-  Result.Min.Y = Floor(R.Min.Y/UnitSize);
-  Result.Max.Y =  Ceil(R.Max.Y/UnitSize);
- }else{
-  Result.Min.Y =  Ceil(R.Min.Y/UnitSize);
-  Result.Max.Y = Floor(R.Max.Y/UnitSize);
- }
- Result *= UnitSize;
- 
- // TODO(Tyler): Maybe fix rect?
- Result = RectFix(Result);
  
  return(Result);
 }

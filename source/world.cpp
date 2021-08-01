@@ -96,7 +96,7 @@ world_manager::LoadWorld(const char *LevelName){
     }
     
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-    *Boundary = MakeCollisionRect(V20, V2(8.0f));
+    *Boundary = MakeCollisionRect(V2(0), V2(8.0f));
     
     u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
     for(u32 I = 0; I < N; I++){
@@ -139,7 +139,7 @@ world_manager::LoadWorld(const char *LevelName){
       
       u8 *PhysicsMap = PushArray(&TransientMemory, u8, Width*Height);
       
-      CalculateTilemapIndices(Asset, Data->MapData, Data->OverrideIDs, 
+      CalculateTilemapIndices(Asset, Data->Tiles,
                               &Tilemap->TilemapData, PhysicsMap, 
                               (Entity->Flags&WorldEntityTilemapFlag_TreatEdgesAsTiles));
       
@@ -289,7 +289,7 @@ world_manager::LoadWorld(const char *LevelName){
     Projectile->Type = EntityType_Projectile;
     Projectile->RemainingLife = 0.0f;
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
-    *Boundary = MakeCollisionRect(V20, V2(2.0f));
+    *Boundary = MakeCollisionRect(V2(0), V2(2.0f));
     trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
     
     Physics->State |= PhysicsObjectState_DontFloorRaycast;
@@ -367,16 +367,10 @@ world_manager::LoadWorldFromFile(const char *Name){
     case EntityType_Tilemap: {
      Entity->Tilemap.Width  = *ConsumeType(&Stream, u32);
      Entity->Tilemap.Height = *ConsumeType(&Stream, u32);
-     u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height;
-     u8 *MapData = ConsumeBytes(&Stream, Size);
-     Entity->Tilemap.MapData = (u8 *)DefaultAlloc(Size);
-     CopyMemory(Entity->Tilemap.MapData, MapData, Size*sizeof(*Entity->Tilemap.MapData));
-     
-     Entity->Tilemap.OverrideIDs = (u32 *)DefaultAlloc(Size*sizeof(*Entity->Tilemap.OverrideIDs));
-     if(Header->Version >= 2){
-      u8 *OverrideIDs = ConsumeBytes(&Stream, Size*sizeof(*Entity->Tilemap.OverrideIDs));
-      CopyMemory(Entity->Tilemap.OverrideIDs, OverrideIDs, Size*sizeof(*Entity->Tilemap.OverrideIDs));
-     }
+     u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height*sizeof(tilemap_tile);
+     tilemap_tile *Tiles = (tilemap_tile *)ConsumeBytes(&Stream, Size);
+     Entity->Tilemap.Tiles = (tilemap_tile *)DefaultAlloc(Size);
+     CopyMemory(Entity->Tilemap.Tiles, Tiles, Size);
     }break;
     case EntityType_Enemy: {
      Entity->Enemy.Direction = *ConsumeType(&Stream, direction);
@@ -470,11 +464,9 @@ world_manager::WriteWorldsToFiles(){
     case EntityType_Tilemap: {
      WriteVariableToFile(File, Offset, Entity->Tilemap.Width);
      WriteVariableToFile(File, Offset, Entity->Tilemap.Height);
-     u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height;
-     WriteToFile(File, Offset, Entity->Tilemap.MapData, Size);
+     u32 Size = Entity->Tilemap.Width*Entity->Tilemap.Height*sizeof(*Entity->Tilemap.Tiles);
+     WriteToFile(File, Offset, Entity->Tilemap.Tiles, Size);
      Offset += Size;
-     WriteToFile(File, Offset, Entity->Tilemap.OverrideIDs, Size*sizeof(*Entity->Tilemap.OverrideIDs));
-     Offset += Size*sizeof(*Entity->Tilemap.OverrideIDs);
     }break;
     case EntityType_Enemy: {
      WriteVariableToFile(File, Offset, Entity->Enemy.Direction);

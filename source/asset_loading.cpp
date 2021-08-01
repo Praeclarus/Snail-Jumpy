@@ -784,8 +784,8 @@ asset_system::ProcessBackground(){
 
 #define AssetLoaderProcessTilemapTransform(Array, Name_, Transform_) \
 if(CompareStrings(S, Name_)){                             \
-if((Array)->Count > 1){                                 \
-tilemap_tile_data *PreviousTile = &(*(Array))[(Array)->Count-2]; \
+if((Array)->Count > 1){                               \
+asset_tilemap_tile_data *PreviousTile = &(*(Array))[(Array)->Count-2]; \
 Tile->OffsetMin = PreviousTile->OffsetMin;        \
 Tile->OffsetMax = PreviousTile->OffsetMax;        \
 Tile->Transform = Transform_;                     \
@@ -801,7 +801,7 @@ asset_system::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
  b8 Result = false;
  CurrentAttribute = 0;
  
- tilemap_tile_data *Tile = ArrayAlloc(Tiles);
+ asset_tilemap_tile_data *Tile = ArrayAlloc(Tiles);
  if(CompareStrings(TileType, "art")){
   Tile->Flags |= TileFlag_Art;
   TileType = Expect(Identifier);
@@ -937,7 +937,7 @@ asset_system::ProcessTilemap(){
    Boundaries[Index] = ExpectTypeBoundary();
    HandleError();
   }else if(DoAttribute(String, "manual_tile")){
-   tilemap_tile_data *Tile = ArrayAlloc(&Tiles);
+   asset_tilemap_tile_data *Tile = ArrayAlloc(&Tiles);
    Tile->Type  |= TileType_Tile;
    Tile->Flags |= TileFlag_Manual;
    
@@ -1020,8 +1020,8 @@ asset_system::ProcessTilemap(){
  
  tilemap_tile_place CombinedPlacesTiles = 0;
  
- tilemap_tile_data *UnsortedTiles = PushArray(&TransientStorageArena, tilemap_tile_data, Tiles.Count);
- Tilemap->Connectors = PushArray(&Memory, tilemap_tile_data, 8);
+ asset_tilemap_tile_data *UnsortedTiles = PushArray(&TransientStorageArena, asset_tilemap_tile_data, Tiles.Count);
+ Tilemap->Connectors = PushArray(&Memory, asset_tilemap_tile_data, 8);
  for(u32 I=0; I<Tiles.Count; I++){
   if(Tiles[I].BoundaryIndex > BoundaryCount){
    LogError("Tile's boundary index cannot be greater than the number of boundaries specified(%u)",
@@ -1038,10 +1038,10 @@ asset_system::ProcessTilemap(){
  }
  
  // TODO(Tyler): This is not a good sorting algorithm, this should be changed!
- Tilemap->Tiles = PushArray(&Memory, tilemap_tile_data, Tilemap->TileCount);
+ Tilemap->Tiles = PushArray(&Memory, asset_tilemap_tile_data, Tilemap->TileCount);
  u32 *Popcounts = PushArray(&TransientStorageArena, u32, Tilemap->TileCount);
  for(u32 I=0; I<Tilemap->TileCount; I++){
-  tilemap_tile_data *Tile = &UnsortedTiles[I];
+  asset_tilemap_tile_data *Tile = &UnsortedTiles[I];
   u32 Popcount = PopcountU32(Tile->Place);
   u32 J = 0;
   for(; J<I; J++){

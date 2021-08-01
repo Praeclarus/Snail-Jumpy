@@ -73,6 +73,14 @@ struct editor_action {
  };
 };
 
+//~ 
+
+struct editor_grid {
+ v2 Offset;
+ v2 CellSize;
+};
+
+
 //~ Editor
 typedef u32 world_editor_flags;
 enum world_editor_flags_ {
@@ -102,6 +110,8 @@ struct world_editor {
  world_entity *Selected;
  world_entity *EntityToDelete;
  editor_delete_flags DeleteFlags;
+ 
+ editor_grid Grid;
  
  //~
  void Initialize();

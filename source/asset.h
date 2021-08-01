@@ -176,7 +176,13 @@ struct tilemap_data {
  tile_connector_data *Connectors;
 };
 
-struct tilemap_tile_data {
+struct tilemap_tile {
+ u32 OverrideID;
+ u8  OverrideVariation;
+ u8  Type;
+};
+
+struct asset_tilemap_tile_data {
  tile_type Type;
  tile_flags Flags;
  
@@ -198,16 +204,16 @@ struct asset_tilemap {
  u32 YTiles;
  
  u32 TileCount;
- tilemap_tile_data *Tiles;
+ asset_tilemap_tile_data *Tiles;
  u32 ConnectorCount;
- tilemap_tile_data *Connectors;
+ asset_tilemap_tile_data *Connectors;
  
  u32 BoundaryCount;
  collision_boundary *Boundaries;
 };
 
 //~ Asset system
-typedef dynamic_array<tilemap_tile_data> tile_array;
+typedef dynamic_array<asset_tilemap_tile_data> tile_array;
 struct asset_system {
  //~ Asset stuff
  memory_arena Memory;
