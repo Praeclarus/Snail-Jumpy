@@ -547,6 +547,24 @@ CalculatePlace(tilemap_tile *Tiles, s32 Width, s32 Height, s32 X, s32 Y, b8 Boun
  return(Place);
 }
 
+internal void
+SetTilemapTile(tilemap_tile *Tiles, tilemap_data *Data, u8 *PhysicsMap, u32 MapIndex, asset_tilemap_tile_data *Tile){
+ if(Tiles[MapIndex].OverrideVariation > 0){
+  u32 Variation = Tiles[MapIndex].OverrideVariation - 1;
+  u32 OffsetSize = Tile->OffsetMax - Tile->OffsetMin;
+  Variation = (Variation%OffsetSize);
+  u32 TileIndex = Tile->OffsetMin+Variation;
+  Data->Indices[MapIndex] = TileIndex+1;
+  Tiles[MapIndex].OverrideVariation = (u8)(Variation+1);
+ }else{
+  Data->Indices[MapIndex] = ChooseTileIndex(Tile, MapIndex)+1;
+ }
+ Data->Transforms[MapIndex] = Tile->Transform;
+ if(PhysicsMap && !(Tile->Flags & TileFlag_Art)){
+  PhysicsMap[MapIndex] = Tile->BoundaryIndex+1;
+ }
+}
+
 internal void 
 CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_data *Data, 
                         u8 *PhysicsMap=0, b8 TreatEdgesAsTiles=false){
@@ -616,21 +634,8 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
      }
     }
     
-    if(FoundTile){
-     Data->Indices[MapIndex] = ChooseTileIndex(FoundTile, MapIndex)+1;
-     Data->Transforms[MapIndex] = FoundTile->Transform;
-     if(PhysicsMap && !(FoundTile->Flags & TileFlag_Art)){
-      PhysicsMap[MapIndex] = FoundTile->BoundaryIndex+1;
-     }
-    }else if(FoundNormalTile){
-     Data->Indices[MapIndex] = ChooseTileIndex(FoundNormalTile, MapIndex)+1;
-     Data->Transforms[MapIndex] = FoundNormalTile->Transform;
-     if(PhysicsMap && !(FoundNormalTile->Flags & TileFlag_Art)){
-      PhysicsMap[MapIndex] = FoundNormalTile->BoundaryIndex+1;
-     }
-    }else{
-     POTENTIAL_BREAK_POINT;
-    }
+    if(FoundTile)            SetTilemapTile(Tiles, Data, PhysicsMap, MapIndex, FoundTile);
+    else if(FoundNormalTile) SetTilemapTile(Tiles, Data, PhysicsMap, MapIndex, FoundNormalTile);
    }
    MapIndex++;
   }

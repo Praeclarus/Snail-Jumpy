@@ -795,6 +795,20 @@ world_editor::MaybeEditTilemap(){
   }
  }
  
+ //~ Variation scrolling
+ if(UIManager.DoScrollElement(WIDGET_ID, 0, KeyFlag_Control|KeyFlag_Any) && 
+    IsInTilemap(Tilemap, X, Y)){
+  if(Tilemap->Tiles[MapIndex].Type){
+   s32 Range = 100;
+   s32 Scroll = UIManager.ActiveElement.Scroll;
+   if(Scroll > Range){
+    Tilemap->Tiles[MapIndex].OverrideVariation++;
+   }else if(Scroll < Range){
+    Tilemap->Tiles[MapIndex].OverrideVariation--;
+   }
+  }
+ }
+ 
  //~ Toggle selector 
  if(OSInput.KeyJustDown('S', KeyFlag_Any)){
   TilemapDoSelectorOverlay = !TilemapDoSelectorOverlay;
@@ -804,6 +818,11 @@ world_editor::MaybeEditTilemap(){
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Middle, true, -1, KeyFlag_Shift|KeyFlag_Any) &&
     IsInTilemap(Tilemap, X, Y)){
   Tilemap->Tiles[MapIndex].OverrideID = 0;
+ }
+ 
+ if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Middle, true, -1, KeyFlag_Control|KeyFlag_Any) &&
+    IsInTilemap(Tilemap, X, Y)){
+  Tilemap->Tiles[MapIndex].OverrideVariation = 0;
  }
  
  if(TilemapEditMode == TilemapEditMode_Auto){
