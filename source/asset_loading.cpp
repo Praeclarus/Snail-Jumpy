@@ -258,6 +258,68 @@ asset_system::ExpectTypeArrayS32(){
  return(Result);
 }
 
+asset_sprite_sheet_frame
+asset_system::ExpectTypeSpriteSheetFrame(){
+ asset_sprite_sheet_frame Result = {};
+ 
+ const char *Identifier = Expect(Identifier);
+ if(CompareStrings(Identifier, "Frame")){
+  ExpectToken(FileTokenType_BeginArguments);
+  HandleError();
+  
+  u32 Index = Expect(Integer);
+  Result.Index = (u8)Index;
+  
+  ExpectToken(FileTokenType_EndArguments);
+  HandleError();
+ }else if(CompareStrings(Identifier, "Flip")){
+  ExpectToken(FileTokenType_BeginArguments);
+  HandleError();
+  
+  u32 Index = Expect(Integer);
+  
+  Result.Flags |= SpriteSheetFrameFlag_Flip;
+  Result.Index = (u8)Index;
+  
+  ExpectToken(FileTokenType_EndArguments);
+  HandleError();
+ }else{
+  Reader.LastError = FileReaderError_InvalidToken;
+  return(Result);
+ }
+ 
+ return(Result);
+}
+
+array<asset_sprite_sheet_frame>
+asset_system::ExpectTypeArraySpriteSheetFrame(){
+ array<asset_sprite_sheet_frame> Result = MakeArray<asset_sprite_sheet_frame>(&TransientStorageArena, SJA_MAX_ARRAY_ITEM_COUNT);
+ 
+ const char *Identifier = Expect(Identifier);
+ if(CompareStrings(Identifier, "Array")){
+  ExpectToken(FileTokenType_BeginArguments);
+  HandleError();
+  
+  file_token Token = Reader.PeekToken();
+  while(Token.Type != FileTokenType_EndArguments){
+   asset_sprite_sheet_frame Frame = ExpectTypeSpriteSheetFrame();
+   HandleError();
+   ArrayAdd(&Result, Frame);
+   
+   Token = Reader.PeekToken();
+  }
+  
+  ExpectToken(FileTokenType_EndArguments);
+  HandleError();
+  
+ }else{
+  Reader.LastError = FileReaderError_InvalidToken;
+  return(Result);
+ }
+ 
+ return(Result);
+}
+
 //~ 
 
 b8 
@@ -406,14 +468,28 @@ asset_system::ProcessSpriteSheet(){
  *Sheet = {};
  
  v2s FrameSize = V2S(0);
- b8 LoadedAPieceAlready = false;
- v2s ImageSize = V2S(0);
+ v2s ImageSizes[MAX_SPRITE_SHEET_PIECES] = {};
+ b8  DonePieces[MAX_SPRITE_SHEET_PIECES] = {};
+ asset_sprite_sheet_piece *CurrentPiece = 0;
+ u32 CurrentPieceCurrentAnimationIndex  = 0;
  while(true){
   file_token Token = Reader.PeekToken();
   HandleToken(Token);
   const char *String = Expect(Identifier);
   
-  if(DoAttribute(String, "path")){
+  if(DoAttribute(String, "piece")){
+   s32 Index = Expect(Integer);
+   
+   if(Index > MAX_SPRITE_SHEET_PIECES){
+    LogError("Piece index must be between 0 and %d", MAX_SPRITE_SHEET_PIECES);
+    return(false);
+   }
+   
+   if(DonePieces[Index]){
+    LogError("Piece %d already exists!", Index);
+    return(false);
+   }
+   
    const char *Path = Expect(String);
    image *Image = LoadImageFromPath(Path);
    
@@ -421,17 +497,111 @@ asset_system::ProcessSpriteSheet(){
     LogError("'%s' isn't a valid path to an image!", Path);
     return(false);
    }
-   if(LoadedAPieceAlready){
-    if((ImageSize.X != Image->Size.X) || (ImageSize.Y != Image->Size.Y)){
-     LogError("Image sizes (%d, %d) and (%d, %d) do not match!",
-              ImageSize.X, ImageSize.Y, Image->Size.X, Image->Size.Y);
+   
+   Sheet->Pieces[Index].Texture = Image->Texture;
+   ImageSizes[Index] = Image->Size;
+   DonePieces[Index] = true;
+   Sheet->PieceCount++;
+   
+   CurrentPieceCurrentAnimationIndex = 0;
+   CurrentPiece = &Sheet->Pieces[Index];
+   
+  }else if(DoAttribute(String, "consecutive")){
+   if(!CurrentPiece){
+    LogError("The piece must be specified before defining sprite sheet animations");
+    return(false);
+   }
+   
+   if(CurrentPieceCurrentAnimationIndex > MAX_SPRITE_SHEET_ANIMATIONS){
+    LogError("Too many animations have been specified, the max number is: %d", MAX_SPRITE_SHEET_ANIMATIONS);
+    return(false);
+   }
+   
+   asset_sprite_sheet_animation *Animation = &CurrentPiece->Animations[CurrentPieceCurrentAnimationIndex];
+   
+   asset_sprite_sheet_frame_flags FrameFlags = 0;
+   
+   file_token Token = Reader.PeekToken();
+   if(Token.Type == FileTokenType_Identifier){
+    const char *S = Token.String;
+    if(CompareStrings(S, "FLIP")){
+     FrameFlags |= SpriteSheetFrameFlag_Flip;
+    }else{
+     LogError("Invalid flag: '%s'", S);
      return(false);
     }
+    
+    Expect(Identifier);
    }
-   ImageSize = Image->Size;
    
-   Sheet->Texture = Image->Texture;
-   LoadedAPieceAlready = true;
+   s32 StartingFrame   = ExpectPositiveInteger();
+   s32 FrameCount      = ExpectPositiveInteger();
+   s32 FPS             = ExpectPositiveInteger();
+   s32 YOffset         = Expect(Integer);
+   
+   Animation->FrameCount = (u8)FrameCount;
+   Animation->YOffset = (f32)YOffset;
+   Animation->FPS = (f32)FPS;
+   
+   for(s32 I=0; I<Minimum(FrameCount, (s32)MAX_SPRITE_SHEET_ANIMATION_FRAMES); I++){
+    Animation->Frames[I].Flags = FrameFlags;
+    Animation->Frames[I].Index = (u8)(StartingFrame+I);
+   }
+   
+   CurrentPieceCurrentAnimationIndex++;
+   
+  }else if(DoAttribute(String, "not_consecutive")){
+   if(!CurrentPiece){
+    LogError("The piece must be specified before defining sprite sheet animations");
+    return(false);
+   }
+   
+   if(CurrentPieceCurrentAnimationIndex > MAX_SPRITE_SHEET_ANIMATIONS){
+    LogError("Too many animations have been specified, the max number is: %d", MAX_SPRITE_SHEET_ANIMATIONS);
+    return(false);
+   }
+   
+   asset_sprite_sheet_animation *Animation = &CurrentPiece->Animations[CurrentPieceCurrentAnimationIndex];
+   
+   array<asset_sprite_sheet_frame> Array = ExpectTypeArraySpriteSheetFrame();
+   s32 FPS             = ExpectPositiveInteger();
+   s32 YOffset         = Expect(Integer);
+   
+   Animation->FrameCount = (u8)Array.Count;
+   Animation->YOffset = (f32)YOffset;
+   Animation->FPS = (f32)FPS;
+   
+   for(u32 I=0; I<Minimum(Array.Count, MAX_SPRITE_SHEET_ANIMATION_FRAMES); I++){
+    Animation->Frames[I] = Array[I];
+   }
+   
+   CurrentPieceCurrentAnimationIndex++;
+   
+  }else if(DoAttribute(String, "y_offsets")){
+   s32 Index = ExpectPositiveInteger();
+   
+   if(Index > MAX_SPRITE_SHEET_ANIMATIONS){
+    LogError("Index %d is too big; the max number is: %d", Index, MAX_SPRITE_SHEET_ANIMATIONS);
+    return(false);
+   }
+   
+   s32 FPS = ExpectPositiveInteger();
+   
+   array<s32> YOffsets = ExpectTypeArrayS32();
+   HandleError();
+   
+   if(YOffsets.Count > MAX_SPRITE_SHEET_ANIMATION_FRAMES){
+    LogError("Too many Y offsets specified; the max number is: %d", 
+             YOffsets.Count, MAX_SPRITE_SHEET_ANIMATION_FRAMES);
+    return(false);
+   }
+   
+   Sheet->YOffsetCounts[Index] = (u8)YOffsets.Count;
+   for(u32 I=0; I<YOffsets.Count; I++){
+    Sheet->YOffsets[Index][I] = (f32)YOffsets[I];
+   }
+   
+   Sheet->YOffsetFPS = (f32)FPS;
    
   }else if(DoAttribute(String, "size")){
    v2s Size = {};
@@ -439,39 +609,6 @@ asset_system::ProcessSpriteSheet(){
    Size.Y = Expect(Integer);
    FrameSize = Size;
    Sheet->FrameSize = V2(Size);
-   
-  }else if(DoAttribute(String, "frame_counts")){
-   array<s32> Array = ExpectTypeArrayS32();
-   HandleError();
-   
-   for(u32 I=0; I<Minimum(Array.Count, MAX_SPRITE_SHEET_ANIMATIONS); I++){
-    s32 Integer = Array[I];
-    EnsurePositive(Integer);
-    Sheet->FrameCounts[I] = (u32)Integer;
-   }
-   
-  }else if(DoAttribute(String, "base_fps")){
-   s32 BaseFPS = ExpectPositiveInteger();
-   
-   for(u32 I = 0; I < MAX_SPRITE_SHEET_ANIMATIONS; I++){
-    Sheet->FPSArray[I] = BaseFPS;
-   }
-   
-  }else if(DoAttribute(String, "override_fps")){
-   s32 OverrideIndex = Expect(Integer);
-   OverrideIndex--;
-   EnsurePositive(OverrideIndex);
-   if(OverrideIndex >= MAX_SPRITE_SHEET_ANIMATIONS){
-    LogMessage("ProcessSpriteSheet: override_fps index is greater than %llu", MAX_SPRITE_SHEET_ANIMATIONS);
-    return(false);
-   }
-   u32 OverrideFPS = Expect(Integer);
-   Sheet->FPSArray[OverrideIndex] = OverrideFPS;
-   
-   
-  }else if(DoAttribute(String, "y_offset")){
-   f32 YOffset = (f32)Expect(Integer);
-   Sheet->YOffset = YOffset;
    
   }else{ 
    if(!ProcessSpriteSheetStates(String, Sheet)){
@@ -481,10 +618,15 @@ asset_system::ProcessSpriteSheet(){
   }
  }
  
- Assert((FrameSize.X != 0) && (FrameSize.Y != 0));
- Assert((ImageSize.X != 0) && (ImageSize.Y != 0));
- Sheet->XFrames = ImageSize.X/FrameSize.X;
- Sheet->YFrames = ImageSize.Y/FrameSize.Y;
+ for(u32 I=0; I<Sheet->PieceCount; I++){
+  v2s ImageSize = ImageSizes[I];
+  
+  Assert((FrameSize.X != 0) && (FrameSize.Y != 0));
+  Assert((ImageSize.X != 0) && (ImageSize.Y != 0));
+  Sheet->Pieces[I].XFrames = ImageSize.X/FrameSize.X;
+  Sheet->Pieces[I].YFrames = ImageSize.Y/FrameSize.Y;
+ }
+ 
  
  return(true);
 }
@@ -580,10 +722,8 @@ asset_system::ProcessEntity(){
  *Entity = {};
  
  collision_boundary Boundaries[MAX_ENTITY_ASSET_BOUNDARIES];
- s32 CurrentPieceIndex = -1;
  u32 BoundaryCount = 0;
  b8 HasSetAnimation = false;
- b8 HasSetSize = false;
  while(true){
   file_token Token = Reader.PeekToken();
   if(Token.Type == FileTokenType_BeginCommand) break;
@@ -606,28 +746,11 @@ asset_system::ProcessEntity(){
     return(false);
    }
    
+   Entity->SpriteSheet = Sheet;
    f32 ZOffset = (f32)Expect(Integer);
    ZOffset *= 0.1f;
    
-   if(Entity->PieceCount > MAX_ENTITY_PIECES){
-    LogError("Too many pieces(%u) specified, must be less than %u", Entity->PieceCount, MAX_ENTITY_PIECES);
-    return(false);
-   }
-   
-   
-   if(HasSetSize &&
-      ((Sheet->FrameSize.X  != Entity->Size.X) ||
-       (Sheet->FrameSize.Y  != Entity->Size.Y))){
-    LogError("Entity pieces must be the same size!");
-    return(false);
-   }
-   HasSetSize = true;
    Entity->Size = Sheet->FrameSize;
-   
-   Entity->Pieces[Entity->PieceCount] = Sheet;
-   Entity->ZOffsets[Entity->PieceCount] = ZOffset;
-   Entity->PieceCount++;
-   CurrentPieceIndex++;
    
   }else if(DoAttribute(String, "animation")){
    const char *AnimationName = Expect(Identifier);
@@ -699,7 +822,7 @@ asset_system::ProcessEntity(){
   }else{ LogInvalidAttribute(String); return(false); }
  }
  
- if(!Entity->Pieces[0]){
+ if(!Entity->SpriteSheet){
   LogError("Sprite sheet must be set!");
   return(false);
  }

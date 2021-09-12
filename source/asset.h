@@ -41,22 +41,55 @@ global const char * const ASSET_ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
 
 //~ Assets
 
+// TODO(Tyler): I don't like how everything here is fixed sized! This should be changed!
+
 global_constant u32 SJA_MAX_ARRAY_ITEM_COUNT = 32;
 
 global_constant u32 MAX_ASSETS_PER_TYPE = 128;
+
 global_constant u32 MAX_SPRITE_SHEET_ANIMATIONS  = 32;
-global_constant u32 MAX_ENTITY_PIECES = 4;
+global_constant u32 MAX_SPRITE_SHEET_PIECES = 5;
+global_constant u32 MAX_SPRITE_SHEET_ANIMATION_FRAMES = 16;
+
 global_constant u32 MAX_ENTITY_ASSET_BOUNDARIES = 8;
 
 global_constant u32 MAX_TILEMAP_BOUNDARIES = 8;
 
-struct asset_sprite_sheet {
- u32 StateTable[State_TOTAL][Direction_TOTAL];
+enum asset_sprite_sheet_frame_flags_ {
+ SpriteSheetFrameFlag_None = (0 << 0),
+ SpriteSheetFrameFlag_Flip = (1 << 0),
+};
+typedef u8 asset_sprite_sheet_frame_flags;
+
+struct asset_sprite_sheet_frame {
+ asset_sprite_sheet_frame_flags Flags;
+ u8 Index;
+};
+
+struct asset_sprite_sheet_animation {
+ f32 FPS;
+ u8 FrameCount;
+ asset_sprite_sheet_frame Frames[MAX_SPRITE_SHEET_ANIMATION_FRAMES];
+ f32 YOffset;
+};
+
+struct asset_sprite_sheet_piece {
  render_texture Texture;
- 
- v2  FrameSize; 
  u32 XFrames;
  u32 YFrames;
+ asset_sprite_sheet_animation Animations[MAX_SPRITE_SHEET_ANIMATIONS];
+};
+
+struct asset_sprite_sheet {
+ u32 StateTable[State_TOTAL][Direction_TOTAL];
+ 
+ u32 PieceCount;
+ asset_sprite_sheet_piece Pieces[MAX_SPRITE_SHEET_PIECES];
+ u8 YOffsetCounts[MAX_SPRITE_SHEET_ANIMATIONS];
+ f32 YOffsets[MAX_SPRITE_SHEET_ANIMATION_FRAMES][MAX_SPRITE_SHEET_ANIMATIONS];
+ f32 YOffsetFPS;
+ 
+ v2  FrameSize; 
  f32 YOffset;
  
  u32 FrameCounts[MAX_SPRITE_SHEET_ANIMATIONS];
@@ -88,14 +121,14 @@ struct asset_animation {
 struct animation_state {
  entity_state State;
  direction Direction;
- f32 Ts[MAX_ENTITY_PIECES];
+ f32 T;
+ f32 YOffsetT;
  f32 Cooldown;
 };
 
 struct asset_entity {
- asset_sprite_sheet *Pieces[MAX_ENTITY_PIECES];
- f32                 ZOffsets[MAX_ENTITY_PIECES];
- u32                 PieceCount;
+ asset_sprite_sheet *SpriteSheet;
+ f32                 ZOffset;
  v2 Size;
  
  asset_animation     Animation;
@@ -262,6 +295,12 @@ struct asset_system {
  collision_boundary ExpectTypeBoundary();
  array<s32>         ExpectTypeArrayS32();
  
+ 
+ asset_sprite_sheet_frame ExpectTypeSpriteSheetFrame();
+ 
+ array<asset_sprite_sheet_frame> asset_system::ExpectTypeArraySpriteSheetFrame();
+ 
+ 
  void InitializeLoader(memory_arena *Arena);
  
  b8 DoAttribute(const char *String, const char *Attribute);
@@ -271,6 +310,7 @@ struct asset_system {
  
  void LoadAssetFile(const char *Path);
  b8 ProcessCommand();
+ b8 ProcessNEW_SpriteSheet();
  b8 ProcessSpriteSheet();
  b8 ProcessSpriteSheetStates(const char *StateName, asset_sprite_sheet *Sheet);
  b8 ProcessAnimation();

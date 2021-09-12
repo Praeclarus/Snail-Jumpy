@@ -462,7 +462,7 @@ world_editor::DoEditThingEnemy(){
   asset_entity *Info = AssetSystem.GetEntity(Entities[I]);
   if(Info->Type == EntityType_Player) continue;
   
-  asset_sprite_sheet *Asset = Info->Pieces[0];
+  asset_sprite_sheet *Asset = Info->SpriteSheet;
   v2 Size = SelectorClampSize(&Selector, Info->Size);
   
   RenderSpriteSheetFrame(Asset, Selector.P, -2.0f, 0, 0);
@@ -477,7 +477,7 @@ world_editor::DoEditThingEnemy(){
  v2 Size = EntityInfo->Size;
  v2 P = SnapToGrid(MouseP, Grid);
  
- RenderSpriteSheetFrame(EntityInfo->Pieces[0], P, GetCursorZ(), 1, 0);
+ RenderSpriteSheetFrame(EntityInfo->SpriteSheet, P, GetCursorZ(), 1, 0);
  
  //~ Adding
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
@@ -1463,7 +1463,7 @@ world_editor::UpdateAndRender(){
     Entity->Layer = 1;
     
     asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->Asset);
-    asset_sprite_sheet *Asset = EntityInfo->Pieces[0];
+    asset_sprite_sheet *Asset = EntityInfo->SpriteSheet;
     
     v2 Size = Asset->FrameSize;
     v2 P = Entity->P;
@@ -1499,7 +1499,7 @@ world_editor::UpdateAndRender(){
     Entity->Layer = 1;
     
     asset_entity *EntityInfo = AssetSystem.GetEntity(Entity->Asset);
-    asset_sprite_sheet *Asset = EntityInfo->Pieces[0];
+    asset_sprite_sheet *Asset = EntityInfo->SpriteSheet;
     
     v2 Size = Asset->FrameSize;
     v2 P = Entity->P;

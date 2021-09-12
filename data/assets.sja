@@ -18,122 +18,161 @@
 # //////////////////////////////////////////////////////////////////////////
 
 : SpriteSheet dragonfly
-    path "asset_sprite_sheets/dragonfly_sprite_sheet.png"
-    size 33 33
-    frame_counts Array(10 10 3 3 4 4)
-    base_fps 8
-        state_moving          
-         			left  1
-			         right 2
-        state_turning 
-			         left  3
-			         right 4
+    size 34 34
+    piece 0 "asset_sprite_sheets/dragonfly_0.png"
+        consecutive      0  2 10  0
+        consecutive FLIP 0  2 10  0
+        not_consecutive Array(Frame(2) Frame(4)  Flip(2)) 2 0
+        not_consecutive Array( Flip(3) Frame(4) Frame(3)) 2 0
+    piece 1 "asset_sprite_sheets/dragonfly_1.png"
+        consecutive      0 10 10  0
+        consecutive     10 10 10  0
+        consecutive     20 3  2  0
+        consecutive     23 3  2  0
+    piece 2 "asset_sprite_sheets/dragonfly_2.png"
+        consecutive      0  2 10  0
+        consecutive FLIP 0  2 10  0
+        not_consecutive Array(Frame(2) Frame(4)  Flip(2)) 2 0
+        not_consecutive Array( Flip(3) Frame(4) Frame(3)) 2 0
+				y_offsets 0 10 Array(0 1 1 0 -1 -1 0 0 0 0)
+				y_offsets 1 10 Array(0 1 1 0 -1 -1 0 0 0 0)
+    state_moving
+        left  1
+        right 2
+    state_turning
+        right 3
+        left  4
 
 : SpriteSheet snail
-    path "asset_sprite_sheets/snail_sprite_sheet.png"
     size 17 17
-    frame_counts Array(4 4 3 3 4 4 3 3 7 7)
-    base_fps 8
-    override_fps 7 3
-    override_fps 8 3
-	   y_offset 0
-        state_moving          
-         			left  1
-			         right 2
-        state_turning 
-			         left  3
-			         right 4
-        state_retreating      
-			         left  5
-			         right 6
-        state_stunned
-			         left  7
-			         right 8
-        state_returning
-			         left  9
-			         right 10
+    piece 0 "asset_sprite_sheets/snail_sprite_sheet.png"
+        consecutive  0  4 8 0
+        consecutive  4  4 8 0
+        consecutive  8  3 8 0
+        consecutive 11  3 8 0
+        consecutive 14  4 8 0
+        consecutive 18  4 8 0
+        consecutive 25  3 3 0
+        consecutive 28  3 3 0
+        consecutive 31  7 8 0
+        consecutive 38  7 8 0
+    state_moving          
+     			left  1
+        right 2
+    state_turning 
+        left  3
+        right 4
+    state_retreating      
+        left  5
+        right 6
+    state_stunned
+        left  7
+        right 8
+    state_returning
+        left  9
+        right 10
 
 : SpriteSheet sally
-    path "asset_sprite_sheets/sally_sprite_sheet.png"
     size 33 33
-    frame_counts Array(4 4 3 3 3 3 3 3 7 7)
-    base_fps 8
-    override_fps 7 3
-    override_fps 8 3
-    y_offset 0
-        state_moving          
-			         left  1
-			         right 2
-        state_turning 
-			         left  3
-			         right 4
-        state_retreating      
-			         left  5
-			         right 6
-        state_stunned
-			         left  7
-			         right 8
-        state_returning
-			         left  9
-			         right 10
+    piece 0 "asset_sprite_sheets/sally_sprite_sheet.png"
+        consecutive  0  4 8 0
+        consecutive  4  4 8 0
+        consecutive  8  3 8 0
+        consecutive 11  3 8 0
+        consecutive 14  3 8 0
+        consecutive 17  3 8 0
+        consecutive 20  3 3 0
+        consecutive 23  3 3 0
+        consecutive 26  7 8 0
+        consecutive 29  7 8 0
+    state_moving          
+     			left  1
+        right 2
+    state_turning 
+        left  3
+        right 4
+    state_retreating      
+        left  5
+        right 6
+    state_stunned
+        left  7
+        right 8
+    state_returning
+        left  9
+        right 10
 
 : SpriteSheet speedy
-    path "asset_sprite_sheets/speedy_sprite_sheet.png"
     size 17 17
-    frame_counts Array(4 4 3 3 2 2 3 3 4 4)
-    base_fps 8
-    override_fps 7 3
-    override_fps 8 3
-   	y_offset 0
-        state_moving          
-			         left  1
-			         right 2
-        state_turning 
-			         left  3
-			         right 4
-        state_retreating      
-			         left  5
-			         right 6
-        state_stunned
-			         left  7
-			         right 8
-        state_returning
-			         left  9
-			         right 10
+#    frame_counts Array(4 4 3 3 2 2 3 3 4 4)
+    piece 0 "asset_sprite_sheets/speedy_sprite_sheet.png"
+        consecutive  0  4 8 0
+        consecutive  4  4 8 0
+        consecutive  8  3 8 0
+        consecutive 11  3 8 0
+        consecutive 14  2 8 0
+        consecutive 16  2 8 0
+        consecutive 18  3 3 0
+        consecutive 21  3 3 0
+        consecutive 24  7 8 0
+        consecutive 31  7 8 0
+    state_moving          
+     			left  1
+        right 2
+    state_turning 
+        left  3
+        right 4
+    state_retreating      
+        left  5
+        right 6
+    state_stunned
+        left  7
+        right 8
+    state_returning
+        left  9
+        right 10
 
 : SpriteSheet boxing_dragonfly
-    path "asset_sprite_sheets/boxing_sprite_sheet.png"
     size 33 33
-    frame_counts Array(10 10 3 3)
-    base_fps 8
-	   y_offset 0
-        state_moving          
-			         left  1
-			         right 2
-        state_turning 
-			         left  3
-			         right 4
+    piece 0 "asset_sprite_sheets/boxing_sprite_sheet.png"
+        consecutive  0 10 8 0
+        consecutive 10 10 8 0
+        consecutive 20  3 8 0
+        consecutive 23  3 8 0
+    state_moving          
+        left  1
+        right 2
+    state_turning 
+        left  3
+        right 4
 
 : SpriteSheet player
-    path "asset_sprite_sheets/test_avatar_sprite_sheet2.png"
     size 16 16
-    frame_counts Array(17 17 6 6 5 5 1 1 2 2)
-    base_fps 8
-   	y_offset 0
-        state_idle
-            left  1
-            right 2
-        state_moving
-            left  3
-            right 4
-		     state_jumping
-            left  7
-            right 8
-        state_falling
-            left  9
-            right 10
+    piece 0 "asset_sprite_sheets/test_avatar_sprite_sheet2.png"
+        consecutive  0 17 8 0
+        consecutive 17 17 8 0
+        consecutive 34  6 8 0
+        consecutive 40  6 8 0
+        consecutive 46  5 8 0
+        consecutive 51  5 8 0
+        consecutive 56  1 8 0
+        consecutive 57  1 8 0
+        consecutive 58  2 8 0
+        consecutive 60  2 8 0
+    state_idle
+        left  1
+        right 2
+    state_moving
+        left  3
+        right 4
+   state_jumping
+        left  7
+        right 8
+    state_falling
+        left  9
+        right 10
 
-: SpriteSheet overworld_player
+# : SpriteSheet overworld_player
+: Ignore 
 	   path "asset_sprite_sheets/overworld_avatar_sprite_sheet.png"
 	   size 64 64
 	   frame_counts Array(3 3 3 3 3 3 3 3 4 5 5 5 4 5 5 5)
@@ -159,7 +198,7 @@
             northwest 16
 
 : SpriteSheet heart
-	   path "asset_sprite_sheets/heart_8x8.png"
+	   piece 0 "asset_sprite_sheets/heart_8x8.png"
 	   size 8 8
 
 # //////////////////////////////////////////////////////////////////////////
@@ -664,25 +703,3 @@
     BAR 1
     CURLY_BRACKET_RIGHT 3
     TILDE 4
-
-: Ignore player
-    path "asset_sprite_sheets/test_avatar_sprite_sheet2.png"
-    size 16 16
-
-    consecutive       8          0                0            17
-#   consecutive    (fps) (y-offset) (starting frame) (frame count)
-    
-    not_consective    8          0   Array(3 1 6 9 15 20 0 3)
-#   not_consective (fps) (y-offset) (array of frame indices)
-        state_idle
-            left  1
-            right 2
-        state_moving
-            left  3
-            right 4
-		     state_jumping
-            left  7
-            right 8
-        state_falling
-            left  9
-            right 10

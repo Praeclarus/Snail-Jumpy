@@ -20,10 +20,10 @@ asset_system::Initialize(memory_arena *Arena){
   }
  }
  
- DummySpriteSheet.Texture        = InvalidTexture;
+ DummySpriteSheet.Pieces[0].Texture = InvalidTexture;
+ DummySpriteSheet.Pieces[0].XFrames = 1;
+ DummySpriteSheet.Pieces[0].YFrames = 1;
  DummySpriteSheet.FrameSize      = V2(1);
- DummySpriteSheet.XFrames        = 1;
- DummySpriteSheet.YFrames        = 1;
  DummySpriteSheet.FrameCounts[0] = 1;
  DummySpriteSheet.FPSArray[0]    = 1;
  
@@ -47,37 +47,94 @@ asset_system::GetSpriteSheet(string Name){
 }
 
 void 
-RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32 Layer, u32 Frame){
+RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32 Layer, u32 RelativeFrame){
+ 
+#if 0 
  P = RoundV2(P);
  P.Y += Sheet->YOffset;
  
  v2 RenderSize = Sheet->FrameSize;
  v2 FrameSize = Sheet->FrameSize;
  
- rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+ for(u32 I=0; I<Sheet->PieceCount; I++){
+  asset_sprite_sheet_piece *Piece = &Sheet->Pieces[I];
+  
+  rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+  rect R = SizeRect(P, RenderSize);
+  
+  u32 Column = Frame;
+  u32 Row = 0;
+  if(Column >= Piece->XFrames){
+   Row = (Column / Piece->XFrames);
+   Column %= Piece->XFrames;
+  }
+  
+  Row = (Piece->YFrames - 1) - Row;
+  Assert((0 <= Row) && (Row < Piece->YFrames));
+  
+  v2 TextureSize = V2(Piece->XFrames*FrameSize.X,
+                      Piece->YFrames*FrameSize.Y);
+  
+  TextureRect += V2(Column*FrameSize.X, Row*FrameSize.Y);
+  TextureRect.Min.X /= TextureSize.X;
+  TextureRect.Min.Y /= TextureSize.Y;
+  TextureRect.Max.X /= TextureSize.X;
+  TextureRect.Max.Y /= TextureSize.Y;
+  
+  RenderTexture(R, Z, Piece->Texture, GameItem(Layer), TextureRect, true);
+  Z -= 0.1f;
+ }
+#endif
  
- u32 Column = Frame;
- u32 Row = 0;
- if(Column >= Sheet->XFrames){
-  Row = (Column / Sheet->XFrames);
-  Column %= Sheet->XFrames;
+}
+
+void 
+RenderSpriteSheetAnimationFrame(asset_sprite_sheet *Sheet, v2 BaseP, f32 Z, u32 Layer, 
+                                u32 AnimationIndex, u32 RelativeFrame){
+ Assert(AnimationIndex < MAX_SPRITE_SHEET_ANIMATIONS);
+ Assert(RelativeFrame < MAX_SPRITE_SHEET_ANIMATION_FRAMES);
+ 
+ BaseP = RoundV2(BaseP);
+ 
+ v2 RenderSize = Sheet->FrameSize;
+ v2 FrameSize = Sheet->FrameSize;
+ 
+ for(u32 I=0; I<Sheet->PieceCount; I++){
+  asset_sprite_sheet_piece *Piece = &Sheet->Pieces[I];
+  asset_sprite_sheet_animation *Animation = &Piece->Animations[AnimationIndex];
+  if(Animation->FrameCount == 0){ continue; }
+  
+  v2 P = BaseP;
+  P.Y += Animation->YOffset;
+  
+  u32 Frame = Animation->Frames[RelativeFrame % Animation->FrameCount].Index;
+  
+  rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+  rect R = SizeRect(P, RenderSize);
+  
+  u32 Column = Frame;
+  u32 Row = 0;
+  if(Column >= Piece->XFrames){
+   Row = (Column / Piece->XFrames);
+   Column %= Piece->XFrames;
+  }
+  
+  Row = (Piece->YFrames - 1) - Row;
+  Assert((0 <= Row) && (Row < Piece->YFrames));
+  
+  v2 TextureSize = V2(Piece->XFrames*FrameSize.X,
+                      Piece->YFrames*FrameSize.Y);
+  
+  TextureRect += V2(Column*FrameSize.X, Row*FrameSize.Y);
+  TextureRect.Min.X /= TextureSize.X;
+  TextureRect.Min.Y /= TextureSize.Y;
+  TextureRect.Max.X /= TextureSize.X;
+  TextureRect.Max.Y /= TextureSize.Y;
+  
+  RenderTexture(R, Z, Piece->Texture, GameItem(Layer), TextureRect, true);
+  Z -= 0.1f;
  }
  
- Row = (Sheet->YFrames - 1) - Row;
- Assert((0 <= Row) && (Row < Sheet->YFrames));
- 
- v2 TextureSize = V2(Sheet->XFrames*FrameSize.X,
-                     Sheet->YFrames*FrameSize.Y);
- 
- TextureRect += V2(Column*FrameSize.X, Row*FrameSize.Y);
- TextureRect.Min.X /= TextureSize.X;
- TextureRect.Min.Y /= TextureSize.Y;
- TextureRect.Max.X /= TextureSize.X;
- TextureRect.Max.Y /= TextureSize.Y;
- 
- rect R = SizeRect(P, RenderSize);
- 
- RenderTexture(R, Z, Sheet->Texture, GameItem(Layer), TextureRect, true);
 }
 
 //~ Entities and animation
@@ -96,9 +153,7 @@ internal inline void
 ChangeAnimationState(asset_animation *Animation, animation_state *AnimationState, entity_state NewState){
  if(NewState == State_None) return;
  AnimationState->State = NewState;
- for(u32 I=0; I<MAX_ENTITY_PIECES; I++){
-  AnimationState->Ts[I] = 0.0f;
- }
+ AnimationState->T = 0.0f;
  animation_change_data *ChangeData = &Animation->ChangeDatas[AnimationState->State];
  if(ChangeData->Condition == ChangeCondition_CooldownOver){
   AnimationState->Cooldown = ChangeData->Cooldown;
@@ -114,37 +169,97 @@ DoesAnimationBlock(asset_animation *Animation, animation_state *State){
 
 internal inline b8
 UpdateSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation,  
-                           entity_state State, direction Direction, f32 *T){
- b8 Result = false;
+                           animation_state *State){
+ b8 Result = true;
  f32 dTime = OSInput.dTime;
  
- u32 AnimationIndex = Sheet->StateTable[State][Direction];
- Assert(AnimationIndex != 0);
+ u32 AnimationIndex = Sheet->StateTable[State->State][State->Direction];
+ if(AnimationIndex == 0) {
+  // TODO(Tyler): BETTER ERROR LOGGING SYSTEM!
+  LogMessage("ERROR: Animation does not exist!");
+  return(Result);
+ }
  AnimationIndex--;
  
- u32 FrameCount = Sheet->FrameCounts[AnimationIndex];
- *T += Sheet->FPSArray[AnimationIndex]*dTime;
- if(*T >= (f32)FrameCount){
-  *T= ModF32(*T, (f32)FrameCount);
-  Result = true;
+ State->T += dTime;
+ 
+ for(u32 I=0; I<Sheet->PieceCount; I++){
+  asset_sprite_sheet_piece *Piece = &Sheet->Pieces[I];
+  asset_sprite_sheet_animation *AnimationData = &Piece->Animations[AnimationIndex];
+  
+  f32 FrameCount = (f32)AnimationData->FrameCount;
+  f32 T = State->T*AnimationData->FPS;
+  if(T/FrameCount >= FrameCount){
+  }else{
+   Result = false;
+  }
  }
+ 
+ State->YOffsetT += Sheet->YOffsetFPS*dTime;;
+ State->YOffsetT = ModF32(State->YOffsetT, (f32)Sheet->YOffsetCounts[AnimationIndex]);
  
  return(Result);
 }
 
 internal inline void
-RenderSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation,  
-                           entity_state State, direction Direction, f32 *T, v2 P, f32 Z, u32 Layer){
- u32 AnimationIndex = Sheet->StateTable[State][Direction];
- Assert(AnimationIndex != 0);
+RenderSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation, 
+                           animation_state *State,v2 BaseP, f32 Z, u32 Layer){
+ u32 AnimationIndex = Sheet->StateTable[State->State][State->Direction];
+ if(AnimationIndex == 0) {
+  // TODO(Tyler): BETTER ERROR LOGGING SYSTEM!
+  LogMessage("ERROR: Animation does not exist!");
+  return;
+ }
  AnimationIndex--;
  
- u32 Frame = (u32)*T;
- for(u32 I=0; I < AnimationIndex; I++){
-  Frame += Sheet->FrameCounts[I];
+ BaseP.Y += Sheet->YOffsets[AnimationIndex][(u32)State->YOffsetT];
+ BaseP = RoundV2(BaseP);
+ 
+ v2 RenderSize = Sheet->FrameSize;
+ v2 FrameSize = Sheet->FrameSize;
+ 
+ for(u32 I=0; I<Sheet->PieceCount; I++){
+  asset_sprite_sheet_piece *Piece = &Sheet->Pieces[I];
+  asset_sprite_sheet_animation *AnimationData = &Piece->Animations[AnimationIndex];
+  if(AnimationData->FrameCount == 0){ continue; }
+  
+  v2 P = BaseP;
+  P.Y += AnimationData->YOffset;
+  
+  f32 T = ModF32(State->T*AnimationData->FPS, (f32)AnimationData->FrameCount);
+  u32 Frame = AnimationData->Frames[(u32)T].Index;
+  
+  rect TextureRect;
+  if(AnimationData->Frames[(u32)T].Flags & SpriteSheetFrameFlag_Flip){
+   TextureRect = MakeRect(V2(RenderSize.X, 0), V2(0, RenderSize.Y));
+  }else{
+   TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+  }
+  rect R = SizeRect(P, RenderSize);
+  
+  u32 Column = Frame;
+  u32 Row = 0;
+  if(Column >= Piece->XFrames){
+   Row = (Column / Piece->XFrames);
+   Column %= Piece->XFrames;
+  }
+  
+  Row = (Piece->YFrames - 1) - Row;
+  Assert((0 <= Row) && (Row < Piece->YFrames));
+  
+  v2 TextureSize = V2(Piece->XFrames*FrameSize.X,
+                      Piece->YFrames*FrameSize.Y);
+  
+  TextureRect += V2(Column*FrameSize.X, Row*FrameSize.Y);
+  TextureRect.Min.X /= TextureSize.X;
+  TextureRect.Min.Y /= TextureSize.Y;
+  TextureRect.Max.X /= TextureSize.X;
+  TextureRect.Max.Y /= TextureSize.Y;
+  
+  RenderTexture(R, Z, Piece->Texture, GameItem(Layer), TextureRect, true);
+  Z -= 0.1f;
  }
  
- RenderSpriteSheetFrame(Sheet, P, Z, Layer, Frame);
 }
 
 internal void 
@@ -155,12 +270,9 @@ DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P, f32 Z, u32
  animation_change_data *ChangeData = &Entity->Animation.ChangeDatas[State->State];
  
  b8 AllAnimationsFinished = true;
- for(u32 PieceIndex = 0; PieceIndex < Entity->PieceCount; PieceIndex++){
-  asset_sprite_sheet *Sheet = Entity->Pieces[PieceIndex];
-  if(!UpdateSpriteSheetAnimation(Sheet, &Entity->Animation, 
-                                 State->State, State->Direction, &State->Ts[PieceIndex])){
-   AllAnimationsFinished = false;
-  }
+ asset_sprite_sheet *Sheet = Entity->SpriteSheet;
+ if(!UpdateSpriteSheetAnimation(Sheet, &Entity->Animation, State)){
+  AllAnimationsFinished = false;
  }
  
  if((ChangeData->Condition == ChangeCondition_AnimationOver) &&
@@ -168,13 +280,9 @@ DoEntityAnimation(asset_entity *Entity, animation_state *State, v2 P, f32 Z, u32
   ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
  }
  
- for(u32 PieceIndex = 0; PieceIndex < Entity->PieceCount; PieceIndex++){
-  asset_sprite_sheet *Sheet = Entity->Pieces[PieceIndex];
-  f32 ZOffset = Entity->ZOffsets[PieceIndex];
-  RenderSpriteSheetAnimation(Sheet, &Entity->Animation, 
-                             State->State, State->Direction, &State->Ts[PieceIndex],
-                             P, Z+ZOffset, Layer);
- }
+ f32 ZOffset = Entity->ZOffset;
+ RenderSpriteSheetAnimation(Sheet, &Entity->Animation, State,
+                            P, Z+ZOffset, Layer);
  
  if(ChangeData->Condition == ChangeCondition_CooldownOver){
   State->Cooldown -= dTime;
@@ -215,7 +323,6 @@ RenderArt(asset_art *Art, v2 P, f32 Z, u32 Layer){
 }
 
 //~ Tilemaps
-
 
 #if 0
 {
@@ -419,7 +526,6 @@ RenderTileAtIndex(asset_tilemap *Tilemap, v2 P, f32 Z, u32 Layer,
  T1 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
  T2 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
  T3 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
- 
  
  rect R = SizeRect(P, RenderSize);
  RenderQuad(Tilemap->Texture, GameItem(Layer), Z,
