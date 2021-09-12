@@ -463,9 +463,10 @@ world_editor::DoEditThingEnemy(){
   if(Info->Type == EntityType_Player) continue;
   
   asset_sprite_sheet *Asset = Info->SpriteSheet;
+  u32 AnimationIndex = SheetAnimationIndex(Asset, State_Moving, Direction_Left);
   v2 Size = SelectorClampSize(&Selector, Info->Size);
   
-  RenderSpriteSheetFrame(Asset, Selector.P, -2.0f, 0, 0);
+  RenderSpriteSheetAnimationFrame(Asset, Selector.P, -2.0f, 0, AnimationIndex, 0);
   
   SelectorDoItem(&Selector, WIDGET_ID_CHILD(WIDGET_ID, I+1), Size, I);
  }
@@ -477,7 +478,8 @@ world_editor::DoEditThingEnemy(){
  v2 Size = EntityInfo->Size;
  v2 P = SnapToGrid(MouseP, Grid);
  
- RenderSpriteSheetFrame(EntityInfo->SpriteSheet, P, GetCursorZ(), 1, 0);
+ u32 AnimationIndex = SheetAnimationIndex(EntityInfo->SpriteSheet, State_Moving, Direction_Left);
+ RenderSpriteSheetAnimationFrame(EntityInfo->SpriteSheet, P, GetCursorZ(), 1, AnimationIndex, 0);
  
  //~ Adding
  if(UIManager.DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
@@ -1469,14 +1471,9 @@ world_editor::UpdateAndRender(){
     v2 P = Entity->P;
     
     u32 AnimationIndex = Asset->StateTable[State_Moving][Entity->Enemy.Direction];
-    Assert(AnimationIndex);
-    AnimationIndex--;
-    u32 Frame = 0 ;
-    for(u32 Index = 0; Index < AnimationIndex; Index++){
-     Frame += Asset->FrameCounts[Index];
-    }
     
-    RenderSpriteSheetFrame(Asset, P, Entity->Z, 1, Frame);
+    RenderSpriteSheetAnimationFrame(Asset, P, Entity->Z, 1,
+                                    SheetAnimationIndex(Asset, State_Moving, Entity->Enemy.Direction), 0);
     v2 OldP = Entity->P;
     if(DoDragEntity(&Entity->P, Size, Entity)) EditModeEntity(Entity);
     v2 Difference = Entity->P - OldP;
@@ -1504,15 +1501,9 @@ world_editor::UpdateAndRender(){
     v2 Size = Asset->FrameSize;
     v2 P = Entity->P;
     
-    u32 AnimationIndex = Asset->StateTable[State_Idle][Entity->Player.Direction];
-    Assert(AnimationIndex);
-    AnimationIndex--;
-    u32 Frame = 0 ;
-    for(u32 Index = 0; Index < AnimationIndex; Index++){
-     Frame += Asset->FrameCounts[Index];
-    }
+    RenderSpriteSheetAnimationFrame(Asset, P, Entity->Z, 1,
+                                    SheetAnimationIndex(Asset, State_Moving, Entity->Player.Direction), 0);
     
-    RenderSpriteSheetFrame(Asset, P, Entity->Z, 1, Frame); 
     if(DoDragEntity(&Entity->P, Size, Entity)) EditModeEntity(Entity);
    }break;
    case EntityType_Teleporter: {

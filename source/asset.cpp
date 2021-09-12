@@ -24,8 +24,6 @@ asset_system::Initialize(memory_arena *Arena){
  DummySpriteSheet.Pieces[0].XFrames = 1;
  DummySpriteSheet.Pieces[0].YFrames = 1;
  DummySpriteSheet.FrameSize      = V2(1);
- DummySpriteSheet.FrameCounts[0] = 1;
- DummySpriteSheet.FPSArray[0]    = 1;
  
  DummyArt.Texture = InvalidTexture;
  DummyArt.Size = V2(1);
@@ -46,51 +44,18 @@ asset_system::GetSpriteSheet(string Name){
  return(Result);
 }
 
-void 
-RenderSpriteSheetFrame(asset_sprite_sheet *Sheet, v2 P, f32 Z, u32 Layer, u32 RelativeFrame){
- 
-#if 0 
- P = RoundV2(P);
- P.Y += Sheet->YOffset;
- 
- v2 RenderSize = Sheet->FrameSize;
- v2 FrameSize = Sheet->FrameSize;
- 
- for(u32 I=0; I<Sheet->PieceCount; I++){
-  asset_sprite_sheet_piece *Piece = &Sheet->Pieces[I];
-  
-  rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
-  rect R = SizeRect(P, RenderSize);
-  
-  u32 Column = Frame;
-  u32 Row = 0;
-  if(Column >= Piece->XFrames){
-   Row = (Column / Piece->XFrames);
-   Column %= Piece->XFrames;
-  }
-  
-  Row = (Piece->YFrames - 1) - Row;
-  Assert((0 <= Row) && (Row < Piece->YFrames));
-  
-  v2 TextureSize = V2(Piece->XFrames*FrameSize.X,
-                      Piece->YFrames*FrameSize.Y);
-  
-  TextureRect += V2(Column*FrameSize.X, Row*FrameSize.Y);
-  TextureRect.Min.X /= TextureSize.X;
-  TextureRect.Min.Y /= TextureSize.Y;
-  TextureRect.Max.X /= TextureSize.X;
-  TextureRect.Max.Y /= TextureSize.Y;
-  
-  RenderTexture(R, Z, Piece->Texture, GameItem(Layer), TextureRect, true);
-  Z -= 0.1f;
- }
-#endif
- 
+internal inline u32
+SheetAnimationIndex(asset_sprite_sheet *Sheet, entity_state State, direction Direction){
+ u32 Result = Sheet->StateTable[State][Direction];
+ return(Result);
 }
 
-void 
+internal void 
 RenderSpriteSheetAnimationFrame(asset_sprite_sheet *Sheet, v2 BaseP, f32 Z, u32 Layer, 
                                 u32 AnimationIndex, u32 RelativeFrame){
+ if(AnimationIndex == 0) return;
+ AnimationIndex--;
+ 
  Assert(AnimationIndex < MAX_SPRITE_SHEET_ANIMATIONS);
  Assert(RelativeFrame < MAX_SPRITE_SHEET_ANIMATION_FRAMES);
  
@@ -187,9 +152,9 @@ UpdateSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation
   asset_sprite_sheet_piece *Piece = &Sheet->Pieces[I];
   asset_sprite_sheet_animation *AnimationData = &Piece->Animations[AnimationIndex];
   
-  f32 FrameCount = (f32)AnimationData->FrameCount;
+  f32 FrameCount = AnimationData->FrameCount;
   f32 T = State->T*AnimationData->FPS;
-  if(T/FrameCount >= FrameCount){
+  if(T >= (f32)FrameCount){
   }else{
    Result = false;
   }

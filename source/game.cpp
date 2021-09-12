@@ -89,96 +89,24 @@ UpdateAndRenderMainGame(){
   Assert(FullHearts <= 3);
   u32 I;
   for(I = 0; I < FullHearts; I++){
-   RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 0);
+   RenderSpriteSheetAnimationFrame(Asset, P, -0.9f, 0, 1, 0);
    P.X += XAdvance;
   }
   
   if(Remainder > 0){
    Remainder = 3 - Remainder;
-   RenderSpriteSheetFrame(Asset, P, -0.9f, 0, Remainder);
+   RenderSpriteSheetAnimationFrame(Asset, P, -0.9f, 0, 1, Remainder);
    P.X += XAdvance;
    I++;
   }
   
   if(I < 3){
    for(u32 J = 0; J < 3-I; J++){
-    RenderSpriteSheetFrame(Asset, P, -0.9f, 0, 3);
+    RenderSpriteSheetAnimationFrame(Asset, P, -0.9f, 0, 1, 3);
     P.X += XAdvance;
    }
   }
  }
- 
-#if 0
- {
-  v2 P = V2(100);
-  asset_sprite_sheet *Sheet = AssetSystem.GetSpriteSheet(Strings.GetString("sally2"));
-  u32 Frame = 0;
-  u32 Layer = 0;
-  f32 Z = -10.0f;
-  
-  P = RoundV2(P);
-  P.Y += Sheet->YOffset;
-  
-  v2 RenderSize = Sheet->FrameSize;
-  //v2 RenderSize = V2(33, 33);
-  v2 FrameSize = Sheet->FrameSize;
-  
-  rect TextureRect = MakeRect(V2(0, 0), V2(FrameSize.X, FrameSize.Y));
-  
-  u32 Column = Frame;
-  u32 Row = 0;
-  if(Column >= Sheet->XFrames){
-   Row = (Column / Sheet->XFrames);
-   Column %= Sheet->XFrames;
-  }
-  
-  Row = (Sheet->YFrames - 1) - Row;
-  Assert((0 <= Row) && (Row < Sheet->YFrames));
-  
-  v2 TextureSize = V2(Sheet->XFrames*FrameSize.X,
-                      Sheet->YFrames*FrameSize.Y);
-  
-  TextureRect += V2(Column*FrameSize.X, Row*FrameSize.Y);
-  TextureRect.Min.X /= TextureSize.X;
-  TextureRect.Min.Y /= TextureSize.Y;
-  TextureRect.Max.X /= TextureSize.X;
-  TextureRect.Max.Y /= TextureSize.Y;
-  
-  rect R = SizeRect(P, RenderSize);
-  
-  v2 P0 = P;
-  v2 P1 = P;
-  v2 P2 = P;
-  v2 P3 = P;
-  
-  f32 Sqrt2 = SquareRoot(2);
-  
-  P0 += Sqrt2*V2(0.0f*RenderSize.X, 0.5f*RenderSize.Y);
-  P1 += Sqrt2*V2(0.5f*RenderSize.X, 1.0f*RenderSize.Y);
-  P2 += Sqrt2*V2(1.0f*RenderSize.X, 0.5f*RenderSize.Y);
-  P3 += Sqrt2*V2(0.5f*RenderSize.X, 0.0f*RenderSize.Y);
-  
-  
-  //RenderTexture(R, Z, Sheet->Texture, GameItem(Layer), TextureRect, true);
-#if 1
-  RenderQuad(Sheet->Texture, GameItem(Layer), Z, 
-             P0, V2(TextureRect.Min.X, TextureRect.Min.Y), WHITE, 
-             P1, V2(TextureRect.Min.X, TextureRect.Max.Y), WHITE, 
-             P2, V2(TextureRect.Max.X, TextureRect.Max.Y), WHITE, 
-             P3, V2(TextureRect.Max.X, TextureRect.Min.Y), WHITE);
-  
-#else
-  
-  RenderQuad(GameRenderer.WhiteTexture, GameItem(Layer), Z, 
-             P0, V2(0), WHITE, 
-             P1, V2(0), WHITE, 
-             P2, V2(0), WHITE, 
-             P3, V2(0), WHITE);
-#endif
-  
-  
- }
-#endif
  
 #if 0
  //~ Rope/vine thing

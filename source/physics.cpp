@@ -1025,6 +1025,11 @@ physics_system::DoPhysics(){
    Object->Delta = Object->DebugInfo.Delta;
   }
   
+ }
+ 
+ FOR_BUCKET_ARRAY(It, &Objects){
+  dynamic_physics_object *Object = It.Item;
+  
   // TODO(Tyler): This needs to be calculated each iteration, so that delta changes
   // are taken into account
   if(Object->ReferenceFrame){ 
@@ -1037,14 +1042,12 @@ physics_system::DoPhysics(){
     Reference = Reference->ReferenceFrame;
    }
   }
-  
  }
  
  // TODO(Tyler): Move this into physics_debugger
  if(PhysicsDebugger.StartOfPhysicsFrame){
   PhysicsDebugger.StartOfPhysicsFrame = false;
  }
- 
  
  //~ DEBUG
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)

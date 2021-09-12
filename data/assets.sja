@@ -20,20 +20,20 @@
 : SpriteSheet dragonfly
     size 34 34
     piece 0 "asset_sprite_sheets/dragonfly_0.png"
-        consecutive      0  2 10  0
-        consecutive FLIP 0  2 10  0
-        not_consecutive Array(Frame(2) Frame(4)  Flip(2)) 2 0
-        not_consecutive Array( Flip(3) Frame(4) Frame(3)) 2 0
+        consecutive      0  2  8  0
+        consecutive FLIP 0  2  8  0
+        not_consecutive Array(Frame(2) Frame(4)  Flip(2))  8  0
+        not_consecutive Array( Flip(3) Frame(4) Frame(3))  8  0
     piece 1 "asset_sprite_sheets/dragonfly_1.png"
-        consecutive      0 10 10  0
-        consecutive     10 10 10  0
-        consecutive     20 3  2  0
-        consecutive     23 3  2  0
+        consecutive      0 10  8  0
+        consecutive     10 10  8  0
+        consecutive     20 3   8  0
+        consecutive     23 3   8  0
     piece 2 "asset_sprite_sheets/dragonfly_2.png"
-        consecutive      0  2 10  0
-        consecutive FLIP 0  2 10  0
-        not_consecutive Array(Frame(2) Frame(4)  Flip(2)) 2 0
-        not_consecutive Array( Flip(3) Frame(4) Frame(3)) 2 0
+        consecutive      0  2  8  0
+        consecutive FLIP 0  2  8  0
+        not_consecutive Array(Frame(2) Frame(4)  Flip(2))  8  0
+        not_consecutive Array( Flip(3) Frame(4) Frame(3))  8  0
 				y_offsets 0 10 Array(0 1 1 0 -1 -1 0 0 0 0)
 				y_offsets 1 10 Array(0 1 1 0 -1 -1 0 0 0 0)
     state_moving
@@ -198,8 +198,9 @@
             northwest 16
 
 : SpriteSheet heart
-	   piece 0 "asset_sprite_sheets/heart_8x8.png"
 	   size 8 8
+	   piece 0 "asset_sprite_sheets/heart_8x8.png"
+        consecutive 0 4 0 0
 
 # //////////////////////////////////////////////////////////////////////////
 #                                  Entities
@@ -258,7 +259,7 @@
     animation_var "stun_time" 0.0
 	   mass          1.5
 	   speed         50
-	   boundary      0 Boundary_Rect(0 8 31 3)
+	   boundary      0 Boundary_Rect(0 11 31 3)
 	   damage        1
 	   collision_response DRAGONFLY
 	   NO_GRAVITY

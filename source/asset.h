@@ -90,10 +90,6 @@ struct asset_sprite_sheet {
  f32 YOffsetFPS;
  
  v2  FrameSize; 
- f32 YOffset;
- 
- u32 FrameCounts[MAX_SPRITE_SHEET_ANIMATIONS];
- u32 FPSArray[MAX_SPRITE_SHEET_ANIMATIONS];
 };
 
 enum animation_change_condition {
