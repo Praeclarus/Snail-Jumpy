@@ -1024,7 +1024,6 @@ physics_system::DoPhysics(){
    Object->ddP = Object->DebugInfo.ddP;
    Object->Delta = Object->DebugInfo.Delta;
   }
-  
  }
  
  FOR_BUCKET_ARRAY(It, &Objects){

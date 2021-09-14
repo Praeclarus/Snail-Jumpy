@@ -41,15 +41,16 @@ global const char * const ASSET_ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
 
 //~ Assets
 
-// TODO(Tyler): I don't like how everything here is fixed sized! This should be changed!
+// TODO(Tyler): I don't like how everything here is fixed sized! 
+// This makes the asset_sprite_sheet struct huge! (Like 11568 bytes!)
 
-global_constant u32 SJA_MAX_ARRAY_ITEM_COUNT = 32;
+global_constant u32 SJA_MAX_ARRAY_ITEM_COUNT = 128;
 
 global_constant u32 MAX_ASSETS_PER_TYPE = 128;
 
+global_constant u32 MAX_SPRITE_SHEET_ANIMATION_FRAMES = 32;
 global_constant u32 MAX_SPRITE_SHEET_ANIMATIONS  = 32;
 global_constant u32 MAX_SPRITE_SHEET_PIECES = 5;
-global_constant u32 MAX_SPRITE_SHEET_ANIMATION_FRAMES = 16;
 
 global_constant u32 MAX_ENTITY_ASSET_BOUNDARIES = 8;
 
@@ -58,19 +59,21 @@ global_constant u32 MAX_TILEMAP_BOUNDARIES = 8;
 enum asset_sprite_sheet_frame_flags_ {
  SpriteSheetFrameFlag_None = (0 << 0),
  SpriteSheetFrameFlag_Flip = (1 << 0),
+ // NOTE(Tyler): This is used as a bitfield below to make the asset_sprite_sheet struct way smaller
+ 
 };
 typedef u8 asset_sprite_sheet_frame_flags;
 
 struct asset_sprite_sheet_frame {
- asset_sprite_sheet_frame_flags Flags;
- u8 Index;
+ asset_sprite_sheet_frame_flags Flags : 1;
+ u8 Index : 7;
 };
 
 struct asset_sprite_sheet_animation {
  f32 FPS;
+ f32 YOffset;
  u8 FrameCount;
  asset_sprite_sheet_frame Frames[MAX_SPRITE_SHEET_ANIMATION_FRAMES];
- f32 YOffset;
 };
 
 struct asset_sprite_sheet_piece {
