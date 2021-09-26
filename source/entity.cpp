@@ -352,7 +352,7 @@ UpdateAndRenderPlatformerPlayer(){
     Player->WeaponChargeTime = 1.0f;
    }
   }else if(Player->WeaponChargeTime > 0.0f){
-   projectile_entity *Projectile = BucketArrayGet(&EntityManager.Projectiles, BucketLocation(0, 0));
+   projectile_entity *Projectile = BucketArrayGet(&EntityManager.Projectiles, BucketIndex(0,0));
    
    if(Player->WeaponChargeTime < 0.1f){
     Player->WeaponChargeTime = 0.1f;
@@ -389,7 +389,7 @@ UpdateAndRenderPlatformerPlayer(){
  v2 Center = P + 0.5f*Player->EntityInfo->Size;
  GameRenderer.AddLight(Center, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f, GameItem(1));
  GameRenderer.SetCameraTarget(Center);
- DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->ZLayer, 1);
+ DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->Z, 1);
 }
 
 void 
@@ -405,29 +405,11 @@ entity_manager::UpdateAndRenderEntities(){
   UpdateAndRenderPlatformerPlayer();
  }
  
- //~ Walls @entity_tilemaps
+ //~ Tilemaps @entity_tilemaps
  FOR_BUCKET_ARRAY(It, &Tilemaps){
   tilemap_entity *Tilemap = It.Item;  
   asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
-  RenderTilemap(Asset, &Tilemap->TilemapData, Tilemap->P, Tilemap->ZLayer, Tilemap->Layer);
-  
-#if 0  
-  for(u32 Y = 0; Y < Tilemap->MapHeight; Y++){
-   for(u32 X = 0; X < Tilemap->MapWidth; X++){
-    u8 TileId = Tilemap->MapIndices[(Y*Tilemap->MapWidth)+X];
-    
-    if(TileId == EntityType_Wall){
-     v2 TileP = V2((f32)X, (f32)Y);
-     TileP += V2(0.5f);
-     TileP.X *= Tilemap->TileSize.X;
-     TileP.Y *= Tilemap->TileSize.Y;
-     rect TileR = CenterRect(TileP, Tilemap->TileSize);
-     
-     RenderRect(TileR, Tilemap->ZLayer, WHITE, GameItem(1));
-    }
-   }
-  }
-#endif
+  RenderTilemap(Asset, &Tilemap->TilemapData, Tilemap->P, Tilemap->Z, Tilemap->Layer);
  }
  
  //~ Coins @entity_coin
@@ -437,7 +419,7 @@ entity_manager::UpdateAndRenderEntities(){
    Coin->Animation.Cooldown -= OSInput.dTime;
   }else{
    Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
-   RenderRect(Coin->Bounds+Coin->Physics->P, Coin->ZLayer, YELLOW, GameItem(1));
+   RenderRect(Coin->Bounds+Coin->Physics->P, Coin->Z, YELLOW, GameItem(1));
   }
  }
  
@@ -475,7 +457,7 @@ entity_manager::UpdateAndRenderEntities(){
   
   f32 Radius = RectSize(Enemy->Bounds).Width+5;
   GameRenderer.AddLight(P+0.5f*EntitySize, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
-  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->ZLayer, 1);
+  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->Z, 1);
  }
  
  //~ Arts @entity_arts

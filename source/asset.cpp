@@ -66,15 +66,21 @@ RenderSpriteSheetAnimationFrame(asset_sprite_sheet *Sheet, v2 BaseP, f32 Z, u32 
  
  for(u32 I=0; I<Sheet->PieceCount; I++){
   asset_sprite_sheet_piece *Piece = &Sheet->Pieces[I];
-  asset_sprite_sheet_animation *Animation = &Piece->Animations[AnimationIndex];
-  if(Animation->FrameCount == 0){ continue; }
+  asset_sprite_sheet_animation *AnimationData = &Piece->Animations[AnimationIndex];
+  if(AnimationData->FrameCount == 0){ continue; }
   
   v2 P = BaseP;
-  P.Y += Animation->YOffset;
+  P.Y += AnimationData->YOffset;
   
-  u32 Frame = Animation->Frames[RelativeFrame % Animation->FrameCount].Index;
+  u32 FrameIndex = RelativeFrame % AnimationData->FrameCount;
+  u32 Frame = AnimationData->Frames[FrameIndex].Index;
   
-  rect TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+  rect TextureRect;
+  if(AnimationData->Frames[FrameIndex].Flags & SpriteSheetFrameFlag_Flip){
+   TextureRect = MakeRect(V2(RenderSize.X, 0), V2(0, RenderSize.Y));
+  }else{
+   TextureRect = MakeRect(V2(0, 0), V2(RenderSize.X, RenderSize.Y));
+  }
   rect R = SizeRect(P, RenderSize);
   
   u32 Column = Frame;
@@ -97,7 +103,7 @@ RenderSpriteSheetAnimationFrame(asset_sprite_sheet *Sheet, v2 BaseP, f32 Z, u32 
   TextureRect.Max.Y /= TextureSize.Y;
   
   RenderTexture(R, Z, Piece->Texture, GameItem(Layer), TextureRect, true);
-  Z -= 0.1f;
+  Z += 0.1f;
  }
  
 }
@@ -168,7 +174,7 @@ UpdateSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation
 
 internal inline void
 RenderSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation, 
-                           animation_state *State,v2 BaseP, f32 Z, u32 Layer){
+                           animation_state *State, v2 BaseP, f32 Z, u32 Layer){
  u32 AnimationIndex = Sheet->StateTable[State->State][State->Direction];
  if(AnimationIndex == 0) {
   // TODO(Tyler): BETTER ERROR LOGGING SYSTEM!

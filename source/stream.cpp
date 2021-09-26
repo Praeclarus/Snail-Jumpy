@@ -11,8 +11,9 @@ MakeReadStream(void *Buffer, umw BufferSize){
 }
 
 
-#define ConsumeType(Stream, Type) (Type *)ConsumeBytes(Stream, sizeof(Type))
+#define ConsumeType(Stream, Type)     (Type *)ConsumeBytes(Stream, sizeof(Type))
 #define ConsumeArray(Stream, Type, N) (Type *)ConsumeBytes(Stream, N*sizeof(Type))
+
 internal inline u8 *
 ConsumeBytes(stream *Stream, u32 Bytes){
  u8 *Result = 0;
@@ -34,6 +35,7 @@ PeekBytes(stream *Stream, u32 Bytes){
  Stream->CurrentIndex = CurrentIndex;
  return(Result);
 }
+
 
 // TODO(Tyler): Robustness???
 internal inline char *
@@ -69,3 +71,11 @@ PeekBits(stream *Stream, u32 Bits){
  return(Result);
 }
 
+#define ReadToVariable(Stream, Var) Var = *(decltype(Var) *)ConsumeBytes(Stream, sizeof(Var))
+#define ReadArrayToVariableAndDefaultAlloc(Stream, Var, Size) \
+Var = (decltype(Var))DefaultAlloc(Size*sizeof(*Var));    \
+CopyMemory(Var, ConsumeBytes(Stream, Size*sizeof(*Var)), Size*sizeof(*Var));
+
+#define ReadStringAndMakeBuffer(Stream, Var) \
+Var = Strings.MakeBuffer();                       \
+CopyCString(Var, ConsumeString(Stream), DEFAULT_BUFFER_SIZE);

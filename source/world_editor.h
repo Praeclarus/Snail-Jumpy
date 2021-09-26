@@ -20,6 +20,13 @@ struct selector_context {
 };
 
 //~ Edit mode
+enum edit_mode {
+ EditMode_Entity,
+ EditMode_Group,
+ EditMode_Tilemap,
+ EditMode_TilemapTemporary
+};
+
 enum edit_mode_thing {
  EditThing_None,
  EditThing_Tilemap    = EntityType_Tilemap,    // 1
@@ -87,6 +94,7 @@ enum world_editor_flags_ {
  WorldEditorFlag_None         = 0,
  WorldEditorFlag_HideArt      = (1 << 0),
  WorldEditorFlag_HideOverlays = (1 << 1),
+ WorldEditorFlag_UnhideHiddenGroups = (1 << 2),
 };
 
 struct world_editor {
@@ -106,12 +114,16 @@ struct world_editor {
  
  world_data *World;
  
+ edit_mode EditMode;
  edit_mode_thing EditThing;
+ 
  world_entity *Selected;
  world_entity *EntityToDelete;
  editor_delete_flags DeleteFlags;
  
  editor_grid Grid;
+ 
+ u32 SelectedGroupIndex;
  
  //~
  void Initialize();
@@ -130,7 +142,10 @@ struct world_editor {
  void DoEditThingTeleporter();
  void DoEditThingDoor();
  
- inline f32 world_editor::GetCursorZ();
+ void DoEditModeGroup();
+ 
+ inline b8 IsEntityHidden(world_entity *Entity);
+ inline f32 GetCursorZ();
  inline void EditModeEntity(world_entity *Entity);
  inline u32  GetEntityIndex(u64 ID);
  
@@ -148,8 +163,6 @@ struct world_editor {
  u16 ManualTileIndex;
  auto_tile AutoTileMode;
  
- b8 OverrideEditTilemap;
- inline b8 IsEditingTilemap();
  void MaybeEditTilemap();
  
  //~ Undo/redo
@@ -217,6 +230,35 @@ global_constant tile_type TILE_EDIT_MODE_TILE_TYPE_TABLE[AutoTile_TOTAL] = {
  TileType_Wedge, 
  TileTypeFlag_Art|TileType_Tile, 
  TileTypeFlag_Art|TileType_Wedge, 
+};
+
+global_constant char *ALPHABET_ARRAY[26] = {
+ "A",
+ "B",
+ "C",
+ "D",
+ "E",
+ "F",
+ "G",
+ "H",
+ "I",
+ "J",
+ "K",
+ "L",
+ "M",
+ "N",
+ "O",
+ "P",
+ "Q",
+ "R",
+ "S",
+ "T",
+ "U",
+ "V",
+ "W",
+ "X",
+ "Y",
+ "Z",
 };
 
 global_constant os_key_flags SPECIAL_SELECT_MODIFIER  = KeyFlag_Shift;

@@ -506,7 +506,7 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
 }
 
 #define TOGGLE_FLAG(Window, Text, FlagVar, Flag)   \
-if(Window->ToggleBox(Text, (FlagVar & Flag), WIDGET_ID)){ \
+if(Window->ToggleBox(Text, (FlagVar & Flag)!=false, WIDGET_ID)){ \
 FlagVar |= Flag;                                        \
 }else{                                                      \
 FlagVar &= ~Flag;                                       \

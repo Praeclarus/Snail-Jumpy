@@ -421,6 +421,7 @@ EditorButtonElement(ui_manager *Manager, u64 ID, rect R, os_mouse_button Button,
  R = GameRenderer.WorldToScreen(R, Options);
  ui_behavior Result = UIBehavior_None;
  if(!Disabled) Result = Manager->DoButtonElement(ID, R, Button, Priority, Flags);
+ 
  ui_button_state *State = FindOrCreateInHashTablePtr(&UIManager.ButtonStates, ID);
  switch(Result){
   case UIBehavior_None: {

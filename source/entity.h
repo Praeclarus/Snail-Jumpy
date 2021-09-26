@@ -39,7 +39,7 @@ struct entity {
  asset_entity   *EntityInfo;
  animation_state Animation;
  
- f32 ZLayer;
+ f32 Z;
  u32 Layer;
  
  u8 BoundarySet;
@@ -95,7 +95,9 @@ struct projectile_entity : public entity {
  v2 dP;
 };
 
+#define AllocEntity(Manager, ArrayName) BucketArrayAlloc(&(Manager)->ArrayName)
 struct entity_manager {
+ 
  memory_arena Memory;
  
  coin_data CoinData;
@@ -103,8 +105,7 @@ struct entity_manager {
  
  // TODO(Tyler): The numbers could be tuned better
  // TODO(Tyler): Bucket arrays might be a bit overkill
- // TODO(Tyler): Wall set entity
- bucket_array<tilemap_entity, 64>    Tilemaps;
+ bucket_array<tilemap_entity, 16>    Tilemaps;
  bucket_array<coin_entity, 16>       Coins;
  bucket_array<enemy_entity, 16>      Enemies;
  bucket_array<art_entity, 32>        Arts;

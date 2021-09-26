@@ -466,25 +466,3 @@ file_reader::PeekToken(){
  Line = Line_;
  return(Result);
 }
-
-
-#if 0
-array<file_token>
-file_reader::ReadArguments(){
- array<file_token> Tokens = MakeArray<file_token>(&TransientStorageArena, SJA_MAX_ARGUMENTS);
- file_token Token = PeekToken();
- if(Token.Type != FileTokenType_BeginArguments){
-  LastError = FileReaderError_InvalidToken;
-  return(Tokens);
- }
- 
- Token = NextToken();
- while(Token.Type != FileTokenType_EndArguments){
-  ArrayAdd(&Tokens, Token);
-  
-  Token = NextToken();
- }
- 
- return(Tokens);
-}
-#endif

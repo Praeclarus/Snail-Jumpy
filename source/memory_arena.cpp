@@ -7,12 +7,6 @@ AlignValue(umw Value, umw Alignment){
  return(Result);
 }
 
-struct memory_arena {
- u8 *Memory;
- umw Used;
- umw Size;
-};
-
 typedef u32 memory_flags;
 enum memory_flags_ {
  MemoryFlag_None       = (0 << 0),
@@ -39,6 +33,12 @@ NoneAndAlign(umw Alignment=4){
  Result.Alignment = Alignment;
  return(Result);
 }
+
+struct memory_arena {
+ u8 *Memory;
+ umw Used;
+ umw Size;
+};
 
 internal void
 InitializeArena(memory_arena *Arena, void *Memory, umw Size){
@@ -128,4 +128,3 @@ ArenaEndMarker(memory_arena *Arena, memory_arena_marker *Marker){
 
 global memory_arena PermanentStorageArena;
 global memory_arena TransientStorageArena;
-

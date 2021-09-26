@@ -6,15 +6,26 @@
 typedef u32 world_entity_flags;
 enum world_entity_flags_ {
  WorldEntityFlag_None = (0 << 0),
- WorldEntityTilemapFlag_TreatEdgesAsTiles = (1 << 1),
+ WorldEntityEditFlag_Hide = (1 << 0),
+ 
+ WorldEntityEditFlags_All = (WorldEntityEditFlag_Hide),
+ 
+ WorldEntityTilemapFlag_TreatEdgesAsTiles = (1 << 15),
+};
+
+struct world_entity_group {
+ char *Name;
+ f32 Z;
+ u32 Layer;
+ world_entity_flags Flags;
+ b8 FlaggedForDeletion;
 };
 
 struct world_entity_ {
  v2 P;
  world_entity_flags Flags;
  string Asset;
- f32 Z;
- u32 Layer;
+ u32 GroupIndex;
 };
 
 struct world_entity_tilemap : public world_entity_ {
@@ -56,18 +67,14 @@ struct world_entity_door : public world_entity_ {
  char *RequiredLevel;
 };
 
+
 struct world_entity {
  entity_type Type;
  u64 ID;
  
  union {
-  struct{
-   v2 P;
-   world_entity_flags Flags;
-   string Asset;
-   f32 Z;
-   u32 Layer;
-  };
+  // Base
+  world_entity_ Base;
   
   // Tilemap 
   world_entity_tilemap Tilemap;
@@ -102,12 +109,16 @@ enum world_flags_ {
 };
 
 global_constant u32 MAX_WORLD_ENTITIES = 256;
+global_constant u32 MAX_WORLD_ENTITY_GROUPS = 16;
 struct world_data {
  string Name;
+ 
  u8 *Map;
  u32 Width;
  u32 Height;
+ 
  array<world_entity> Entities;
+ array<world_entity_group> EntityGroups;
  
  u32 CoinsToSpawn;
  u32 CoinsRequired;
@@ -144,8 +155,10 @@ struct world_file_header {
  u32 Version;
  u32 WidthInTiles;
  u32 HeightInTiles;
+ 
+ u32 EntityGroupCount;
  u32 EntityCount;
- b8 IsTopDown;
+ 
  u32 CoinsToSpawn;
  u32 CoinsRequired;
  hsb_color AmbientColor;

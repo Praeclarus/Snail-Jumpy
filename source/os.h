@@ -383,9 +383,4 @@ internal void  DefaultFree(void *Pointer);
 //~ Miscellaneous
 internal void OSSleep(u32 Milliseconds);
 
-//~ Helper functions/macros for file I/O
-
-#define WriteVariableToFile(File, Offset, Number) { WriteToFile(File, Offset, &Number, sizeof(Number)); \
-Offset += sizeof(Number); }
-
 #endif // SNAIL_JUMPY_OS_H

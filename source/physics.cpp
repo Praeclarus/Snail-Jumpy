@@ -875,11 +875,11 @@ physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_bound
 }
 
 void
-physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtLocation=false, bucket_location StartLocation={}){
+physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtIndex=false, bucket_index StartIndex={}){
  //~ Moving object collisions
- if(!StartAtLocation){  StartLocation = {}; }
- else{ StartLocation.ItemIndex++; }
- FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartLocation){
+ if(!StartAtIndex){  StartIndex = {}; }
+ else{ StartIndex.Item++; }
+ FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartIndex){
   dynamic_physics_object *ObjectB = ItB.Item;
   if(ObjectB->State & PhysicsObjectState_Inactive) continue;
   
@@ -1099,7 +1099,7 @@ physics_system::DoPhysics(){
        Boundary < ObjectA->Boundaries+ObjectA->BoundaryCount;
        Boundary++){
     DoStaticCollisions(&Collision, Boundary, ObjectA->P, ObjectA->Delta);
-    DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, true, ItA.Location);
+    DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, true, ItA.Index);
     DoTriggerCollisions(&Trigger, Boundary, ObjectA->P, ObjectA->Delta);
    }
    
