@@ -95,29 +95,33 @@ struct projectile_entity : public entity {
  v2 dP;
 };
 
-#define AllocEntity(Manager, ArrayName) BucketArrayAlloc(&(Manager)->ArrayName)
+#define AllocEntity(Manager, TypeName) BucketArrayAlloc(&(Manager)->EntityArray_##TypeName)
+
+#define FOR_ENTITY_TYPE(Manager, TypeName) FOR_BUCKET_ARRAY(It, &(Manager)->EntityArray_##TypeName)
+
 struct entity_manager {
+ 
+#define ENTITY_TYPE_ARRAY(TypeName) bucket_array<TypeName, 32> EntityArray_##TypeName;
  
  memory_arena Memory;
  
  coin_data CoinData;
  player_input PlayerInput;
  
- // TODO(Tyler): The numbers could be tuned better
- // TODO(Tyler): Bucket arrays might be a bit overkill
- bucket_array<tilemap_entity, 16>    Tilemaps;
- bucket_array<coin_entity, 16>       Coins;
- bucket_array<enemy_entity, 16>      Enemies;
- bucket_array<art_entity, 32>        Arts;
- player_entity                      *Player;
- bucket_array<teleporter_entity, 16> Teleporters;
- bucket_array<door_entity, 16>       Doors;
- bucket_array<projectile_entity, 16> Projectiles;
+ ENTITY_TYPE_ARRAY(tilemap_entity);
+ ENTITY_TYPE_ARRAY(coin_entity);
+ ENTITY_TYPE_ARRAY(enemy_entity);
+ ENTITY_TYPE_ARRAY(art_entity);
+ player_entity *Player;
+ ENTITY_TYPE_ARRAY(teleporter_entity);
+ ENTITY_TYPE_ARRAY(door_entity);
+ ENTITY_TYPE_ARRAY(projectile_entity);
  
  void Initialize(memory_arena *Arena);
  void Reset();
  void ProcessEvent(os_event *Event);
- void UpdateAndRenderEntities();
+ void UpdateEntities();
+ void RenderEntities();
  inline void DoPhysics();
  inline void DamagePlayer(u32 Damage);
 };

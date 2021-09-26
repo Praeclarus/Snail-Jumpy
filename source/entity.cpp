@@ -3,14 +3,18 @@
 void
 entity_manager::Reset(){
  Memory.Used = 0;
- InitializeBucketArray(&Tilemaps,  &Memory);
- InitializeBucketArray(&Coins,     &Memory);
- InitializeBucketArray(&Enemies,   &Memory);
- InitializeBucketArray(&Arts,      &Memory);
+ 
+#define INITIALIZE_ENTITY_TYPE_ARRAY(TypeName) InitializeBucketArray(&EntityArray_##TypeName, &Memory)
+ 
+ INITIALIZE_ENTITY_TYPE_ARRAY(tilemap_entity);
+ INITIALIZE_ENTITY_TYPE_ARRAY(tilemap_entity);
+ INITIALIZE_ENTITY_TYPE_ARRAY(coin_entity);
+ INITIALIZE_ENTITY_TYPE_ARRAY(enemy_entity);
+ INITIALIZE_ENTITY_TYPE_ARRAY(art_entity);
  Player = PushStruct(&Memory, player_entity);
- InitializeBucketArray(&Teleporters, &Memory);
- InitializeBucketArray(&Doors,       &Memory);
- InitializeBucketArray(&Projectiles, &Memory);
+ INITIALIZE_ENTITY_TYPE_ARRAY(teleporter_entity);
+ INITIALIZE_ENTITY_TYPE_ARRAY(door_entity);
+ INITIALIZE_ENTITY_TYPE_ARRAY(projectile_entity);
 }
 
 void
@@ -298,133 +302,12 @@ entity_manager::ProcessEvent(os_event *Event){
  }
 }
 
-internal void
-UpdateAndRenderPlatformerPlayer(){
- player_entity *Player = EntityManager.Player;
- dynamic_physics_object *Physics = Player->DynamicPhysics;
- if(!DoesAnimationBlock(&Player->EntityInfo->Animation, &Player->Animation)){
-  f32 MovementSpeed = Player->EntityInfo->Speed; // TODO(Tyler): Load this from a variables file
-  f32 Movement = 0.0f;
-  if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
-   Player->Animation.Direction = Direction_Right;
-   Movement += MovementSpeed;
-  }else if(EntityManager.PlayerInput.Left && !EntityManager.PlayerInput.Right){
-   Player->Animation.Direction = Direction_Left;
-   Movement -= MovementSpeed;
-  }
-  MovePlatformer(Physics, Movement);
-  
-  
-  // TODO(Tyler): Load from file ('JumpTime', 'JumpPower')
-  if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.1f;
-  local_constant f32 JumpPower = 100.0f;
-  f32 Jump = 0.0f;
-  if(EntityManager.PlayerInput.Jump &&
-     (Player->JumpTime > 0.0f)){
-   Jump += JumpPower;
-   Player->JumpTime -= OSInput.dTime;
-   Physics->State |= PhysicsObjectState_Falling;
-   
-   if(Physics->TargetdP.Y < 0.0f){ Physics->TargetdP.Y = 0.0f; }
-   if(Physics->dP.Y < 0.0f){ Physics->dP.Y = 0.0f; }
-   Physics->TargetdP += V2(0, Jump);
-   Physics->ddP.Y = 0.0f;
-   
-  }else if(!EntityManager.PlayerInput.Jump){
-   Player->JumpTime = 0.0f;
-  }
-  
-  if(Physics->State & PhysicsObjectState_Falling){
-   f32 Epsilon = 0.01f;
-   if(Epsilon < Physics->dP.Y){
-    ChangeEntityState(Player, State_Jumping);
-   }else if((Physics->dP.Y < -Epsilon)){
-    ChangeEntityState(Player, State_Falling);
-   }
-  }else{
-   if(Movement != 0.0f) { ChangeEntityState(Player, State_Moving); }
-   else {ChangeEntityState(Player, State_Idle); }
-  }
-  
-  if(EntityManager.PlayerInput.Shoot){
-   Player->WeaponChargeTime += OSInput.dTime;
-   if(Player->WeaponChargeTime > 1.0f){
-    Player->WeaponChargeTime = 1.0f;
-   }
-  }else if(Player->WeaponChargeTime > 0.0f){
-   projectile_entity *Projectile = BucketArrayGet(&EntityManager.Projectiles, BucketIndex(0,0));
-   
-   if(Player->WeaponChargeTime < 0.1f){
-    Player->WeaponChargeTime = 0.1f;
-   }else if(Player->WeaponChargeTime < 0.6f){
-    Player->WeaponChargeTime = 0.6f;
-   }
-   
-   trigger_physics_object *ProjectilePhysics = Projectile->TriggerPhysics;
-   
-   // TODO(Tyler): Hot loaded variables file for tweaking these values in 
-   // realtime
-   f32 XPower = 100.0f;
-   f32 YPower = 30.0f;
-   switch(Player->Animation.Direction){
-    case Direction_Left:  Projectile->dP = V2(-XPower, YPower); break;
-    case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
-   }
-   
-   ProjectilePhysics->P = Player->Physics->P + 0.5f*Player->EntityInfo->Size;
-   ProjectilePhysics->P.Y += 0.15f;
-   Projectile->dP *= Player->WeaponChargeTime+0.2f;
-   Projectile->dP += 0.3f*Physics->dP;
-   Projectile->RemainingLife = 3.0f;
-   Player->WeaponChargeTime = 0.0f;
-  }
-  
-  if(Player->Physics->P.Y < -30.0f){
-   EntityManager.DamagePlayer(2);
-  }
-  
- }
- 
- v2 P = Player->Physics->P;
- v2 Center = P + 0.5f*Player->EntityInfo->Size;
- GameRenderer.AddLight(Center, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f, GameItem(1));
- GameRenderer.SetCameraTarget(Center);
- DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->Z, 1);
-}
-
 void 
-entity_manager::UpdateAndRenderEntities(){
+entity_manager::UpdateEntities(){
  TIMED_FUNCTION();
  
- //~ Player @entity_player
- // NOTE(Tyler): The player is processed before all other entities because it controls the camera.
- // This must be here other wise there is jitter and shakiness.
- if(CurrentWorld->Flags & WorldFlag_IsTopDown){
-  NOT_IMPLEMENTED_YET;
- }else{
-  UpdateAndRenderPlatformerPlayer();
- }
- 
- //~ Tilemaps @entity_tilemaps
- FOR_BUCKET_ARRAY(It, &Tilemaps){
-  tilemap_entity *Tilemap = It.Item;  
-  asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
-  RenderTilemap(Asset, &Tilemap->TilemapData, Tilemap->P, Tilemap->Z, Tilemap->Layer);
- }
- 
- //~ Coins @entity_coin
- FOR_BUCKET_ARRAY(It, &Coins){
-  coin_entity *Coin = It.Item;
-  if(Coin->Animation.Cooldown > 0.0f){
-   Coin->Animation.Cooldown -= OSInput.dTime;
-  }else{
-   Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
-   RenderRect(Coin->Bounds+Coin->Physics->P, Coin->Z, YELLOW, GameItem(1));
-  }
- }
- 
  //~ Enemies @entity_enemies
- FOR_BUCKET_ARRAY(It, &Enemies){
+ FOR_ENTITY_TYPE(this, enemy_entity){
   enemy_entity *Enemy = It.Item;
   dynamic_physics_object *Physics = Enemy->DynamicPhysics;
   
@@ -451,40 +334,101 @@ entity_manager::UpdateAndRenderEntities(){
   }
   
   MovePlatformer(Physics, Movement, Gravity);
-  
-  v2 EntitySize = Enemy->EntityInfo->Size;
-  v2 P = Physics->P;
-  
-  f32 Radius = RectSize(Enemy->Bounds).Width+5;
-  GameRenderer.AddLight(P+0.5f*EntitySize, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
-  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->Z, 1);
  }
  
- //~ Arts @entity_arts
- FOR_BUCKET_ARRAY(It, &Arts){
-  art_entity *Art = It.Item;
-  asset_art *Asset = AssetSystem.GetArt(Art->Asset);
-  RenderArt(Asset, Art->P, Art->Z, Art->Layer);
-  v2 Center = Art->P+0.5f*Asset->Size;
-  f32 Radius = Asset->Size.Width;
-  GameRenderer.AddLight(Center, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(Art->Layer));
+ //~ Player @entity_player
+ {
+  dynamic_physics_object *Physics = Player->DynamicPhysics;
+  if(!DoesAnimationBlock(&Player->EntityInfo->Animation, &Player->Animation)){
+   f32 MovementSpeed = Player->EntityInfo->Speed; // TODO(Tyler): Load this from a variables file
+   f32 Movement = 0.0f;
+   if(EntityManager.PlayerInput.Right && !EntityManager.PlayerInput.Left){
+    Player->Animation.Direction = Direction_Right;
+    Movement += MovementSpeed;
+   }else if(EntityManager.PlayerInput.Left && !EntityManager.PlayerInput.Right){
+    Player->Animation.Direction = Direction_Left;
+    Movement -= MovementSpeed;
+   }
+   MovePlatformer(Physics, Movement);
+   
+   
+   // TODO(Tyler): Load from file ('JumpTime', 'JumpPower')
+   if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.1f;
+   local_constant f32 JumpPower = 100.0f;
+   f32 Jump = 0.0f;
+   if(EntityManager.PlayerInput.Jump &&
+      (Player->JumpTime > 0.0f)){
+    Jump += JumpPower;
+    Player->JumpTime -= OSInput.dTime;
+    Physics->State |= PhysicsObjectState_Falling;
+    
+    if(Physics->TargetdP.Y < 0.0f){ Physics->TargetdP.Y = 0.0f; }
+    if(Physics->dP.Y < 0.0f){ Physics->dP.Y = 0.0f; }
+    Physics->TargetdP += V2(0, Jump);
+    Physics->ddP.Y = 0.0f;
+    
+   }else if(!EntityManager.PlayerInput.Jump){
+    Player->JumpTime = 0.0f;
+   }
+   
+   if(Physics->State & PhysicsObjectState_Falling){
+    f32 Epsilon = 0.01f;
+    if(Epsilon < Physics->dP.Y){
+     ChangeEntityState(Player, State_Jumping);
+    }else if((Physics->dP.Y < -Epsilon)){
+     ChangeEntityState(Player, State_Falling);
+    }
+   }else{
+    if(Movement != 0.0f) { ChangeEntityState(Player, State_Moving); }
+    else {ChangeEntityState(Player, State_Idle); }
+   }
+   
+   if(EntityManager.PlayerInput.Shoot){
+    Player->WeaponChargeTime += OSInput.dTime;
+    if(Player->WeaponChargeTime > 1.0f){
+     Player->WeaponChargeTime = 1.0f;
+    }
+   }else if(Player->WeaponChargeTime > 0.0f){
+    projectile_entity *Projectile = BucketArrayGet(&EntityManager.EntityArray_projectile_entity, BucketIndex(0,0));
+    
+    if(Player->WeaponChargeTime < 0.1f){
+     Player->WeaponChargeTime = 0.1f;
+    }else if(Player->WeaponChargeTime < 0.6f){
+     Player->WeaponChargeTime = 0.6f;
+    }
+    
+    trigger_physics_object *ProjectilePhysics = Projectile->TriggerPhysics;
+    
+    // TODO(Tyler): Hot loaded variables file for tweaking these values in 
+    // realtime
+    f32 XPower = 100.0f;
+    f32 YPower = 30.0f;
+    switch(Player->Animation.Direction){
+     case Direction_Left:  Projectile->dP = V2(-XPower, YPower); break;
+     case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
+    }
+    
+    ProjectilePhysics->P = Player->Physics->P + 0.5f*Player->EntityInfo->Size;
+    ProjectilePhysics->P.Y += 0.15f;
+    Projectile->dP *= Player->WeaponChargeTime+0.2f;
+    Projectile->dP += 0.3f*Physics->dP;
+    Projectile->RemainingLife = 3.0f;
+    Player->WeaponChargeTime = 0.0f;
+   }
+   
+   if(Player->Physics->P.Y < -30.0f){
+    EntityManager.DamagePlayer(2);
+   }
+   
+  }
  }
+ 
  
  //~ Teleporters @entity_teleporters
- FOR_BUCKET_ARRAY(It, &Teleporters){
+ FOR_ENTITY_TYPE(this, teleporter_entity){
   teleporter_entity *Teleporter = It.Item;
   if(!Teleporter->IsLocked){
-   RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, GREEN, GameItem(1));
-   
    if(Teleporter->IsSelected){
-    world_data *World = WorldManager.GetOrCreateWorld(Strings.GetString(Teleporter->Level));
-    if(World){
-     v2 StringP = Teleporter->Physics->P;
-     StringP.Y += 0.5f;
-     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
-     StringP.X -= Advance/2;
-     RenderString(&MainFont, GREEN, StringP, -1.0f, Teleporter->Level);
-    }
 #if 0
     if(IsKeyJustPressed(KeyCode_Space)){
      ChangeState(GameMode_MainGame, Teleporter->Level);
@@ -493,32 +437,11 @@ entity_manager::UpdateAndRenderEntities(){
     
     Teleporter->IsSelected = false;
    }
-  }else{
-   RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, 
-              MakeColor(0.0f, 0.0f, 1.0f, 0.5f), GameItem(1));
-  }
- }
- 
- //~ Doors @entity_doors
- FOR_BUCKET_ARRAY(It, &Doors){
-  door_entity *Door = It.Item;
-  Door->Cooldown -= OSInput.dTime;
-  rect R = Door->Bounds+Door->Physics->P;
-  
-  if(!Door->IsOpen){
-   RenderRect(R, 0.0f, BROWN, GameItem(1));
-  }else{
-   color Color = BROWN;
-   Color.A = Door->Cooldown;
-   if(Color.A < 0.3f){
-    Color.A = 0.3f;
-   }
-   RenderRect(R, 0.0f, Color, GameItem(1));
   }
  }
  
  //~ Projectiles @entity_projectiles
- FOR_BUCKET_ARRAY(It, &Projectiles){
+ FOR_ENTITY_TYPE(this, projectile_entity){
   projectile_entity *Projectile = It.Item;
   trigger_physics_object *Physics = Projectile->TriggerPhysics;
   
@@ -531,32 +454,10 @@ entity_manager::UpdateAndRenderEntities(){
    f32 dTime = OSInput.dTime;
    Physics->P += dTime*Projectile->dP;
    Projectile->dP += dTime*ddP;
-   
-   RenderRect(Projectile->Bounds+Projectile->Physics->P,
-              0.0f, WHITE, GameItem(1));
   }else{
    Physics->State |= PhysicsObjectState_Inactive;
   }
  }
- 
-#if 1
- //~ Backgrounds
- {
-  TIMED_SCOPE(Backgrounds);
-  asset_art *BackgroundBack   = AssetSystem.GetBackground(Strings.GetString("background_test_back"));
-  asset_art *BackgroundMiddle = AssetSystem.GetBackground(Strings.GetString("background_test_middle"));
-  asset_art *BackgroundFront  = AssetSystem.GetBackground(Strings.GetString("background_test_front"));
-  //f32 YOffset = -200;
-  f32 YOffset = 0;
-  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 6);
-  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 6);
-  RenderArt(BackgroundMiddle, V2(0*BackgroundMiddle->Size.Width, YOffset), 14, 3);
-  RenderArt(BackgroundMiddle, V2(1*BackgroundMiddle->Size.Width, YOffset), 14, 3);
-  RenderArt(BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), 13, 1);
-  RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
-  RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
- }
-#endif
  
 #if 0    
  //~ Gate
@@ -582,4 +483,148 @@ entity_manager::UpdateAndRenderEntities(){
 #endif
  
  DoPhysics();
+}
+
+void 
+entity_manager::RenderEntities(){
+ TIMED_FUNCTION();
+ 
+ //~ Tilemaps @entity_tilemaps
+ FOR_ENTITY_TYPE(this, tilemap_entity){
+  tilemap_entity *Tilemap = It.Item;  
+  asset_tilemap *Asset = AssetSystem.GetTilemap(Tilemap->Asset);
+  RenderTilemap(Asset, &Tilemap->TilemapData, Tilemap->P, Tilemap->Z, Tilemap->Layer);
+ }
+ 
+ //~ Coins @entity_coin
+ FOR_ENTITY_TYPE(this, coin_entity){
+  coin_entity *Coin = It.Item;
+  if(Coin->Animation.Cooldown > 0.0f){
+   Coin->Animation.Cooldown -= OSInput.dTime;
+  }else{
+   Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
+   RenderRect(Coin->Bounds+Coin->Physics->P, Coin->Z, YELLOW, GameItem(1));
+  }
+ }
+ 
+ //~ Enemies @entity_enemies
+ FOR_ENTITY_TYPE(this, enemy_entity){
+  enemy_entity *Enemy = It.Item;
+  v2 EntitySize = Enemy->EntityInfo->Size;
+  v2 P = Enemy->Physics->P;
+  f32 Radius = RectSize(Enemy->Bounds).Width+5;
+  GameRenderer.AddLight(P+0.5f*EntitySize, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
+  DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->Z, 1);
+ }
+ 
+ //~ Arts @entity_arts
+ FOR_ENTITY_TYPE(this, art_entity){
+  art_entity *Art = It.Item;
+  asset_art *Asset = AssetSystem.GetArt(Art->Asset);
+  RenderArt(Asset, Art->P, Art->Z, Art->Layer);
+  v2 Center = Art->P+0.5f*Asset->Size;
+  f32 Radius = Asset->Size.Width;
+  GameRenderer.AddLight(Center, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(Art->Layer));
+ }
+ 
+ //~ Player @entity_player
+ {
+  v2 P = Player->Physics->P;
+  v2 Center = P + 0.5f*Player->EntityInfo->Size;
+  GameRenderer.AddLight(Center, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f, GameItem(1));
+  GameRenderer.SetCameraTarget(Center);
+  DoEntityAnimation(Player->EntityInfo, &Player->Animation, P, Player->Z, 1);
+ }
+ 
+ //~ Teleporters @entity_teleporters
+ FOR_ENTITY_TYPE(this, teleporter_entity){
+  teleporter_entity *Teleporter = It.Item;
+  if(!Teleporter->IsLocked){
+   world_data *World = WorldManager.GetOrCreateWorld(Strings.GetString(Teleporter->Level));
+   if(World){
+    v2 StringP = Teleporter->Physics->P;
+    StringP.Y += 0.5f;
+    f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
+    StringP.X -= Advance/2;
+    RenderString(&MainFont, GREEN, StringP, -1.0f, Teleporter->Level);
+   }
+   RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, GREEN, GameItem(1));
+  }else{
+   RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, 
+              MakeColor(0.0f, 0.0f, 1.0f, 0.5f), GameItem(1));
+  }
+ }
+ 
+ //~ Doors @entity_doors
+ FOR_ENTITY_TYPE(this, door_entity){
+  door_entity *Door = It.Item;
+  Door->Cooldown -= OSInput.dTime;
+  rect R = Door->Bounds+Door->Physics->P;
+  
+  if(!Door->IsOpen){
+   RenderRect(R, 0.0f, BROWN, GameItem(1));
+  }else{
+   color Color = BROWN;
+   Color.A = Door->Cooldown;
+   if(Color.A < 0.3f){
+    Color.A = 0.3f;
+   }
+   RenderRect(R, 0.0f, Color, GameItem(1));
+  }
+ }
+ 
+ //~ Projectiles @entity_projectiles
+ FOR_ENTITY_TYPE(this, projectile_entity){
+  projectile_entity *Projectile = It.Item;
+  trigger_physics_object *Physics = Projectile->TriggerPhysics;
+  
+  if(Projectile->RemainingLife > 0.0f){
+   RenderRect(Projectile->Bounds+Projectile->Physics->P,
+              0.0f, WHITE, GameItem(1));
+  }
+ }
+ 
+#if 0    
+ //~ Gate
+ {
+  v2 P = V2(136.0f, 40.0f);
+  rect R = CenterRect(P, TILE_SIZE);
+  RenderRect(RenderGroup, CenterRect(P, TILE_SIZE), 0.0f, ORANGE, 0);
+  rect PlayerRect = OffsetRect(Player->Bounds, Player->Physics->P);
+  RenderRectOutline(RenderGroup, CenterRect(P, TILE_SIZE), -10.0f, ORANGE, 0, 1.0f);
+  if(DoRectsOverlap(PlayerRect, R)){
+   u32 RequiredCoins = CurrentWorld->CoinsRequired;
+   if((u32)Score >= RequiredCoins){
+    if(CompletionCooldown == 0.0f){
+     CompletionCooldown = 3.0f;
+    }
+   }else{
+    v2 TopCenter = 0.5f*OSInput.WindowSize;
+    RenderCenteredString(RenderGroup, &MainFont, GREEN, TopCenter, -0.9f,
+                         "You need: %u more coins!", RequiredCoins-Score);
+   }
+  }
+ }
+#endif
+ 
+ 
+#if 1
+ //~ Backgrounds
+ {
+  TIMED_SCOPE(Backgrounds);
+  asset_art *BackgroundBack   = AssetSystem.GetBackground(Strings.GetString("background_test_back"));
+  asset_art *BackgroundMiddle = AssetSystem.GetBackground(Strings.GetString("background_test_middle"));
+  asset_art *BackgroundFront  = AssetSystem.GetBackground(Strings.GetString("background_test_front"));
+  //f32 YOffset = -200;
+  f32 YOffset = 0;
+  RenderArt(BackgroundBack,   V2(0*BackgroundBack->Size.Width,   YOffset), 15, 6);
+  RenderArt(BackgroundBack,   V2(1*BackgroundBack->Size.Width,   YOffset), 15, 6);
+  RenderArt(BackgroundMiddle, V2(0*BackgroundMiddle->Size.Width, YOffset), 14, 3);
+  RenderArt(BackgroundMiddle, V2(1*BackgroundMiddle->Size.Width, YOffset), 14, 3);
+  RenderArt(BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), 13, 1);
+  RenderArt(BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), 13, 1);
+  RenderArt(BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), 13, 1);
+ }
+#endif
+ 
 }

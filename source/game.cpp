@@ -37,7 +37,8 @@ UpdateAndRenderMainGame(){
  GameRenderer.SetCameraSettings(0.5f);
  GameRenderer.SetLightingConditions(HSBToRGB(CurrentWorld->AmbientColor), CurrentWorld->Exposure);
  
- EntityManager.UpdateAndRenderEntities();
+ EntityManager.UpdateEntities();
+ EntityManager.RenderEntities();
  
  player_entity *Player = EntityManager.Player;
  

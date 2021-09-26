@@ -110,7 +110,7 @@ world_manager::LoadWorld(const char *LevelName){
     
     u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
     for(u32 I = 0; I < N; I++){
-     coin_entity *Coin = BucketArrayAlloc(&EntityManager.Coins);
+     coin_entity *Coin = AllocEntity(&EntityManager, coin_entity);
      Coin->Type = EntityType_Coin;
      Coin->Z = -0.0f;
      Coin->Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
@@ -140,7 +140,7 @@ world_manager::LoadWorld(const char *LevelName){
      //~ Tilemaps
      case EntityType_Tilemap: {
       world_entity_tilemap *Data = &Entity->Tilemap;
-      tilemap_entity *Tilemap = BucketArrayAlloc(&EntityManager.Tilemaps);
+      tilemap_entity *Tilemap = AllocEntity(&EntityManager, tilemap_entity);
       asset_tilemap *Asset = AssetSystem.GetTilemap(Data->Asset);
       u32 Width = Data->Width;
       u32 Height = Data->Height;
@@ -171,7 +171,7 @@ world_manager::LoadWorld(const char *LevelName){
        continue;
       }
       
-      enemy_entity *Enemy = BucketArrayAlloc(&EntityManager.Enemies);
+      enemy_entity *Enemy = AllocEntity(&EntityManager, enemy_entity);
       
       *Enemy = {};
       v2 P = Data->P;
@@ -207,7 +207,7 @@ world_manager::LoadWorld(const char *LevelName){
      //~ Arts
      case EntityType_Art: {
       world_entity_art *Data = &Entity->Art;
-      art_entity *Art = BucketArrayAlloc(&EntityManager.Arts);
+      art_entity *Art = AllocEntity(&EntityManager, art_entity);
       *Art = {};
       Art->P = Data->P;
       Art->Z = Z;
@@ -248,7 +248,7 @@ world_manager::LoadWorld(const char *LevelName){
      case EntityType_Teleporter: {
       world_entity_teleporter *Data = &Entity->Teleporter;
       
-      teleporter_entity *Teleporter = BucketArrayAlloc(&EntityManager.Teleporters);
+      teleporter_entity *Teleporter = AllocEntity(&EntityManager, teleporter_entity);
       
       *Teleporter = {};
       trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(TeleporterBoundary, 1);
@@ -270,7 +270,7 @@ world_manager::LoadWorld(const char *LevelName){
      //~ Doors
      case EntityType_Door: {
       world_entity_door *Data = &Entity->Door;
-      door_entity *Door = BucketArrayAlloc(&EntityManager.Doors);
+      door_entity *Door = AllocEntity(&EntityManager, door_entity);
       
       collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
       *Boundary = MakeCollisionRect(0.5f*Entity->Door.Size, Entity->Door.Size);
@@ -307,7 +307,7 @@ world_manager::LoadWorld(const char *LevelName){
    
    //~ Projectiles
    {
-    projectile_entity *Projectile = BucketArrayAlloc(&EntityManager.Projectiles);
+    projectile_entity *Projectile = AllocEntity(&EntityManager, projectile_entity);
     Projectile->Type = EntityType_Projectile;
     Projectile->RemainingLife = 0.0f;
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
