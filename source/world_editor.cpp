@@ -1443,7 +1443,7 @@ world_editor::UpdateAndRender(){
  
  LastMouseP = MouseP;
  MouseP = GameRenderer.ScreenToWorld(OSInput.MouseP, ScaledItem(1));
- CursorP = SnapToGrid(MouseP, Grid);
+ CursorP = SnapToGrid(MouseP-0.5*TILE_SIZE, Grid);
  
  if(SelectedGroupIndex == 0) SelectedGroupIndex = 1;
  
