@@ -52,14 +52,8 @@ AddPlayer(v2 P){
  
  Player->Health = 9;
  
- 
- Player->Physics = PhysicsSystem.AddObject(EntityInfo->Boundaries, (u8)EntityInfo->BoundaryCount);
- dynamic_physics_object *Physics = Player->DynamicPhysics;
- Physics->Mass = 1.0f;
- //Physics->Response = EntityInfo->Response;
- Physics->Response = PlayerCollisionResponse;
- Physics->Entity = Player;
- Physics->P = P;
+ Player->Response = PlayerCollisionResponse;
+ Player->P = P;
 }
 
 internal void
@@ -113,9 +107,9 @@ world_manager::LoadWorld(const char *LevelName){
      coin_entity *Coin = AllocEntity(&EntityManager, coin_entity);
      Coin->Type = EntityType_Coin;
      Coin->Z = -0.0f;
-     Coin->Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
-     Coin->Physics->TriggerResponse = CoinResponse;
-     Coin->Physics->Entity = Coin;
+     Coin->Boundaries = Boundary;
+     Coin->BoundaryCount = 1;
+     Coin->TriggerResponse = CoinResponse;
      Coin->Bounds = Boundary->Bounds;
      UpdateCoin(Coin);
      Coin->Animation.Cooldown = 0.0f;
@@ -145,6 +139,7 @@ world_manager::LoadWorld(const char *LevelName){
       u32 Width = Data->Width;
       u32 Height = Data->Height;
       
+      Tilemap->Type = EntityType_Tilemap;
       Tilemap->P = Data->P;
       Tilemap->Asset = Data->Asset;
       Tilemap->Z = Z;
@@ -157,10 +152,10 @@ world_manager::LoadWorld(const char *LevelName){
                               &Tilemap->TilemapData, PhysicsMap, 
                               (Data->Flags&WorldEntityTilemapFlag_TreatEdgesAsTiles)!=false);
       
-      physics_tilemap *Physics = PhysicsSystem.AddTilemap(PhysicsMap, Width, Height, 
-                                                          Asset->TileSize, 
-                                                          Asset->Boundaries, (u8)Asset->BoundaryCount);
-      Physics->P = Tilemap->P;
+      Tilemap->PhysicsMap = PhysicsMap;
+      Tilemap->TileSize = Asset->TileSize;
+      Tilemap->Boundaries = Asset->Boundaries;
+      Tilemap->BoundaryCount = (u8)Asset->BoundaryCount;
      }break;
      
      //~ Enemies
@@ -189,19 +184,16 @@ world_manager::LoadWorld(const char *LevelName){
       Enemy->PathStart = Entity->Enemy.PathStart;
       Enemy->PathEnd = Entity->Enemy.PathEnd;
       
-      Enemy->Physics = PhysicsSystem.AddObject(EntityInfo->Boundaries, (u8)EntityInfo->BoundaryCount);
-      Enemy->Physics->Response = EntityInfo->Response;
-      Enemy->Physics->Entity = Enemy;
+      SetupEntityPhysics(Enemy, EntityInfo->Boundaries, EntityInfo->BoundaryCount, 
+                         EntityInfo->Response);
       
-      Enemy->Bounds = GetBoundsOfBoundaries(EntityInfo->Boundaries, (u8)EntityInfo->BoundaryCount);
       Enemy->Type  = EntityInfo->Type;
       Enemy->Flags = EntityInfo->Flags;
       if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-       Enemy->DynamicPhysics->State |= PhysicsObjectState_DontFloorRaycast;
+       Enemy->PhysicsFlags |= PhysicsStateFlag_DontFloorRaycast;
       }
       
-      Enemy->Physics->P = P;
-      Enemy->Physics->Mass = EntityInfo->Mass;
+      Enemy->P = P;
      }break;
      
      //~ Arts
@@ -234,14 +226,11 @@ world_manager::LoadWorld(const char *LevelName){
       
       Player->Health = 9;
       
-      Player->Physics = PhysicsSystem.AddObject(EntityInfo->Boundaries, (u8)EntityInfo->BoundaryCount);
-      dynamic_physics_object *Physics = Player->DynamicPhysics;
-      Physics->Mass = EntityInfo->Mass;
-      //Physics->Response = EntityInfo->Response;
-      Physics->Response = PlayerCollisionResponse;
-      Physics->Entity = Player;
-      Physics->P = Data->P;
+      Player->P = Data->P;
       Player->StartP = Data->P;
+      
+      SetupEntityPhysics(Player, EntityInfo->Boundaries, EntityInfo->BoundaryCount, 
+                         EntityInfo->Response);
      }break;
      
      //~ Teleporters
@@ -251,14 +240,13 @@ world_manager::LoadWorld(const char *LevelName){
       teleporter_entity *Teleporter = AllocEntity(&EntityManager, teleporter_entity);
       
       *Teleporter = {};
-      trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(TeleporterBoundary, 1);
-      Physics->P = Data->P;
-      Physics->TriggerResponse = TeleporterResponse;
-      Physics->Entity = Teleporter;
+      Teleporter->Boundaries = TeleporterBoundary;
+      Teleporter->BoundaryCount = 1;
+      Teleporter->P = Data->P;
+      Teleporter->TriggerResponse = TeleporterResponse;
       Teleporter->Z = Z;
       
       Teleporter->Type = EntityType_Teleporter;
-      Teleporter->Physics = Physics;
       Teleporter->Bounds = SizeRect(V2(0), TILE_SIZE);
       Teleporter->Level = Entity->Teleporter.Level;
       if(Entity->Teleporter.RequiredLevel[0] == 0){
@@ -274,11 +262,10 @@ world_manager::LoadWorld(const char *LevelName){
       
       collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
       *Boundary = MakeCollisionRect(0.5f*Entity->Door.Size, Entity->Door.Size);
-      static_physics_object *Physics = PhysicsSystem.AddStaticObject(Boundary, 1);
-      Physics->P = Data->P;
+      SetupEntityPhysics(Door, Boundary, 1);
+      Door->P = Data->P;
       Door->Z = Z;
       
-      Door->Physics = Physics;
       Door->Bounds = SizeRect(V2(0), Entity->Door.Size);
       
       if(IsLevelCompleted(Strings.GetString(Entity->Door.RequiredLevel))){
@@ -312,14 +299,13 @@ world_manager::LoadWorld(const char *LevelName){
     Projectile->RemainingLife = 0.0f;
     collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
     *Boundary = MakeCollisionRect(V2(0), V2(2.0f));
-    trigger_physics_object *Physics = PhysicsSystem.AddTriggerObject(Boundary, 1);
     
-    Physics->State |= PhysicsObjectState_DontFloorRaycast;
-    Physics->State |= PhysicsObjectState_Falling;
-    Physics->TriggerResponse = ProjectileResponse;
-    Physics->Entity = Projectile;
+    SetupEntityPhysics(Projectile, Boundary, 1);
     
-    Projectile->Physics = Physics;
+    Projectile->PhysicsFlags |= PhysicsStateFlag_DontFloorRaycast;
+    Projectile->PhysicsFlags |= PhysicsStateFlag_Falling;
+    //Physics->Response = ProjectileResponse;
+    
     Projectile->Bounds = Boundary->Bounds;
    }
    

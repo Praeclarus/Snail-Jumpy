@@ -588,7 +588,7 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_){
 #endif
  
  v2 BoundsSize = RectSize(CameraBounds);
- f32 Factor = 215.0f;
+ f32 Factor = 210.0f;
  f32 NewScale = Minimum(OutputSize.X/Factor, OutputSize.Y/Factor);
  NewScale = Maximum(NewScale, 4.0f);
  ChangeScale(NewScale);

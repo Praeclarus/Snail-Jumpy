@@ -2,10 +2,7 @@
 #define SNAIL_JUMPY_ENTITY_H
 
 //~ Other
-//typedef u32 state_change_condition;
 
-// TODO(Tyler): I don't fully like having this be full of b8 variables, but having a 
-// v2 Direction has a few failings
 struct player_input {
  b8 Up;
  b8 Down;
@@ -46,12 +43,18 @@ struct entity {
  
  rect Bounds;
  
- // Determined by entity type
- union {
-  physics_object *Physics;
-  static_physics_object *StaticPhysics;
-  trigger_physics_object *TriggerPhysics;
-  dynamic_physics_object *DynamicPhysics;
+ physics_state_flags PhysicsFlags;
+ 
+ v2 P, dP, TargetdP;
+ v2 FloorNormal;
+ v2 FloorTangent;
+ 
+ collision_boundary *Boundaries;
+ u8 BoundaryCount;
+ 
+ union{
+  collision_response_function *Response;
+  trigger_response_function   *TriggerResponse;
  };
 };
 
@@ -60,6 +63,8 @@ struct tilemap_entity : public entity {
  v2 P;
  string Asset;
  tilemap_data TilemapData;
+ u8 *PhysicsMap;
+ v2 TileSize;
 };
 
 struct coin_entity : public entity {
@@ -92,30 +97,93 @@ struct player_entity : public entity {
 
 struct projectile_entity : public entity {
  f32 RemainingLife;
- v2 dP;
+};
+
+//~ Entity types
+
+typedef u32 entity_type_flags;
+enum entity_type_flags_ {
+ EntityTypeFlag_None    = (0 << 0),
+ EntityTypeFlag_Dynamic = (1 << 0),
+ EntityTypeFlag_Static  = (1 << 1),
+ EntityTypeFlag_Trigger = (1 << 2),
 };
 
 #define AllocEntity(Manager, TypeName) BucketArrayAlloc(&(Manager)->EntityArray_##TypeName)
 
 #define FOR_ENTITY_TYPE(Manager, TypeName) FOR_BUCKET_ARRAY(It, &(Manager)->EntityArray_##TypeName)
+#define FOR_ENTITY_TYPE_BY_FLAGS(Manager, Flags) for(auto It = EntityManagerBeginIterationFlag(Manager, Flags); \
+EntityManagerContinueIterationFlag(Manager, Flags, &It);   \
+EntityManagerNextIterationFlag(Manager, Flags, &It))
+
+
+#define ENTITY_TYPES \
+ENTITY_TYPE_(tilemap_entity,    EntityTypeFlag_None,    PhysicsLayerFlag_Static) \
+ENTITY_TYPE_(coin_entity,       EntityTypeFlag_Trigger, PhysicsLayerFlag_PlayerTrigger) \
+ENTITY_TYPE_(enemy_entity,      EntityTypeFlag_Dynamic, PhysicsLayerFlag_Basic|PhysicsLayerFlag_Projectile)  \
+ENTITY_TYPE_(teleporter_entity, EntityTypeFlag_Trigger, PhysicsLayerFlag_PlayerTrigger) \
+ENTITY_TYPE_(door_entity,       EntityTypeFlag_Static,  PhysicsLayerFlag_Static) \
+ENTITY_TYPE_(projectile_entity, EntityTypeFlag_Dynamic, PhysicsLayerFlag_Projectile)
+
+#define SPECIAL_ENTITY_TYPES \
+ENTITY_TYPE_(art_entity,    EntityTypeFlag_None) \
+
+#define PLAYER_ENTITY_TYPE \
+ENTITY_TYPE_(player_entity, EntityTypeFlag_Dynamic, PhysicsLayerFlag_Basic|PhysicsLayerFlag_PlayerTrigger)
+
+#define PLAYER_TYPE_FLAGS EntityTypeFlag_Dynamic
+
+#define ENTITY_TYPE_(TypeName, ...) EntityArrayType_##TypeName,
+enum entity_array_type {
+ EntityArrayType_None,
+ PLAYER_ENTITY_TYPE
+  
+  ENTITY_TYPES
+};
+#undef ENTITY_TYPE_
+
+#define ENTITY_TYPE_(TypeName, TypeFlags, LayerFlags) (TypeFlags),
+entity_type_flags ENTITY_TYPE_TYPE_FLAGS[]  = {
+ EntityTypeFlag_None,
+ PLAYER_ENTITY_TYPE
+  
+  ENTITY_TYPES
+};
+#undef ENTITY_TYPE_
+
+#define ENTITY_TYPE_(TypeName, TypeFlags, LayerFlags) (LayerFlags),
+physics_layer_flags ENTITY_TYPE_LAYER_FLAGS[]  = {
+ PhysicsLayerFlag_None,
+ PLAYER_ENTITY_TYPE
+  
+  ENTITY_TYPES
+};
+#undef ENTITY_TYPE_
+
+#define ENTITY_TYPE(TypeName) EntityArrayType_##TypeName
+
+struct entity_iterator {
+ entity_array_type CurrentArray;
+ 
+ entity *Item;
+ bucket_index Index;
+};
+
+
+//~ 
 
 struct entity_manager {
  
-#define ENTITY_TYPE_ARRAY(TypeName) bucket_array<TypeName, 32> EntityArray_##TypeName;
+#define ENTITY_TYPE_(TypeName, ...) bucket_array<TypeName, 32> EntityArray_##TypeName;
  
  memory_arena Memory;
  
  coin_data CoinData;
  player_input PlayerInput;
  
- ENTITY_TYPE_ARRAY(tilemap_entity);
- ENTITY_TYPE_ARRAY(coin_entity);
- ENTITY_TYPE_ARRAY(enemy_entity);
- ENTITY_TYPE_ARRAY(art_entity);
  player_entity *Player;
- ENTITY_TYPE_ARRAY(teleporter_entity);
- ENTITY_TYPE_ARRAY(door_entity);
- ENTITY_TYPE_ARRAY(projectile_entity);
+ ENTITY_TYPES;
+ SPECIAL_ENTITY_TYPES;
  
  void Initialize(memory_arena *Arena);
  void Reset();
@@ -124,6 +192,17 @@ struct entity_manager {
  void RenderEntities();
  inline void DoPhysics();
  inline void DamagePlayer(u32 Damage);
+ 
+#undef ENTITY_TYPE_
+ 
 };
+
+internal inline entity_iterator
+EntityManagerBeginIterationFlag(entity_manager *Manager, entity_type_flags Flags);
+internal inline b8
+EntityManagerContinueIterationFlag(entity_manager *Manager, entity_type_flags Flags, entity_iterator *Iterator);
+internal inline void
+EntityManagerNextIterationFlag(entity_manager *Manager, entity_type_flags Flags, entity_iterator *Iterator);
+
 
 #endif //SNAIL_JUMPY_ENTITY_H

@@ -71,61 +71,7 @@ struct collision_boundary {
  };
 };
 
-//~ Physics
-
-struct entity;
-struct physics_collision;
-typedef b8   collision_response_function(entity *Data, physics_collision *Collision);
-typedef void trigger_response_function(entity *Data, entity *EntityB);
-
-typedef u32 physics_object_state_flags;
-enum physics_object_state_flags_ {
- PhysicsObjectState_None             = 0,
- PhysicsObjectState_Falling          = (1 << 0),
- PhysicsObjectState_DontFloorRaycast = (1 << 1),
- PhysicsObjectState_Inactive         = (1 << 2),
-};
-
-struct physics_object {
- v2 P;
- rect Bounds;
- f32 Mass;
- collision_boundary *Boundaries;
- physics_object_state_flags State;
- u8 BoundaryCount;
- 
- union{
-  collision_response_function *Response;
-  trigger_response_function   *TriggerResponse;
- };
- entity *Entity;
-};
-
-struct static_physics_object : public physics_object {
-};
-
-struct physics_tilemap {
- v2 P;
- u8 *Map;
- u32 MapWidth, MapHeight; 
- v2 TileSize;
- u8 BoundaryCount;
- collision_boundary *Boundaries;
-};
-
-struct trigger_physics_object : public physics_object {
-};
-
-struct dynamic_physics_object : public physics_object {
- v2 dP, TargetdP, ddP;
- f32 AccelerationFactor = 0.7f;
- v2 Delta;
- debug_physics_info DebugInfo;
- v2 FloorNormal;
- v2 FloorTangent;
- dynamic_physics_object *ReferenceFrame;
-};
-
+//~ Particles
 struct physics_particle_x4 {
  v2_x4 P, dP;
  
@@ -141,51 +87,82 @@ struct physics_particle_system {
 };
 
 
+//~ Physics
+
+struct entity;
+struct physics_collision;
+struct physics_update;
+typedef b8   collision_response_function(physics_update *Update, physics_collision *Collision);
+typedef void trigger_response_function(entity *Entity, entity *EntityB);
+
+typedef u32 physics_state_flags;
+enum physics_state_flags_ {
+ PhysicsStateFlag_None             = (0 << 0),
+ PhysicsStateFlag_Falling          = (1 << 0),
+ PhysicsStateFlag_DontFloorRaycast = (1 << 1),
+ PhysicsStateFlag_Inactive         = (1 << 2),
+ PhysicsStateFlag_HadAnUpdate      = (1 << 3),
+ PhysicsStateFlag_TriggerIsActive  = (1 << 4),
+};
+
+typedef u32 physics_layer_flags;
+enum physics_layer_flags_ {
+ PhysicsLayerFlag_None       = (0 << 0),
+ PhysicsLayerFlag_Basic      = (1 << 0),
+ PhysicsLayerFlag_Projectile = (1 << 1),
+ PhysicsLayerFlag_PlayerTrigger = (1 << 2),
+ PhysicsLayerFlag_Static     = (PhysicsLayerFlag_Basic |
+                                PhysicsLayerFlag_Projectile)
+};
+
 struct physics_collision {
- physics_object *ObjectB;
- b8 IsDynamic;
- 
- u32 BIndexOffset;
+ entity *EntityB;
  v2 Normal;
  v2 Correction;
  f32 TimeOfImpact;
  f32 AlongDelta;
 };
 
-struct physics_trigger {
- b8 IsValid;
- trigger_physics_object *Trigger;
+struct physics_update {
+ entity *Entity;
+ v2 Delta;
+ physics_layer_flags Layer;
+ 
+ // If collided
+ physics_collision Collision;
 };
 
+//~ Triggers
+struct physics_trigger_collision {
+ entity *Trigger;
+};
+
+//~ System
+struct entity_manager;
 struct physics_system {
  // TODO(Tyler): This only need be here if we do physics particles
  bucket_array<physics_particle_system, 64> ParticleSystems;
  
- bucket_array<dynamic_physics_object, 64> Objects;
- bucket_array<static_physics_object, 64> StaticObjects;
- bucket_array<trigger_physics_object, 64> TriggerObjects;
- bucket_array<physics_tilemap, 64> Tilemaps;
  memory_arena ParticleMemory;
  memory_arena PermanentBoundaryMemory;
  memory_arena BoundaryMemory;
  
+ stack<physics_update> Updates;
+ 
  void Initialize(memory_arena *Arena);
  void Reload(u32 Width, u32 Height);
  
- void DoPhysics();
- void DoFloorRaycast(dynamic_physics_object *Object, f32 Depth);
+ void DoPhysics(entity_manager *Manager);
+ void DoFloorRaycast(entity_manager *Manager, entity *Entity, physics_layer_flags Layer, f32 Depth);
  
- void DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta);
- void DoTriggerCollisions(physics_trigger *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta);
- void DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtLocation, bucket_index StartIndex);
- void DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject);
+ void DoStaticCollisions(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta);
+ void DoTriggerCollisions(entity_manager *Manager, physics_trigger_collision *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta);
+ void DoCollisionsRelative(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, entity *EntityA, physics_layer_flags Layer, u32 StartIndex=0);
+ void DoCollisionsNotRelative(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, entity *EntityA, physics_layer_flags Layer);
+ 
+ inline physics_update *MakeUpdate(entity *Entity, physics_layer_flags Layer);
  
  physics_particle_system *AddParticleSystem(v2 P, collision_boundary *Boundary, u32 ParticleCount, f32 COR);
- dynamic_physics_object  *AddObject(collision_boundary *Boundaries, u8 BoundaryCount);
- static_physics_object   *AddStaticObject(collision_boundary *Boundaries, u8 BoundaryCount);
- trigger_physics_object  *AddTriggerObject(collision_boundary *Boundaries, u8 BoundaryCount);
- physics_tilemap         *AddTilemap(u8 *Tilemap, u32 Width, u32 Height, v2 TileSize,
-                                     collision_boundary *Boundaries, u8 BoundaryCount);
  
  collision_boundary *AllocPermanentBoundaries(u32 Count);
  collision_boundary *AllocBoundaries(u32 Count);

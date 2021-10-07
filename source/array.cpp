@@ -42,6 +42,12 @@ MakeFullArray(memory_arena *Arena, u32 Count, umw Alignment=4){
  return(Result);
 }
 
+template<typename T> internal inline T
+ArrayGet(array<T> *Array, s64 Index){
+ Assert(Index < Array->Count);
+ return(Array->Items[Index]);
+}
+
 template<typename T> internal inline void
 ArrayClear(array<T> *Array){
  Array->Count = 0;
@@ -369,13 +375,16 @@ BucketArrayBeginIteration(bucket_array<T, U> *Array){
 }
 
 template<typename T, u32 U>
-internal inline void
+internal inline b8
 BucketArrayNextIteration(bucket_array<T, U> *Array, bucket_array_iterator<T> *Iterator){
+ b8 Result = false;
+ 
  bucket_array_bucket<T, U> *Bucket = Array->Buckets[Iterator->Index.Bucket];
  b8 FoundNextItem = false;
  for(u32 I = Iterator->Index.Item+1; I < U; I++){
   if(Bucket->Occupancy & (1ULL << I)){
    FoundNextItem = true;
+   Result = true;
    Iterator->Index.Item = I;
    break;
   }
@@ -388,6 +397,7 @@ BucketArrayNextIteration(bucket_array<T, U> *Array, bucket_array_iterator<T> *It
     bit_scan_result BitScan = ScanForLeastSignificantSetBit(Bucket->Occupancy);
     Assert(BitScan.Found);
     Iterator->Index.Item = BitScan.Index;
+    Result = true;
     break;
    }else{
     Iterator->Index.Bucket++;
@@ -396,6 +406,8 @@ BucketArrayNextIteration(bucket_array<T, U> *Array, bucket_array_iterator<T> *It
  }
  
  Iterator->I++;
+ 
+ return Result;
 }
 
 template<typename T, u32 U>

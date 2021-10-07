@@ -45,7 +45,7 @@ global world_data *CurrentWorld;
 
 //~ Hotloaded variables file!
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_WorldEditor;
+global game_mode GameMode = GameMode_MainGame;
 
 //~ Helpers
 internal inline string
@@ -53,7 +53,6 @@ String(const char *S){
  string Result = Strings.GetString(S);
  return(Result);
 }
-
 
 //~ Includes
 #include "logging.cpp"

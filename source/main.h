@@ -180,9 +180,9 @@ struct state_change_data {
 internal inline void ChangeState(game_mode NewMode, string NewLevel);
 internal inline void ProcessDefaultEvent(os_event *Event);
 
-internal b8 EnemyCollisionResponse(entity *Data, physics_collision *Collision);
-internal b8 PlayerCollisionResponse(entity *Data, physics_collision *Collision);
-internal b8 DragonflyCollisionResponse(entity *Data, physics_collision *Collision);
+internal b8 EnemyCollisionResponse(physics_update *Update, physics_collision *Collision);
+internal b8 PlayerCollisionResponse(physics_update *Update, physics_collision *Collision);
+internal b8 DragonflyCollisionResponse(physics_update *Update, physics_collision *Collision);
 
 #endif
 

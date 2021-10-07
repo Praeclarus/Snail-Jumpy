@@ -117,6 +117,8 @@ struct world_data {
  u32 Width;
  u32 Height;
  
+ entity_manager Manager;
+ 
  array<world_entity> Entities;
  array<world_entity_group> EntityGroups;
  

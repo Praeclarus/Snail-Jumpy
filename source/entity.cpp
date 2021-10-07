@@ -4,17 +4,11 @@ void
 entity_manager::Reset(){
  Memory.Used = 0;
  
-#define INITIALIZE_ENTITY_TYPE_ARRAY(TypeName) InitializeBucketArray(&EntityArray_##TypeName, &Memory)
- 
- INITIALIZE_ENTITY_TYPE_ARRAY(tilemap_entity);
- INITIALIZE_ENTITY_TYPE_ARRAY(tilemap_entity);
- INITIALIZE_ENTITY_TYPE_ARRAY(coin_entity);
- INITIALIZE_ENTITY_TYPE_ARRAY(enemy_entity);
- INITIALIZE_ENTITY_TYPE_ARRAY(art_entity);
+#define ENTITY_TYPE_(TypeName, ...) InitializeBucketArray(&EntityArray_##TypeName, &Memory);
  Player = PushStruct(&Memory, player_entity);
- INITIALIZE_ENTITY_TYPE_ARRAY(teleporter_entity);
- INITIALIZE_ENTITY_TYPE_ARRAY(door_entity);
- INITIALIZE_ENTITY_TYPE_ARRAY(projectile_entity);
+ ENTITY_TYPES;
+ SPECIAL_ENTITY_TYPES;
+#undef ENTITY_TYPE_
 }
 
 void
@@ -23,8 +17,99 @@ entity_manager::Initialize(memory_arena *Arena){
  Reset();
 }
 
-//~ Animation stuff
+//~ Iteration
+internal inline entity_iterator
+EntityManagerBeginIterationFlag(entity_manager *Manager, entity_type_flags Flags){
+ entity_iterator Result = {};
+ 
+#define ENTITY_TYPE_(TypeName, TypeFlags, ...) else if((Flags & (TypeFlags)) == Flags) { \
+auto Iterator = BucketArrayBeginIteration(&Manager->EntityArray_##TypeName); \
+Result.CurrentArray = EntityArrayType_##TypeName; \
+Result.Item = Iterator.Item;                        \
+Result.Index = Iterator.Index;                      \
+}
+ 
+ if(false){}
+ else if((Flags & (PLAYER_TYPE_FLAGS)) == (PLAYER_TYPE_FLAGS)) {
+  Result.CurrentArray = ENTITY_TYPE(player_entity);
+  Result.Item = Manager->Player;
+  Result.Index = {};
+ }
+ ENTITY_TYPES;
+ 
+ 
+#undef ENTITY_TYPE_
+ 
+ return Result;
+}
 
+internal inline b8
+EntityManagerContinueIterationFlag(entity_manager *Manager, entity_type_flags Flags, entity_iterator *Iterator){
+ if(Iterator->CurrentArray == EntityArrayType_None) return false;
+ 
+ b8 Result = false;
+ 
+#define ENTITY_TYPE_(TypeName, TypeFlags, ...) else if(EntityArrayType_##TypeName == Iterator->CurrentArray) { \
+bucket_array_iterator<TypeName> BucketIterator = {}; \
+BucketIterator.Index = Iterator->Index;              \
+Result = BucketArrayContinueIteration(&Manager->EntityArray_##TypeName, &BucketIterator); \
+Iterator->Item = BucketIterator.Item;                \
+}
+ 
+ if(false){}
+ else if(ENTITY_TYPE(player_entity) == Iterator->CurrentArray) {
+  Result = true;
+  Iterator->Item = Manager->Player;
+ }
+ ENTITY_TYPES
+#undef ENTITY_TYPE_
+ 
+ 
+ return Result;
+}
+
+internal inline void
+EntityManagerNextIterationFlag(entity_manager *Manager, entity_type_flags Flags, entity_iterator *Iterator){
+ 
+ b8 Found = false;
+#define ENTITY_TYPE_(TypeName, TypeFlags, ...) else if(EntityArrayType_##TypeName == Iterator->CurrentArray) { \
+bucket_array_iterator<TypeName> BucketIterator = {}; \
+BucketIterator.Index = Iterator->Index; \
+Found = BucketArrayNextIteration(&Manager->EntityArray_##TypeName, &BucketIterator); \
+Iterator->Index = BucketIterator.Index; \
+}
+ 
+ if(false){}
+ else if(ENTITY_TYPE(player_entity) == Iterator->CurrentArray) {
+  Found = false;
+ }
+ 
+ ENTITY_TYPES
+#undef ENTITY_TYPE_
+#define ENTITY_TYPE_(TypeName, TypeFlags, ...) else if((EntityArrayType_##TypeName > Iterator->CurrentArray) && \
+((Flags & (TypeFlags)) == Flags) && \
+(Manager->EntityArray_##TypeName.Count > 0)){ \
+auto BucketIterator = BucketArrayBeginIteration(&Manager->EntityArray_##TypeName); \
+Iterator->CurrentArray = EntityArrayType_##TypeName; \
+Iterator->Item  = BucketIterator.Item;               \
+Iterator->Index = BucketIterator.Index;              \
+} 
+ 
+ if(!Found){
+  if(false){}
+  else if((ENTITY_TYPE(player_entity) > Iterator->CurrentArray) &&
+          ((Flags & (PLAYER_TYPE_FLAGS)) == Flags)){ 
+   Iterator->CurrentArray = ENTITY_TYPE(player_entity);
+   Iterator->Item  = Manager->Player;
+   Iterator->Index = {};
+  } 
+  ENTITY_TYPES;
+ }
+ 
+#undef ENTITY_TYPE_
+}
+
+//~ Animation stuff
 internal void
 ChangeEntityState(entity *Entity, entity_state NewState){
  if(Entity->Animation.State != NewState){
@@ -32,13 +117,20 @@ ChangeEntityState(entity *Entity, entity_state NewState){
  }
 }
 
-//~ Helpers
-internal inline void ChangeEntityBoundaries(entity *Entity, u8 SetID);
+internal inline void
+SetupEntityPhysics(entity *Entity, collision_boundary *Boundaries, u32 BoundaryCount,
+                   collision_response_function *Response=CollisionResponseStub){
+ Entity->Boundaries = Boundaries;
+ Entity->BoundaryCount = (u8)BoundaryCount;
+ Entity->Response = Response;
+ Entity->Bounds = GetBoundsOfBoundaries(Entity->Boundaries, Entity->BoundaryCount);
+}
 
+//~ Helpers
 inline void
 entity_manager::DamagePlayer(u32 Damage){
- Player->Physics->P = Player->StartP;
- Player->DynamicPhysics->dP = V2(0);
+ Player->P = Player->StartP;
+ Player->dP = V2(0);
  EntityManager.Player->Health -= Damage;
  if(EntityManager.Player->Health <= 0){
   EntityManager.Player->Health = 9;
@@ -79,8 +171,8 @@ UpdateCoin(coin_entity *Coin){
   }
   Assert((NewP.X != 0.0f) && (NewP.Y != 0.0));
   Coin->Animation.Cooldown = 1.0f;
-  Coin->Physics->P = NewP;
-  Coin->TriggerPhysics->State |= PhysicsObjectState_Inactive;
+  Coin->P = NewP;
+  Coin->PhysicsFlags |= PhysicsStateFlag_Inactive;
  }
 }
 
@@ -88,7 +180,7 @@ internal inline void
 OpenDoor(door_entity *Door){
  if(!Door->IsOpen){ Door->Cooldown = 1.0f; }
  Door->IsOpen = true;
- Door->Physics->State |= PhysicsObjectState_Inactive;
+ Door->PhysicsFlags |= PhysicsStateFlag_Inactive;
 }
 
 internal b8
@@ -113,26 +205,38 @@ internal void
 TurnEnemy(enemy_entity *Enemy, direction Direction){
  ChangeEntityState(Enemy, State_Turning);
  Enemy->Animation.Direction = Direction;
- Enemy->DynamicPhysics->dP.X = 0.0f;
- Enemy->DynamicPhysics->TargetdP.X = 0.0f;
+ Enemy->dP.X = 0.0f;
+ Enemy->TargetdP.X = 0.0f;
 }
 
 //~ Physics stuff
 
 internal void
-MovePlatformer(dynamic_physics_object *Physics, f32 Movement, f32 Gravity=200.0f){
+MovePlatformer(entity *Entity, physics_layer_flags Layer, f32 Movement, f32 Gravity=300.0f){
+ physics_update *Update = PhysicsSystem.MakeUpdate(Entity, Layer);
+ 
  v2 ddP = {};
- if(Physics->State & PhysicsObjectState_Falling){
+ if(Entity->PhysicsFlags & PhysicsStateFlag_Falling){
+  Entity->FloorNormal = V2(0, 1);
   ddP.Y -= Gravity;
-  Physics->FloorNormal = V2(0, 1);
- }else if(Physics->State & PhysicsObjectState_DontFloorRaycast){
-  Physics->FloorNormal = V2(0, 1);
+ }else if(Entity->PhysicsFlags & PhysicsStateFlag_DontFloorRaycast){
+  Entity->FloorNormal = V2(0, 1);
  }
- v2 FloorNormal = Physics->FloorNormal;
+ v2 FloorNormal = Entity->FloorNormal;
  v2 FloorTangent = Normalize(TripleProduct(FloorNormal, V2(1, 0)));
- Physics->TargetdP -= FloorTangent*Dot(Physics->TargetdP, FloorTangent); 
- Physics->TargetdP += Movement*FloorTangent;
- Physics->ddP += ddP;
+ 
+ f32 DragCoefficient = 0.05f;
+ ddP.X += -DragCoefficient*Entity->dP.X*AbsoluteValue(Entity->dP.X);
+ ddP.Y += -DragCoefficient*Entity->dP.Y*AbsoluteValue(Entity->dP.Y);
+ 
+ Entity->dP += 0.8f*(Entity->TargetdP-Entity->dP);
+ 
+ Update->Delta = (OSInput.dTime*Entity->dP + 
+                  0.5f*Square(OSInput.dTime)*ddP);
+ 
+ Entity->TargetdP += OSInput.dTime*ddP;
+ Entity->TargetdP -= FloorTangent*Dot(Entity->TargetdP, FloorTangent); 
+ Entity->TargetdP += Movement*FloorTangent;
 }
 
 internal void
@@ -160,12 +264,12 @@ TeleporterResponse(entity *Data, entity *EntityB){
 }
 
 internal void
-ProjectileResponse(entity *Data, entity *EntityB){
- Assert(Data);
- projectile_entity *Projectile = (projectile_entity *)Data;
+ProjectileResponse(physics_update *Update, entity *EntityB){
+ Assert(Update);
+ projectile_entity *Projectile = (projectile_entity *)Update->Entity;
  Assert(Projectile->Type == EntityType_Projectile);
  if(EntityB->Type != EntityType_Player) Projectile->RemainingLife = 0.0f;
- if(EntityB->Type != EntityType_Enemy) return;
+ if(EntityB->Type != EntityType_Enemy) Projectile->RemainingLife = 0.0f;
  enemy_entity *Enemy = (enemy_entity *)EntityB;
  if(!(Enemy->Flags & EntityFlag_CanBeStunned)) return;
  StunEnemy(Enemy);
@@ -174,16 +278,15 @@ ProjectileResponse(entity *Data, entity *EntityB){
 }
 
 internal b8
-EnemyCollisionResponse(entity *Data, physics_collision *Collision){
- Assert(Data);
- enemy_entity *Enemy = (enemy_entity *)Data;
+EnemyCollisionResponse(physics_update *Update, physics_collision *Collision){
+ Assert(Update);
+ enemy_entity *Enemy = (enemy_entity *)Update->Entity;
  Assert(Enemy->Type == EntityType_Enemy);
  
- dynamic_physics_object *ObjectA = Enemy->DynamicPhysics;
- physics_object *ObjectB = Collision->ObjectB;
- entity *CollisionEntity = ObjectB->Entity;
- if(CollisionEntity){
-  if(CollisionEntity->Type == EntityType_Player){
+ //dynamic_physics_object *ObjectA = Enemy->DynamicPhysics;
+ //physics_object *ObjectB = Collision->ObjectB;
+ if(Collision->EntityB){
+  if(Collision->EntityB->Type == EntityType_Player){
    if(IsEnemyStunned(Enemy)){
     return(false);
    }else{
@@ -193,8 +296,8 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
   }
  }
  
- 
- if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+ v2 Delta = Update->Delta;
+ if(Dot(Delta, Collision->Normal) < 0.0f){
   if(Collision->Normal.Y < WALKABLE_STEEPNESS){
    if(Collision->Normal.X > 0.0f){
     TurnEnemy(Enemy, Direction_Right);
@@ -202,25 +305,25 @@ EnemyCollisionResponse(entity *Data, physics_collision *Collision){
     TurnEnemy(Enemy, Direction_Left);
    }
   }else if((Collision->Normal.Y > 0.0f) &&
-           (ObjectA->State & PhysicsObjectState_Falling)){ // Hits floor
+           (Enemy->PhysicsFlags & PhysicsStateFlag_Falling)){ // Hits floor
    //GameCamera.Shake(0.1f, 0.05f, 500);
    //NOT_IMPLEMENTED_YET;
   }
  }
+ 
  return(false);
 }
 
 internal b8
-DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
- Assert(Data);
- enemy_entity *Enemy = (enemy_entity *)Data;
+DragonflyCollisionResponse(physics_update *Update, physics_collision *Collision){
+ Assert(Update);
+ enemy_entity *Enemy = (enemy_entity *)Update->Entity;
  Assert(Enemy->Type == EntityType_Enemy);
- dynamic_physics_object *ObjectA = Enemy->DynamicPhysics;
- physics_object *ObjectB = Collision->ObjectB;
- entity *CollisionEntity = ObjectB->Entity;
+ entity *CollisionEntity = Collision->EntityB;
  
  f32 COR = 1.0f;
  
+ v2 Delta = Update->Delta;
  if(CollisionEntity){
   if(CollisionEntity->Type == EntityType_Player){
    f32 XRange = 0.2f;
@@ -232,20 +335,20 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
   }
   if(Collision->Normal.Y < 0.0f){
    // NOTE(Tyler): Entity is walking on the dragonfly
-   if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+   if(Dot(Delta, Collision->Normal) < 0.0f){
     v2 Normal = Collision->Normal;
     Normal.Y = 0.0f;
     //v2 Normal = {};
     //Normal.X = SignOf(Collision->Normal.X);
     
-    ObjectA->dP       -= COR*Normal*Dot(ObjectA->dP, Normal);
-    ObjectA->TargetdP -= COR*Normal*Dot(ObjectA->TargetdP, Normal);
-    ObjectA->Delta    -= COR*Normal*Dot(ObjectA->Delta, Normal);
+    Enemy->dP       -= COR*Normal*Dot(Enemy->dP, Normal);
+    Enemy->TargetdP -= COR*Normal*Dot(Enemy->TargetdP, Normal);
+    Delta    -= COR*Normal*Dot(Delta, Normal);
    }
    return(true);
   }
  }
- if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
+ if(Dot(Delta, Collision->Normal) < 0.0f){
   if((Collision->Normal.Y < WALKABLE_STEEPNESS) &&
      (-WALKABLE_STEEPNESS < Collision->Normal.Y)){
    if(Collision->Normal.X > 0.0f){
@@ -260,14 +363,13 @@ DragonflyCollisionResponse(entity *Data, physics_collision *Collision){
 }
 
 internal b8
-PlayerCollisionResponse(entity *Data, physics_collision *Collision){
- Assert(Data);
- player_entity *Player = (player_entity *)Data;
+PlayerCollisionResponse(physics_update *Update, physics_collision *Collision){
+ Assert(Update);
+ player_entity *Player = (player_entity *)Update->Entity;
  Assert(Player->Type == EntityType_Player);
  b8 Result = false;
  
- physics_object *ObjectB = Collision->ObjectB;
- entity *CollisionEntity = ObjectB->Entity;
+ entity *CollisionEntity = Collision->EntityB;
  if(!CollisionEntity) return(false);
  
  
@@ -309,23 +411,20 @@ entity_manager::UpdateEntities(){
  //~ Enemies @entity_enemies
  FOR_ENTITY_TYPE(this, enemy_entity){
   enemy_entity *Enemy = It.Item;
-  dynamic_physics_object *Physics = Enemy->DynamicPhysics;
   
   f32 Movement = 0.0f;
   f32 Gravity = 300.0f;
   if(!DoesAnimationBlock(&Enemy->EntityInfo->Animation, &Enemy->Animation)){
-   if((Enemy->Physics->P.X <= Enemy->PathStart.X) &&
+   if((Enemy->P.X <= Enemy->PathStart.X) &&
       (Enemy->Animation.Direction == Direction_Left)){
     TurnEnemy(Enemy, Direction_Right);
-   }else if((Enemy->Physics->P.X >= Enemy->PathEnd.X) &&
+   }else if((Enemy->P.X >= Enemy->PathEnd.X) &&
             (Enemy->Animation.Direction == Direction_Right)){
     TurnEnemy(Enemy, Direction_Left);
    }else{
     Movement = ((Enemy->Animation.Direction == Direction_Left) ?  -Enemy->Speed : Enemy->Speed);
-    dynamic_physics_object *Physics = Enemy->DynamicPhysics;
-    
     if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
-     Physics->TargetdP.Y = Enemy->TargetY-Physics->P.Y;
+     Enemy->TargetdP.Y = Enemy->TargetY-Enemy->P.Y;
      Gravity = 0.0f;
     }
     
@@ -333,12 +432,11 @@ entity_manager::UpdateEntities(){
    }
   }
   
-  MovePlatformer(Physics, Movement, Gravity);
+  MovePlatformer(Enemy, ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(enemy_entity)], Movement, Gravity);
  }
  
  //~ Player @entity_player
  {
-  dynamic_physics_object *Physics = Player->DynamicPhysics;
   if(!DoesAnimationBlock(&Player->EntityInfo->Animation, &Player->Animation)){
    f32 MovementSpeed = Player->EntityInfo->Speed; // TODO(Tyler): Load this from a variables file
    f32 Movement = 0.0f;
@@ -349,39 +447,37 @@ entity_manager::UpdateEntities(){
     Player->Animation.Direction = Direction_Left;
     Movement -= MovementSpeed;
    }
-   MovePlatformer(Physics, Movement);
    
-   
-   // TODO(Tyler): Load from file ('JumpTime', 'JumpPower')
-   if(!(Physics->State & PhysicsObjectState_Falling)) Player->JumpTime = 0.1f;
-   local_constant f32 JumpPower = 100.0f;
+   // TODO(Tyler): Load 'JumpTime' and 'JumpPower' from a variables file
+   if(!(Player->PhysicsFlags & PhysicsStateFlag_Falling)) Player->JumpTime = 0.1f;
+   local_constant f32 JumpPower = 50.0f;
    f32 Jump = 0.0f;
    if(EntityManager.PlayerInput.Jump &&
       (Player->JumpTime > 0.0f)){
     Jump += JumpPower;
     Player->JumpTime -= OSInput.dTime;
-    Physics->State |= PhysicsObjectState_Falling;
+    Player->PhysicsFlags |= PhysicsStateFlag_Falling;
     
-    if(Physics->TargetdP.Y < 0.0f){ Physics->TargetdP.Y = 0.0f; }
-    if(Physics->dP.Y < 0.0f){ Physics->dP.Y = 0.0f; }
-    Physics->TargetdP += V2(0, Jump);
-    Physics->ddP.Y = 0.0f;
+    if(Player->TargetdP.Y < 0.0f){ Player->TargetdP.Y = 0.0f; }
+    if(Player->dP.Y < 0.0f){ Player->dP.Y = 0.0f; }
+    Player->TargetdP += V2(0, Jump);
     
    }else if(!EntityManager.PlayerInput.Jump){
     Player->JumpTime = 0.0f;
    }
    
-   if(Physics->State & PhysicsObjectState_Falling){
+   if(Player->PhysicsFlags & PhysicsStateFlag_Falling){
     f32 Epsilon = 0.01f;
-    if(Epsilon < Physics->dP.Y){
+    if(Epsilon < Player->dP.Y){
      ChangeEntityState(Player, State_Jumping);
-    }else if((Physics->dP.Y < -Epsilon)){
+    }else if((Player->dP.Y < -Epsilon)){
      ChangeEntityState(Player, State_Falling);
     }
    }else{
     if(Movement != 0.0f) { ChangeEntityState(Player, State_Moving); }
     else {ChangeEntityState(Player, State_Idle); }
    }
+   MovePlatformer(Player, ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(player_entity)], Movement);
    
    if(EntityManager.PlayerInput.Shoot){
     Player->WeaponChargeTime += OSInput.dTime;
@@ -397,8 +493,6 @@ entity_manager::UpdateEntities(){
      Player->WeaponChargeTime = 0.6f;
     }
     
-    trigger_physics_object *ProjectilePhysics = Projectile->TriggerPhysics;
-    
     // TODO(Tyler): Hot loaded variables file for tweaking these values in 
     // realtime
     f32 XPower = 100.0f;
@@ -408,19 +502,19 @@ entity_manager::UpdateEntities(){
      case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
     }
     
-    ProjectilePhysics->P = Player->Physics->P + 0.5f*Player->EntityInfo->Size;
-    ProjectilePhysics->P.Y += 0.15f;
+    Projectile->P = Player->P + 0.5f*Player->EntityInfo->Size;
+    Projectile->P.Y += 0.15f;
     Projectile->dP *= Player->WeaponChargeTime+0.2f;
-    Projectile->dP += 0.3f*Physics->dP;
+    Projectile->dP += 0.3f*Player->dP;
     Projectile->RemainingLife = 3.0f;
     Player->WeaponChargeTime = 0.0f;
    }
    
-   if(Player->Physics->P.Y < -30.0f){
+   if(Player->P.Y < -30.0f){
     EntityManager.DamagePlayer(2);
    }
-   
   }
+  
  }
  
  
@@ -443,19 +537,19 @@ entity_manager::UpdateEntities(){
  //~ Projectiles @entity_projectiles
  FOR_ENTITY_TYPE(this, projectile_entity){
   projectile_entity *Projectile = It.Item;
-  trigger_physics_object *Physics = Projectile->TriggerPhysics;
   
   if(Projectile->RemainingLife > 0.0f){
-   Physics->State &= ~PhysicsObjectState_Inactive;
+   Projectile->PhysicsFlags &= ~PhysicsStateFlag_Inactive;
    
    Projectile->RemainingLife -= OSInput.dTime;
    
+   physics_update *Update = PhysicsSystem.MakeUpdate(Projectile, ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(projectile_entity)]);
+   
    v2 ddP = V2(0.0f, -100.0f);
-   f32 dTime = OSInput.dTime;
-   Physics->P += dTime*Projectile->dP;
-   Projectile->dP += dTime*ddP;
+   Update->Delta = (OSInput.dTime*Projectile->dP + 
+                    0.5f*Square(OSInput.dTime)*ddP);
   }else{
-   Physics->State |= PhysicsObjectState_Inactive;
+   Projectile->PhysicsFlags |= PhysicsStateFlag_Inactive;
   }
  }
  
@@ -502,8 +596,8 @@ entity_manager::RenderEntities(){
   if(Coin->Animation.Cooldown > 0.0f){
    Coin->Animation.Cooldown -= OSInput.dTime;
   }else{
-   Coin->TriggerPhysics->State &= ~PhysicsObjectState_Inactive;
-   RenderRect(Coin->Bounds+Coin->Physics->P, Coin->Z, YELLOW, GameItem(1));
+   Coin->PhysicsFlags &= ~PhysicsStateFlag_Inactive;
+   RenderRect(Coin->Bounds+Coin->P, Coin->Z, YELLOW, GameItem(1));
   }
  }
  
@@ -511,7 +605,7 @@ entity_manager::RenderEntities(){
  FOR_ENTITY_TYPE(this, enemy_entity){
   enemy_entity *Enemy = It.Item;
   v2 EntitySize = Enemy->EntityInfo->Size;
-  v2 P = Enemy->Physics->P;
+  v2 P = Enemy->P;
   f32 Radius = RectSize(Enemy->Bounds).Width+5;
   GameRenderer.AddLight(P+0.5f*EntitySize, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius, GameItem(1));
   DoEntityAnimation(Enemy->EntityInfo, &Enemy->Animation, P, Enemy->Z, 1);
@@ -529,7 +623,7 @@ entity_manager::RenderEntities(){
  
  //~ Player @entity_player
  {
-  v2 P = Player->Physics->P;
+  v2 P = Player->P;
   v2 Center = P + 0.5f*Player->EntityInfo->Size;
   GameRenderer.AddLight(Center, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f, GameItem(1));
   GameRenderer.SetCameraTarget(Center);
@@ -542,15 +636,15 @@ entity_manager::RenderEntities(){
   if(!Teleporter->IsLocked){
    world_data *World = WorldManager.GetOrCreateWorld(Strings.GetString(Teleporter->Level));
    if(World){
-    v2 StringP = Teleporter->Physics->P;
+    v2 StringP = Teleporter->P;
     StringP.Y += 0.5f;
     f32 Advance = GetStringAdvance(&MainFont, Teleporter->Level);
     StringP.X -= Advance/2;
     RenderString(&MainFont, GREEN, StringP, -1.0f, Teleporter->Level);
    }
-   RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, GREEN, GameItem(1));
+   RenderRect(Teleporter->Bounds+Teleporter->P, 0.0f, GREEN, GameItem(1));
   }else{
-   RenderRect(Teleporter->Bounds+Teleporter->Physics->P, 0.0f, 
+   RenderRect(Teleporter->Bounds+Teleporter->P, 0.0f, 
               MakeColor(0.0f, 0.0f, 1.0f, 0.5f), GameItem(1));
   }
  }
@@ -559,7 +653,7 @@ entity_manager::RenderEntities(){
  FOR_ENTITY_TYPE(this, door_entity){
   door_entity *Door = It.Item;
   Door->Cooldown -= OSInput.dTime;
-  rect R = Door->Bounds+Door->Physics->P;
+  rect R = Door->Bounds+Door->P;
   
   if(!Door->IsOpen){
    RenderRect(R, 0.0f, BROWN, GameItem(1));
@@ -576,10 +670,8 @@ entity_manager::RenderEntities(){
  //~ Projectiles @entity_projectiles
  FOR_ENTITY_TYPE(this, projectile_entity){
   projectile_entity *Projectile = It.Item;
-  trigger_physics_object *Physics = Projectile->TriggerPhysics;
-  
   if(Projectile->RemainingLife > 0.0f){
-   RenderRect(Projectile->Bounds+Projectile->Physics->P,
+   RenderRect(Projectile->Bounds+Projectile->P,
               0.0f, WHITE, GameItem(1));
   }
  }

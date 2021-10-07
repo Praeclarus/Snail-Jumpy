@@ -116,8 +116,7 @@ physics_debugger::DrawBaseGJK(v2 AP, v2 BP, v2 Delta, v2 *Points, u32 PointCount
  PhysicsDebugger.DrawString("Delta: (%f, %f)", Delta.X, Delta.Y);
 } 
 
-
-//~ Boundary stuff7
+//~ Boundary stuff
 internal inline b8
 IsPointInBoundary(v2 Point, collision_boundary *Boundary, v2 Base=V2(0,0)){
  b8 Result = IsPointInRect(Point, Boundary->Bounds+Base+Boundary->Offset);
@@ -163,14 +162,14 @@ RenderBoundary(collision_boundary *Boundary, f32 Z, v2 Offset){
 }
 
 internal inline void
-RenderObject(physics_object *Object){
- if(Object->State & PhysicsObjectState_Inactive) return;
+RenderEntityPhysics(entity *Entity){
+ if(Entity->PhysicsFlags & PhysicsStateFlag_Inactive) return;
  
- RenderRectOutline(Object->Bounds + Object->P, -10.0f, GREEN, ScaledItem(1), 0.02f);
- for(collision_boundary *Boundary = Object->Boundaries;
-     Boundary < Object->Boundaries+Object->BoundaryCount;
+ RenderRectOutline(Entity->Bounds + Entity->P, -10.0f, GREEN, ScaledItem(1), 0.02f);
+ for(collision_boundary *Boundary = Entity->Boundaries;
+     Boundary < Entity->Boundaries+Entity->BoundaryCount;
      Boundary++){
-  RenderBoundary(Boundary, -10.1f, Object->P);
+  RenderBoundary(Boundary, -10.1f, Entity->P);
  }
 }
 
@@ -288,13 +287,6 @@ GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
  return(Result);
 }
 
-internal inline void
-SetObjectBoundaries(physics_object *Object, collision_boundary *Boundaries, u8 Count){
- Object->Boundaries = Boundaries;
- Object->BoundaryCount = Count;
- Object->Bounds = GetBoundsOfBoundaries(Boundaries, Count);
-}
-
 //~ Collision stuff
 internal inline physics_collision
 MakeCollision(){
@@ -303,18 +295,22 @@ MakeCollision(){
  return(Result);
 }
 
-internal inline physics_collision
-MakeBCollision(physics_collision Collision, dynamic_physics_object *ObjectA){
- physics_collision Result = Collision;
- Result.Normal = -Result.Normal;
- Result.ObjectB = ObjectA;
+internal b8
+CollisionResponseStub(physics_update *Update, physics_collision *Collision){
+ b8 Result = false;
  return(Result);
 }
 
-internal b8
-CollisionResponseStub(entity *Data, physics_collision *Collision){
- b8 Result = false;
- return(Result);
+//~ Update stuff
+inline physics_update *
+physics_system::MakeUpdate(entity *Entity, physics_layer_flags Layer){
+ physics_update *Result = StackPushAlloc(&Updates);
+ Result->Entity = Entity;
+ Entity->PhysicsFlags |= PhysicsStateFlag_HadAnUpdate;
+ Result->Collision = MakeCollision();
+ Result->Layer = Layer;
+ 
+ return Result;
 }
 
 //~ Physics
@@ -322,22 +318,17 @@ CollisionResponseStub(entity *Data, physics_collision *Collision){
 void
 physics_system::Initialize(memory_arena *Arena){
  InitializeBucketArray(&ParticleSystems, Arena);
- InitializeBucketArray(&Objects, Arena);
- InitializeBucketArray(&StaticObjects, Arena);
- InitializeBucketArray(&TriggerObjects, Arena);
- InitializeBucketArray(&Tilemaps, Arena);
  ParticleMemory          = MakeArena(Arena, 64*128*sizeof(physics_particle_x4));
  BoundaryMemory          = MakeArena(Arena, 3*128*sizeof(collision_boundary));
  PermanentBoundaryMemory = MakeArena(Arena, 128*sizeof(collision_boundary));
+ 
+ // TODO(Tyler): Might want to make this number bigger
+ Updates = MakeStack<physics_update>(Arena, 256);
 }
 
 void
 physics_system::Reload(u32 Width, u32 Height){
  BucketArrayRemoveAll(&ParticleSystems);
- BucketArrayRemoveAll(&Objects);
- BucketArrayRemoveAll(&StaticObjects);
- BucketArrayRemoveAll(&TriggerObjects);
- BucketArrayRemoveAll(&Tilemaps);
  ArenaClear(&ParticleMemory);
  ArenaClear(&BoundaryMemory);
  
@@ -353,49 +344,6 @@ physics_system::AddParticleSystem(v2 P, collision_boundary *Boundary, u32 Count,
  Result->Boundary = Boundary;
  Result->P = P;
  Result->COR = COR;
- return(Result);
-}
-
-dynamic_physics_object *
-physics_system::AddObject(collision_boundary *Boundaries, u8 Count){
- dynamic_physics_object *Result = BucketArrayAlloc(&Objects);
- SetObjectBoundaries(Result, Boundaries, Count);
- 
- Result->Mass = 1.0f; // Default mass
- Result->Response = CollisionResponseStub;
- return(Result);
-}
-
-static_physics_object *
-physics_system::AddStaticObject(collision_boundary *Boundaries, u8 Count){
- static_physics_object *Result = BucketArrayAlloc(&StaticObjects);
- SetObjectBoundaries(Result, Boundaries, Count);
- Result->Mass = F32_POSITIVE_INFINITY;
- Result->Response = CollisionResponseStub;
- return(Result);
-}
-
-trigger_physics_object *
-physics_system::AddTriggerObject(collision_boundary *Boundaries, u8 Count){
- trigger_physics_object *Result = BucketArrayAlloc(&TriggerObjects);
- SetObjectBoundaries(Result, Boundaries, Count);
- Result->Mass = F32_POSITIVE_INFINITY;
- Result->Response = CollisionResponseStub;
- Result->State &= ~PhysicsObjectState_Inactive;
- return(Result);
-}
-
-physics_tilemap *
-physics_system::AddTilemap(u8 *Tilemap, u32 Width, u32 Height, v2 TileSize,
-                           collision_boundary *Boundaries, u8 BoundaryCount){
- physics_tilemap *Result = BucketArrayAlloc(&Tilemaps);
- Result->Map       = Tilemap;
- Result->MapWidth  = Width;
- Result->MapHeight = Height;
- Result->TileSize = TileSize;
- Result->BoundaryCount = BoundaryCount;
- Result->Boundaries  = Boundaries;
- 
  return(Result);
 }
 
@@ -761,15 +709,15 @@ DoCollision(collision_boundary *BoundaryA, v2 AP, collision_boundary *BoundaryB,
 }
 
 internal b8
-ChooseCollision(f32 TimeOfImpact, f32 AlongDelta, physics_collision *Collision){
+ChooseCollision(physics_collision *OldCollision, physics_collision *NewCollision){
  local_constant f32 Epsilon = 0.0001f;
  b8 Result = false;
  
- if(Collision->TimeOfImpact < TimeOfImpact){
+ if(NewCollision->TimeOfImpact < OldCollision->TimeOfImpact){
   Result = true;
- }else if((Collision->TimeOfImpact > TimeOfImpact-Epsilon) && 
-          (Collision->TimeOfImpact < TimeOfImpact+Epsilon)){
-  if(Collision->AlongDelta < AlongDelta){
+ }else if((NewCollision->TimeOfImpact > OldCollision->TimeOfImpact-Epsilon) && 
+          (NewCollision->TimeOfImpact < OldCollision->TimeOfImpact+Epsilon)){
+  if(NewCollision->AlongDelta < OldCollision->AlongDelta){
    Result = true;
   }
  }
@@ -777,30 +725,41 @@ ChooseCollision(f32 TimeOfImpact, f32 AlongDelta, physics_collision *Collision){
  return(Result);
 }
 
+internal inline physics_collision 
+MakeOtherCollision(entity *Entity, physics_collision *Collision){
+ physics_collision Result = *Collision;
+ Result.EntityB = Entity;
+ Result.Normal = -Collision->Normal;
+ Result.Correction = -Collision->Correction;
+ 
+ return Result;
+}
+
 void 
-physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta){
+physics_system::DoStaticCollisions(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta){
  if((Delta.X == 0.0f) && (Delta.Y == 0.0f)) { return; }
  
- //~ Static objects
- FOR_BUCKET_ARRAY(ItB, &StaticObjects){
-  static_physics_object *ObjectB = ItB.Item;
-  if(ObjectB->State & PhysicsObjectState_Inactive) continue;
-  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
+ FOR_ENTITY_TYPE_BY_FLAGS(Manager, EntityTypeFlag_Static){
+  entity *EntityB = It.Item;
   
-  for(collision_boundary *BoundaryB = ObjectB->Boundaries;
-      BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
+  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, EntityB->Bounds, EntityB->P, Delta)){
+   continue;
+  }
+  
+  for(collision_boundary *BoundaryB = EntityB->Boundaries;
+      BoundaryB < EntityB->Boundaries+EntityB->BoundaryCount;
       BoundaryB++){
-   physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, Delta);
-   Collision.ObjectB = ObjectB;
-   if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
+   physics_collision Collision = DoCollision(Boundary, P, BoundaryB, EntityB->P, Delta);
+   Collision.EntityB = EntityB;
+   if(ChooseCollision(OutCollision, &Collision)){
     *OutCollision = Collision;
    }
   }
  }
  
  //~ Tilemaps
- FOR_BUCKET_ARRAY(ItB, &Tilemaps){
-  physics_tilemap *Tilemap = ItB.Item;
+ FOR_ENTITY_TYPE(Manager, tilemap_entity){
+  tilemap_entity *Tilemap = It.Item;
   v2 RelativeP = P - Tilemap->P;
   rect Bounds = Boundary->Bounds + (Boundary->Offset+RelativeP);
   Bounds = RectSweep(Bounds, Delta);
@@ -810,7 +769,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
   Bounds.Max.Y /= Tilemap->TileSize.Y;
   
   rect_s32 BoundsS32 = RectS32(Bounds);
-  v2s TilemapMax = V2S(Tilemap->MapWidth, Tilemap->MapHeight);
+  v2s TilemapMax = V2S(Tilemap->TilemapData.Width, Tilemap->TilemapData.Height);
   BoundsS32.Min = MaximumV2S(V2S(0), BoundsS32.Min);
   BoundsS32.Max = MaximumV2S(V2S(0), BoundsS32.Max);
   BoundsS32.Min = MinimumV2S(TilemapMax, BoundsS32.Min);
@@ -818,7 +777,7 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
   
   for(s32 Y = BoundsS32.Min.Y; Y < BoundsS32.Max.Y; Y++){
    for(s32 X = BoundsS32.Min.X; X < BoundsS32.Max.X; X++){
-    u8 TileID = Tilemap->Map[(Y*Tilemap->MapWidth)+X];
+    u8 TileID = Tilemap->PhysicsMap[(Y*Tilemap->TilemapData.Width)+X];
     v2 TileP = V2((f32)X, (f32)Y);
     TileP += V2(0.5f);
     TileP.X *= Tilemap->TileSize.X;
@@ -836,89 +795,105 @@ physics_system::DoStaticCollisions(physics_collision *OutCollision, collision_bo
       RenderBoundary(B, -10.0f, TileP);
      }
 #endif
-     
      physics_collision Collision = DoCollision(Boundary, P, &Tilemap->Boundaries[TileID], TileP, Delta);
-     Collision.ObjectB = PushStruct(&TransientStorageArena, physics_object);
-     Collision.ObjectB->P          = TileP;
-     Collision.ObjectB->Bounds     = TileBounds;
-     Collision.ObjectB->Mass       = F32_POSITIVE_INFINITY;
-     Collision.ObjectB->Boundaries = &Tilemap->Boundaries[TileID];
-     Collision.ObjectB->BoundaryCount = 1;
-     if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
+     if(ChooseCollision(OutCollision, &Collision)){
       *OutCollision = Collision;
      }
     }
    }
   }
  }
+ 
 }
 
 void 
-physics_system::DoTriggerCollisions(physics_trigger *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta){
+physics_system::DoTriggerCollisions(entity_manager *Manager, physics_trigger_collision *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta){
  //~ Triggers
- FOR_BUCKET_ARRAY(ItB, &TriggerObjects){
-  trigger_physics_object *ObjectB = ItB.Item;
-  if(ObjectB->State & PhysicsObjectState_Inactive) continue;
-  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
+ FOR_ENTITY_TYPE_BY_FLAGS(Manager, EntityTypeFlag_Trigger){
+  entity *EntityB = It.Item;
+  if(EntityB->PhysicsFlags & PhysicsStateFlag_Inactive) continue;
+  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, EntityB->Bounds, EntityB->P, Delta)) continue;
   
-  for(collision_boundary *BoundaryB = ObjectB->Boundaries;
-      BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
+  for(collision_boundary *BoundaryB = EntityB->Boundaries;
+      BoundaryB < EntityB->Boundaries+EntityB->BoundaryCount;
       BoundaryB++){
    v2 Simplex[3];
    
-   if(DoGJK(Simplex, Boundary, P, BoundaryB, ObjectB->P, Delta)){
-    OutTrigger->IsValid = true;
-    OutTrigger->Trigger = ObjectB;
+   if(DoGJK(Simplex, Boundary, P, BoundaryB, EntityB->P, Delta)){
+    OutTrigger->Trigger = EntityB;
    }
   }
  }
 }
 
 void
-physics_system::DoCollisionsRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, b8 StartAtIndex=false, bucket_index StartIndex={}){
- //~ Moving object collisions
- if(!StartAtIndex){  StartIndex = {}; }
- else{ StartIndex.Item++; }
- FOR_BUCKET_ARRAY_FROM(ItB, &Objects, StartIndex){
-  dynamic_physics_object *ObjectB = ItB.Item;
-  if(ObjectB->State & PhysicsObjectState_Inactive) continue;
+physics_system::DoCollisionsRelative(entity_manager *Manager, physics_collision *OutCollision,
+                                     collision_boundary *Boundary, v2 P, v2 Delta, 
+                                     entity *EntityA, physics_layer_flags Layer, u32 StartIndex){
+ for(u32 I=StartIndex; I<Updates.Count; I++){
+  physics_update *UpdateB = &Updates[I];
+  // NOTE(Tyler): The assumption here is that an updated entity is active
+  entity *EntityB = UpdateB->Entity;
+  if(!(UpdateB->Layer & Layer)) continue;
   
-  v2 RelativeDelta = Delta-ObjectB->Delta;
+  v2 RelativeDelta = Delta-UpdateB->Delta;
   
-  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, RelativeDelta)){
+  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, EntityB->Bounds, EntityB->P, RelativeDelta)){
    continue;
   }
-  for(collision_boundary *BoundaryB = ObjectB->Boundaries;
-      BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
+  
+  for(collision_boundary *BoundaryB = EntityB->Boundaries;
+      BoundaryB < EntityB->Boundaries+EntityB->BoundaryCount;
       BoundaryB++){
-   physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, RelativeDelta);
-   Collision.ObjectB = ObjectB;
-   Collision.IsDynamic = true;
-   Collision.BIndexOffset = ItB.I+1;
-   if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
+   physics_collision Collision = DoCollision(Boundary, P, BoundaryB, EntityB->P, RelativeDelta);
+   Collision.EntityB = EntityB;
+   if(ChooseCollision(OutCollision, &Collision)){
+    *OutCollision = Collision;
+    UpdateB->Collision = MakeOtherCollision(EntityA, &Collision);
+   }
+  }
+ }
+ 
+ FOR_ENTITY_TYPE_BY_FLAGS(Manager, EntityTypeFlag_Dynamic){
+  entity *EntityB = It.Item;
+  if(EntityB == EntityA) continue;
+  if(EntityB->PhysicsFlags & PhysicsStateFlag_HadAnUpdate) continue;
+  if(!(ENTITY_TYPE_LAYER_FLAGS[It.CurrentArray] & Layer)) continue;
+  
+  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, EntityB->Bounds, EntityB->P, Delta)){
+   continue;
+  }
+  
+  for(collision_boundary *BoundaryB = EntityB->Boundaries;
+      BoundaryB < EntityB->Boundaries+EntityB->BoundaryCount;
+      BoundaryB++){
+   physics_collision Collision = DoCollision(Boundary, P, BoundaryB, EntityB->P, Delta);
+   Collision.EntityB = EntityB;
+   if(ChooseCollision(OutCollision, &Collision)){
     *OutCollision = Collision;
    }
   }
  }
 }
 
-// NOTE(Tyler): No BIndexOffset
+// NOTE(Tyler): No starting at certain indices
 void
-physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, physics_object *SkipObject=0){
- //~ Moving object collisions without delta
- FOR_BUCKET_ARRAY(ItB, &Objects){
-  dynamic_physics_object *ObjectB = ItB.Item;
-  if(ObjectB == SkipObject) continue; 
-  if(ObjectB->State & PhysicsObjectState_Inactive) continue;
-  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, ObjectB->Bounds, ObjectB->P, Delta)) continue;
+physics_system::DoCollisionsNotRelative(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, entity *EntityA, physics_layer_flags Layer){
+ FOR_ENTITY_TYPE_BY_FLAGS(Manager, EntityTypeFlag_Dynamic){
+  entity *EntityB = It.Item;
+  if(EntityB == EntityA) continue;
+  if(!(ENTITY_TYPE_LAYER_FLAGS[It.CurrentArray] & Layer)) continue;
   
-  for(collision_boundary *BoundaryB = ObjectB->Boundaries;
-      BoundaryB < ObjectB->Boundaries+ObjectB->BoundaryCount;
+  if(!DoAABBTest(Boundary->Bounds, Boundary->Offset, P, EntityB->Bounds, EntityB->P, Delta)){
+   continue;
+  }
+  
+  for(collision_boundary *BoundaryB = EntityB->Boundaries;
+      BoundaryB < EntityB->Boundaries+EntityB->BoundaryCount;
       BoundaryB++){
-   physics_collision Collision = DoCollision(Boundary, P, BoundaryB, ObjectB->P, Delta);
-   Collision.ObjectB = ObjectB;
-   Collision.IsDynamic = true;
-   if(ChooseCollision(OutCollision->TimeOfImpact, OutCollision->AlongDelta, &Collision)){
+   physics_collision Collision = DoCollision(Boundary, P, BoundaryB, EntityB->P, Delta);
+   Collision.EntityB = EntityB;
+   if(ChooseCollision(OutCollision, &Collision)){
     *OutCollision = Collision;
    }
   }
@@ -928,7 +903,7 @@ physics_system::DoCollisionsNotRelative(physics_collision *OutCollision, collisi
 //~ Do physics
 
 void
-physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=5.0f){
+physics_system::DoFloorRaycast(entity_manager *Manager, entity *Entity, physics_layer_flags Layer, f32 Depth=5.0f){
  if(PhysicsDebugger.DefineStep()) return;
  if(PhysicsDebugger.IsCurrent()){
   PhysicsDebugger.DrawString("Floor raycast");
@@ -936,52 +911,45 @@ physics_system::DoFloorRaycast(dynamic_physics_object *Object, f32 Depth=5.0f){
  
  v2 Raycast = V2(0, -Depth);
  physics_collision Collision = MakeCollision();
- for(collision_boundary *Boundary = Object->Boundaries;
-     Boundary < Object->Boundaries+Object->BoundaryCount;
+ for(collision_boundary *Boundary = Entity->Boundaries;
+     Boundary < Entity->Boundaries+Entity->BoundaryCount;
      Boundary++){
-  DoStaticCollisions(&Collision, Boundary, Object->P, Raycast);
-  DoCollisionsNotRelative(&Collision, Boundary, Object->P, Raycast, Object);
+  DoStaticCollisions(Manager, &Collision, Boundary, Entity->P, Raycast);
+  DoCollisionsNotRelative(Manager, &Collision, Boundary, Entity->P, Raycast, Entity, Layer);
  }
  
  if(PhysicsDebugger.DefineStep()) return;
  
  if(Collision.TimeOfImpact >= 1.0f){ 
   if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too far"); }
-  Object->State |= PhysicsObjectState_Falling;
+  Entity->PhysicsFlags |= PhysicsStateFlag_Falling;
   return;
  }
  if(Collision.Normal.Y < WALKABLE_STEEPNESS) { 
-  if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too steaph"); }
+  if(PhysicsDebugger.IsCurrent()){ PhysicsDebugger.DrawString("No floor, too steap"); }
   return; 
  }
  
- Object->P += Raycast*Collision.TimeOfImpact;
- Object->P += Collision.Correction;
+ Entity->P += Raycast*Collision.TimeOfImpact;
+ Entity->P += Collision.Correction;
  
- Object->dP       -= Collision.Normal*Dot(Object->dP, Collision.Normal);
- Object->TargetdP -= Collision.Normal*Dot(Object->TargetdP, Collision.Normal);
- Object->FloorNormal = Collision.Normal;
- 
- if(Collision.IsDynamic){
-  Object->ReferenceFrame = (dynamic_physics_object *)Collision.ObjectB;
- }else{
-  Object->ReferenceFrame = 0;
- }
+ Entity->dP       -= Collision.Normal*Dot(Entity->dP, Collision.Normal);
+ Entity->TargetdP -= Collision.Normal*Dot(Entity->TargetdP, Collision.Normal);
+ Entity->FloorNormal = Collision.Normal;
  
  if(PhysicsDebugger.IsCurrent()){
-  physics_object *ObjectB = Collision.ObjectB;
+  entity *EntityB = Collision.EntityB;
   PhysicsDebugger.DrawString("Yes floor");
-  PhysicsDebugger.DrawPoint(Object->P, V2(0), WHITE);
-  PhysicsDebugger.DrawPoint(ObjectB->P, V2(0), DARK_GREEN);
-  PhysicsDebugger.DrawNormal(ObjectB->P, V2(0), Collision.Normal, PINK);
+  PhysicsDebugger.DrawPoint(Entity->P, V2(0), WHITE);
+  PhysicsDebugger.DrawPoint(EntityB->P, V2(0), DARK_GREEN);
+  PhysicsDebugger.DrawNormal(EntityB->P, V2(0), Collision.Normal, PINK);
   PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision.TimeOfImpact);
   PhysicsDebugger.DrawString("Correction: (%f, %f)", Collision.Correction.X, Collision.Correction.Y);
-  PhysicsDebugger.DrawString("MassA: %f, MassB: %f", Object->Mass, ObjectB->Mass);
  }
 }
 
 void
-physics_system::DoPhysics(){
+physics_system::DoPhysics(entity_manager *Manager){
  TIMED_FUNCTION();
  local_constant f32 Epsilon = 0.0001f;
  
@@ -990,12 +958,9 @@ physics_system::DoPhysics(){
  
  f32 dTime = OSInput.dTime;
  
- physics_collision *Collisions = PushArray(&TransientStorageArena, physics_collision, Objects.Count);
- for(u32 I=0; I<Objects.Count; I++){
-  Collisions[I] = MakeCollision();
- }
- physics_trigger *Triggers = PushArray(&TransientStorageArena, physics_trigger, Objects.Count);
+ physics_trigger_collision *Triggers = PushArray(&TransientStorageArena, physics_trigger_collision, Updates.Count);
  
+#if 0 
  //~  Calculate entity deltas
  FOR_BUCKET_ARRAY(It, &Objects){
   dynamic_physics_object *Object = It.Item;
@@ -1042,6 +1007,7 @@ physics_system::DoPhysics(){
    }
   }
  }
+#endif
  
  // TODO(Tyler): Move this into physics_debugger
  if(PhysicsDebugger.StartOfPhysicsFrame){
@@ -1049,25 +1015,19 @@ physics_system::DoPhysics(){
  }
  
  //~ DEBUG
+ 
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
  if(DebugConfig.Overlay & DebugOverlay_Boundaries){
-  // NOTE(Tyler): This doesn't need to be done here, but it is nicer here
-  FOR_BUCKET_ARRAY(It, &Objects){
-   RenderObject(It.Item);
-  }
-  
-  FOR_BUCKET_ARRAY(It, &StaticObjects){
-   RenderObject(It.Item);
-  }
-  
-  FOR_BUCKET_ARRAY(It, &TriggerObjects){
-   RenderObject(It.Item);
+  FOR_ENTITY_TYPE_BY_FLAGS(Manager, EntityTypeFlag_None){
+   entity *Entity = It.Item;
+   if(Entity->Type == EntityType_Tilemap) continue;
+   RenderEntityPhysics(Entity);
   }
  }
 #endif
  
  //~ Do collisions
- u32 IterationsToDo = Objects.Count*PHYSICS_ITERATIONS_PER_OBJECT;
+ u32 IterationsToDo = 4;
  f32 FrameTimeRemaining = 1.0f;
  u32 Iteration = 0;
  while((FrameTimeRemaining > 0) &&
@@ -1077,110 +1037,97 @@ physics_system::DoPhysics(){
   f32 CurrentTimeOfImpact = 1.0f;
   
   //~ Detect collisions
-  FOR_BUCKET_ARRAY(ItA, &Objects){
-   dynamic_physics_object *ObjectA = ItA.Item;
+  for(u32 I=0; I<Updates.Count; I++){
+   physics_update *Update = &Updates[I];
+   entity *Entity = Update->Entity;
    
    local_constant f32 Epsilon = 0.0001f;
-   if((-Epsilon <= ObjectA->Delta.X) && (ObjectA->Delta.X <= Epsilon) &&
-      (-Epsilon <= ObjectA->Delta.Y) && (ObjectA->Delta.Y <= Epsilon)){
-    ObjectA->Delta = {};
+   if((-Epsilon <= Update->Delta.X) && (Update->Delta.X <= Epsilon) &&
+      (-Epsilon <= Update->Delta.Y) && (Update->Delta.Y <= Epsilon)){
+    Update->Delta = {};
    }
    
-   if((-Epsilon <= ObjectA->dP.X) && (ObjectA->dP.X <= Epsilon) &&
-      (-Epsilon <= ObjectA->dP.Y) && (ObjectA->dP.Y <= Epsilon)){
-    ObjectA->dP = {};
+   if((-Epsilon <= Entity->dP.X) && (Entity->dP.X <= Epsilon) &&
+      (-Epsilon <= Entity->dP.Y) && (Entity->dP.Y <= Epsilon)){
+    Entity->dP = {};
    }
    
    //~ DEBUG
    
-   physics_collision Collision = MakeCollision();
-   physics_trigger Trigger = {};
-   for(collision_boundary *Boundary = ObjectA->Boundaries;
-       Boundary < ObjectA->Boundaries+ObjectA->BoundaryCount;
+   physics_trigger_collision Trigger = {};
+   for(collision_boundary *Boundary = Entity->Boundaries;
+       Boundary < Entity->Boundaries+Entity->BoundaryCount;
        Boundary++){
-    DoStaticCollisions(&Collision, Boundary, ObjectA->P, ObjectA->Delta);
-    DoCollisionsRelative(&Collision, Boundary, ObjectA->P, ObjectA->Delta, true, ItA.Index);
-    DoTriggerCollisions(&Trigger, Boundary, ObjectA->P, ObjectA->Delta);
+    DoStaticCollisions(Manager, &Update->Collision, Boundary, Entity->P, Update->Delta);
+    DoCollisionsRelative(Manager, &Update->Collision, Boundary, Entity->P, Update->Delta, Entity, I+1);
+    DoTriggerCollisions(Manager, &Trigger, Boundary, Entity->P, Update->Delta);
    }
    
-   u32 BIndex = ItA.I + Collision.BIndexOffset;
-   if(ChooseCollision(CurrentTimeOfImpact, F32_POSITIVE_INFINITY, &Collision)){
-    Collisions[ItA.I] = Collision;
-    Triggers[ItA.I]   = Trigger;
-    if(Collision.TimeOfImpact < CurrentTimeOfImpact){
-     CurrentTimeOfImpact = Collision.TimeOfImpact;
-     for(u32 I=0; I<ItA.I; I++){
-      Collisions[I] = MakeCollision();
-      Triggers[I]   = {};
-     }
+   Triggers[I] = Trigger;
+   if(Update->Collision.TimeOfImpact < CurrentTimeOfImpact){
+    CurrentTimeOfImpact = Update->Collision.TimeOfImpact;
+    for(u32 J=0; J<I; J++){
+     Triggers[J]   = {};
     }
-    
-    if(Collision.IsDynamic){
-     Collisions[BIndex]  = MakeBCollision(Collision, ObjectA);
-    }
-   }else if(Trigger.IsValid){
-    Triggers[ItA.I] = Trigger;
    }
   }
   
   //~ Solve collisions
-  
-  f32 COR = 1.0f;
-  FrameTimeRemaining -= FrameTimeRemaining*CurrentTimeOfImpact;
-  FOR_BUCKET_ARRAY(It, &Objects){
+  for(u32 I=0; I<Updates.Count; I++){
+   physics_update *Update = &Updates[I];
+   entity *Entity = Update->Entity;
+   physics_collision *Collision = &Update->Collision;
+   
+   f32 COR = 1.0f;
+   FrameTimeRemaining -= FrameTimeRemaining*CurrentTimeOfImpact;
+   
    if(PhysicsDebugger.DefineStep()) return;
    
-   physics_collision *Collision = &Collisions[It.I];
-   
-   dynamic_physics_object *ObjectA = It.Item;
-   
-   ObjectA->P += CurrentTimeOfImpact*ObjectA->Delta;
-   ObjectA->Delta -= ObjectA->Delta*CurrentTimeOfImpact;
+   Entity->P += CurrentTimeOfImpact*Update->Delta;
+   Update->Delta -= Update->Delta*CurrentTimeOfImpact;
    if(PhysicsDebugger.IsCurrent()){
-    PhysicsDebugger.DrawPoint(ObjectA->P, V2(0), YELLOW);
+    PhysicsDebugger.DrawPoint(Entity->P, V2(0), YELLOW);
    }
    
-   if(Triggers[It.I].IsValid){
-    trigger_physics_object *Trigger = Triggers[It.I].Trigger;
-    Trigger->TriggerResponse(Trigger->Entity, ObjectA->Entity);
+   if(Triggers[I].Trigger){
+    entity *Trigger = Triggers[I].Trigger;
+    
+    Trigger->TriggerResponse(Trigger, Entity);
     if(PhysicsDebugger.IsCurrent()){
      PhysicsDebugger.DrawString("Entity hit trigger");
     }
    }
    
-   if(Collisions[It.I].TimeOfImpact < 1.0f){
-    
-    if(ObjectA->Response(ObjectA->Entity, Collision)){
+   if(Collision->TimeOfImpact < 1.0f){
+    if(Entity->Response(Update, Collision)){
      if(PhysicsDebugger.IsCurrent()){
       PhysicsDebugger.DrawString("Entity handled collision");
      }
     }else{
-     physics_object *ObjectB = Collision->ObjectB;
-     
-     if(Dot(ObjectA->Delta, Collision->Normal) < 0.0f){
-      ObjectA->dP       -= COR*Collision->Normal*Dot(ObjectA->dP, Collision->Normal);
-      ObjectA->TargetdP -= COR*Collision->Normal*Dot(ObjectA->TargetdP, Collision->Normal);
-      ObjectA->Delta    -= COR*Collision->Normal*Dot(ObjectA->Delta, Collision->Normal);
+     if(Dot(Update->Delta, Update->Collision.Normal) < 0.0f){
+      Entity->dP       -= COR*Collision->Normal*Dot(Entity->dP, Collision->Normal);
+      Entity->TargetdP -= COR*Collision->Normal*Dot(Entity->TargetdP, Collision->Normal);
+      Update->Delta    -= COR*Collision->Normal*Dot(Update->Delta, Collision->Normal);
      }
      
      //f32 CorrectionPercent = ObjectA->Mass / (1/ObjectA->Mass + 1/ObjectB->Mass);
      f32 CorrectionPercent = 0.0f;
-     if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
-     ObjectA->P += CorrectionPercent*Collision->Correction;
+     //if(ObjectA->Mass == F32_POSITIVE_INFINITY) { CorrectionPercent = 0.0f; }
+     Entity->P += 0.5f*Collision->Correction;
      
      if(Collision->Normal.Y > WALKABLE_STEEPNESS){
-      ObjectA->State &= ~PhysicsObjectState_Falling;
+      Entity->PhysicsFlags &= ~PhysicsStateFlag_Falling;
      }
      
      //~ DEBUG
      if(PhysicsDebugger.IsCurrent()){
       PhysicsDebugger.DrawString("Yes collision");
-      PhysicsDebugger.DrawPoint(ObjectA->P-CorrectionPercent*Collision->Correction, V2(0), YELLOW);
-      PhysicsDebugger.DrawPoint(ObjectA->P, V2(0), WHITE);
-      if(ObjectB) { 
-       PhysicsDebugger.DrawPoint(ObjectB->P, V2(0), DARK_GREEN);
-       PhysicsDebugger.DrawNormal(ObjectB->P, V2(0), Collision->Normal, PINK);
-       PhysicsDebugger.DrawString("MassA: %f, MassB: %f", ObjectA->Mass, ObjectB->Mass);
+      PhysicsDebugger.DrawPoint(Entity->P-CorrectionPercent*Collision->Correction, V2(0), YELLOW);
+      PhysicsDebugger.DrawPoint(Entity->P, V2(0), WHITE);
+      entity *EntityB = Collision->EntityB;
+      if(EntityB) { 
+       PhysicsDebugger.DrawPoint(EntityB->P, V2(0), DARK_GREEN);
+       PhysicsDebugger.DrawNormal(EntityB->P, V2(0), Collision->Normal, PINK);
       }
       PhysicsDebugger.DrawString("CurrentTimeOfImpact: %f", CurrentTimeOfImpact);
       PhysicsDebugger.DrawString("TimeOfImpact: %f", Collision->TimeOfImpact);
@@ -1189,7 +1136,7 @@ physics_system::DoPhysics(){
      }
     }
     
-    Collisions[It.I] = MakeCollision();
+    Update->Collision = MakeCollision();
    }
   }
   
@@ -1197,11 +1144,12 @@ physics_system::DoPhysics(){
  }
  
  //~ Do floor raycasts
- FOR_BUCKET_ARRAY(It, &Objects){
-  dynamic_physics_object *Object = It.Item;
-  if(!(Object->State & PhysicsObjectState_DontFloorRaycast) &&
-     !(Object->State & PhysicsObjectState_Falling)){
-   DoFloorRaycast(Object);
+ FOR_ENTITY_TYPE_BY_FLAGS(Manager, EntityTypeFlag_Dynamic){
+  entity *Entity = It.Item;
+  if((Entity->PhysicsFlags & PhysicsStateFlag_DontFloorRaycast) ||
+     (Entity->PhysicsFlags & PhysicsStateFlag_Falling)){
+  }else{
+   DoFloorRaycast(Manager, Entity, ENTITY_TYPE_LAYER_FLAGS[It.CurrentArray]);
   }
   
   if(PhysicsDebugger.DefineStep()) return;
@@ -1277,11 +1225,18 @@ physics_system::DoPhysics(){
 #undef RepeatExpr
 #endif
  
- // DEBUG
+ for(u32 I=0; I<Updates.Count; I++){
+  physics_update *Update = &Updates[I];
+  Update->Entity->PhysicsFlags &= ~PhysicsStateFlag_HadAnUpdate;
+ }
+ 
+ StackClear(&Updates);
+ 
+ //~ DEBUG
  PhysicsDebugger.End();
 }
 
 inline void
 entity_manager::DoPhysics(){
- PhysicsSystem.DoPhysics();
+ PhysicsSystem.DoPhysics(this);
 }

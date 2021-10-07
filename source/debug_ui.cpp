@@ -28,15 +28,15 @@ DEBUGRenderOverlay(){
   LayoutString(&Layout, &DebugFont,
                BLACK, "PermanentMemory:  %'jd", PermanentStorageArena.Used);
   {
-   dynamic_physics_object *PlayerPhysics = EntityManager.Player->DynamicPhysics;
+   player_entity *Player = EntityManager.Player;
    LayoutString(&Layout, &DebugFont, BLACK, "Player.P: (%f, %f)", 
-                PlayerPhysics->P.X, PlayerPhysics->P.Y);
+                Player->P.X, Player->P.Y);
    LayoutString(&Layout, &DebugFont, BLACK, "Player.dP: (%f, %f)", 
-                PlayerPhysics->dP.X, PlayerPhysics->dP.Y);
+                Player->dP.X, Player->dP.Y);
    LayoutString(&Layout, &DebugFont, BLACK, "Player.TargetdP: (%f, %f)", 
-                PlayerPhysics->TargetdP.X, PlayerPhysics->TargetdP.Y);
+                Player->TargetdP.X, Player->TargetdP.Y);
    LayoutString(&Layout, &DebugFont, BLACK, "FloorNormal: (%f, %f)", 
-                PlayerPhysics->FloorNormal.X, PlayerPhysics->FloorNormal.Y);
+                Player->FloorNormal.X, Player->FloorNormal.Y);
   }
   LayoutString(&Layout, &DebugFont,
                BLACK, "PhysicsDebugger: %u", 
