@@ -57,10 +57,10 @@ AddPlayer(v2 P){
 }
 
 internal void
-AddParticles(v2 P){
- collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+AddParticles(entity_manager *Manager, v2 P){
+ collision_boundary *Boundary = Manager->AllocBoundaries(1);
  *Boundary = MakeCollisionPoint();
- physics_particle_system *System = PhysicsSystem.AddParticleSystem(P, Boundary, 100, 1.5f);
+ physics_particle_system *System = Manager->AddParticleSystem(P, Boundary, 100, 1.5f);
  System->StartdP = V2(0.0f, -3.0f);
 }
 
@@ -77,8 +77,6 @@ world_manager::LoadWorld(const char *LevelName){
   
   if(World){
    CurrentWorld = World;
-   
-   PhysicsSystem.Reload(World->Width, World->Height);
    
    //~ Coins
    {
@@ -99,13 +97,15 @@ world_manager::LoadWorld(const char *LevelName){
      }
     }
     
-    collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+    collision_boundary *Boundary = EntityManager.AllocBoundaries(1);
     *Boundary = MakeCollisionRect(V2(0), V2(8.0f));
     
     u32 N = Minimum(CurrentWorld->CoinsToSpawn, EntityManager.CoinData.NumberOfCoinPs);
     for(u32 I = 0; I < N; I++){
      coin_entity *Coin = AllocEntity(&EntityManager, coin_entity);
      Coin->Type = EntityType_Coin;
+     Coin->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[ENTITY_TYPE(coin_entity)];
+     Coin->Layer = ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(coin_entity)];
      Coin->Z = -0.0f;
      Coin->Boundaries = Boundary;
      Coin->BoundaryCount = 1;
@@ -118,7 +118,7 @@ world_manager::LoadWorld(const char *LevelName){
    }
    
    //~ General entities
-   collision_boundary *TeleporterBoundary = PhysicsSystem.AllocBoundaries(1);
+   collision_boundary *TeleporterBoundary = EntityManager.AllocBoundaries(1);
    *TeleporterBoundary = MakeCollisionRect(0.5f*TILE_SIZE, TILE_SIZE);
    
    b8 DidAddPlayer = false;
@@ -140,6 +140,8 @@ world_manager::LoadWorld(const char *LevelName){
       u32 Height = Data->Height;
       
       Tilemap->Type = EntityType_Tilemap;
+      Tilemap->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[ENTITY_TYPE(tilemap_entity)];
+      Tilemap->Layer = ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(tilemap_entity)];
       Tilemap->P = Data->P;
       Tilemap->Asset = Data->Asset;
       Tilemap->Z = Z;
@@ -188,7 +190,9 @@ world_manager::LoadWorld(const char *LevelName){
                          EntityInfo->Response);
       
       Enemy->Type  = EntityInfo->Type;
+      Enemy->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[ENTITY_TYPE(enemy_entity)];
       Enemy->Flags = EntityInfo->Flags;
+      Enemy->Layer = ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(enemy_entity)];
       if(Enemy->Flags & EntityFlag_NotAffectedByGravity){
        Enemy->PhysicsFlags |= PhysicsStateFlag_DontFloorRaycast;
       }
@@ -217,6 +221,8 @@ world_manager::LoadWorld(const char *LevelName){
       *Player = {};
       asset_entity *EntityInfo = AssetSystem.GetEntity(Data->Asset);
       Player->Type = EntityType_Player;
+      Player->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[ENTITY_TYPE(player_entity)];
+      Player->Layer = ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(player_entity)];
       Player->EntityInfo = EntityInfo;
       Player->Animation.Direction = Entity->Player.Direction;
       
@@ -247,6 +253,8 @@ world_manager::LoadWorld(const char *LevelName){
       Teleporter->Z = Z;
       
       Teleporter->Type = EntityType_Teleporter;
+      Teleporter->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[ENTITY_TYPE(teleporter_entity)];
+      Teleporter->Layer = ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(teleporter_entity)];
       Teleporter->Bounds = SizeRect(V2(0), TILE_SIZE);
       Teleporter->Level = Entity->Teleporter.Level;
       if(Entity->Teleporter.RequiredLevel[0] == 0){
@@ -259,8 +267,10 @@ world_manager::LoadWorld(const char *LevelName){
      case EntityType_Door: {
       world_entity_door *Data = &Entity->Door;
       door_entity *Door = AllocEntity(&EntityManager, door_entity);
+      Door->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[ENTITY_TYPE(door_entity)];
+      Door->Layer = ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(door_entity)];
       
-      collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+      collision_boundary *Boundary = EntityManager.AllocBoundaries(1);
       *Boundary = MakeCollisionRect(0.5f*Entity->Door.Size, Entity->Door.Size);
       SetupEntityPhysics(Door, Boundary, 1);
       Door->P = Data->P;
@@ -297,7 +307,7 @@ world_manager::LoadWorld(const char *LevelName){
     projectile_entity *Projectile = AllocEntity(&EntityManager, projectile_entity);
     Projectile->Type = EntityType_Projectile;
     Projectile->RemainingLife = 0.0f;
-    collision_boundary *Boundary = PhysicsSystem.AllocBoundaries(1);
+    collision_boundary *Boundary = EntityManager.AllocBoundaries(1);
     *Boundary = MakeCollisionRect(V2(0), V2(2.0f));
     
     SetupEntityPhysics(Projectile, Boundary, 1);

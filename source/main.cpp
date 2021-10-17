@@ -27,8 +27,6 @@ global string_manager Strings;
 
 global world_manager WorldManager;
 
-global physics_system PhysicsSystem;
-
 global asset_system AssetSystem;
 
 global font_system FontSystem;
@@ -108,7 +106,6 @@ InitializeGame(){
  EntityManager.Initialize(&PermanentStorageArena);
  WorldManager.Initialize(&PermanentStorageArena);
  UIManager.Initialize(&PermanentStorageArena);
- PhysicsSystem.Initialize(&PermanentStorageArena);
  
  //~ Load things
  LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);

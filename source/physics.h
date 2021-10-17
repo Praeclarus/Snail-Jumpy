@@ -101,8 +101,7 @@ enum physics_state_flags_ {
  PhysicsStateFlag_Falling          = (1 << 0),
  PhysicsStateFlag_DontFloorRaycast = (1 << 1),
  PhysicsStateFlag_Inactive         = (1 << 2),
- PhysicsStateFlag_HadAnUpdate      = (1 << 3),
- PhysicsStateFlag_TriggerIsActive  = (1 << 4),
+ PhysicsStateFlag_TriggerIsActive  = (1 << 3),
 };
 
 typedef u32 physics_layer_flags;
@@ -126,46 +125,25 @@ struct physics_collision {
 struct physics_update {
  entity *Entity;
  v2 Delta;
+ 
  physics_layer_flags Layer;
+ u16 ParentID;
+ u16 ChildID;
  
  // If collided
  physics_collision Collision;
 };
 
+struct physics_update_context {
+ stack<physics_update> Updates;
+ array<physics_update *> ChildUpdates;
+ array<v2> DeltaCorrections;
+ u16 CurrentID;
+};
+
 //~ Triggers
 struct physics_trigger_collision {
  entity *Trigger;
-};
-
-//~ System
-struct entity_manager;
-struct physics_system {
- // TODO(Tyler): This only need be here if we do physics particles
- bucket_array<physics_particle_system, 64> ParticleSystems;
- 
- memory_arena ParticleMemory;
- memory_arena PermanentBoundaryMemory;
- memory_arena BoundaryMemory;
- 
- stack<physics_update> Updates;
- 
- void Initialize(memory_arena *Arena);
- void Reload(u32 Width, u32 Height);
- 
- void DoPhysics(entity_manager *Manager);
- void DoFloorRaycast(entity_manager *Manager, entity *Entity, physics_layer_flags Layer, f32 Depth);
- 
- void DoStaticCollisions(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta);
- void DoTriggerCollisions(entity_manager *Manager, physics_trigger_collision *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta);
- void DoCollisionsRelative(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, entity *EntityA, physics_layer_flags Layer, u32 StartIndex=0);
- void DoCollisionsNotRelative(entity_manager *Manager, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, entity *EntityA, physics_layer_flags Layer);
- 
- inline physics_update *MakeUpdate(entity *Entity, physics_layer_flags Layer);
- 
- physics_particle_system *AddParticleSystem(v2 P, collision_boundary *Boundary, u32 ParticleCount, f32 COR);
- 
- collision_boundary *AllocPermanentBoundaries(u32 Count);
- collision_boundary *AllocBoundaries(u32 Count);
 };
 
 #endif //SNAIL_JUMPY_PHYSICS_H
