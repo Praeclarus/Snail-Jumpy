@@ -1020,7 +1020,7 @@ entity_manager::DoPhysics(physics_update_context *Context){
 #endif
  
  //~ Do collisions
- u32 IterationsToDo = 4;
+ u32 IterationsToDo = 8;
  f32 FrameTimeRemaining = 1.0f;
  u32 Iteration = 0;
  while((FrameTimeRemaining > 0) &&
@@ -1035,7 +1035,7 @@ entity_manager::DoPhysics(physics_update_context *Context){
    entity *Entity = Update->Entity;
    Update->Collision = MakeCollision();
    
-   local_constant f32 Epsilon = 0.0001f;
+   local_constant f32 Epsilon = 0.01f;
    if((-Epsilon <= Update->Delta.X) && (Update->Delta.X <= Epsilon) &&
       (-Epsilon <= Update->Delta.Y) && (Update->Delta.Y <= Epsilon)){
     Update->Delta = {};
