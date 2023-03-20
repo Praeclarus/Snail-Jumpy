@@ -1,7 +1,10 @@
-# //////////////////////////////////////////////////////////////////////////
-#                                 Animations
-# //////////////////////////////////////////////////////////////////////////
-: Animation enemy
+
+#~
+: SpecialCommands
+worlds Array("Debug")
+
+#~ @sja_animations
+: Animation "enemy"
     on_finish              state_turning    state_moving
 	   on_finish              state_retreating state_stunned
 	   after_time "stun_time" state_stunned    state_returning
@@ -11,13 +14,11 @@
 	   blocking state_returning
 	   blocking state_turning
 
-: Animation player
+: Animation "player"
 	
-# //////////////////////////////////////////////////////////////////////////
-#                                Spritesheets
-# //////////////////////////////////////////////////////////////////////////
+#~ @sja_spritesheets
 
-: SpriteSheet dragonfly
+: SpriteSheet "dragonfly"
     size 34 34
     piece 0 "asset_sprite_sheets/dragonfly_0.png"
         consecutive      0  2  8  0
@@ -36,6 +37,9 @@
         not_consecutive Array( Flip(3) Frame(4) Frame(3))  8  0
 				y_offsets 0 10 Array(0 1 1 0 -1 -1 0 0 0 0)
 				y_offsets 1 10 Array(0 1 1 0 -1 -1 0 0 0 0)
+    state_none
+        left  1
+        right 2
     state_moving
         left  1
         right 2
@@ -43,7 +47,7 @@
         right 3
         left  4
 
-: SpriteSheet snail
+: SpriteSheet "snail"
     size 17 17
     piece 0 "asset_sprite_sheets/snail_sprite_sheet.png"
         consecutive  0  4 8 0
@@ -56,6 +60,9 @@
         consecutive 28  3 3 0
         consecutive 31  7 8 0
         consecutive 38  7 8 0
+    state_none
+        left  1
+        right 2
     state_moving          
      			left  1
         right 2
@@ -72,7 +79,7 @@
         left  9
         right 10
 
-: SpriteSheet sally
+: SpriteSheet "sally"
     size 33 33
     piece 0 "asset_sprite_sheets/sally_sprite_sheet.png"
         consecutive  0  4 8 0
@@ -85,6 +92,9 @@
         consecutive 23  3 3 0
         consecutive 26  7 8 0
         consecutive 29  7 8 0
+    state_none
+        left  1
+        right 2
     state_moving          
      			left  1
         right 2
@@ -101,7 +111,7 @@
         left  9
         right 10
 
-: SpriteSheet speedy
+: SpriteSheet "speedy"
     size 17 17
 #    frame_counts Array(4 4 3 3 2 2 3 3 4 4)
     piece 0 "asset_sprite_sheets/speedy_sprite_sheet.png"
@@ -115,6 +125,9 @@
         consecutive 21  3 3 0
         consecutive 24  7 8 0
         consecutive 31  7 8 0
+    state_none
+        left  1
+        right 2
     state_moving          
      			left  1
         right 2
@@ -131,13 +144,16 @@
         left  9
         right 10
 
-: SpriteSheet boxing_dragonfly
+: SpriteSheet "boxing_dragonfly"
     size 33 33
     piece 0 "asset_sprite_sheets/boxing_sprite_sheet.png"
         consecutive  0 10 8 0
         consecutive 10 10 8 0
         consecutive 20  3 8 0
         consecutive 23  3 8 0
+    state_none
+        left  1
+        right 2
     state_moving          
         left  1
         right 2
@@ -145,7 +161,7 @@
         left  3
         right 4
 
-: SpriteSheet player
+: SpriteSheet "player"
     size 16 16
     piece 0 "asset_sprite_sheets/test_avatar_sprite_sheet2.png"
         consecutive  0 17 8 0
@@ -158,6 +174,9 @@
         consecutive 57  1 8 0
         consecutive 58  2 8 0
         consecutive 60  2 8 0
+    state_none
+        left  1
+        right 2
     state_idle
         left  1
         right 2
@@ -197,16 +216,14 @@
             west      15
             northwest 16
 
-: SpriteSheet heart
+: SpriteSheet "heart"
 	   size 8 8
 	   piece 0 "asset_sprite_sheets/heart_8x8.png"
         consecutive 0 4 0 0
 
-# //////////////////////////////////////////////////////////////////////////
-#                                  Entities
-# //////////////////////////////////////////////////////////////////////////
+#~ @sja_entities
 
-: Entity player
+: Entity "player"
 	   type          player
 	   piece         player 0
 	   animation     player 
@@ -216,19 +233,19 @@
 	   boundary 0 Boundary_Pill(0 0 3 8)
 	   collision_response PLAYER
 
-: Entity snail
+: Entity "snail" Tag("enemy")
    	type          enemy
 	   piece         snail 0
 	   animation     enemy
     animation_var "stun_time" 3.0
 	   mass          1.0  
-	   speed         50  
+	   speed         50
 	   boundary      0 Boundary_Circle(0 0 6)
 	   damage        2    
 	   collision_response ENEMY
 	   CAN_BE_STUNNED
 
-: Entity sally
+: Entity "sally" Tag("enemy")
    	type          enemy
 	   piece         sally 0
 	   animation     enemy
@@ -240,7 +257,7 @@
 	   collision_response ENEMY
 	   CAN_BE_STUNNED
 
-: Entity speedy
+: Entity "speedy" Tag("enemy")
    	type          enemy
 	   piece         speedy 0
 	   animation     enemy
@@ -252,7 +269,7 @@
 	   collision_response ENEMY
 	   CAN_BE_STUNNED
 
-: Entity dragonfly
+: Entity "dragonfly" Tag("enemy")
    	type          enemy
 	   piece         dragonfly 0
 	   animation     enemy
@@ -264,47 +281,41 @@
 	   collision_response DRAGONFLY
 	   NO_GRAVITY
 
-# //////////////////////////////////////////////////////////////////////////
-#                                    Arts
-# //////////////////////////////////////////////////////////////////////////
+#~ @sja_arts
 
-: Art art_test
+: Art "art_test"
     path "asset_arts/test_art.png"
-	
-: Art art_test2
+
+: Art "art_test2"
 	   path "asset_arts/test_art2.png"
-	
-: Art grass_platform_a
+
+: Art "grass_platform_a"
 	   path "asset_arts/grass_platform_a.png"
-		
-: Art grass_platform_b
+
+: Art "grass_platform_b"
 	   path "asset_arts/grass_platform_b.png"
-		
-: Art grass_platform_c
+
+: Art "grass_platform_c"
 	   path "asset_arts/grass_platform_c.png"
-	
-: Art grass_platform_d
+
+: Art "grass_platform_d"
 	   path "asset_arts/grass_platform_d.png"
-	
-: Art grass_platform_e
+
+: Art "grass_platform_e"
 	   path "asset_arts/grass_platform_e.png"
 
-# //////////////////////////////////////////////////////////////////////////
-#                                 Backgrounds
-# //////////////////////////////////////////////////////////////////////////
+#~ @sja_backgrounds
 
-: Background background_test_back
+: Art "background_test_back" Tag("background")
 	   path "asset_backgrounds/background_test_back.png"
-	
-: Background background_test_middle
+
+: Art "background_test_middle" Tag("background")
 	   path "asset_backgrounds/background_test_middle.png"
-	
-: Background background_test_front
+
+: Art "background_test_front" Tag("background")
 	   path "asset_backgrounds/background_test_front.png"
 	
-# //////////////////////////////////////////////////////////////////////////
-#                                  Tilemaps
-# //////////////////////////////////////////////////////////////////////////
+#~ @sja_tilemaps
 
 : Tilemap grass_and_dirt
     path "asset_tilemaps/grass_and_dirt_platform.png"
@@ -341,8 +352,8 @@
     tile 0           "XX__#_?X?" 2
     tile 0           "_XX_#_?X?" REVERSE_PREVIOUS
     tile 0           "XXX_#_?X?" 2
-    connector      "_X?X#????" 1
-    connector      "?X_?#X???" REVERSE_PREVIOUS
+    connector        "_X?X#????" 1
+    connector        "?X_?#X???" REVERSE_PREVIOUS
     wedge_up_left 1    "?_?_#X?X?" 4
     wedge_up_right 2   "?_?X#_?X?" REVERSE_PREVIOUS
     wedge_down_left 3  "XX?_#X?_?" 2
@@ -633,13 +644,187 @@
     tile 0 "?_?X#X?X?" ROTATE_PREVIOUS_90
     tile 0 "?X?X#X?X?" 2
 
-# //////////////////////////////////////////////////////////////////////////
-#                                    Fonts
-# //////////////////////////////////////////////////////////////////////////
+#~ @sja_fonts
 
-: Font font_one
-    path "SJ_Font.png"
+: Font "font_basic"
+    path "asset_fonts/basic.png"
+    height 7
+    padding 1
+    descent 2
+    SPACE 2
+    EXCLAMATION 1
+    QUOTATION 3
+    POUND 5
+    DOLLAR_SIGN 3
+    PERCENT 5
+    AMPERSAND 4
+    APOSTROPHE 1
+    PARENTHESIS_LEFT 2
+    PARENTHESIS_RIGHT 2
+    ASTERISK 1
+    PLUS 3
+    COMMA 2
+    DASH 2
+    PERIOD 1
+    SLASH 3
+    ZERO 3
+    ONE 3
+    TWO 3
+    THREE 3
+    FOUR 3
+    FIVE 3
+    SIX 3
+    SEVEN 3
+    EIGHT 3
+    NINE 3
+    COLON 1
+    SEMICOLON 2
+    ANGLE_BRACKET_LEFT 3
+    EQUAL 3
+    ANGLE_BRACKET_RIGHT 3
+    QUESTION 3
+    AT_SIGN 5
+    char "A" 3
+    char "B" 3
+    char "C" 3
+    char "D" 3
+    char "E" 3
+    char "F" 3
+    char "G" 3 
+    char "H" 3
+    char "I" 3
+    char "J" 3
+    char "K" 3
+    char "L" 3
+    char "M" 5
+    char "N" 4
+    char "O" 4
+    char "P" 3
+    char "Q" 4
+    char "R" 3
+    char "S" 3
+    char "T" 3
+    char "U" 3 
+    char "V" 3
+    char "W" 5
+    char "X" 3
+    char "Y" 3
+    char "Z" 3
+    SQUARE_BRACKET_LEFT 2
+    BACKSLASH 3
+    SQUARE_BRACKET_RIGHT 2
+    CARET 3
+    UNDERSCORE 4
+    CURLY_BRACKET_LEFT 3
+    PIPE 1
+    CURLY_BRACKET_RIGHT 3
+    TILDE 4
+    BACK_TICK 2
+    char "a" 3
+    char "b" 3
+    char "c" 3 
+    char "d" 3
+    char "e" 3
+    char "f" 3
+    char "g" 3
+    char "h" 3
+    char "i" 1
+    char "j" 2
+    char "k" 3
+    char "l" 1
+    char "m" 5
+    char "n" 3
+    char "o" 3
+    char "p" 3
+    char "q" 3
+    char "r" 2
+    char "s" 2
+    char "t" 3
+    char "u" 3
+    char "v" 3
+    char "w" 5
+    char "x" 3
+    char "y" 3
+    char "z" 2
+    
+               : Font "font_basic_bold"
+    path "asset_fonts/bold_font.png"
     height 5
+    padding 1
+    SPACE 2
+    EXCLAMATION 2
+    QUOTATION 3
+    POUND 5
+    APOSTROPHE 1
+    PARENTHESIS_LEFT 2
+    PARENTHESIS_RIGHT 2
+    ASTERISK 1
+    PLUS 3
+    COMMA 2
+    DASH 2
+    PERIOD 1
+    SLASH 3
+    ZERO 3
+    ONE 3
+    TWO 3
+    THREE 3
+    FOUR 3
+    FIVE 3
+    SIX 3
+    SEVEN 3
+    EIGHT 3
+    NINE 3
+    COLON 1
+    SEMICOLON 2
+    ANGLE_BRACKET_LEFT 3
+    EQUAL 3
+    ANGLE_BRACKET_RIGHT 3
+    QUESTION 4
+    A 3
+    B 3
+    C 3
+    D 3
+    E 3
+    F 3
+    G 3 
+    H 3
+    I 3
+    J 3
+    K 3
+    L 3
+    M 5
+    N 4
+    O 3
+    P 3
+    Q 4
+    R 3
+    S 3
+    T 3
+    U 3 
+    V 3
+    W 5
+    X 3
+    Y 3
+    Z 3
+    SQUARE_BRACKET_LEFT 2
+    BACKSLASH 3
+    SQUARE_BRACKET_RIGHT 2
+    CARET 3
+    BACK_TICK 2
+    UNDERSCORE 4
+    CURLY_BRACKET_LEFT 3
+    PIPE 1
+    CURLY_BRACKET_RIGHT 3
+    TILDE 4
+    PERCENT 5
+    DOLLAR_SIGN 3
+    AMPERSAND 4
+    AT_SIGN 5
+    
+: Font "font_basic2"
+    path "asset_fonts/font2.png"
+    height 5
+    padding 1
     SPACE 2
     EXCLAMATION 1
     QUOTATION 3
@@ -698,9 +883,103 @@
     SQUARE_BRACKET_LEFT 2
     BACKSLASH 3
     SQUARE_BRACKET_RIGHT 2
-    CIRCUMFLEX 3
+    CARET 3
+    BACK_TICK 2
     UNDERSCORE 4
     CURLY_BRACKET_LEFT 3
-    BAR 1
+    PIPE 1
     CURLY_BRACKET_RIGHT 3
     TILDE 4
+    PERCENT 5
+    DOLLAR_SIGN 3
+    AMPERSAND 4
+    AT_SIGN 5
+    
+: Font "font_basic_lowercase"
+    path "asset_fonts/basic_lowercase_3.png"
+    height 5
+    padding 1
+    descent 2
+    A 3
+    B 3
+    C 3 
+    D 3
+    E 3
+    F 3
+    G 3
+    H 3
+    I 1
+    J 2
+    K 3
+    L 1
+    M 5
+    N 3
+    O 3
+    P 3
+    Q 3
+    R 2
+    S 2
+    T 3
+    U 3
+    V 3
+    W 5
+    X 3
+    Y 3
+    Z 2
+    SPACE 2
+    
+: Font "font_fancy"
+    path  "asset_fonts/fancy_font.png"
+    height 15
+    padding 1
+    descent 5
+    A 10
+    B 9
+    C 7
+    D 9
+    E 7
+    F 10
+    G 6
+    H 11 
+    I 7
+    J 8
+    K 11
+    L 8
+    M 14
+    N 11
+    O 8
+    P 9
+    Q 10
+    R 10
+    S 6
+    T 10
+    U 9
+    V 8
+    W 12
+    X 10
+    Y 9
+    Z 11
+    SPACE 10
+    
+# //////////////////////////////////////////////////////////////////////////
+#                              Sound effects
+# //////////////////////////////////////////////////////////////////////////
+
+: SoundEffect "entity_land"
+    path "asset_sound_effects/osj/LandFX.wav"
+
+: SoundEffect "level_change"
+    path "asset_sound_effects/osj/ArenaFX.wav"
+
+: SoundEffect "damage"
+    path "asset_sound_effects/osj/DeathFX.wav"
+
+: SoundEffect "death"
+    path "asset_sound_effects/osj/LoseFX.wav"
+
+: SoundEffect "menu_move"
+    path "asset_sound_effects/puhp_01.wav"
+
+: SoundEffect "test_music"
+    # path "asset_sound_effects/osj/Music.wav"
+    path "asset_sound_effects/osj_music.wav"

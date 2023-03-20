@@ -1,24 +1,5 @@
 global f32 Counter;
 
-internal u32
-CStringLength(const char *String){
-    u32 Result = 0;
-    for(char C = *String; C; C = *(++String)){
-        Result++;
-    }
-    return(Result);
-}
-
-internal void
-CopyCString(char *To, const char *From, u32 MaxSize){
-    u32 I = 0;
-    while(From[I] && (I < MaxSize-1)){
-        To[I] = From[I];
-        I++;
-    }
-    To[I] = '\0';
-}
-
 internal direction
 InverseDirection(direction Direction){
     local_constant direction Table[Direction_TOTAL] = {
@@ -47,4 +28,59 @@ GetRandomFloat(u32 Seed, u32 Spread=5, f32 Power=0.2f){
     s32 Random = ((s32)GetRandomNumber(Seed)) % Spread;
     f32 Result = Power * (f32)Random;
     return(Result);
+}
+
+internal inline b8 
+StopSeeking(char C){
+    b8 Result = (!IsALetter(C) &&
+                 !IsANumber(C));
+    return Result;
+}
+
+internal inline range_s32
+SeekForward(const char *Buffer, u32 BufferLength, u32 Start){
+    range_s32 Result = MakeRangeS32(Start, BufferLength);
+    b8 HitAlphabetic = false;
+    for(u32 I=Start; I<=BufferLength; I++){
+        char C = Buffer[I];
+        Result.End = I;
+        if(StopSeeking(C)){
+            if(HitAlphabetic) break;
+        }else HitAlphabetic = true;
+    }
+    
+    return Result;
+}
+
+internal inline range_s32
+SeekBackward(const char *Buffer, s32 End){
+    range_s32 Result = MakeRangeS32(0, End);
+    if(End == 0) return Result;
+    b8 HitAlphabetic = false;
+    for(s32 I=Result.End-1; I>=0; I--){
+        char C = Buffer[I];
+        if(StopSeeking(C)){
+            if(HitAlphabetic) break;
+        }else HitAlphabetic = true;
+        Result.Start = I;
+    }
+    
+    return Result;
+}
+
+internal inline u32
+CountWordMatchCount(const char *A, const char *B){
+    u32 Result = 0;
+    while(*A && *B){
+        if(*A == ' ') { A++; continue; }
+        if(*B == ' ') { B++; continue; }
+        if(*A != *B){
+            if(CharToLower(*A) != CharToLower(*B)) return Result;
+        }
+        A++;
+        B++;
+        Result++;
+    }
+    
+    return Result;
 }

@@ -602,104 +602,105 @@ typedef void type_glBindBufferBase(GLenum target,  GLuint index, GLuint buffer);
 typedef void type_wglSwapIntervalEXT(GLint interval);
 
 #define OPENGL_FUNCTIONS  \
-X(glGenBuffers)       \
-X(glBindBuffer)       \
-X(glBufferData)       \
-X(glBufferSubData)       \
-X(glCreateShader)       \
-X(glGenVertexArrays)       \
-X(glBindVertexArray)       \
-X(glEnableVertexAttribArray)       \
-X(glDisableVertexAttribArray)       \
-X(glVertexAttribPointer)       \
-X(glDeleteShader)       \
-X(glUseProgram)       \
-X(glGetProgramInfoLog)       \
-X(glShaderSource)       \
-X(glCompileShader)       \
-X(glGetShaderiv)       \
-X(glGetShaderInfoLog)       \
-X(glAttachShader)       \
-X(glLinkProgram)       \
-X(glGetProgramiv)       \
-X(glCreateProgram)       \
-X(glGetUniformLocation)       \
-X(glUniform1fv)       \
-X(glUniform2fv)       \
-X(glUniform3fv)       \
-X(glUniform4fv)       \
-X(glUniform1f)       \
-X(glUniform2f)       \
-X(glUniform3f)       \
-X(glUniform4f)       \
-X(glUniform1i)       \
-X(glUniform2i)       \
-X(glUniform3i)       \
-X(glUniform4i)       \
-X(glUniformMatrix2fv)       \
-X(glUniformMatrix3fv)       \
-X(glUniformMatrix4fv)       \
-X(glUniformMatrix2x3fv)       \
-X(glUniformMatrix3x2fv)       \
-X(glUniformMatrix2x4fv)       \
-X(glUniformMatrix4x2fv)       \
-X(glUniformMatrix3x4fv)       \
-X(glUniformMatrix4x3fv)       \
-X(glDeleteVertexArrays)       \
-X(glDeleteBuffers)       \
-X(wglSwapIntervalEXT)       \
-X(glDrawElementsBaseVertex)       \
-X(glGenFramebuffers)       \
-X(glDeleteFramebuffers)       \
-X(glCheckFramebufferStatus)       \
-X(glBindFramebuffer)       \
-X(glFramebufferTexture2D)       \
-X(glGenRenderbuffers)       \
-X(glBindRenderbuffer)       \
-X(glRenderbufferStorage)       \
-X(glFramebufferRenderbuffer)       \
-X(glDrawBuffers)       \
-X(glActiveTexture)       \
-X(glGetUniformBlockIndex)       \
-X(glUniformBlockBinding)       \
-X(glBindBufferBase)
+GL_FUNC(glGenBuffers)       \
+GL_FUNC(glBindBuffer)       \
+GL_FUNC(glBufferData)       \
+GL_FUNC(glBufferSubData)       \
+GL_FUNC(glCreateShader)       \
+GL_FUNC(glGenVertexArrays)       \
+GL_FUNC(glBindVertexArray)       \
+GL_FUNC(glEnableVertexAttribArray)       \
+GL_FUNC(glDisableVertexAttribArray)       \
+GL_FUNC(glVertexAttribPointer)       \
+GL_FUNC(glDeleteShader)       \
+GL_FUNC(glUseProgram)       \
+GL_FUNC(glGetProgramInfoLog)       \
+GL_FUNC(glShaderSource)       \
+GL_FUNC(glCompileShader)       \
+GL_FUNC(glGetShaderiv)       \
+GL_FUNC(glGetShaderInfoLog)       \
+GL_FUNC(glAttachShader)       \
+GL_FUNC(glLinkProgram)       \
+GL_FUNC(glGetProgramiv)       \
+GL_FUNC(glCreateProgram)       \
+GL_FUNC(glGetUniformLocation)       \
+GL_FUNC(glUniform1fv)       \
+GL_FUNC(glUniform2fv)       \
+GL_FUNC(glUniform3fv)       \
+GL_FUNC(glUniform4fv)       \
+GL_FUNC(glUniform1f)       \
+GL_FUNC(glUniform2f)       \
+GL_FUNC(glUniform3f)       \
+GL_FUNC(glUniform4f)       \
+GL_FUNC(glUniform1i)       \
+GL_FUNC(glUniform2i)       \
+GL_FUNC(glUniform3i)       \
+GL_FUNC(glUniform4i)       \
+GL_FUNC(glUniformMatrix2fv)       \
+GL_FUNC(glUniformMatrix3fv)       \
+GL_FUNC(glUniformMatrix4fv)       \
+GL_FUNC(glUniformMatrix2x3fv)       \
+GL_FUNC(glUniformMatrix3x2fv)       \
+GL_FUNC(glUniformMatrix2x4fv)       \
+GL_FUNC(glUniformMatrix4x2fv)       \
+GL_FUNC(glUniformMatrix3x4fv)       \
+GL_FUNC(glUniformMatrix4x3fv)       \
+GL_FUNC(glDeleteVertexArrays)       \
+GL_FUNC(glDeleteBuffers)       \
+GL_FUNC(wglSwapIntervalEXT)       \
+GL_FUNC(glDrawElementsBaseVertex)       \
+GL_FUNC(glGenFramebuffers)       \
+GL_FUNC(glDeleteFramebuffers)       \
+GL_FUNC(glCheckFramebufferStatus)       \
+GL_FUNC(glBindFramebuffer)       \
+GL_FUNC(glFramebufferTexture2D)       \
+GL_FUNC(glGenRenderbuffers)       \
+GL_FUNC(glBindRenderbuffer)       \
+GL_FUNC(glRenderbufferStorage)       \
+GL_FUNC(glFramebufferRenderbuffer)       \
+GL_FUNC(glDrawBuffers)       \
+GL_FUNC(glActiveTexture)       \
+GL_FUNC(glGetUniformBlockIndex)       \
+GL_FUNC(glUniformBlockBinding)       \
+GL_FUNC(glBindBufferBase)
 
 //~
 struct opengl_backend {
- GLuint VertexArray;
- GLuint VertexBuffer;
- GLuint InstanceBuffer;
- GLuint LightsUniformBuffer;
- 
- GLuint ScreenVertexArray;
- 
- void NormalSetup();
- void UploadRenderData(dynamic_array<basic_vertex> *Vertices, dynamic_array<u32> *Indices);
- void UploadLights(color AmbientColor, f32 Exposure, array<render_light> Lights);
- void RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, f32 Scale);
+    GLuint VertexArray;
+    GLuint VertexBuffer;
+    GLuint InstanceBuffer;
+    GLuint LightsUniformBuffer;
+    
+    GLuint ScreenVertexArray;
+    
+    void NormalSetup();
+    void UploadRenderData(dynamic_array<basic_vertex> *Vertices, dynamic_array<u32> *Indices);
+    void UploadLights(color AmbientColor, f32 Exposure, array<render_light> Lights);
+    void RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, v2 OutputSize, f32 Scale);
 };
 
 
 #pragma pack(push, 1)
+#pragma warning( disable : 4200)
 struct opengl_color3 {
- f32 R, G, B;   // 3x4 bytes  0 12
- u32 Padding_0; // 1x4 bytes 12 16
+    f32 R, G, B;   // 3x4 bytes  0 12
+    u32 Padding_0; // 1x4 bytes 12 16
 };
 
 struct opengl_light {
- v2 P;                // 2x4 bytes  0  8
- f32 Z;               // 1x4 bytes  8 12
- f32 Radius;          // 1x4 bytes 12 16
- opengl_color3 Color; // 4x4 bytes 16 32
+    v2 P;                // 2x4 bytes  0  8
+    f32 Z;               // 1x4 bytes  8 12
+    f32 Radius;          // 1x4 bytes 12 16
+    opengl_color3 Color; // 4x4 bytes 16 32
 };
 
 struct opengl_lights_uniform_buffer {
- opengl_color3 AmbientColor;
- f32 Exposure;
- u32 LightCount; 
- u32 Padding_1;
- u32 Padding_2;
- opengl_light Lights[];
+    opengl_color3 AmbientColor;
+    f32 Time;
+    f32 Exposure;
+    u32 LightCount; 
+    u32 Padding_2;
+    opengl_light Lights[];
 };
 #pragma pack(pop)
 

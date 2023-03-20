@@ -3,18 +3,14 @@
 
 // TODO(Tyler): Do this in build.bat
 #define SNAIL_JUMPY_DEBUG_BUILD
-//#define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
+#define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
 
-#include "basics.h"
-#include "math.h"
-#include "intrinsics.h"
+#include "tyler_basics.h"
 #include "simd.h"
 
 //~ Constants TODO(Tyler): Several of these should be hotloaded in a variables file
-global_constant u32 DEFAULT_BUFFER_SIZE = 512;
-
 global_constant f32 MAXIMUM_SECONDS_PER_FRAME = (1.0f / 20.0f);
-global_constant f32 TARGET_SECONDS_PER_FRAME = (1.0f / 60.0f);
+global_constant f32 MINIMUM_SECONDS_PER_FRAME = (1.0f / 60.0f);
 
 global_constant u32 PHYSICS_ITERATIONS_PER_OBJECT = 4;
 global_constant f32 WALKABLE_STEEPNESS    = 0.1f;
@@ -26,163 +22,189 @@ global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
 global_constant char *ASSET_FILE_PATH = "assets.sja";
 global_constant char *STARTUP_LEVEL = "Debug";
 
+global_constant u32 MINIMUM_WINDOW_WIDTH  = 800;
+global_constant u32 MINIMUM_WINDOW_HEIGHT = 600;
+global_constant const char *WINDOW_NAME = "Snail Jumpy";
+global_constant const char *NORMAL_WINDOW_ICON_PATH = "other_data/sally.ico";
+global_constant const char *SMALL_WINDOW_ICON_PATH = "other_data/sally.ico";
+
+global_constant s32 AUDIO_SAMPLES_PER_SECOND = 48000;
+
 //~ TODO(Tyler): Things that need a better place to go
 enum entity_state {
- State_None,
- State_Idle,
- State_Moving,
- State_Jumping,
- State_Falling,
- State_Turning,
- State_Retreating,
- State_Stunned,
- State_Returning,
- 
- State_TOTAL,
+    State_None,
+    State_Idle,
+    State_Moving,
+    State_Jumping,
+    State_Falling,
+    State_Turning,
+    State_Retreating,
+    State_Stunned,
+    State_Returning,
+    
+    State_TOTAL,
 };
 
 enum direction {
- Direction_None,
- 
- Direction_North,
- Direction_Northeast,
- Direction_East,
- Direction_Southeast,
- Direction_South,
- Direction_Southwest,
- Direction_West,
- Direction_Northwest,
- 
- Direction_TOTAL,
- 
- Direction_Up    = Direction_North,
- Direction_Down  = Direction_South,
- Direction_Left  = Direction_West,
- Direction_Right = Direction_East,
+    Direction_None,
+    
+    Direction_North,
+    Direction_Northeast,
+    Direction_East,
+    Direction_Southeast,
+    Direction_South,
+    Direction_Southwest,
+    Direction_West,
+    Direction_Northwest,
+    
+    Direction_TOTAL,
+    
+    Direction_Up    = Direction_North,
+    Direction_Down  = Direction_South,
+    Direction_Left  = Direction_West,
+    Direction_Right = Direction_East,
 };
 
 typedef u32 entity_flags;
 enum _entity_flags {
- EntityFlag_None                 = 0,
- EntityFlag_CanBeStunned         = (1 << 0),
- EntityFlag_NotAffectedByGravity = (1 << 1),
- EntityFlag_FlipBoundaries       = (1 << 2),
+    EntityFlag_None                     = 0,
+    EntityFlag_CanBeStunned             = (1 << 0),
+    EntityFlag_NotAffectedByGravity     = (1 << 1),
+    EntityFlag_FlipBoundaries           = (1 << 2),
+    EntityFlag_Deleted                  = (1 << 3),
+    EntityFlag_TilemapTreatEdgesAsTiles = (1 << 4),
 };
 
+#if 0
 enum entity_type {
- EntityType_None = 0,
- 
- EntityType_Tilemap    = 1,
- EntityType_Coin       = 2,
- EntityType_Enemy      = 3,
- EntityType_Art        = 4,
- EntityType_Particles  = 5,
- EntityType_Gate       = 6,
- EntityType_Player     = 7,
- EntityType_Teleporter = 8,
- EntityType_Door       = 9,
- EntityType_Projectile = 10,
- 
- EntityType_TOTAL,
+    EntityType_None = 0,
+    
+    EntityType_Tilemap    = 1,
+    EntityType_Coin       = 2,
+    EntityType_Enemy      = 3,
+    EntityType_Art        = 4,
+    EntityType_Particles  = 5,
+    EntityType_Gate       = 6,
+    EntityType_Player     = 7,
+    EntityType_Teleporter = 8,
+    EntityType_Door       = 9,
+    EntityType_Projectile = 10,
+    
+    EntityType_TOTAL,
 };
+#endif
 
 //~ Enum to string tables
 local_constant char *TRUE_FALSE_TABLE[2] = {
- "false",
- "true",
-};
-
-local_constant char *ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
- "None",   // 0
- "Wall",   // 1
- "Coin",   // 2
- "Enemy",  // 3
- 0,        // 4
- 0,        // 5
- 0,        // 6
- "Player", // 7
- "Door",   // 8
- "Projectile", // 9
+    "false",
+    "true",
 };
 
 local_constant char *ENTITY_STATE_TABLE[State_TOTAL] = {
- "State none",
- "State idle",
- "State moving",
- "State jumping",
- "State falling",
- "State turning",
- "State retreating",
- "State stunned",
- "State returning",
+    "State none",
+    "State idle",
+    "State moving",
+    "State jumping",
+    "State falling",
+    "State turning",
+    "State retreating",
+    "State stunned",
+    "State returning",
 };
 
-local_constant char *DIRECTION_TABLE[Direction_TOTAL] = {
- "Direction none",
- "Direction north",
- "Direction northeast",
- "Direction east",
- "Direction southeast",
- "Direction south",
- "Direction southwest",
- "Direction west",
- "Direction northwest",
-};
+#define DIRECTIONS \
+DIRECTION("north",     Direction_North) \
+DIRECTION("northeast", Direction_Northeast) \
+DIRECTION("east",      Direction_East) \
+DIRECTION("southeast", Direction_Southeast) \
+DIRECTION("south",     Direction_South) \
+DIRECTION("southwest", Direction_Southwest) \
+DIRECTION("west",      Direction_West) \
+DIRECTION("northwest", Direction_Northwest) \
+DIRECTION("up",        Direction_Up) \
+DIRECTION("down",      Direction_Down) \
+DIRECTION("n",  Direction_North) \
+DIRECTION("ne", Direction_Northeast) \
+DIRECTION("e",  Direction_East) \
+DIRECTION("se", Direction_Southeast) \
+DIRECTION("s",  Direction_South) \
+DIRECTION("sw", Direction_Southwest) \
+DIRECTION("w",  Direction_West) \
+DIRECTION("nw", Direction_Northwest) \
+DIRECTION("u",  Direction_Up) \
+DIRECTION("d",  Direction_Down) \
+DIRECTION("northward",     Direction_North) \
+DIRECTION("northeastward", Direction_Northeast) \
+DIRECTION("eastward",      Direction_East) \
+DIRECTION("southeastward", Direction_Southeast) \
+DIRECTION("southward",     Direction_South) \
+DIRECTION("southwestward", Direction_Southwest) \
+DIRECTION("westward",      Direction_West) \
+DIRECTION("northwestward", Direction_Northwest) \
+DIRECTION("up",    Direction_Up) \
+DIRECTION("down",  Direction_Down) \
+DIRECTION("left",  Direction_Left) \
+DIRECTION("right", Direction_Right) 
+
 
 local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
- "Direction none",
- "Direction up",
- "Direction up right",
- "Direction right",
- "Direction down right",
- "Direction down",
- "Direction down left",
- "Direction left",
- "Direction up left",
+    "Direction none",
+    "Direction up",
+    "Direction up right",
+    "Direction right",
+    "Direction down right",
+    "Direction down",
+    "Direction down left",
+    "Direction left",
+    "Direction up left",
 };
 
 //~ Includes
 #include "os.h"
 #include "debug.h"
+#include "file_processing.h"
 #include "random.h"
 #include "helpers.cpp"
-#include "memory_arena.cpp"
-#include "array.cpp"
-#include "stack.cpp"
-#include "hash_table.cpp"
 #include "strings.cpp"
 #include "render.h"
 #include "fonts.cpp"
 #include "ui.h"
-#include "file_processing.h"
 #include "physics.h"
+#include "entity_type.h"
 #include "asset.h" 
+#include "audio_mixer.h"
+
+#include "game.h"
 #include "entity.h"
 #include "world.h"
 #include "world_editor.h"
+#include "menu.h"
 
-//~ Miscallaneous
-enum game_mode {
- GameMode_None,
- GameMode_Debug,
- GameMode_MainGame,
- GameMode_WorldEditor,
-};
-struct state_change_data {
- b8 DidChange;
- game_mode NewMode;
- const char *NewLevel;
-};
-
-
+global_constant os_key_code PAUSE_KEY = KeyCode_Escape;
 
 //~ Forward declarations
 internal inline void ChangeState(game_mode NewMode, string NewLevel);
-internal inline void ProcessDefaultEvent(os_event *Event);
 
-internal b8 EnemyCollisionResponse(physics_update *Update, physics_collision *Collision);
-internal b8 PlayerCollisionResponse(physics_update *Update, physics_collision *Collision);
-internal b8 DragonflyCollisionResponse(physics_update *Update, physics_collision *Collision);
+//~ 
+struct main_state {
+    asset_system Assets;
+    game_renderer Renderer;
+    audio_mixer Mixer;
+    os_input Input;
+    
+    entity_manager Entities;
+    world_manager Worlds;
+    
+    settings_state Settings;
+    menu_state Menu;
+    
+    world_editor WorldEditor;
+    ui_manager UI;
+    
+#if !defined(SNAIL_JUMPY_USE_PROCESSED_ASSETS)
+    asset_loader AssetLoader;
+#endif
+};
 
 #endif
 

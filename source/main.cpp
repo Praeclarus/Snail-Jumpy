@@ -14,27 +14,7 @@
 //~ Engine variables
 global debug_config DebugConfig;
 
-global game_renderer GameRenderer;
-
-global entity_manager EntityManager;
-global ui_manager UIManager;
-
 global state_change_data StateChangeData;
-
-global world_editor WorldEditor;
-
-global string_manager Strings;
-
-global world_manager WorldManager;
-
-global asset_system AssetSystem;
-
-global font_system FontSystem;
-
-//~ TODO(Tyler): Refactor these!
-global font MainFont; // TODO(Tyler): Remove this one
-global font TitleFont;
-global font DebugFont;
 
 //~ Gameplay variables
 global s32 Score;
@@ -43,214 +23,178 @@ global world_data *CurrentWorld;
 
 //~ Hotloaded variables file!
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_MainGame;
+global game_mode GameMode = GameMode_WorldEditor;
 
 //~ Helpers
 internal inline string
 String(const char *S){
- string Result = Strings.GetString(S);
- return(Result);
+    string Result = Strings.GetString(S);
+    return(Result);
 }
 
 //~ Includes
 #include "logging.cpp"
+#include "os.cpp"
+#include "file_processing.cpp"
 #include "render.cpp"
 #include "stream.cpp"
-#include "file_processing.cpp"
-#include "ui.cpp"
-#include "ui_window.cpp"
-#include "physics.cpp"
+#include "wav.cpp"
+#include "audio_mixer.cpp"
 #include "asset.cpp"
-#include "asset_loading.cpp"
+#include "debug.cpp"
+#include "ui.cpp"
+#include "physics.cpp"
+#include "ui_window.cpp"
 #include "entity.cpp"
-#include "debug_ui.cpp"
 #include "world.cpp"
+#include "asset_loading.cpp"
 
 #include "debug_game_mode.cpp"
 #include "world_editor.cpp"
 #include "game.cpp"
+#include "menu.cpp"
 
 //~ 
 
 internal void
-InitializeGame(){
- stbi_set_flip_vertically_on_load(true);
- 
- {
-  umw Size = Megabytes(200);
-  void *Memory = AllocateVirtualMemory(Size);
-  Assert(Memory);
-  InitializeArena(&PermanentStorageArena, Memory, Size);
- }{
-  umw Size = Gigabytes(1);
-  void *Memory = AllocateVirtualMemory(Size);
-  Assert(Memory);
-  InitializeArena(&TransientStorageArena, Memory, Size);
- }
- 
- LogFile = OpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
- 
- InitializeRendererBackend();
- GameRenderer.Initialize(&PermanentStorageArena, OSInput.WindowSize);
- 
- Strings.Initialize(&PermanentStorageArena);
- FontSystem.Initialize(&PermanentStorageArena);
- 
- FontSystem.LoadFont(String("debug_font"), "asset_fonts/Roboto-Regular.ttf", 22);
- FontSystem.LoadFont(String("title_font"), "asset_fonts/Roboto-Regular.ttf", 35);
- FontSystem.LoadFont(String("main_font"),  "asset_fonts/Press-Start-2P.ttf", 26);
- MainFont  = *FontSystem.FindFont(String("main_font"));
- TitleFont = *FontSystem.FindFont(String("title_font"));
- DebugFont = *FontSystem.FindFont(String("debug_font"));
- 
- EntityManager.Initialize(&PermanentStorageArena);
- WorldManager.Initialize(&PermanentStorageArena);
- UIManager.Initialize(&PermanentStorageArena);
- 
- //~ Load things
- LoadedImageTable = PushHashTable<const char *, image>(&PermanentStorageArena, 256);
- AssetSystem.Initialize(&PermanentStorageArena);
- WorldManager.LoadWorld(STARTUP_LEVEL);
- 
- WorldEditor.Initialize();
+MainStateInitialize(main_state *State, void *Data, u32 DataSize){
+    DEBUG_DATA_INITIALIZE(State);
+    
+    stbi_set_flip_vertically_on_load(true);
+    
+    {
+        umw Size = Megabytes(500);
+        void *Memory = OSVirtualAlloc(Size);
+        Assert(Memory);
+        InitializeArena(&GlobalPermanentMemory, Memory, Size);
+    }{
+        umw Size = Gigabytes(1);
+        void *Memory = OSVirtualAlloc(Size);
+        Assert(Memory);
+        InitializeArena(&GlobalTransientMemory, Memory, Size);
+    }
+    
+    //LogFile = OSOpenFile("log.txt", OpenFile_Write | OpenFile_Clear);
+    
+    InitializeRendererBackend();
+    State->Renderer.Initialize(&GlobalPermanentMemory, State->Input.WindowSize);
+    State->Renderer.RenderGroupInitialize(RenderGroupID_Lighting,   &State->Renderer.GameLightingShader,   1.0);
+    State->Renderer.RenderGroupInitialize(RenderGroupID_NoLighting, &State->Renderer.GameNoLightingShader, 1.0);
+    State->Renderer.RenderGroupInitialize(RenderGroupID_Noisy,   &State->Renderer.NoisyShader, 1.0);
+    State->Renderer.RenderGroupInitialize(RenderGroupID_UI,      &State->Renderer.DefaultShader, 1.0);
+    State->Renderer.RenderGroupInitialize(RenderGroupID_Scaled,  &State->Renderer.ScaledShader, State->Renderer.CameraScale);
+    State->Renderer.RenderGroupInitialize(RenderGroupID_Font,    &State->Renderer.FontShader,    1.0);
+    
+    State->Mixer.Initialize(&GlobalPermanentMemory);
+    
+    Strings.Initialize(&GlobalPermanentMemory);
+    State->UI.Fonts.Initialize(&GlobalPermanentMemory);
+    
+    State->UI.Fonts.LoadFont(String("normal_font"), "asset_fonts/Roboto-Regular.ttf", 22);
+    State->UI.Fonts.LoadFont(String("title_font"), "asset_fonts/Roboto-Regular.ttf", 35);
+    State->UI.Fonts.LoadFont(String("main_font"),  "asset_fonts/Press-Start-2P.ttf", 26);
+    DebugConfig.Font = State->UI.Fonts.FindFont(String("normal_font"));
+    
+    State->Entities.Initialize(&GlobalPermanentMemory);
+    State->Worlds.Initialize(&GlobalPermanentMemory);
+    State->UI.Initialize(&GlobalPermanentMemory, &State->Input, &State->Renderer);
+    
+    DebugConfig.MainState = State;
+    DebugConfig.UIGroup     = State->Renderer.GetRenderGroup(RenderGroupID_UI);
+    DebugConfig.ScaledGroup = State->Renderer.GetRenderGroup(RenderGroupID_Scaled);
+    
+    //~ Load things
+    State->Assets.Initialize(&GlobalPermanentMemory);
+    
+#if !defined(SNAIL_JUMPY_USE_PROCESSED_ASSETS)
+    State->AssetLoader.Initialize(&GlobalPermanentMemory, &State->Assets, &State->Mixer, &State->Worlds);
+    State->AssetLoader.LoadAssetFile(ASSET_FILE_PATH);
+#endif
+    
+    State->Worlds.LoadWorld(&State->Assets, &State->Entities, STARTUP_LEVEL);
+    
+    State->WorldEditor.Initialize(&GlobalPermanentMemory, &State->Worlds);
+    
+    //State->Mixer.PlaySound(AssetsFind(&State->Assets, SoundEffect, test_music), MixerSoundFlag_Music|MixerSoundFlag_Loop, 1.0f);
 }
 
 internal void
-GameUpdateAndRender(){
- //~ Prepare for next frame
- ProfileData.CurrentBlockIndex = 0;
- ArenaClear(&TransientStorageArena);
- UIManager.BeginFrame();
- 
- //~ Do next frame
- TIMED_FUNCTION();
- AssetSystem.LoadAssetFile(ASSET_FILE_PATH);
- 
- switch(GameMode){
-  case GameMode_MainGame: {
-   UpdateAndRenderMainGame();
-  }break;
-  case GameMode_Debug: {
-   UpdateAndRenderDebug();
-  }break;
-  case GameMode_WorldEditor: {
-   WorldEditor.UpdateAndRender();
-  }break;
- }
- 
- UIManager.EndFrame();
- DEBUGRenderOverlay();
- RendererRenderAll(&GameRenderer);
- 
- Counter += OSInput.dTime;
- 
- //~ Reset OS input
- {
-  for(u32 I=0; I<KeyCode_TOTAL; I++){
-   key_state State = OSInput.KeyboardState[I];
-   OSInput.KeyboardState[I] &= ~KeyState_JustDown;
-   OSInput.KeyboardState[I] &= ~KeyState_RepeatDown;
-   OSInput.KeyboardState[I] &= ~KeyState_JustUp;
-  }
-  
-  for(u32 I=0; I<MouseButton_TOTAL; I++){
-   key_state State = OSInput.MouseState[I];
-   OSInput.MouseState[I] &= ~KeyState_JustDown;
-   OSInput.MouseState[I] &= ~KeyState_JustUp;
-  }
-  
-  OSInput.ScrollMovement = 0;
- }
- 
- //~ Other
- if(StateChangeData.DidChange){
-  if(StateChangeData.NewMode == GameMode_None){
-   WorldManager.LoadWorld(StateChangeData.NewLevel);
-  }else if(StateChangeData.NewMode == GameMode_MainGame){
-   GameMode = GameMode_MainGame;
-   WorldManager.LoadWorld(StateChangeData.NewLevel);
-  }else if(StateChangeData.NewMode == GameMode_WorldEditor){
-   GameMode = GameMode_WorldEditor;
-  }
-  
-  StateChangeData = {};
- }
+MainStateDoFrame(main_state *State){
+    //~ Prepare for next frame
+    ProfileData.CurrentBlockIndex = 0;
+    ArenaClear(&GlobalTransientMemory);
+    
+    OSProcessInput(&State->Input);
+    
+    State->UI.BeginFrame();
+    
+    //~ Do next frame
+    TIMED_FUNCTION();
+    DO_DEBUG_INFO();
+    
+    b8 DoIt = true;
+#if !defined(SNAIL_JUMPY_USE_PROCESSED_ASSETS)
+    asset_loading_status LoadingStatus = State->AssetLoader.LoadAssetFile(ASSET_FILE_PATH);
+    DEBUG_STATEMENT(DebugInfo.AssetLoadingStatus = LoadingStatus);
+    DoIt = (LoadingStatus != AssetLoadingStatus_Errors);
+#endif
+    
+    if(DoIt){
+        font *MainFont = State->UI.Fonts.FindFont(String("main_font"));
+        
+        switch(GameMode){
+            case GameMode_MainGame: {
+                MainGameDoFrame(&State->Renderer, &State->Mixer, &State->Assets, &State->Input, 
+                                &State->Entities, &State->Worlds, MainFont,
+                                &State->WorldEditor, &State->Settings);
+            }break;
+            case GameMode_Debug: {
+                DebugDoFrame(State);
+            }break;
+            case GameMode_WorldEditor: {
+                State->WorldEditor.DoFrame(&State->Renderer, &State->UI, &State->Input, &State->Assets);
+            }break;
+            case GameMode_Menu: {
+                MenuDoFrame(&State->Renderer, &State->Mixer, &State->Assets, &State->Input, 
+                            &State->UI.Fonts, &State->Menu, &State->Settings);
+            }break;
+        }
+        
+        State->UI.EndFrame();
+        RendererRenderAll(&State->Renderer);
+    }
+    
+    Counter += State->Input.dTime;
+    
+    //~ Other
+    if(StateChangeData.DidChange){
+        if(StateChangeData.NewMode == GameMode_None){
+            State->Worlds.LoadWorld(&State->Assets, &State->Entities, StateChangeData.NewLevel);
+        }else if(StateChangeData.NewMode == GameMode_MainGame){
+            if(GameMode != GameMode_Menu){
+                State->Worlds.LoadWorld(&State->Assets, &State->Entities, StateChangeData.NewLevel);
+            }
+            GameMode = GameMode_MainGame;
+        }else if(StateChangeData.NewMode == GameMode_WorldEditor){
+            GameMode = GameMode_WorldEditor;
+        }else if(StateChangeData.NewMode == GameMode_Menu){
+            BeginPauseMenu(&State->Menu);
+            GameMode = GameMode_Menu;
+        }
+        
+        StateChangeData = {};
+    }
 }
 
 internal inline void
 ChangeState(game_mode NewMode, string NewLevel){
- StateChangeData.DidChange = true;
- StateChangeData.NewMode = NewMode;
- StateChangeData.NewLevel = Strings.GetString(NewLevel);
+    StateChangeData.DidChange = true;
+    StateChangeData.NewMode = NewMode;
+    StateChangeData.NewLevel = Strings.GetString(NewLevel);
 }
 
 internal inline void
 ToggleOverlay(_debug_overlay_flags Overlay){
- if(!(DebugConfig.Overlay & Overlay)) DebugConfig.Overlay |= Overlay;
- else DebugConfig.Overlay &= ~Overlay;
-}
-
-internal void
-ProcessDefaultEvent(os_event *Event){
- switch(Event->Kind){
-  case OSEventKind_KeyDown: {
-   switch((u32)Event->Key){
-    case KeyCode_Shift:   OSInput.KeyFlags |= KeyFlag_Shift;   break;
-    case KeyCode_Control: OSInput.KeyFlags |= KeyFlag_Control; break;
-    case KeyCode_Alt:     OSInput.KeyFlags |= KeyFlag_Alt;     break;
-    
-#if defined(SNAIL_JUMPY_DEBUG_BUILD)
-    case KeyCode_F1: ToggleOverlay(DebugOverlay_Miscellaneous); break;
-    case KeyCode_F2: ToggleOverlay(DebugOverlay_Profiler); break;
-    case KeyCode_F3: ToggleOverlay(DebugOverlay_Boundaries); break;
-    case KeyCode_F8: {
-     if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-      PhysicsDebugger.Flags &= ~PhysicsDebuggerFlags_StepPhysics;
-     }else{
-      PhysicsDebugger.Flags |= PhysicsDebuggerFlags_StepPhysics;
-     } 
-    }break;
-    case KeyCode_F9: if(PhysicsDebugger.Paused > 0) {
-     PhysicsDebugger.Paused--; 
-    } break;
-    case KeyCode_F10: PhysicsDebugger.Paused++; break;
-    
-    case 'J': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-     if(PhysicsDebugger.Scale > 0.1f){
-      PhysicsDebugger.Scale /= 1.01f;
-     }
-    } break;
-    case 'K': if(PhysicsDebugger.Flags & PhysicsDebuggerFlags_StepPhysics){
-     PhysicsDebugger.Scale *= 1.01f;
-    } break;
-#endif
-    
-   }
-   
-   OSInput.KeyboardState[Event->Key] |= KeyState_RepeatDown;
-   OSInput.KeyboardState[Event->Key] |= KeyState_IsDown;
-   if(Event->JustDown){
-    OSInput.KeyboardState[Event->Key] |= KeyState_JustDown;
-   }
-  }break;
-  case OSEventKind_KeyUp: {
-   switch((u32)Event->Key){
-    case KeyCode_Shift:   OSInput.KeyFlags &= ~KeyFlag_Shift;   break;
-    case KeyCode_Control: OSInput.KeyFlags &= ~KeyFlag_Control; break;
-    case KeyCode_Alt:     OSInput.KeyFlags &= ~KeyFlag_Alt;     break;
-   }
-   
-   OSInput.KeyboardState[Event->Key] = KeyState_JustUp;
-  }break;
-  case OSEventKind_MouseDown: {
-   OSInput.MouseState[Event->Button] |= KeyState_IsDown;
-   OSInput.MouseState[Event->Button] |= KeyState_JustDown;
-  }break;
-  case OSEventKind_MouseUp: {
-   OSInput.MouseState[Event->Button] = KeyState_JustUp;
-  }break;
-  case OSEventKind_MouseWheelMove: {
-   OSInput.ScrollMovement = Event->WheelMovement;
-  }break;
- }
+    if(!(DebugConfig.Overlay & Overlay)) DebugConfig.Overlay |= Overlay;
+    else DebugConfig.Overlay &= ~Overlay;
 }
