@@ -1,0 +1,5 @@
+#include "win32_resource.h"
+
+MAINICON ICON "other_data/sally.ico"
+
+// WIN32_PROCESSED_ASSETS RCDATA "processed_assets.sjap"
