@@ -1,4 +1,4 @@
-//TODO(Tyler): Implement an allocator for the stb libraries
+// TODO(Tyler): Implement an allocator for the stb libraries
 #define STB_NO_STDIO
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
@@ -23,7 +23,7 @@ global world_data *CurrentWorld;
 
 //~ Hotloaded variables file!
 // TODO(Tyler): Load this from a variables file at startup
-global game_mode GameMode = GameMode_WorldEditor;
+global game_mode GameMode = GameMode_MainGame;
 
 //~ Helpers
 internal inline string
@@ -100,6 +100,7 @@ MainStateInitialize(main_state *State, void *Data, u32 DataSize){
     State->UI.Initialize(&GlobalPermanentMemory, &State->Input, &State->Renderer);
     
     DebugConfig.MainState = State;
+    DebugConfig.FontGroup   = State->Renderer.GetRenderGroup(RenderGroupID_Font);
     DebugConfig.UIGroup     = State->Renderer.GetRenderGroup(RenderGroupID_UI);
     DebugConfig.ScaledGroup = State->Renderer.GetRenderGroup(RenderGroupID_Scaled);
     

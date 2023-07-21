@@ -68,9 +68,6 @@ enum direction {
 typedef u32 entity_flags;
 enum _entity_flags {
     EntityFlag_None                     = 0,
-    EntityFlag_CanBeStunned             = (1 << 0),
-    EntityFlag_NotAffectedByGravity     = (1 << 1),
-    EntityFlag_FlipBoundaries           = (1 << 2),
     EntityFlag_Deleted                  = (1 << 3),
     EntityFlag_TilemapTreatEdgesAsTiles = (1 << 4),
 };
@@ -158,6 +155,10 @@ local_constant char *SIMPLE_DIRECTION_TABLE[Direction_TOTAL] = {
     "Direction left",
     "Direction up left",
 };
+
+struct world_position;
+internal inline v2
+WorldPosP(world_position Pos, v2 Size={});
 
 //~ Includes
 #include "os.h"

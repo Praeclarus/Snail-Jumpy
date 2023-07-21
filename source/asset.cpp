@@ -58,6 +58,29 @@ SwitchTag(asset_tag *ID, asset_tag_id From, asset_tag_id To){
     return true;
 }
 
+internal inline b8
+DoesTrails(asset_system *Assets, entity *Entity){
+    if(HasTag(Entity->Tag, AssetTag_TrailSpeedy)) return true;
+    if(HasTag(Entity->Tag, AssetTag_TrailBouncy)) return true;
+    if(HasTag(Entity->Tag, AssetTag_TrailSticky)) return true;
+    return false;
+}
+
+internal inline snail_trail_type
+GetTrailType(asset_system *Assets, entity *Entity){
+    if(HasTag(Entity->Tag, AssetTag_TrailSpeedy)) return SnailTrail_Speedy;
+    if(HasTag(Entity->Tag, AssetTag_TrailBouncy)) return SnailTrail_Bouncy;
+    if(HasTag( Entity->Tag, AssetTag_TrailSticky)) return SnailTrail_Sticky;
+    return SnailTrail_None;
+}
+
+internal inline b8 
+IsTagAnEnemy(asset_tag Tag){
+    if(HasTag(Tag, AssetTag_Snail))     return true;
+    if(HasTag(Tag, AssetTag_Dragonfly)) return true;
+    return false;
+}
+
 //~ Sprite sheets
 internal inline u32
 SheetAnimationIndex(asset_sprite_sheet *Sheet, entity_state State, direction Direction){
@@ -129,6 +152,7 @@ internal inline void
 ChangeAnimationState(asset_animation *Animation, animation_state *AnimationState, entity_state NewState){
     if(NewState == State_None) return;
     AnimationState->State = NewState;
+    AnimationState->YOffsetT = 0.0f;
     AnimationState->T = 0.0f;
     animation_change_data *ChangeData = &Animation->ChangeDatas[AnimationState->State];
     if(ChangeData->Condition == ChangeCondition_CooldownOver){
@@ -170,8 +194,9 @@ UpdateSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation
         }
     }
     
-    State->YOffsetT += Sheet->YOffsetFPS*dTime;;
-    State->YOffsetT = ModF32(State->YOffsetT, (f32)Sheet->YOffsetCounts[AnimationIndex]);
+    State->YOffsetT += Sheet->YOffsetFPS*dTime;
+    State->YOffsetT = ModF32(State->YOffsetT, (f32)Sheet->
+                             YOffsetCounts[AnimationIndex]);
     
     return(Result);
 }
@@ -264,9 +289,15 @@ DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *St
             ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
         }
     }
-    
 }
 
+internal void 
+DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *State, 
+                  world_position Pos, z_layer Z, f32 dTime){
+    v2 P = WorldPosP(Pos);
+    P.X -= 0.5f*(Entity->SpriteSheet->FrameSize.X);
+    DoEntityAnimation(Group, Entity, State, P, Z, dTime);
+}
 //~ Arts
 
 void 
@@ -340,7 +371,6 @@ RenderArt(render_group *Group, asset_art *Art, v2 P, z_layer Z){
 }
 #endif
 
-
 internal inline tilemap_tile_place
 StringToTilePlace(const char *S){
     u32 Count = CStringLength(S);
@@ -364,6 +394,14 @@ StringToTilePlace(const char *S){
     }
     
     return(Result);
+}
+
+internal inline range_s32
+TilemapTileRange(asset_tilemap_tile_data *Tile){
+    range_s32 Result;
+    Result.Min = Tile->OffsetMin;
+    Result.Max = Result.Min+Tile->FramesPer*(Tile->OffsetMax-Tile->OffsetMin);
+    return Result;
 }
 
 global_constant tilemap_tile_place WedgePlaces[2*4] = {
@@ -479,6 +517,48 @@ RenderTileAtIndex(render_group *Group, asset_tilemap *Tilemap, v2 P, z_layer Z,
                V2(R.Max.X, R.Min.Y), T3, WHITE);
 }
 
+internal asset_tilemap_tile_data *
+TilemapFindTile(asset_tilemap *Tilemap, tilemap_tile_place Place, tile_type Type, tile_flags Flags){
+    
+    asset_tilemap_tile_data *FoundNormalTile = 0;
+    asset_tilemap_tile_data *FoundTile = 0;
+    
+    //~ Search tiles
+    for(u32 I=0; I<Tilemap->TileCount; I++){
+        asset_tilemap_tile_data *Tile = &Tilemap->Tiles[I];
+        tilemap_tile_place TilePlace = Tile->Place;
+        
+        if((TilePlace & Place) == Place){
+            if((Tile->Type & Type) && (Tile->Flags == Flags)){
+                FoundTile = Tile;
+                break;
+            }else if(!FoundNormalTile &&
+                     (Tile->Type & TileType_Tile) &&
+                     (Tile->Flags == Flags)){
+                FoundNormalTile = Tile;
+            }
+        }
+    }
+    
+    if(FoundTile) return FoundTile;
+    return FoundNormalTile;
+}
+
+internal inline void
+RenderTileByPlace(render_group *Group, asset_tilemap *Tilemap, v2 P, z_layer Z,
+                  tilemap_tile_place Place, u32 Seed=0, u32 Frame=0, 
+                  tile_type Type=TileType_Tile, tile_flags Flags=TileFlag_None){
+    asset_tilemap_tile_data *FoundTile = TilemapFindTile(Tilemap, Place, Type, Flags);
+    
+    if(!FoundTile) return;
+    
+    u32 OffsetSize = FoundTile->OffsetMax-FoundTile->OffsetMin;
+    Seed %= OffsetSize/FoundTile->FramesPer;
+    Seed += Frame;
+    u32 Offset = FoundTile->OffsetMin+Seed;
+    RenderTileAtIndex(Group, Tilemap, P, Z, Offset, FoundTile->Transform);
+}
+
 internal inline tilemap_data
 MakeTilemapData(memory_arena *Arena, u32 Width, u32 Height){
     tilemap_data Result = {};
@@ -492,8 +572,9 @@ MakeTilemapData(memory_arena *Arena, u32 Width, u32 Height){
 
 internal inline u32
 ChooseTileIndex(asset_tilemap_tile_data *Tile, u32 Seed){
+    u32 Random = GetRandomNumberJustSeed(Seed);
     u32 OffsetSize = Tile->OffsetMax - Tile->OffsetMin;
-    u32 Result = Tile->OffsetMin + (Seed%OffsetSize);
+    u32 Result = Tile->OffsetMin + (Random%OffsetSize);
     return(Result);
 }
 
@@ -597,7 +678,7 @@ CalculatePlace(tilemap_tile *Tiles, s32 Width, s32 Height, s32 X, s32 Y, b8 Boun
 }
 
 internal void
-SetTilemapTile(tilemap_tile *Tiles, tilemap_data *Data, u8 *PhysicsMap, u32 MapIndex, asset_tilemap_tile_data *Tile){
+SetTilemapTile(tilemap_tile *Tiles, tilemap_data *Data, u8 *PhysicsMap, tile_type *TileTypes, u32 MapIndex, asset_tilemap_tile_data *Tile){
     if(Tiles[MapIndex].OverrideVariation > 0){
         u32 Variation = Tiles[MapIndex].OverrideVariation - 1;
         u32 OffsetSize = Tile->OffsetMax - Tile->OffsetMin;
@@ -612,14 +693,13 @@ SetTilemapTile(tilemap_tile *Tiles, tilemap_data *Data, u8 *PhysicsMap, u32 MapI
     if(PhysicsMap && !(Tile->Flags & TileFlag_Art)){
         PhysicsMap[MapIndex] = Tile->BoundaryIndex+1;
     }
+    if(TileTypes) TileTypes[MapIndex] = Tile->Type;
 }
 
 internal void
 CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_data *Data, 
-                        u8 *PhysicsMap=0, b8 TreatEdgesAsTiles=false){
+                        u8 *PhysicsMap=0, b8 TreatEdgesAsTiles=false, tile_type *TileTypes=0){
     TIMED_FUNCTION();
-    
-    tilemap_tile Tile = {};
     
     s32 Width = (s32)Data->Width;
     s32 Height = (s32)Data->Height;
@@ -638,7 +718,6 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
                     Flags |= TileFlag_Art;
                 }
                 
-                asset_tilemap_tile_data *FoundNormalTile = 0;
                 asset_tilemap_tile_data *FoundTile = 0;
                 
                 //~ 
@@ -646,32 +725,19 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
                     u32 ID = Tiles[MapIndex].OverrideID-1;
                     for(u32 I=0; I<Tilemap->TileCount; I++){
                         asset_tilemap_tile_data *Tile = &Tilemap->Tiles[I];
-                        tilemap_tile_place TilePlace = Tile->Place;
+                        Assert(Tile->FramesPer == 1)
+                            
+                            tilemap_tile_place TilePlace = Tile->Place;
                         
                         if(Tile->ID == ID){
                             FoundTile = Tile;
                             break;
                         }
                     }
-                }else{
-                    
-                    //~ Search tiles
-                    for(u32 I=0; I<Tilemap->TileCount; I++){
-                        asset_tilemap_tile_data *Tile = &Tilemap->Tiles[I];
-                        tilemap_tile_place TilePlace = Tile->Place;
-                        
-                        if((TilePlace & Place) == Place){
-                            if((Tile->Type & Type) && (Tile->Flags == Flags)){
-                                FoundTile = Tile;
-                                break;
-                            }else if(!FoundNormalTile &&
-                                     (Tile->Type & TileType_Tile) &&
-                                     (Tile->Flags == Flags)){
-                                FoundNormalTile = Tile;
-                            }
-                        }
-                    }
-                    
+                }
+                
+                if(!FoundTile){
+                    FoundTile = TilemapFindTile(Tilemap, Place, Type, Flags);
                 }
                 
                 for(u32 I=0; I<Tilemap->ConnectorCount; I++){
@@ -683,8 +749,7 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
                     }
                 }
                 
-                if(FoundTile)            SetTilemapTile(Tiles, Data, PhysicsMap, MapIndex, FoundTile);
-                else if(FoundNormalTile) SetTilemapTile(Tiles, Data, PhysicsMap, MapIndex, FoundNormalTile);
+                if(FoundTile) SetTilemapTile(Tiles, Data, PhysicsMap, TileTypes, MapIndex, FoundTile);
             }
             MapIndex++;
         }

@@ -105,11 +105,6 @@ asset_loader::Initialize(memory_arena *Arena, asset_system *Assets,
     HashTableAdd(&EntityTypeTable, "player", ENTITY_TYPE(player_entity));
     HashTableAdd(&EntityTypeTable, "enemy",  ENTITY_TYPE(enemy_entity));
     
-    CollisionResponses = MakeHashTable<const char *, collision_response_function *>(Arena, 3);
-    HashTableAdd(&CollisionResponses, "PLAYER",    PlayerCollisionResponse);
-    HashTableAdd(&CollisionResponses, "ENEMY",     EnemyCollisionResponse);
-    HashTableAdd(&CollisionResponses, "DRAGONFLY", DragonflyCollisionResponse);
-    
     LoadedImageTable = MakeHashTable<const char *, image>(Arena, 256);
 }
 
@@ -1026,7 +1021,13 @@ asset_loader::ProcessSpriteSheet(){
             Size.Y = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             FrameSize = Size;
             Sheet->FrameSize = V2(Size);
-            
+        }else if(DoAttribute(String, "base_y_offset")){
+            f32 BaseYOffset = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            FOR_RANGE(I, 0, MAX_SPRITE_SHEET_ANIMATION_FRAMES){
+                FOR_RANGE(J, 0, MAX_SPRITE_SHEET_ANIMATIONS){
+                    Sheet->YOffsets[I][J] += BaseYOffset;
+                }
+            }
         }else{ 
             if(ProcessSpriteSheetStates(String, Sheet) != AssetLoadingStatus_Okay){
                 HANDLE_INVALID_ATTRIBUTE(String); 
@@ -1228,20 +1229,6 @@ asset_loader::ProcessEntity(){
             
             Entity->Damage = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             
-        }else if(DoAttribute(String, "collision_response")){
-            const char *ResponseName = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            
-            collision_response_function *Response = HashTableFind(&CollisionResponses, ResponseName);
-            if(!Response){
-                LogWarning("Invalid response function: '%s'!", ResponseName);
-                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            }
-            Entity->Response = Response;
-            
-        }else if(DoAttribute(String, "CAN_BE_STUNNED")){
-            Entity->Flags |= EntityFlag_CanBeStunned;
-        }else if(DoAttribute(String, "NO_GRAVITY")){
-            Entity->Flags |= EntityFlag_NotAffectedByGravity;
         }else{ HANDLE_INVALID_ATTRIBUTE(String); }
     }
     
@@ -1334,6 +1321,7 @@ asset_loader::ProcessSoundEffect(){
 if(CompareCStrings(S, Name_)){                             \
 if((Array)->Count > 1){                               \
 asset_tilemap_tile_data *PreviousTile = &(*(Array))[(Array)->Count-2]; \
+Tile->FramesPer = PreviousTile->FramesPer;        \
 Tile->OffsetMin = PreviousTile->OffsetMin;        \
 Tile->OffsetMax = PreviousTile->OffsetMax;        \
 Tile->Transform = Transform_;                     \
@@ -1381,6 +1369,8 @@ asset_loader::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
         return(AssetLoadingStatus_Warnings);
     }
     
+    asset_tag Tag = MaybeExpectTag();
+    
     if(!(Tile->Type & TileType_Connector)){
         u32 BoundaryIndex = SJA_EXPECT_UINT(&Reader, SeekNextAttribute(); return Result;);
         Tile->BoundaryIndex = (u8)BoundaryIndex;
@@ -1421,11 +1411,22 @@ asset_loader::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
         }while(false);
         
     }else{
-        u32 Count = SJA_EXPECT_INT(&Reader, SeekNextAttribute(); return AssetLoadingStatus_Warnings;);
-        
-        Tile->OffsetMin = *TileOffset;
-        *TileOffset += Count;
-        Tile->OffsetMax = *TileOffset;
+        if(HasTag(Tag, AssetTag_Animated)){
+            u32 Count     = SJA_EXPECT_INT(&Reader, SeekNextAttribute(); return AssetLoadingStatus_Warnings;);
+            u32 FramesPer = SJA_EXPECT_INT(&Reader, SeekNextAttribute(); return AssetLoadingStatus_Warnings;);
+            
+            Tile->FramesPer = FramesPer;
+            Tile->OffsetMin = *TileOffset;
+            *TileOffset += Count*FramesPer;
+            Tile->OffsetMax = *TileOffset;
+        }else{
+            u32 Count = SJA_EXPECT_INT(&Reader, SeekNextAttribute(); return AssetLoadingStatus_Warnings;);
+            
+            Tile->FramesPer = 1;
+            Tile->OffsetMin = *TileOffset;
+            *TileOffset += Count;
+            Tile->OffsetMax = *TileOffset;
+        }
     }
     
     return Result;
@@ -1435,7 +1436,7 @@ asset_loading_status
 asset_loader::ProcessTilemap(){
     asset_loading_status Result = AssetLoadingStatus_Okay;
     
-    const char *Name = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
+    const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
     CurrentAsset = Name;
     asset_tilemap *Tilemap = AssetsGet_(&InProgress, Tilemap, Name);
     *Tilemap = {};
@@ -1546,6 +1547,7 @@ asset_loader::ProcessTilemap(){
             }else{
                 u32 Count = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
                 
+                Tile->FramesPer = 1;
                 Tile->OffsetMin = TileOffset;
                 TileOffset += Count;
                 Tile->OffsetMax = TileOffset;

@@ -4,6 +4,9 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
                 entity_manager *Entities, world_manager *Worlds, font *MainFont,
                 world_editor *WorldEditor, settings_state *Settings){
     TIMED_FUNCTION();
+    
+    DO_DEBUG_INFO();
+    
     //~ 
     if(Input->KeyJustDown('E', KeyFlag_Control)) ToggleWorldEditor(WorldEditor);
     if(Input->KeyJustDown(KeyCode_Escape)) ChangeState(GameMode_Menu, MakeString(0));
@@ -16,8 +19,8 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
     
     
     render_group *GameGroup       = Renderer->GetRenderGroup(RenderGroupID_Lighting);
-    render_group *NoLightingGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
-    Entities->UpdateEntities(Renderer, Assets, Input, Settings);
+    render_group *GameUIGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
+    Entities->UpdateEntities(Renderer, Mixer, Assets, Input, Settings);
     Entities->RenderEntities(GameGroup, Assets, Renderer, Input->dTime, Worlds);
     
     player_entity *Player = Entities->Player;
@@ -34,7 +37,7 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
         }else if(CompletionCooldown < 0.3f*3.0f){
             Color.A = 2.0f * CompletionCooldown/3.0f;
         }
-        FontRenderString(NoLightingGroup, Font, Center, ZLayer(ZLayer_GameUI), Color, "Level completed!");
+        FontRenderString(GameUIGroup, Font, Center, ZLayer(ZLayer_GameUI), Color, "Level completed!");
         
         CompletionCooldown -= Input->dTime;
         if(CompletionCooldown < 0.00001f){
@@ -52,7 +55,7 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
         Percent = Entities->Player->WeaponChargeTime;
         Max.X += 70.0f*Percent;
         Max.Y += 5.0f;
-        RenderRect(GameGroup, MakeRect(Min, Max), ZLayer(0, ZLayer_GameUI), MakeColor(1.0f, 0.0f, 1.0f, 0.9f));
+        RenderRect(GameUIGroup, MakeRect(Min, Max), ZLayer(0, ZLayer_GameUI), MakeColor(1.0f, 0.0f, 1.0f, 0.9f));
     }
     
     //~ Health display
@@ -67,20 +70,20 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
         Assert(FullHearts <= 3);
         u32 I;
         for(I = 0; I < FullHearts; I++){
-            RenderSpriteSheetAnimationFrame(GameGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, 0);
+            RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, 0);
             P.X += XAdvance;
         }
         
         if(Remainder > 0){
             Remainder = 3 - Remainder;
-            RenderSpriteSheetAnimationFrame(GameGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, Remainder);
+            RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, Remainder);
             P.X += XAdvance;
             I++;
         }
         
         if(I < 3){
             for(u32 J = 0; J < 3-I; J++){
-                RenderSpriteSheetAnimationFrame(GameGroup, Asset, P, ZLayer(0, ZLayer_GameUI) , 1, 3);
+                RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI) , 1, 3);
                 P.X += XAdvance;
             }
         }
@@ -105,6 +108,6 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
     {
         v2 WindowSize = Renderer->ScreenToWorld(Input->WindowSize, 0);
         asset_font *Font = AssetsFind(Assets, Font, font_basic);
-        FontRenderString(NoLightingGroup, Font, V2(10, WindowSize.Y-10-Font->Height), ZLayer(ZLayer_GameUI), WHITE, "Score: %u", Score);
+        FontRenderString(GameUIGroup, Font, V2(10, WindowSize.Y-10-Font->Height), ZLayer(ZLayer_GameUI), WHITE, "Score: %u", Score);
     }
 }

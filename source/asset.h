@@ -51,9 +51,17 @@ global_constant u32 MAX_ENTITY_ASSET_BOUNDARIES = 8;
 global_constant u32 MAX_TILEMAP_BOUNDARIES = 8;
 
 #define ASSET_TAGS \
-ASSET_TAG("background", Background) \
-ASSET_TAG("enemy",      Enemy)      \
-ASSET_TAG("trails",     Trails)
+ASSET_TAG("background",       Background)  \
+ASSET_TAG("snail",            Snail)       \
+ASSET_TAG("dragonfly",        Dragonfly)   \
+ASSET_TAG("boxing_dragonfly", BoxingDragonfly)  \
+ASSET_TAG("trail_bouncy",     TrailBouncy) \
+ASSET_TAG("trail_speedy",     TrailSpeedy) \
+ASSET_TAG("trail_sticky",     TrailSticky) \
+ASSET_TAG("animated",         Animated)    \
+ASSET_TAG("art",              Art)         \
+
+;
 
 #define ASSET_TAG(S, N) AssetTag_##N,
 enum asset_tag_id {
@@ -297,8 +305,6 @@ struct asset_entity {
         };
     };
     
-    collision_response_function *Response;
-    
     collision_boundary *Boundaries;
     u32 BoundaryCount;
 };
@@ -351,12 +357,28 @@ enum tile_type_ {
     TileType_WedgeUpRight   = (1 << 2),
     TileType_WedgeDownLeft  = (1 << 3),
     TileType_WedgeDownRight = (1 << 4),
+    TileType_WedgeUp   = (TileType_WedgeUpLeft   | TileType_WedgeUpRight),
+    TileType_WedgeDown = (TileType_WedgeDownLeft | TileType_WedgeDownRight),
     TileType_Wedge = (TileType_WedgeUpLeft   | 
                       TileType_WedgeUpRight  | 
                       TileType_WedgeDownLeft | 
                       TileType_WedgeDownRight),
     TileType_Connector      = (1 << 5),
     TileTypeFlag_Art        = (1 << 6),
+};
+
+typedef u8 tile_direction;
+enum tile_direction_ {
+    TileDirection_None = (0 << 0),
+    TileDirection_Up    = (1 << Direction_Up),
+    TileDirection_Right = (1 << Direction_Right),
+    TileDirection_Down  = (1 << Direction_Down),
+    TileDirection_Left  = (1 << Direction_Left),
+    
+    TileDirection_UpLeft    = TileDirection_Up|TileDirection_Left,
+    TileDirection_UpRight   = TileDirection_Up|TileDirection_Right,
+    TileDirection_DownLeft  = TileDirection_Down|TileDirection_Left,
+    TileDirection_DownRight = TileDirection_Down|TileDirection_Right,
 };
 
 typedef u8 tile_flags;
@@ -392,13 +414,13 @@ struct asset_tilemap_tile_data {
     u32 ID;
     tilemap_tile_place Place;
     
+    u32 FramesPer;
     u32 OffsetMin;
     u32 OffsetMax;
     tile_transform Transform;
     u8 BoundaryIndex;
 };
 
-// TODO(Tyler): Implement tilemaps
 struct asset_tilemap {
     asset_loading_data LoadingData;
     
@@ -415,6 +437,10 @@ struct asset_tilemap {
     
     u32 BoundaryCount;
     collision_boundary *Boundaries;
+};
+
+struct new_tilemap_tile {
+    
 };
 
 //~ Fonts
@@ -593,7 +619,6 @@ struct asset_loader {
     hash_table<const char *, image> LoadedImageTable;
     hash_table<const char *, entity_state> StateTable;
     hash_table<const char *, entity_array_type>  EntityTypeTable;
-    hash_table<const char *, collision_response_function *> CollisionResponses;
     
     file_reader Reader;
     

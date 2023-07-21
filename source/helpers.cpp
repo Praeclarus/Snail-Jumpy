@@ -18,6 +18,12 @@ InverseDirection(direction Direction){
 }
 
 internal inline u32
+GetRandomNumberJustSeed(u32 Seed){
+    u32 RandomNumber = RANDOM_NUMBER_TABLE[(Seed * 3124 + 3809) % ArrayCount(RANDOM_NUMBER_TABLE)];
+    return(RandomNumber);
+}
+
+internal inline u32
 GetRandomNumber(u32 Seed){
     u32 RandomNumber = RANDOM_NUMBER_TABLE[(u32)(Counter*4132.0f + Seed) % ArrayCount(RANDOM_NUMBER_TABLE)];
     return(RandomNumber);

@@ -1,7 +1,7 @@
 
 #~
 : SpecialCommands
-worlds Array("Debug")
+#worlds Array("Debug")
 
 #~ @sja_animations
 : Animation "enemy"
@@ -35,8 +35,9 @@ worlds Array("Debug")
         consecutive FLIP 0  2  8  0
         not_consecutive Array(Frame(2) Frame(4)  Flip(2))  8  0
         not_consecutive Array( Flip(3) Frame(4) Frame(3))  8  0
-				y_offsets 0 10 Array(0 1 1 0 -1 -1 0 0 0 0)
-				y_offsets 1 10 Array(0 1 1 0 -1 -1 0 0 0 0)
+y_offsets 0 4 Array(0 1 0 -1)
+				y_offsets 1 4 Array(0 1 0 -1)
+base_y_offset -11
     state_none
         left  1
         right 2
@@ -163,17 +164,15 @@ worlds Array("Debug")
 
 : SpriteSheet "player"
     size 16 16
-    piece 0 "asset_sprite_sheets/test_avatar_sprite_sheet2.png"
-        consecutive  0 17 8 0
-        consecutive 17 17 8 0
-        consecutive 34  6 8 0
-        consecutive 40  6 8 0
-        consecutive 46  5 8 0
-        consecutive 51  5 8 0
-        consecutive 56  1 8 0
-        consecutive 57  1 8 0
-        consecutive 58  2 8 0
-        consecutive 60  2 8 0
+    piece 0 "asset_sprite_sheets/avatar_test_3.png"
+        consecutive  0 4 4 0
+        consecutive  4 4 4 0
+        consecutive  8 4 8 0
+        consecutive 12 4 8 0
+        consecutive 16 4 8 0
+        consecutive 20 4 8 0
+        consecutive 24 1 8 0
+        consecutive 25 1 8 0
     state_none
         left  1
         right 2
@@ -187,8 +186,8 @@ worlds Array("Debug")
         left  7
         right 8
     state_falling
-        left  9
-        right 10
+        left  5
+        right 6
 
 # : SpriteSheet overworld_player
 : Ignore 
@@ -221,6 +220,23 @@ worlds Array("Debug")
 	   piece 0 "asset_sprite_sheets/heart_8x8.png"
         consecutive 0 4 0 0
 
+: SpriteSheet "bouncy_snail"
+    size 16 16
+    piece 0 "asset_sprite_sheets/snail_test_bouncy.png"
+        consecutive   0 4 8 0
+        consecutive   4 4 8 0
+        consecutive   8 5 8 0
+        consecutive  13 5 8 0
+    state_none
+        left  1
+        right 2
+    state_moving
+        left  1
+        right 2
+   state_turning 
+        left  3
+        right 4
+
 #~ @sja_entities
 
 : Entity "player"
@@ -231,21 +247,18 @@ worlds Array("Debug")
 	   speed         70
 #    speed 150
 	   boundary 0 Boundary_Pill(0 0 3 8)
-	   collision_response PLAYER
 
-: Entity "snail" Tag("enemy")
+: Entity "snail" Tag("snail")
    	type          enemy
 	   piece         snail 0
 	   animation     enemy
     animation_var "stun_time" 3.0
 	   mass          1.0  
-	   speed         50
+	   speed         20
 	   boundary      0 Boundary_Circle(0 0 6)
 	   damage        2    
-	   collision_response ENEMY
-	   CAN_BE_STUNNED
 
-: Entity "sally" Tag("enemy")
+: Entity "sally" Tag("snail")
    	type          enemy
 	   piece         sally 0
 	   animation     enemy
@@ -254,10 +267,8 @@ worlds Array("Debug")
 	   speed         30
 	   boundary      0 Boundary_Circle(0 0 13)
 	   damage        3
-	   collision_response ENEMY
-	   CAN_BE_STUNNED
 
-: Entity "speedy" Tag("enemy")
+: Entity "speedy" Tag("snail")
    	type          enemy
 	   piece         speedy 0
 	   animation     enemy
@@ -266,10 +277,8 @@ worlds Array("Debug")
 	   speed         100
     boundary      0 Boundary_Circle(0 0 6)
 	   damage        1
-	   collision_response ENEMY
-	   CAN_BE_STUNNED
 
-: Entity "dragonfly" Tag("enemy")
+: Entity "dragonfly" Tag("dragonfly")
    	type          enemy
 	   piece         dragonfly 0
 	   animation     enemy
@@ -278,8 +287,16 @@ worlds Array("Debug")
 	   speed         50
 	   boundary      0 Boundary_Rect(0 11 31 3)
 	   damage        1
-	   collision_response DRAGONFLY
-	   NO_GRAVITY
+
+: Entity "bouncy_snail" Tag("snail" "trail_bouncy")
+   	type          enemy
+	   piece         bouncy_snail 0
+	   animation     enemy
+    animation_var "stun_time" 3.0
+	   mass          1.0  
+	   speed         50
+	   boundary      0 Boundary_Rect(0 0 12 12)
+	   damage        2    
 
 #~ @sja_arts
 
@@ -317,7 +334,7 @@ worlds Array("Debug")
 	
 #~ @sja_tilemaps
 
-: Tilemap grass_and_dirt
+: Tilemap "grass_and_dirt"
     path "asset_tilemaps/grass_and_dirt_platform.png"
     tile_size 16 16
     dimensions 9 9
@@ -378,7 +395,7 @@ worlds Array("Debug")
     wedge_down_left 3  "_X?_#X?_?" 2
     wedge_down_right 4 "?X_X#_?_?" REVERSE_PREVIOUS
 
-: Tilemap dirt
+: Tilemap "dirt"
     path "asset_tilemaps/dirt_platform.png"
     tile_size 16 16
     dimensions 7 6
@@ -416,7 +433,7 @@ worlds Array("Debug")
     wedge_up_right 2   "?_?X#_?_?" REVERSE_AND_ROTATE_PREVIOUS_270 
     tile 0             "?X?X#X?_?" 4
 
-: Tilemap cobblestone
+: Tilemap "cobblestone"
     path "asset_tilemaps/cobblestone_platform.png"
     tile_size 16 16
     dimensions 5 5
@@ -461,7 +478,7 @@ worlds Array("Debug")
     wedge_down_right 4 "?X?_#_?_?" ROTATE_PREVIOUS_90
     wedge_down_left 3 "?X?_#_?_?" REVERSE_AND_ROTATE_PREVIOUS_90
 
-: Tilemap plant
+: Tilemap "plant"
     path "asset_tilemaps/plant_platform.png"
     tile_size 16 16
     dimensions 9 7
@@ -514,7 +531,7 @@ worlds Array("Debug")
     wedge_up_left 1 "?_?_#X?_?" 2
     wedge_up_right 2 "?_?X#_?_?" REVERSE_PREVIOUS
 
-: Tilemap wood_plank
+: Tilemap "wood_plank"
     path "asset_tilemaps/wood_plank_platform.png"
     tile_size 16 16
     dimensions 5 6
@@ -553,7 +570,7 @@ worlds Array("Debug")
     art tile 0 "?_?X#_?X?" 1
     art tile 0 "?X?X#_?X?" 1
 
-: Tilemap metal_gate_art
+: Tilemap "metal_gate_art"
     path "asset_tilemaps/metal_gate_art.png"
     tile_size 16 32
     dimensions 5 2
@@ -565,7 +582,7 @@ worlds Array("Debug")
     art tile 0 "?_?X#X???" 1
     manual_tile art 0 1
 
-: Tilemap flower_box
+: Tilemap "flower_box"
     path "asset_tilemaps/flower_box_platform.png"
     tile_size 16 16
     boundary 0 Boundary_Rect(0 0 16 16)
@@ -575,7 +592,7 @@ worlds Array("Debug")
     tile 0 "???X#_???" REVERSE_PREVIOUS
     tile 0 "???X#X???" 2
 
-: Tilemap snail
+: Tilemap "snail"
     path "asset_tilemaps/snailsheet.png"
     tile_size 16 16
     dimensions 7 4
@@ -623,7 +640,7 @@ worlds Array("Debug")
     connector "?X_?#X???" REVERSE_PREVIOUS
     connector "???X#?_X?" V_REVERSE_PREVIOUS
 
-: Tilemap cactus
+: Tilemap "cactus"
     path "asset_tilemaps/cactus.png"
     tile_size 16 16
     dimensions 5 3
@@ -643,6 +660,54 @@ worlds Array("Debug")
     tile 0 "?X?X#X?_?" ROTATE_PREVIOUS_270
     tile 0 "?_?X#X?X?" ROTATE_PREVIOUS_90
     tile 0 "?X?X#X?X?" 2
+
+: Tilemap "trail_bouncy"
+path "asset_tilemaps/trail_bouncy.png"
+tile_size 16 16
+dimensions 10 6
+boundary 0 Boundary_Rect(0 0 16 10)
+tile                0 "___X#X___" 10
+                 wedge_up_left       0 "___X#X___" 4
+                 wedge_down_left     0 "___X#X___" 1
+wedge_up_right      0 "___X#X___" 4
+                 wedge_down_right    0 "___X#X___" 1
+                 wedge_up_left  Tag("animated") 0 "____#X___" 1 5
+                 wedge_up_right Tag("animated") 0 "___X#____" 1 5
+                 wedge_up_left  Tag("animated") 0 "___X#____" 1 5
+                 wedge_up_right Tag("animated") 0 "____#X___" 1 5
+tile Tag("animated") 0 "____#X___" 2 5
+tile Tag("animated") 0 "___X#____" REVERSE_PREVIOUS
+tile 0 "____#____" 1
+tile 0 "____#____" 1
+tile 0 "____#____" 1
+
+: Tilemap "trail_speedy"
+path "asset_tilemaps/trail_speedy.png"
+tile_size 16 16
+dimensions 10 6
+boundary 0 Boundary_Rect(0 0 16 10)
+tile                0 "___X#X___" 10
+                 wedge_up_left       0 "___X#X___" 4
+                 wedge_down_left     0 "___X#X___" 1
+wedge_up_right      0 "___X#X___" 4
+                 wedge_down_right    0 "___X#X___" 1
+                 wedge_up_left  Tag("animated") 0 "____#X___" 1 5
+                 wedge_up_right Tag("animated") 0 "___X#____" 1 5
+                 wedge_up_left  Tag("animated") 0 "___X#____" 1 5
+                 wedge_up_right Tag("animated") 0 "____#X___" 1 5
+tile Tag("animated") 0 "____#X___" 2 5
+tile Tag("animated") 0 "___X#____" REVERSE_PREVIOUS
+tile 0 "____#____" 1
+tile 0 "____#____" 1
+tile 0 "____#____" 1
+
+
+: Tilemap "trail_sticky"
+path "asset_tilemaps/trail_strong.png"
+tile_size 16 16
+dimensions 5 5
+boundary 0 Boundary_Rect(0 0 16 10)
+tile 0 "___?#?___" 10
 
 #~ @sja_fonts
 
@@ -983,3 +1048,7 @@ worlds Array("Debug")
 : SoundEffect "test_music"
     # path "asset_sound_effects/osj/Music.wav"
     path "asset_sound_effects/osj_music.wav"
+
+: SoundEffect "trail_bouncy"
+    path "asset_sound_effects/boing.WAV"
+

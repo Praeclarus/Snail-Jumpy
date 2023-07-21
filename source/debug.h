@@ -81,6 +81,7 @@ struct debug_config {
     debug_overlay_flags Overlay;
     
     main_state *MainState;
+    render_group *FontGroup;
     render_group *UIGroup;
     render_group *ScaledGroup;
     font *Font;

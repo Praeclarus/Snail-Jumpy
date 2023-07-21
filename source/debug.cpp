@@ -1,3 +1,4 @@
+
 #if defined(SNAIL_JUMPY_DEBUG_BUILD)
 
 #if defined(SNAIL_JUMPY_USE_PROCESSED_ASSETS)
@@ -191,9 +192,10 @@ debug_info::EndFrame(debug_scope_time_elapsed Elapsed) {
     game_renderer *Renderer = &State->Renderer;
     os_input *Input = &State->Input;
     
-    asset_font *Font = AssetsFind(Assets, Font, font_basic);
+    render_group *Group = Renderer->GetRenderGroup(RenderGroupID_Font);
+    font *Font = State->UI.Fonts.FindFont(String("normal_font"));
     
-    v2 DebugP = V2(10, 10);
+    v2 DebugP = V2(10, Renderer->OutputSize.Y-100);
     if(DisplayFlags & DebugDisplay_Basic){
 #if 0
         DebugP.Y += FontRenderString(Renderer, Font, DebugP, WHITE, 
@@ -255,7 +257,8 @@ debug_info::EndFrame(debug_scope_time_elapsed Elapsed) {
                 }
             }
             
-            //DebugP.Y -= FontRenderString(Renderer, Font, DebugP, Color, "%s", Message.Message);
+            DebugP.Y -= Font->Size;
+            RenderFormatString(Group, Font, Color, DebugP, ZLayer(ZLayer_DebugUI), "%s", Message.Message);
             
             Message.Timeout -= Input->dTime;
             

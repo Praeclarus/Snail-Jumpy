@@ -109,7 +109,7 @@ void main(){
     OutColor = vec4(MappedColor, Vec4HDRColor.a);
 #endif
     vec2 NoiseP = 10*vec2(FragmentUV.x, FragmentUV.y);
-    NoiseP.x -= 0.5*InTime;
+    NoiseP.x -= 0.8*InTime;
     NoiseP.y += 0.5*InTime;
     OutColor *= Dampen(noise(NoiseP)); 
     

@@ -66,15 +66,6 @@ entity_type_flags ENTITY_TYPE_TYPE_FLAGS[EntityArrayType_TOTAL]  = {
 };
 #undef ENTITY_TYPE_
 
-#define ENTITY_TYPE_(TypeName, TypeFlags, LayerFlags, ...) (LayerFlags),
-physics_layer_flags ENTITY_TYPE_LAYER_FLAGS[EntityArrayType_TOTAL]  = {
-    PhysicsLayerFlag_None,
-    PLAYER_ENTITY_TYPE
-        
-        ENTITY_TYPES
-};
-#undef ENTITY_TYPE_
-
 #define ENTITY_TYPE_(TypeName, TypeFlags, LayerFlags, NameString, ...) NameString,
 const char *ENTITY_TYPE_NAME_TABLE[EntityArrayType_TOTAL]  = {
     "None",

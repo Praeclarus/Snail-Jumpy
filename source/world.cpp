@@ -62,6 +62,7 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
                 collision_boundary *Boundary = Entities->AllocBoundaries(1);
                 *Boundary = MakeCollisionRect(V2(0), V2(8.0f));
                 
+#if 0                
                 u32 N = Minimum(CurrentWorld->CoinsToSpawn, Entities->CoinData.NumberOfCoinPs);
                 for(u32 I = 0; I < N; I++){
                     coin_entity *Coin = AllocEntity(Entities, World, coin_entity);
@@ -70,16 +71,14 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
                     Coin->PhysicsLayer = ENTITY_TYPE_LAYER_FLAGS[ENTITY_TYPE(coin_entity)];
                     Coin->Boundaries = Boundary;
                     Coin->BoundaryCount = 1;
-                    Coin->TriggerResponse = CoinResponse;
                     Coin->Bounds = Boundary->Bounds;
-                    UpdateCoin(Entities, Coin);
                     Coin->Animation.Cooldown = 0.0f;
                 }
                 Score = 0; // UpdateCoin changes this value
+#endif
             }
         }
     }
-    
 }
 
 //~ Loading from file
@@ -93,11 +92,12 @@ if((MinVersion <= Header->Version) && (Header->Version <= MaxVersion)) \
 
 #define WORLDS_READ_ENTITY(Entity, Type_)  \
 Entity->Type = Type_;                              \
-WORLDS_READ_VAR(Entity->Flags, 1, U32_MAX);       \
-WORLDS_READ_VAR(Entity->P.X, 1, U32_MAX);         \
-WORLDS_READ_VAR(Entity->P.Y, 1, U32_MAX);         \
-WORLDS_READ_VAR(Entity->ID.WorldID, 1, U32_MAX);  \
-WORLDS_READ_VAR(Entity->ID.EntityID, 1, U32_MAX); \
+v2 P = {};                                         \
+WORLDS_READ_VAR(Entity->Flags, 1, U32_MAX);        \
+WORLDS_READ_VAR(P.X, 1, U32_MAX);                  \
+WORLDS_READ_VAR(P.Y, 1, U32_MAX);                  \
+WORLDS_READ_VAR(Entity->ID.WorldID, 1, U32_MAX);   \
+WORLDS_READ_VAR(Entity->ID.EntityID, 1, U32_MAX);  \
 WORLDS_READ_ASSET(Entity->Asset, 2, U32_MAX);
 
 #define WORLDS_READ_STRING(Var, MinVersion, MaxVersion) \
@@ -149,7 +149,7 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
         WORLDS_READ_VAR(Entity->Type, 1, U32_MAX);
         WORLDS_READ_ENTITY(Entity, Entity->Type);
         WORLDS_READ_ASSET(Entity->Asset, 1, 1);
-        SetupEntity(Assets, Entity, Entity->Type, Entity->P, Entity->Asset);
+        SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
     }
     
     for(u32 I=0; I<Header->EntityCount; I++){
@@ -161,7 +161,7 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
             WORLDS_READ_VAR(Entity->Width, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->Height, 1, U32_MAX);
             WORLDS_READ_ARRAY(Entity->Tiles, Entity->Width*Entity->Height, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, Entity->P, Entity->Asset);
+            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
         }else if(Type == ENTITY_TYPE(enemy_entity)){
             enemy_entity *Entity = AllocEntity(&World->Manager, 0, enemy_entity);
             WORLDS_READ_ENTITY(Entity, Entity->Type);
@@ -172,28 +172,30 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
             WORLDS_READ_VAR(Entity->PathEnd.Y, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->TargetY, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->Animation.Direction, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, Entity->P, Entity->Asset);
+            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
         }else if(Type == ENTITY_TYPE(teleporter_entity)){
             teleporter_entity *Entity = AllocEntity(&World->Manager, 0, teleporter_entity);
             WORLDS_READ_ENTITY(Entity, Entity->Type);
             WORLDS_READ_STRING(Entity->Level, 1, U32_MAX);
             WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, Entity->P, Entity->Asset);
+            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
         }else if(Type == ENTITY_TYPE(door_entity)){
             door_entity *Entity = AllocEntity(&World->Manager, 0, door_entity);
             WORLDS_READ_ENTITY(Entity, Entity->Type);
-            WORLDS_READ_VAR(Entity->Bounds.X0, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->Bounds.Y0, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->Bounds.X1, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->Bounds.Y1, 1, U32_MAX);
+            rect Bounds = {};
+            WORLDS_READ_VAR(Bounds.X0, 1, U32_MAX);
+            WORLDS_READ_VAR(Bounds.Y0, 1, U32_MAX);
+            WORLDS_READ_VAR(Bounds.X1, 1, U32_MAX);
+            WORLDS_READ_VAR(Bounds.Y1, 1, U32_MAX);
+            Entity->Size = RectSize(Bounds);
             WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, Entity->P, Entity->Asset);
+            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
         }else if(Type == ENTITY_TYPE(art_entity)){
             art_entity *Entity = AllocEntity(&World->Manager, 0, art_entity);
             Entity->Type = Type;
             WORLDS_READ_ENTITY(Entity, Entity->Type);
             WORLDS_READ_ASSET(Entity->Asset, 1, 1);
-            SetupEntity(Assets, Entity, Entity->Type, Entity->P, Entity->Asset);
+            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
         }
     }
     
@@ -235,8 +237,8 @@ Offset += (Count)*sizeof(*(Array)); }
 #define WORLDS_WRITE_ENTITY(Entity)           \
 WORLDS_WRITE_VAR(Entity->Type);        \
 WORLDS_WRITE_VAR(Entity->Flags);       \
-WORLDS_WRITE_VAR(Entity->P.X) ;        \
-WORLDS_WRITE_VAR(Entity->P.Y);         \
+WORLDS_WRITE_VAR(WorldPosP(Entity->Pos).X); \
+WORLDS_WRITE_VAR(WorldPosP(Entity->Pos).Y); \
 WORLDS_WRITE_VAR(Entity->ID.WorldID);  \
 WORLDS_WRITE_VAR(Entity->ID.EntityID); \
 WORLDS_WRITE_ASSET(Entity->Asset);
@@ -249,7 +251,7 @@ world_manager::WriteWorldsToFiles(){
         
         char Path[512];
         stbsp_snprintf(Path, 512, "worlds/%s.sjw", World->Name);
-        os_file *File = OSOpenFile(Path, OpenFile_Write);\
+        os_file *File = OSOpenFile(Path, OpenFile_Write);
         Assert(File);
         
         world_file_header Header = {};
@@ -307,10 +309,11 @@ world_manager::WriteWorldsToFiles(){
             door_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
             WORLDS_WRITE_STRING(Entity->RequiredLevel);
-            WORLDS_WRITE_VAR(Entity->Bounds.X0);
-            WORLDS_WRITE_VAR(Entity->Bounds.Y0);
-            WORLDS_WRITE_VAR(Entity->Bounds.X1);
-            WORLDS_WRITE_VAR(Entity->Bounds.Y1);
+            rect Bounds = SizeRect(V2(0), Entity->Size);
+            WORLDS_WRITE_VAR(Bounds.X0);
+            WORLDS_WRITE_VAR(Bounds.Y0);
+            WORLDS_WRITE_VAR(Bounds.X1);
+            WORLDS_WRITE_VAR(Bounds.Y1);
         }
         
         FOR_ENTITY_TYPE(&World->Manager, art_entity){

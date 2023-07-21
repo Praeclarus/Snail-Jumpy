@@ -17,10 +17,12 @@ struct entity_id {
     u64 EntityID;
 };
 
+struct physics_group;
 global_constant z_layer ENTITY_DEFAULT_Z = ZLayer(1, ZLayer_GameEntities, 0);
 struct entity {
     entity_id ID;
     asset_id Asset;
+    asset_tag Tag;
     
     entity_array_type Type;
     entity_type_flags TypeFlags;
@@ -28,23 +30,16 @@ struct entity {
     
     animation_state Animation;
     
-    entity *Parent;
+    world_position Pos;
+    v2 dP;
     physics_update *Update;
+    physics_floor *OwnedFloor;
     
-    physics_state_flags PhysicsFlags;
-    physics_layer_flags PhysicsLayer;
+    v2 Size;
     
-    v2 P, dP, TargetdP;
-    v2 FloorNormal;
-    
-    rect Bounds;
-    collision_boundary *Boundaries;
-    u8 BoundaryCount;
-    
-    union{
-        collision_response_function *Response;
-        trigger_response_function   *TriggerResponse;
-    };
+    // Game stuff
+    snail_trail_type TrailEffect;
+    v2 UpNormal;
 };
 
 struct tilemap_entity : public entity {
@@ -52,7 +47,6 @@ struct tilemap_entity : public entity {
     tilemap_data TilemapData;
     u8 *PhysicsMap;
     
-    // TODO(Tyler): TEMPORARY
     u32 Width;
     u32 Height;
     tilemap_tile *Tiles;
@@ -74,6 +68,13 @@ struct teleporter_entity : public entity {
     b8 IsSelected;
 };
 
+struct trail {
+    entity *Parent;
+    snail_trail_type Type;
+    physics_floor *Floor;
+    range_f32 Range;
+};
+
 struct enemy_entity : public entity {
     f32 Speed;
     union{
@@ -82,6 +83,8 @@ struct enemy_entity : public entity {
     };
     f32 TargetY; // Dragonflies
     s32 Damage;
+    
+    trail *CurrentTrail;
 };
 
 struct player_entity : public entity {
@@ -89,6 +92,7 @@ struct player_entity : public entity {
     f32 JumpTime;
     f32 WeaponChargeTime;
     v2 StartP;
+    v2 JumpNormal;
 };
 
 struct projectile_entity : public entity {
@@ -100,14 +104,27 @@ struct art_entity : public entity {
 };
 
 
+
+typedef u8 tilemap_floor_side;
+enum tilemap_floor_side_ {
+    TilemapFloorSide_None = (0 << 0),
+    TilemapFloorSide_Up    = (1 << Direction_Up),
+    TilemapFloorSide_Right = (1 << Direction_Right),
+    TilemapFloorSide_Down  = (1 << Direction_Down),
+    TilemapFloorSide_Left  = (1 << Direction_Left),
+};
+
 //~
 struct world_manager;
 struct entity_manager {
     memory_arena Memory;
     
     coin_data CoinData;
+    u32 ActualEntityCount;
     u32 EntityCount;
     u64 EntityIDCounter=1;
+    
+    dynamic_array<trail> Trails;
     
 #define ENTITY_TYPE_(TypeName, ...) bucket_array<TypeName, 32> EntityArray_##TypeName;
     player_entity *Player;
@@ -117,33 +134,46 @@ struct entity_manager {
     
     void Initialize(memory_arena *Arena);
     void Reset();
-    void UpdateEntities(game_renderer *Renderer, asset_system *Assets, os_input *Input, settings_state *Settings);
+    void UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Assets, os_input *Input, settings_state *Settings);
     void RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, f32 dTime, world_manager *Worlds);
+    void MaybeDoTrails(asset_system *Assets, enemy_entity *Entity, f32 dTime);
+    void RenderTrail(render_group *Group, asset_system *Assets, trail *Trail, f32 dTime);
+    void EntityTestTrails(entity *Entity);
     inline void DamagePlayer(u32 Damage);
     inline void LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena);
     
     entity *AllocBasicEntity(world_data *World, entity_array_type Type);
-    void RemoveEntity(entity *Entity);
+    void FullRemoveEntity(entity *Entity);
+    
+    void DeleteEntity(entity *Entity);
+    void ReturnEntity(entity *Entity);
     
     //~ Physics
     bucket_array<physics_particle_system, 64> ParticleSystems;
+    array<physics_floor> PhysicsFloors;
     
     memory_arena ParticleMemory;
-    memory_arena PermanentBoundaryMemory;
     memory_arena BoundaryMemory;
-    
-    void DoFloorRaycast(physics_update_context *Context, entity *Entity, physics_layer_flags Layer, f32 Depth);
-    void DoPhysics(asset_system *Assets, physics_update_context *Context, f32 dTime);
-    
-    void DoStaticCollisions(physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta);
-    void DoTriggerCollisions(physics_trigger_collision *OutTrigger, collision_boundary *Boundary, v2 P, v2 Delta);
-    void DoCollisionsRelative(physics_update_context *Context, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, entity *EntityA, physics_layer_flags Layer, u32 StartIndex=0);
-    void DoCollisionsNotRelative(physics_update_context *Context, physics_collision *OutCollision, collision_boundary *Boundary, v2 P, v2 Delta, entity *EntityA, physics_layer_flags Layer);
     
     physics_particle_system *AddParticleSystem(v2 P, collision_boundary *Boundary, u32 ParticleCount, f32 COR);
     
-    collision_boundary *AllocPermanentBoundaries(u32 Count);
     collision_boundary *AllocBoundaries(u32 Count);
+    
+    world_position DoFloorRaycast(world_position Pos, v2 Size, v2 GravityNormal);
+    void DoPhysics(audio_mixer *Mixer, asset_system *Assets, physics_update_context *Context, f32 dTime);
+    
+    void TilemapCalculateFloorBlob(asset_tilemap *Asset, tilemap_entity *Entity, dynamic_array<physics_floor> *Floors, 
+                                   tilemap_floor_side *DoneTiles, tile_type *TileTypes, 
+                                   direction Up, s32 X, s32 Y);
+    void TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, tile_type *Types, tilemap_entity *Entity);
+    
+    void HandleCollision(asset_system *Assets, physics_update *Update, f32 TimeElapsed);
+    inline physics_floor *FloorFindFloor(physics_floor *Floor, f32 S);
+    inline physics_floor *FloorPrevFloor(physics_floor *Floor);
+    inline physics_floor *FloorNextFloor(physics_floor *Floor);
+    
+    void CalculateCollision(physics_update *UpdateA, physics_update *UpdateB, v2 Supplemental);
+    void CalculateFloorCollision(physics_update *UpdateA, physics_floor *Floor, v2 Supplemental);
 };
 
 internal inline entity_iterator

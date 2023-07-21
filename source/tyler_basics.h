@@ -217,9 +217,27 @@ Floor(f32 A){
     return(floorf(A));
 }
 
+internal inline f32
+FloorTo(f32 A, f32 CellSize){
+    A /= CellSize;
+    f32 Result = Floor(A);
+    Result *= CellSize;
+    
+    return(Result);
+}
+
 tyler_function inline f32
 Ceil(f32 A){
     return(ceilf(A));
+}
+
+internal inline f32
+CeilTo(f32 A, f32 CellSize){
+    A /= CellSize;
+    f32 Result = Ceil(A);
+    Result *= CellSize;
+    
+    return(Result);
 }
 
 tyler_function inline f32
@@ -228,6 +246,15 @@ Round(f32 A)
     f32 Result;
     if(A < 0) Result = Floor((A - 0.5f));
     else Result = Floor((A + 0.5f));
+    return(Result);
+}
+
+internal inline f32
+RoundTo(f32 A, f32 CellSize){
+    A /= CellSize;
+    f32 Result = Round(A);
+    Result *= CellSize;
+    
     return(Result);
 }
 
@@ -346,7 +373,7 @@ SafeRatio0(u64 Numerator, u64 Denominator){
 tyler_function inline f32
 Lerp(f32 A, f32 B, f32 T){
     T = Clamp(T, 0.0f, 1.0f);
-    f32 Result = T*A + (1.0f-T)*B;
+    f32 Result = A + T*(B-A);
     return(Result);
 }
 
@@ -679,6 +706,54 @@ V2Lerp(v2 A, v2 B, f32 T){
     return(Result);
 }
 
+tyler_function inline v2
+V2AbsoluteValue(v2 A){
+    A.X = AbsoluteValue(A.X);
+    A.Y = AbsoluteValue(A.Y);
+    return A;
+}
+
+internal inline v2
+V2RoundTo(v2 P, v2 CellSize){
+    P.X /= CellSize.X;
+    P.Y /= CellSize.Y;
+    v2 Result = V2(Round(P.X), Round(P.Y));
+    Result.X *= CellSize.X;
+    Result.Y *= CellSize.Y;
+    
+    return(Result);
+}
+
+internal inline v2
+V2CeilTo(v2 P, v2 CellSize){
+    P.X /= CellSize.X;
+    P.Y /= CellSize.Y;
+    v2 Result = V2(Ceil(P.X), Ceil(P.Y));
+    Result.X *= CellSize.X;
+    Result.Y *= CellSize.Y;
+    
+    return(Result);
+}
+
+internal inline v2
+V2FloorTo(v2 P, v2 CellSize){
+    P.X /= CellSize.X;
+    P.Y /= CellSize.Y;
+    v2 Result = V2(Floor(P.X), Floor(P.Y));
+    Result.X *= CellSize.X;
+    Result.Y *= CellSize.Y;
+    
+    return(Result);
+}
+
+internal inline v2 
+V2NewCoords(v2 Point, v2 NewX, v2 NewY){
+    v2 Result;
+    Result.X = V2Dot(NewX, Point);
+    Result.Y = V2Dot(NewY, Point);
+    return Result;
+}
+
 //~ V2S
 tyler_function inline v2s
 operator+(v2s A, v2s B)
@@ -999,6 +1074,209 @@ HSBToRGB(hsb_color HSBColor){
     return(Result);
 }
 
+//~ Range S32
+union range_s32 {
+    struct {
+        s32 Min;
+        s32 Max;
+    };
+    struct {
+        s32 Start;
+        s32 End;
+    };
+};
+
+tyler_function inline range_s32
+MakeRangeS32(s32 Start, s32 End){
+    range_s32 Result;
+    Result.Start = Minimum(Start, End);
+    Result.End   = Maximum(Start, End);
+    return Result;
+}
+
+tyler_function inline range_s32
+SizeRangeS32(s32 Start, s32 Size){
+    range_s32 Result = MakeRangeS32(Start, Start+Size);
+    return Result;
+}
+
+tyler_function inline s32
+RangeSize(range_s32 Range){
+    return Range.End-Range.Start;
+}
+
+tyler_function inline range_s32
+RangeRectify(range_s32 Range){
+    range_s32 Result;
+    Result.Start = Minimum(Range.Start, Range.End);
+    Result.End   = Maximum(Range.Start, Range.End);
+    return Result;
+}
+
+tyler_function inline range_s32
+RangeShift(range_s32 Range, s32 Shift){
+    range_s32 Result = Range;
+    Result.Start += Shift;
+    Result.End   += Shift;
+    return Result;
+}
+
+tyler_function inline b8
+RangeContains(range_s32 Range, s32 Value){
+    b8 Result = (Range.Min < Value) && (Value < Range.Max);
+    return Result;
+}
+
+tyler_function inline b8
+RangeContainsInclusive(range_s32 Range, s32 Value){
+    b8 Result = (Range.Min <= Value) && (Value <= Range.Max);
+    return Result;
+}
+
+tyler_function inline b8
+RangeContains(range_s32 A, range_s32 B){
+    b8 Result = (A.Min < B.Min) && (B.Max < A.Max);
+    return Result;
+}
+
+tyler_function inline b8
+RangeContainsInclusive(range_s32 A, range_s32 B){
+    b8 Result = (A.Min <= B.Min) && (B.Max <= A.Max);
+    return Result;
+}
+
+tyler_function inline range_s32
+RangeCrop(range_s32 Super, range_s32 Sub){
+    range_s32 Result;
+    Result.Min = Maximum(Super.Min, Sub.Min);
+    Result.Max = Minimum(Super.Max, Sub.Max);
+    return Result;
+}
+
+tyler_function inline s32
+RangeClamp(range_s32 R, s32 S){
+    S = Clamp(S, R.Min, R.Max);
+    return S;
+}
+
+tyler_function inline b8
+RangeOverlaps(range_s32 A, range_s32 B){
+    b8 Result = (RangeContains(A, B.Min) || RangeContains(A, B.Max));
+    return Result;
+}
+
+tyler_function inline b8
+RangeOverlapsInclusive(range_s32 A, range_s32 B){
+    b8 Result = (RangeContainsInclusive(A, B.Min) || RangeContainsInclusive(A, B.Max));
+    return Result;
+}
+
+//~ Range F32
+union range_f32 {
+    struct {
+        f32 Min;
+        f32 Max;
+    };
+    struct {
+        f32 Start;
+        f32 End;
+    };
+};
+
+#define INFINITE_RANGE MakeRangeF32(F32_NEGATIVE_INFINITY, F32_POSITIVE_INFINITY)
+
+tyler_function inline range_f32
+MakeRangeF32(f32 Start, f32 End){
+    range_f32 Result;
+    Result.Start = Minimum(Start, End);
+    Result.End   = Maximum(Start, End);
+    return Result;
+}
+
+tyler_function inline range_f32
+SizeRangeF32(f32 Start, f32 Size){
+    range_f32 Result = MakeRangeF32(Start, Start+Size);
+    return Result;
+}
+
+tyler_function inline range_f32
+CenterRangeF32(f32 Center, f32 Size){
+    Center -= 0.5f*Size;
+    range_f32 Result = MakeRangeF32(Center, Center+Size);
+    return Result;
+}
+
+tyler_function inline f32
+RangeSize(range_f32 Range){
+    return Range.End-Range.Start;
+}
+
+tyler_function inline range_f32
+RangeRectify(range_f32 Range){
+    range_f32 Result;
+    Result.Start = Minimum(Range.Start, Range.End);
+    Result.End   = Maximum(Range.Start, Range.End);
+    return Result;
+}
+
+tyler_function inline range_f32
+RangeShift(range_f32 Range, f32 Shift){
+    range_f32 Result = Range;
+    Result.Start += Shift;
+    Result.End   += Shift;
+    return Result;
+}
+
+tyler_function inline b8
+RangeContains(range_f32 Range, f32 Value){
+    b8 Result = (Range.Min < Value) && (Value < Range.Max);
+    return Result;
+}
+
+tyler_function inline b8
+RangeContainsInclusive(range_f32 Range, f32 Value){
+    b8 Result = (Range.Min <= Value) && (Value <= Range.Max);
+    return Result;
+}
+
+tyler_function inline b8
+RangeContains(range_f32 A, range_f32 B){
+    b8 Result = (A.Min < B.Min) && (B.Max < A.Max);
+    return Result;
+}
+
+tyler_function inline b8
+RangeContainsInclusive(range_f32 A, range_f32 B){
+    b8 Result = (A.Min <= B.Min) && (B.Max <= A.Max);
+    return Result;
+}
+
+tyler_function inline range_f32
+RangeCrop(range_f32 Super, range_f32 Sub){
+    range_f32 Result;
+    Result.Min = Maximum(Super.Min, Sub.Min);
+    Result.Max = Minimum(Super.Max, Sub.Max);
+    return Result;
+}
+
+tyler_function inline f32
+RangeClamp(range_f32 R, f32 S){
+    S = Clamp(S, R.Min, R.Max);
+    return S;
+}
+
+tyler_function inline b8
+RangeOverlaps(range_f32 A, range_f32 B){
+    b8 Result = (RangeContains(A, B.Min) || RangeContains(A, B.Max));
+    return Result;
+}
+
+tyler_function inline b8
+RangeOverlapsInclusive(range_f32 A, range_f32 B){
+    b8 Result = (RangeContainsInclusive(A, B.Min) || RangeContainsInclusive(A, B.Max));
+    return Result;
+}
+
 //~ Rectangles
 union rect {
     struct {
@@ -1127,7 +1405,6 @@ RectS32(rect Rect){
     Result.Min.X = Truncate(Rect.Min.X);
     Result.Min.Y = Truncate(Rect.Min.Y);
     Result.Max.X = (s32)Ceil(Rect.Max.X);
-    Result.Max.X = (s32)Ceil(Rect.Max.X);
     Result.Max.Y = (s32)Ceil(Rect.Max.Y);
     return(Result);
 }
@@ -1171,6 +1448,16 @@ tyler_function inline v2
 RectSize(rect Rect){
     v2 Result = Rect.Max - Rect.Min;
     return(Result);
+}
+
+tyler_function inline range_f32
+RectXRange(rect Rect){
+    return MakeRangeF32(Rect.X0, Rect.X1);
+}
+
+tyler_function inline range_f32
+RectYRange(rect Rect){
+    return MakeRangeF32(Rect.Y0, Rect.Y1);
 }
 
 tyler_function inline f32
@@ -1274,85 +1561,6 @@ RectRound(rect R){
     R.Min = V2Round(R.Min);
     R.Max = V2Round(R.Max);
     return R;
-}
-
-//~ Range
-union range_s32 {
-    struct {
-        s32 Min;
-        s32 Max;
-    };
-    struct {
-        s32 Start;
-        s32 End;
-    };
-};
-
-tyler_function inline range_s32
-MakeRangeS32(s32 Start, s32 End){
-    range_s32 Result;
-    Result.Start = Minimum(Start, End);
-    Result.End   = Maximum(Start, End);
-    return Result;
-}
-
-tyler_function inline range_s32
-SizeRangeS32(s32 Start, s32 Size){
-    range_s32 Result = MakeRangeS32(Start, Start+Size);
-    return Result;
-}
-
-tyler_function inline s32
-RangeSize(range_s32 Range){
-    return Range.End-Range.Start;
-}
-
-tyler_function inline range_s32
-RangeRectify(range_s32 Range){
-    range_s32 Result;
-    Result.Start = Minimum(Range.Start, Range.End);
-    Result.End   = Maximum(Range.Start, Range.End);
-    return Result;
-}
-
-tyler_function inline range_s32
-RangeShift(range_s32 Range, s32 Shift){
-    range_s32 Result = Range;
-    Result.Start += Shift;
-    Result.End   += Shift;
-    return Result;
-}
-
-tyler_function inline b8
-RangeContains(range_s32 Range, s32 Value){
-    b8 Result = (Range.Min < Value) && (Value < Range.Max);
-    return Result;
-}
-
-tyler_function inline b8
-RangeContainsInclusive(range_s32 Range, s32 Value){
-    b8 Result = (Range.Min <= Value) && (Value <= Range.Max);
-    return Result;
-}
-
-tyler_function inline b8
-RangeContains(range_s32 A, range_s32 B){
-    b8 Result = (A.Min < B.Min) && (B.Max < A.Max);
-    return Result;
-}
-
-tyler_function inline b8
-RangeContainsInclusive(range_s32 A, range_s32 B){
-    b8 Result = (A.Min <= B.Min) && (B.Max <= A.Max);
-    return Result;
-}
-
-tyler_function inline range_s32
-RangeCrop(range_s32 Super, range_s32 Sub){
-    range_s32 Result;
-    Result.Min = Maximum(Super.Min, Sub.Min);
-    Result.Max = Minimum(Super.Max, Sub.Max);
-    return Result;
 }
 
 //~ Intrinsics
@@ -1889,23 +2097,19 @@ ArrayClear(array<T> *Array){
     Array->Count = 0;
 }
 
-template<typename T> tyler_function inline void
-ArrayAdd(array<T> *Array, T Item){
+template<typename T> tyler_function inline T *
+ArrayMaybeAdd(array<T> *Array, T Item){
+    T *Result = 0;
     if(Array->Count+1 <= Array->MaxCount){
+        Result = &Array->Items[Array->Count];
         Array->Items[Array->Count++] = Item;
-    }else{
-        Assert(0);
     }
+    return Result;
 }
 
-template<typename T> tyler_function inline b8
-ArrayMaybeAdd(array<T> *Array, T Item){
-    if(Array->Count+1 <= Array->MaxCount){
-        Array->Items[Array->Count++] = Item;
-        return true;
-    }else{
-        return false;
-    }
+template<typename T> tyler_function inline void
+ArrayAdd(array<T> *Array, T Item){
+    Assert(ArrayMaybeAdd(Array, Item));
 }
 
 template<typename T> tyler_function inline T *
@@ -2082,6 +2286,17 @@ MakeDynamicArray(memory_arena *Arena, s32 InitialCapacity){
     return MakeDynamicArray<T>(InitialCapacity, Arena);
 }
 
+template <typename T> tyler_function inline void
+DynamicArrayFree(dynamic_array<T> *Array){
+    if(!Array->Arena) OSDefaultFree(Array->Items); 
+}
+
+template<typename T> tyler_function inline T
+ArrayGet(dynamic_array<T> *Array, s64 Index){
+    Assert(Index < Array->Count);
+    return Array->Items[Index];
+}
+
 template <typename T> tyler_function inline array<T>
 MakeArray(dynamic_array<T> *Array){
     array<T> Result = MakeFullArray(Array->Items, Array->Count);
@@ -2185,10 +2400,144 @@ ArrayHasItem(dynamic_array<T> *Array, T Item){
     }
     return false;
 }
+template<typename T> tyler_function inline array<T>
+ArrayFinalize(memory_arena *Arena, dynamic_array<T> *Array){
+    array<T> Result = MakeArray<T>(Arena, Array->Count);
+    for(u32 I=0; I<Array->Count; I++){
+        *ArrayAlloc(&Result) = ArrayGet<T>(Array, I);
+    }
+    return Result;
+}
+
+//~ Static arrays
+template<typename T, u32 U>
+struct static_array {
+    T Items[U];
+    u32 Count;
+    
+    inline T &operator[](s64 Index){
+        Assert(Index < Count);
+        return(Items[Index]);
+    }
+    
+    inline operator b8(){  return (Items != 0) || (Count > 0); }
+};
+
+template<typename T, u32 U> tyler_function inline T
+ArrayGet(static_array<T, U> *Array, s64 Index){
+    Assert(Index < Array->Count);
+    return Array->Items[Index];
+}
+
+template<typename T, u32 U> tyler_function inline void
+ArrayClear(static_array<T, U> *Array){
+    Array->Count = 0;
+}
+
+template<typename T, u32 U> tyler_function inline T *
+ArrayMaybeAdd(static_array<T, U> *Array, T Item){
+    T *Result = 0;
+    if(Array->Count+1 <= U){
+        Result = &Array->Items[Array->Count];
+        Array->Items[Array->Count++] = Item;
+    }
+    return Result;
+}
+
+template<typename T, u32 U> tyler_function inline void
+ArrayAdd(static_array<T, U> *Array, T Item){
+    Assert(ArrayMaybeAdd(Array, Item));
+}
+
+template<typename T, u32 U> tyler_function inline T *
+ArrayAlloc(static_array<T, U> *Array, u32 N=1){
+    T *Result = 0;
+    if(Array->Count+N <= U){
+        Result = &Array->Items[Array->Count];
+        Array->Count += N;
+    }else{
+        Assert(0);
+    }
+    ZeroMemory(Result, sizeof(T));
+    return(Result);
+}
+
+// A better insert might be better,
+// following the same logic as ordered and unordered remove 
+template<typename T, u32 U> void
+ArrayInsert(static_array<T, U> *Array, u32 Index, T Item){
+    Assert(Index <= Array->Count);
+    MoveMemory(&Array->Items[Index+1], 
+               &Array->Items[Index], 
+               (Array->Count-Index)*sizeof(T));
+    Array->Items[Index] = Item;
+    Array->Count++;
+}
+
+template<typename T, u32 U> tyler_function inline T *
+ArrayInsertAlloc(static_array<T, U> *Array, u32 Index){
+    Assert(Index <= Array->Count);
+    MoveMemory(&Array->Items[Index+1], 
+               &Array->Items[Index], 
+               (Array->Count-Index)*sizeof(T));
+    T *NewItem = &Array->Items[Index];
+    Array->Count++;
+    return(NewItem);
+}
+
+template<typename T, u32 U> tyler_function inline void
+ArrayOrderedRemove(static_array<T, U> *Array, u32 Index){
+    Assert(Index < Array->Count);
+    MoveMemory(&Array->Items[Index], 
+               &Array->Items[Index+1], 
+               (Array->Count-Index)*sizeof(T));
+    Array->Count--;
+}
+
+template<typename T, u32 U> tyler_function inline void
+ArrayUnorderedRemove(static_array<T, U> *Array, u32 Index){
+    Array->Items[Index] = Array->Items[Array->Count-1];
+    Array->Count--;
+}
+
+template<typename T, u32 U> tyler_function inline b8
+ArrayRemoveByValue(static_array<T, U> *Array, T Value){
+    for(u32 I=0; I<Array->Count; I++){
+        if(ArrayGet(Array, I) == Value){
+            ArrayOrderedRemove(Array, I);
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename T, u32 U> tyler_function inline b8
+ArrayHasItem(static_array<T, U> *Array, T Item){
+    for(u32 I=0; I<Array->Count; I++){
+        if(ArrayGet(Array, I) == Item) return true;
+    }
+    return false;
+}
+
+template<typename T, u32 U> tyler_function inline static_array<T, U>
+ArrayFinalize(memory_arena *Arena, static_array<T, U> *Array){
+    static_array<T, U> Result = MakeArray<T>(Arena, Array->Count);
+    for(u32 I=0; I<Array->Count; I++){
+        *ArrayAlloc(&Result) = ArrayGet(Array, I);
+    }
+    return Result;
+}
+
 
 //- Iteration
+// TODO(Tyler): This does not work well for break statements.
 template<typename T> tyler_function inline T *
 ArrayForEachGet_(array<T> *Array, u32 I, int *Item){
+    return &Array->Items[I];
+}
+
+template<typename T, u32 U> tyler_function inline T *
+ArrayForEachGet_(static_array<T, U> *Array, u32 I, int *Item){
     return &Array->Items[I];
 }
 
