@@ -1,20 +1,23 @@
 
 //~ Entity allocation and management
+
 void
 entity_manager::Reset(){
-    Memory.Used = 0;
+    ArenaClear(&Memory);
     
-#define ENTITY_TYPE_(TypeName, ...) InitializeBucketArray(&EntityArray_##TypeName, &Memory);
     Player = ArenaPushType(&Memory, player_entity);
-    ENTITY_TYPES;
-    SPECIAL_ENTITY_TYPES;
-#undef ENTITY_TYPE_
+    InitializeBucketArray(&Tilemaps,    &Memory);
+    InitializeBucketArray(&Coins,       &Memory);
+    InitializeBucketArray(&Enemies,     &Memory);
+    InitializeBucketArray(&Teleporters, &Memory);
+    InitializeBucketArray(&Doors,       &Memory);
+    InitializeBucketArray(&Projectiles, &Memory);
+    InitializeBucketArray(&Arts,        &Memory);
     EntityCount = 0;
     
     ArrayClear(&Trails);
+    ArrayClear(&GravityZones);
     
-    BucketArrayRemoveAll(&ParticleSystems);
-    ArenaClear(&ParticleMemory);
     ArenaClear(&BoundaryMemory);
     ArrayClear(&PhysicsFloors);
 }
@@ -25,17 +28,12 @@ entity_manager::Initialize(memory_arena *Arena){
     Memory = MakeArena(Arena, Megabytes(10));
     
     Trails = MakeDynamicArray<trail>(Arena, 8);
+    GravityZones = MakeDynamicArray<gravity_zone>(Arena, 8);
     
-#define ENTITY_TYPE_(TypeName, ...) InitializeBucketArray(&EntityArray_##TypeName, &Memory);
-    Player = ArenaPushType(&Memory, player_entity);
-    ENTITY_TYPES;
-    SPECIAL_ENTITY_TYPES;
-#undef ENTITY_TYPE_
+    BoundaryMemory = MakeArena(Arena, 3*128*sizeof(collision_boundary));
+    // NOTE(Tyler): PhysicsFloors is initialized elsewhere
     
-    //~ Physics
-    InitializeBucketArray(&ParticleSystems, Arena);
-    ParticleMemory          = MakeArena(Arena, 64*128*sizeof(physics_particle_x4));
-    BoundaryMemory          = MakeArena(Arena, 3*128*sizeof(collision_boundary));
+    Reset();
 }
 
 //~ Iteration
@@ -121,7 +119,7 @@ internal inline entity_iterator
 EntityManagerBeginIteration(entity_manager *Manager, entity_flags ExcludeFlags){
     entity_iterator Result = {};
     
-    Result.CurrentArray = ENTITY_TYPE(player_entity);
+    Result.CurrentType = EntityType_Player;
     Result.Item = Manager->Player;
     Result.Index = {};
     
@@ -134,15 +132,14 @@ EntityManagerContinueIteration(entity_manager *Manager, entity_iterator *Iterato
         return false;
     }
     
-    // NOTE(Tyler): This is a safety check
-#define ENTITY_TYPE_(TypeName, TypeFlags, ...) else if(ENTITY_TYPE(TypeName) == Iterator->CurrentArray) { \
-bucket_array_iterator<TypeName> BucketIterator = {}; \
+#define ENTITY_TYPE_(Type, Array) else if(Iterator->CurrentType == Type) { \
+auto BucketIterator = BucketArrayMakeBucketIterator(&Manager->Array); \
 BucketIterator.Index = Iterator->Index; \
-if(!EntityBucketArrayContinueIteration(&Manager->EntityArray_##TypeName, &BucketIterator, ExcludeFlags)) return false; \
+if(!EntityBucketArrayContinueIteration(&Manager->Array, &BucketIterator, ExcludeFlags)) return false; \
 Iterator->Item = BucketIterator.Item;   \
 }
     
-    if(ENTITY_TYPE(player_entity) == Iterator->CurrentArray) {
+    if(Iterator->CurrentType == EntityType_Player) {
     }
     ENTITY_TYPES
         
@@ -154,35 +151,35 @@ Iterator->Item = BucketIterator.Item;   \
 internal inline void
 EntityManagerNextIteration(entity_manager *Manager, entity_iterator *Iterator, entity_flags ExcludeFlags){
     b8 Found = false;
-#define ENTITY_TYPE_(TypeName, TypeFlags, ...) else if(ENTITY_TYPE(TypeName) == Iterator->CurrentArray) { \
-bucket_array_iterator<TypeName> BucketIterator = {}; \
+#define ENTITY_TYPE_(Type, Array) else if(Iterator->CurrentType == Type) { \
+auto BucketIterator = BucketArrayMakeBucketIterator(&Manager->Array); \
 BucketIterator.Index = Iterator->Index; \
-Found = EntityBucketArrayNextIteration(&Manager->EntityArray_##TypeName, &BucketIterator, ExcludeFlags); \
+Found = EntityBucketArrayNextIteration(&Manager->Array, &BucketIterator, ExcludeFlags); \
 Iterator->Index = BucketIterator.Index; \
 }
     
-    if(ENTITY_TYPE(player_entity) == Iterator->CurrentArray) {
+    if(Iterator->CurrentType == EntityType_Player) {
         Found = false;
     }
     ENTITY_TYPES
         
 #undef ENTITY_TYPE_
-#define ENTITY_TYPE_(TypeName, TypeFlags, ...) else if((ENTITY_TYPE(TypeName) > Iterator->CurrentArray) && \
-(Manager->EntityArray_##TypeName.Count > 0)){ \
-auto BucketIterator = EntityBucketArrayBeginIteration(&Manager->EntityArray_##TypeName, ExcludeFlags); \
-Iterator->CurrentArray = EntityArrayType_##TypeName; \
+#define ENTITY_TYPE_(Type, Array, ...) else if((Type > Iterator->CurrentType) && \
+((Manager->Array).Count > 0)){ \
+auto BucketIterator = EntityBucketArrayBeginIteration(&Manager->Array, ExcludeFlags); \
+Iterator->CurrentType = Type; \
 Iterator->Item  = BucketIterator.Item;               \
 Iterator->Index = BucketIterator.Index;              \
-Found = EntityBucketArrayContinueIteration(&Manager->EntityArray_##TypeName, &BucketIterator, ExcludeFlags); \
+Found = EntityBucketArrayContinueIteration(&Manager->Array, &BucketIterator, ExcludeFlags); \
 }
     
     while(!Found){
-        if((ENTITY_TYPE(player_entity) > Iterator->CurrentArray)){ 
-            Iterator->CurrentArray = ENTITY_TYPE(player_entity);
+        if((EntityType_Player > Iterator->CurrentType)){ 
+            Iterator->CurrentType = EntityType_Player;
             Iterator->Item  = Manager->Player;
             Iterator->Index = {};
         } 
-        ENTITY_TYPES 
+        ENTITY_TYPES
             else break;
     }
     
@@ -192,6 +189,21 @@ Found = EntityBucketArrayContinueIteration(&Manager->EntityArray_##TypeName, &Bu
 }
 
 //~ Helpers
+internal inline render_transform
+UpToTransform(v2 Up){
+    render_transform Transform = RenderTransform_None;
+    if(Up.Y > 0){
+        Transform = RenderTransform_None;
+    }else if(Up.Y < 0){
+        Transform = RenderTransform_Rotate180;
+    }else if(Up.X > 0){
+        Transform = RenderTransform_Rotate90;
+    }if(Up.X < 0){
+        Transform = RenderTransform_Rotate270;
+    }
+    return Transform;
+}
+
 inline void
 entity_manager::DamagePlayer(u32 Damage){
     Player->Pos = MakeWorldPos(Player->StartP);
@@ -248,32 +260,97 @@ OpenDoor(door_entity *Door){
     Door->IsOpen = true;
 }
 
+//~ Gravity Zones
+internal inline u32
+ZoneArrowCount(gravity_zone *Zone){
+    
+    u32 Result = (u32)(RectArea(Zone->Area)/(16*16)/2);
+    return Minimum(Result, GRAVITY_ZONE_MAX_ARROW_COUNT);
+}
+
+internal inline gravity_zone_arrow *
+ZoneSpawnArrow(gravity_zone *Zone, u32 Index, gravity_zone_arrow_art_type ArtType){
+    v2 Tangent = V2AbsoluteValue(V2Clockwise90(Zone->Direction));
+    v2 Size = RectSize(Zone->Area);
+    u32 Cap = (u32)V2Dot(Tangent, Size);
+    
+    gravity_zone_arrow *Arrow = &Zone->Arrows[Index];
+    Arrow->P = Zone->Area.Min + V2Maximum(-Zone->Direction*AbsoluteValue(V2Dot(Zone->Direction, Size)), V2(0));
+    Arrow->P += Tangent*(f32)(GetRandomNumber(Index*2 + 334) % Cap);
+    
+    Arrow->ArtType = (gravity_zone_arrow_art_type)(GetRandomNumber(Index*12 + 1542) % ZoneArrowArt_TOTAL);
+    Arrow->Delta = (GetRandomFloat(Index*32+123)+0.4f)*Zone->Direction;
+    
+    return Arrow;
+}
+
+internal inline gravity_zone *
+MakeGravityZone(dynamic_array<gravity_zone> *GravityZones, rect Rect, 
+                v2 GravityDirection){
+    gravity_zone *Zone = ArrayAlloc(GravityZones);
+    Zone->Area = Rect;
+    Zone->Direction = GravityDirection;
+    
+    u32 Cap = (u32)V2Dot(V2AbsoluteValue(Zone->Direction), RectSize(Zone->Area));
+    FOR_RANGE(I, 0, ZoneArrowCount(Zone)){
+        gravity_zone_arrow *Arrow = ZoneSpawnArrow(Zone, I, (gravity_zone_arrow_art_type)(I%2));
+        Arrow->P += Zone->Direction*(f32)(GetRandomNumber(I*3 + 756) % Cap);
+    }
+    
+    return Zone;
+}
+
+internal inline gravity_zone *
+MakeGravityZone(dynamic_array<gravity_zone> *GravityZones, v2 P, v2 Size, 
+                v2 GravityDirection){
+    return MakeGravityZone(GravityZones, SizeRect(P, Size), GravityDirection);
+}
+
+
 //~ 
 
+internal rect
+GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
+    v2 Min = V2(F32_POSITIVE_INFINITY);
+    v2 Max = V2(F32_NEGATIVE_INFINITY);
+    for(u32 I=0; I < BoundaryCount; I++){
+        Min = V2Minimum(Boundaries[I].Bounds.Min+Boundaries[I].Offset, Min);
+        Max = V2Maximum(Boundaries[I].Bounds.Max+Boundaries[I].Offset, Max);
+    }
+    rect Result = MakeRect(Min, Max);
+    return(Result);
+}
+
+internal v2
+GetSizeOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
+    return RectSize(GetBoundsOfBoundaries(Boundaries, BoundaryCount));
+}
+
 internal inline void 
-SetupEntity(asset_system *Assets, entity *Entity_, entity_array_type Type, v2 P, asset_id Asset_){
+SetupEntity(asset_system *Assets, entity *Entity_, entity_type Type, v2 P, asset_id Asset_){
     Entity_->Type = Type;
     Entity_->Pos = MakeWorldPos(P);
     Entity_->Asset = Asset_;
     Entity_->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[Type];
     Entity_->UpNormal = V2(0, 1);
     switch(Type){
-        case ENTITY_TYPE(tilemap_entity): {
+        case EntityType_Tilemap: {
             tilemap_entity *Entity = (tilemap_entity *)Entity_;
             asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Entity->Asset);
             Entity->TileSize = AssetsFind_(Assets, Tilemap, Entity->Asset)->TileSize;
             Entity->Size = V2(Entity->TileSize.X*(f32)Entity->Width, Entity->TileSize.Y*(f32)Entity->Height);
         }break;
-        case ENTITY_TYPE(player_entity): {
+        case EntityType_Player: {
             player_entity *Entity = (player_entity *)Entity_;
             asset_entity *Asset = AssetsFind_(Assets, Entity, Entity->Asset);
             Entity->Tag = Asset->Tag;
             Entity->Size = GetSizeOfBoundaries(Asset->Boundaries, Asset->BoundaryCount);
             Entity->JumpTime = 1.0f;
             Entity->Health = 9;
-            Entity->StartP = P;
+            Entity_->Pos = MakeWorldPos(V2(P.X, P.Y));
+            Entity->StartP = V2(P.X, P.Y);
         }break;
-        case ENTITY_TYPE(enemy_entity): {
+        case EntityType_Enemy: {
             enemy_entity *Entity = (enemy_entity *)Entity_;
             asset_entity *Asset = AssetsFind_(Assets, Entity, Entity->Asset);
             Entity->Tag = Asset->Tag;
@@ -282,7 +359,7 @@ SetupEntity(asset_system *Assets, entity *Entity_, entity_array_type Type, v2 P,
             Entity->Damage = Asset->Damage;
             Entity->TargetY = P.Y;
         }break;
-        case ENTITY_TYPE(art_entity): {
+        case EntityType_Art: {
             art_entity *Entity = (art_entity *)Entity_;
             Entity->Size = AssetsFind_(Assets, Art, Entity->Asset)->Size;
         }break;
@@ -290,34 +367,26 @@ SetupEntity(asset_system *Assets, entity *Entity_, entity_array_type Type, v2 P,
 }
 
 internal inline void
-SetupTriggerEntity(entity *Entity, entity_array_type Type, v2 P, collision_boundary *Boundaries, u32 BoundaryCount){
+SetupTriggerEntity(entity *Entity, entity_type Type, v2 P, v2 Size){
     Entity->Pos = MakeWorldPos(P);
-    Entity->Size = GetSizeOfBoundaries(Boundaries, BoundaryCount);
+    Entity->Size = Size;
     Entity->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[Type];
 }
 
 //~ 
-entity *
-entity_manager::AllocBasicEntity(world_data *World, entity_array_type Type){
-#define ENTITY_TYPE_(TypeName, ...) \
-case ENTITY_TYPE(TypeName): {   \
-Result = BucketArrayAlloc(&ENTITY_ARRAY(TypeName)); \
-EntityCount++;    \
-ActualEntityCount++;    \
-}break;
+
+#define AllocEntity(Manager, Array, World) \
+(Manager)->AllocEntity_(World, &(Manager)->Array)
+
+template<typename T, u32 U> T *
+entity_manager::AllocEntity_(world_data *World, bucket_array<T, U> *Array){
+    T *Result = BucketArrayAlloc(Array); 
+    EntityCount++;       
+    ActualEntityCount++; 
     
-    entity *Result = 0;
-    
-    switch(Type){
-        ENTITY_TYPES;
-        default: INVALID_CODE_PATH; break;
-    }
-    
-    Result->Type = Type;
     if(World) Result->ID = {World->ID, EntityIDCounter++};
     
     return Result;
-#undef ENTITY_TYPE_
 }
 
 void
@@ -325,16 +394,16 @@ entity_manager::FullRemoveEntity(entity *Entity_){
     if(!(Entity_->Flags & EntityFlag_Deleted)) DeleteEntity(Entity_);
     ActualEntityCount--;
     switch(Entity_->Type){
-        case ENTITY_TYPE(tilemap_entity): {
+        case EntityType_Tilemap: {
             tilemap_entity *Entity = (tilemap_entity *)Entity_;
             OSDefaultFree(Entity->Tiles);
         }break;
-        case ENTITY_TYPE(teleporter_entity): {
+        case EntityType_Teleporter: {
             teleporter_entity *Entity = (teleporter_entity *)Entity_;
             Strings.RemoveBuffer(Entity->Level);
             Strings.RemoveBuffer(Entity->RequiredLevel);
         }break;
-        case ENTITY_TYPE(door_entity): {
+        case EntityType_Door: {
             door_entity *Entity = (door_entity *)Entity_;
             Strings.RemoveBuffer(Entity->RequiredLevel);
         }break;
@@ -366,8 +435,8 @@ internal void
 TeleporterResponse(asset_system *Assets, entity_manager *Entities, entity *Data, entity *EntityB){
     Assert(Data);
     teleporter_entity *Teleporter = (teleporter_entity *)Data;
-    Assert(Teleporter->Type == ENTITY_TYPE(teleporter_entity));
-    if(EntityB->Type != ENTITY_TYPE(player_entity)) return;
+    Assert(Teleporter->Type == EntityType_Teleporter);
+    if(EntityB->Type != EntityType_Player) return;
     
     Teleporter->IsSelected = true;
     
@@ -458,171 +527,44 @@ MoveDragonfly(physics_update_context *Context, entity *Entity, f32 Movement, f32
 }
 
 //~ 
+internal inline tilemap_tile_place 
+GetWedgeMask(tile_type Type){
+    switch(Type){
+        case TileType_WedgeUpLeft:    return 0x1100;
+        case TileType_WedgeUpRight:   return 0x1040;
+        case TileType_WedgeDownRight: return 0x0044;
+        case TileType_WedgeDownLeft:  return 0x0104;
+    }
+    return 0;
+}
+
+internal inline f32
+GetTileTypeWalkingDistance(asset_tilemap *Asset, tile_type Type, direction Up){
+    local_constant f32 SQRT_2 = SquareRoot(2);
+    Assert(Asset->TileSize.X == Asset->TileSize.Y);
+    if(Type & TileType_Tile)                return Asset->TileSize.X;
+    else if(Type & TileType_WedgeUpLeft)    return (TileDirection_UpLeft    & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
+    else if(Type & TileType_WedgeUpRight)   return (TileDirection_UpRight   & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
+    else if(Type & TileType_WedgeDownRight) return (TileDirection_DownRight & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
+    else if(Type & TileType_WedgeDownLeft)  return (TileDirection_DownLeft  & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
+    else return 0;
+}
+
 internal inline v2
-GetTileTypeNormal(tile_type Type, direction Up){
+GetTileTypeNormal(tile_type Type){
     local_constant f32 SQRT_2 = SquareRoot(2);
     if(Type & TileType_Tile){
-        switch(Up){
-            case Direction_Up:    return V2( 0,  1);
-            case Direction_Right: return V2( 1,  0);
-            case Direction_Down:  return V2( 0, -1);
-            case Direction_Left:  return V2(-1,  0);
-            default: INVALID_CODE_PATH; break;
-        }
+        return V2(0,  1);
     }else if(Type & TileType_WedgeUpLeft){
-        switch(Up){
-            case Direction_Up:    return SQRT_2*V2(-0.5, 0.5);
-            case Direction_Right: return        V2(   1,   0);
-            case Direction_Down:  return        V2(   0,  -1);
-            case Direction_Left:  return SQRT_2*V2(-0.5, 0.5);
-            default: INVALID_CODE_PATH; break;
-        }
+        return SQRT_2*V2(-0.5,  0.5);
     }else if(Type & TileType_WedgeUpRight){
-        switch(Up){
-            case Direction_Up:    return SQRT_2*V2(0.5, 0.5);
-            case Direction_Right: return SQRT_2*V2(0.5, 0.5);
-            case Direction_Down:  return        V2(  0,  -1);
-            case Direction_Left:  return        V2( -1,   0);
-            default: INVALID_CODE_PATH; break;
-        }
+        return SQRT_2*V2( 0.5,  0.5);
     }else if(Type & TileType_WedgeDownRight){
-        switch(Up){
-            case Direction_Up:    return        V2(   0,    1);
-            case Direction_Right: return SQRT_2*V2( 0.5, -0.5);
-            case Direction_Down:  return SQRT_2*V2( 0.5, -0.5);
-            case Direction_Left:  return        V2(  -1,    0);
-            default: INVALID_CODE_PATH; break;
-        }
+        return SQRT_2*V2( 0.5, -0.5);
     }else if(Type & TileType_WedgeDownLeft){
-        switch(Up){
-            case Direction_Up:    return        V2(   0,    1);
-            case Direction_Right: return        V2(   1,    0);
-            case Direction_Down:  return SQRT_2*V2(-0.5, -0.5);
-            case Direction_Left:  return SQRT_2*V2(-0.5, -0.5);
-            default: INVALID_CODE_PATH; break;
-        }
+        return SQRT_2*V2(-0.5, -0.5);
     }
     return V2(0);
-}
-
-// TODO(Tyler): This may lead to weird movement behavior, but currently that behavior
-// is not implemented
-internal inline v2
-
-GetTileTypeTangent(tile_type Type, direction Up){
-    local_constant f32 SQRT_2 = SquareRoot(2);
-    if(Type & TileType_Tile){
-        switch(Up){
-            case Direction_Up:    return V2( 1,  0);
-            case Direction_Right: return V2( 0, -1);
-            case Direction_Down:  return V2(-1,  0);
-            case Direction_Left:  return V2( 0,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else if(Type & TileType_WedgeUpLeft){
-        switch(Up){
-            case Direction_Up:    return SQRT_2*V2(0.5, 0.5);
-            case Direction_Right: return        V2(  0,  -1);
-            case Direction_Down:  return        V2( -1,   0);
-            case Direction_Left:  return SQRT_2*V2(0.5, 0.5);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else if(Type & TileType_WedgeUpRight){
-        switch(Up){
-            case Direction_Up:    return SQRT_2*V2(0.5, -0.5);
-            case Direction_Right: return SQRT_2*V2(0.5, -0.5);
-            case Direction_Down:  return        V2( -1,    0);
-            case Direction_Left:  return        V2(  0,    1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else if(Type & TileType_WedgeDownRight){
-        switch(Up){ 
-            case Direction_Up:    return        V2(   1,    0);
-            case Direction_Right: return SQRT_2*V2(-0.5, -0.5);
-            case Direction_Down:  return SQRT_2*V2(-0.5, -0.5);
-            case Direction_Left:  return        V2(   0,    1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else if(Type & TileType_WedgeDownLeft){
-        switch(Up){
-            case Direction_Up:    return        V2(   1,   0);
-            case Direction_Right: return        V2(   0,  -1);
-            case Direction_Down:  return SQRT_2*V2(-0.5, 0.5);
-            case Direction_Left:  return SQRT_2*V2(-0.5, 0.5);
-            default: INVALID_CODE_PATH; break;
-        }
-    }
-    return V2(0);
-}
-
-internal inline direction
-DirectionRightTurn(direction Up){
-    switch(Up){
-        case Direction_Up:    return Direction_Right;
-        case Direction_Right: return Direction_Down;
-        case Direction_Down:  return Direction_Left;
-        case Direction_Left:  return Direction_Up;
-        default: INVALID_CODE_PATH;
-    }
-    return Direction_None;
-}
-
-internal inline direction
-DirectionLeftTurn(direction Up){
-    switch(Up){
-        case Direction_Up:    return Direction_Left;
-        case Direction_Right: return Direction_Up;
-        case Direction_Down:  return Direction_Right;
-        case Direction_Left:  return Direction_Down;
-        default: INVALID_CODE_PATH;
-    }
-    return Direction_None;
-}
-
-internal inline v2s
-GetTileTypePos1(tile_type Type, direction Up){
-    if(Type & TileType_Tile){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  1);
-            case Direction_Right: return V2S( 1, -1);
-            case Direction_Down:  return V2S(-1, -1);
-            case Direction_Left:  return V2S(-1,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else if(Type & TileType_WedgeUpLeft){
-        switch(Up){
-            case Direction_Up:    return V2S( 0,  1);
-            case Direction_Right: return V2S( 1, -1);
-            case Direction_Down:  return V2S(-1, -1);
-            case Direction_Left:  return V2S( 0,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else  if(Type & TileType_WedgeUpRight){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  0);
-            case Direction_Right: return V2S( 1,  0);
-            case Direction_Down:  return V2S(-1, -1);
-            case Direction_Left:  return V2S(-1,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else  if(Type & TileType_WedgeDownRight){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  1);
-            case Direction_Right: return V2S( 0, -1);
-            case Direction_Down:  return V2S( 0, -1);
-            case Direction_Left:  return V2S(-1,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else  if(Type & TileType_WedgeDownLeft){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  1);
-            case Direction_Right: return V2S( 1, -1);
-            case Direction_Down:  return V2S(-1,  0);
-            case Direction_Left:  return V2S(-1,  0);
-            default: INVALID_CODE_PATH; break;
-        }
-    }
-    return V2S(0);
 }
 
 // NOTE(Tyler): This is the next tile along the direction of the tangent.
@@ -672,64 +614,6 @@ GetTileTypePos2(tile_type Type, direction Up){
     return V2S(0);
 }
 
-internal inline v2s
-GetTileTypePos3(tile_type Type, direction Up){
-    if(Type & TileType_Tile){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  0);
-            case Direction_Right: return V2S( 0, -1);
-            case Direction_Down:  return V2S(-1,  0);
-            case Direction_Left:  return V2S( 0,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else if(Type & TileType_WedgeUpLeft){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  0);
-            case Direction_Right: return V2S( 0, -1);
-            case Direction_Down:  return V2S(-1,  0);
-            case Direction_Left:  return V2S( 1,  0);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else  if(Type & TileType_WedgeUpRight){
-        switch(Up){
-            case Direction_Up:    return V2S( 0, -1);
-            case Direction_Right: return V2S( 0, -1);
-            case Direction_Down:  return V2S(-1,  0);
-            case Direction_Left:  return V2S( 0,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else  if(Type & TileType_WedgeDownRight){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  0);
-            case Direction_Right: return V2S(-1,  0);
-            case Direction_Down:  return V2S(-1,  0);
-            case Direction_Left:  return V2S( 0,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }else  if(Type & TileType_WedgeDownLeft){
-        switch(Up){
-            case Direction_Up:    return V2S( 1,  0);
-            case Direction_Right: return V2S( 0, -1);
-            case Direction_Down:  return V2S( 0,  1);
-            case Direction_Left:  return V2S( 0,  1);
-            default: INVALID_CODE_PATH; break;
-        }
-    }
-    return V2S(0);
-}
-
-internal inline f32
-GetTileTypeWalkingDistance(asset_tilemap *Asset, tile_type Type, direction Up){
-    local_constant f32 SQRT_2 = SquareRoot(2);
-    Assert(Asset->TileSize.X == Asset->TileSize.Y);
-    if(Type & TileType_Tile)                return Asset->TileSize.X;
-    else if(Type & TileType_WedgeUpLeft)    return (TileDirection_UpLeft    & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
-    else if(Type & TileType_WedgeUpRight)   return (TileDirection_UpRight   & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
-    else if(Type & TileType_WedgeDownRight) return (TileDirection_DownRight & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
-    else if(Type & TileType_WedgeDownLeft)  return (TileDirection_DownLeft  & (1 << Up)) ? SQRT_2*Asset->TileSize.X : Asset->TileSize.X;
-    else return 0;
-}
-
 internal inline tile_type
 GetTileTypeSafely(tile_type *Types, u32 Width, u32 Height, s32 X, s32 Y){
     tile_type Result = 0;
@@ -744,92 +628,6 @@ GetTileTypeSafely(tile_type *Types, u32 Width, u32 Height, s32 X, s32 Y){
 internal inline tile_type
 GetTileTypeSafely(tile_type *Types, u32 Width, u32 Height, v2s V){
     return GetTileTypeSafely(Types, Width, Height, V.X, V.Y);
-}
-
-internal inline u8
-GetTileDoneMask(tile_type Type, direction Up){
-    if(Type & TileType_Tile)                return (1 << Up);
-    else if(Type & TileType_WedgeUpLeft){
-        switch(Up){
-            case Direction_Up:    return TileDirection_UpLeft;
-            case Direction_Right: return TileDirection_Right;
-            case Direction_Down:  return TileDirection_Down;
-            case Direction_Left:  return TileDirection_UpLeft;
-        }
-    }else if(Type & TileType_WedgeUpRight){
-        switch(Up){
-            case Direction_Up:    return TileDirection_UpRight;
-            case Direction_Right: return TileDirection_UpRight;
-            case Direction_Down:  return TileDirection_Down;
-            case Direction_Left:  return TileDirection_Left;
-        }
-    }else if(Type & TileType_WedgeDownRight){
-        switch(Up){
-            case Direction_Up:    return TileDirection_Up;
-            case Direction_Right: return TileDirection_DownRight;
-            case Direction_Down:  return TileDirection_DownRight;
-            case Direction_Left:  return TileDirection_Left;
-        }
-    }else if(Type & TileType_WedgeDownLeft){
-        switch(Up){
-            case Direction_Up:    return TileDirection_Up;
-            case Direction_Right: return TileDirection_Right;
-            case Direction_Down:  return TileDirection_DownLeft;
-            case Direction_Left:  return TileDirection_DownLeft;
-        }
-    }else Assert(0);
-    
-    return 0;
-}
-
-internal inline direction
-GetTilePos3Up(tile_type Type){
-    if(Type & TileType_WedgeUpLeft)         return Direction_Up;
-    else if(Type & TileType_WedgeUpRight)   return Direction_Right;
-    else if(Type & TileType_WedgeDownRight) return Direction_Down;
-    else if(Type & TileType_WedgeDownLeft)  return Direction_Left;
-    else Assert(0);
-    return Direction_None;
-}
-
-internal inline direction
-GetTileContinueUp(tile_type Type, direction Up){
-    if(Type & TileType_WedgeUpLeft)         return Direction_Left;
-    else if(Type & TileType_WedgeUpRight)   return Direction_Up;
-    else if(Type & TileType_WedgeDownRight) return Direction_Right;
-    else if(Type & TileType_WedgeDownLeft)  return Direction_Down;
-    else if(Type & TileType_Tile)           return Up;
-    return Direction_None;
-}
-
-internal inline direction
-GetTileRightTurn(tile_type Type, direction Up){
-    direction Result = DirectionRightTurn(Up);
-    if(Type & TileType_WedgeUpLeft){
-        if(Result == Direction_Up) Result = Direction_Right;
-    }else if(Type & TileType_WedgeUpRight){
-        if(Result == Direction_Right) Result = Direction_Down;
-    }else if(Type & TileType_WedgeDownRight){
-        if(Result == Direction_Down) Result = Direction_Left;
-    }else if(Type & TileType_WedgeDownLeft){
-        if(Result == Direction_Left) Result = Direction_Up;
-    }
-    return Result;
-}
-
-internal inline direction
-GetTileLeftTurn(tile_type Type, direction Up){
-    direction Result = DirectionLeftTurn(Up);
-    if(Type & TileType_WedgeUpLeft){
-        if(Result == Direction_Left) Result = Direction_Down;
-    }else if(Type & TileType_WedgeUpRight){
-        if(Result == Direction_Up) Result = Direction_Left;
-    }else if(Type & TileType_WedgeDownRight){
-        if(Result == Direction_Right) Result = Direction_Up;
-    }else if(Type & TileType_WedgeDownLeft){
-        if(Result == Direction_Down) Result = Direction_Right;
-    }
-    return Result;
 }
 
 internal inline physics_floor
@@ -861,92 +659,42 @@ GetTileDirectionOffset(tile_type Type, direction Up, v2 TileSize){
     return V2(0, 0);
 }
 
-internal inline physics_floor *
-MakeTilemapPhysicsFloor(asset_tilemap *Asset, entity *Entity, dynamic_array<physics_floor> *Floors, 
-                        s32 X, s32 Y, tile_type Type, direction Up, physics_floor *OldFloor, s32 ID, u32 *PrevIndex){
-    physics_floor *Floor = ArrayAlloc(Floors);
-    f32 Min = 0;
-    if(OldFloor){
-        OldFloor->NextIndex = Floors->Count;
-        Min = OldFloor->Range.Max;
-    }
+internal inline void
+TilemapAddFloor(dynamic_array<physics_floor> *Floors, physics_floor NewFloor){
+    v2 NewStart = FloorCalcP(&NewFloor, NewFloor.Range.Min);
+    v2 NewEnd   = FloorCalcP(&NewFloor, NewFloor.Range.Max);
     
-    *Floor = MakePhysicsFloor(Entity, V2(X*Asset->TileSize.X, Y*Asset->TileSize.Y), 
-                              GetTileTypeNormal(Type, Up), GetTileTypeTangent(Type, Up),
-                              SizeRangeF32(Min, GetTileTypeWalkingDistance(Asset, Type, Up)));
-    Floor->PrevIndex = *PrevIndex;
-    *PrevIndex = Floors->Count;
-    Floor->ID = ID;
-    
-    Floor->Offset += GetTileDirectionOffset(Type, Up, Asset->TileSize);
-    
-    return Floor;
-}
-
-// TODO(Tyler): It might be possible to merge this with 'CalculateTilemapIndices'
-// TODO(Tyler): This function could be greatly simplified with fancy bit magic with directions
-void 
-entity_manager::TilemapCalculateFloorBlob(asset_tilemap *Asset, tilemap_entity *Entity, dynamic_array<physics_floor> *Floors, 
-                                          tilemap_floor_side *DoneTiles, tile_type *TileTypes, 
-                                          direction Up, s32 X, s32 Y){
-    s32 ID = Floors->Count;
-    direction OriginalUp = Up;
-    tile_type Type = GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, X, Y);
-    Assert(Type);
-    
-    u32 PrevIndex = 0;
-    physics_floor *Floor = MakeTilemapPhysicsFloor(Asset, Entity, Floors, X, Y, Type, Up, 0, ID, &PrevIndex);
-    physics_floor *FirstFloor = Floor;
-    
-    v2s P = V2S(X, Y);
-    while(true){
-        Type = GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, P);
-        DoneTiles[P.Y*Entity->Width + P.X] |= GetTileDoneMask(Type, Up);
+    FOR_EACH(Floor, Floors){
+        v2 Start = FloorCalcP(&Floor, Floor.Range.Min);
+        v2 End   = FloorCalcP(&Floor, Floor.Range.Max);
         
-        tile_type Tile1 = GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, P+GetTileTypePos1(Type, Up));
-        // Tile2 is the next tile
-        tile_type Tile2 = GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, P+GetTileTypePos2(Type, Up));
-        if(Tile1){ // Left turn
-            P += GetTileTypePos1(Type, Up);
-            Up = GetTileLeftTurn(Type, Up);
-            Type = Tile1;
-            if(DoneTiles[P.Y*Entity->Width + P.X] & (1 << Up)) break;
-            Floor = MakeTilemapPhysicsFloor(Asset, Entity, Floors, P.X, P.Y, Type, Up, Floor, ID, &PrevIndex);
-        }else if(Tile2 == 0){ // Right turn
-            tile_type Tile3 = GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, P+GetTileTypePos3(Type, Up));
-            if(Tile3){
-                Up = GetTilePos3Up(Type);
-                P += GetTileTypePos3(Type, Up);
-                if(DoneTiles[P.Y*Entity->Width + P.X] & (1 << Up)) break;
-                Type = Tile3;
-                Floor = MakeTilemapPhysicsFloor(Asset, Entity, Floors, P.X, P.Y, Type, Up, Floor, ID, &PrevIndex);
-                continue;
+        if((NewStart == Start) && 
+           (NewEnd == End)){
+            return;
+        }else if(NewStart == End){
+            if(NewFloor.Normal == Floor.Normal){
+                Floor.Range.Max += RangeSize(NewFloor.Range);
+                return;
             }
-            
-            Up = GetTileRightTurn(Type, Up);
-            if(DoneTiles[P.Y*Entity->Width + P.X] & (1 << Up)) break;
-            
-            Floor = MakeTilemapPhysicsFloor(Asset, Entity, Floors, P.X, P.Y, Type, Up, Floor, ID, &PrevIndex);
-        }else{ // Continue
-            P += GetTileTypePos2(Type, Up);
-            if(GetTileTypeNormal(Tile2, Up) != GetTileTypeNormal(Type, Up)){ // Right turn
-                if(DoneTiles[P.Y*Entity->Width + P.X] & (1 << Up)) break;
-                Type = Tile2;
-                Up = GetTileContinueUp(Type, Up);
-                Floor = MakeTilemapPhysicsFloor(Asset, Entity, Floors, P.X, P.Y, Type, Up, Floor, ID, &PrevIndex);
-            }else{
-                Floor->Range.Max += GetTileTypeWalkingDistance(Asset, Type, Up);
+        }else if(NewEnd == Start){
+            if(NewFloor.Normal == Floor.Normal){
+                Floor.Range.Max += RangeSize(NewFloor.Range);
+                Floor.Offset -= Floor.Tangent*RangeSize(NewFloor.Range);
+                return;
             }
         }
     }
+    
+    ArrayAdd(Floors, NewFloor);
 }
 
 void
-entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, tile_type *TileTypes, tilemap_entity *Entity){
+entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
+                                       tilemap_tile *Tiles, tile_type *TileTypes, tilemap_entity *Entity){
     asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Entity->Asset);
-    tilemap_floor_side *DoneTiles = ArenaPushArray(&GlobalTransientMemory, tilemap_floor_side, Entity->Width*Entity->Height);
-    direction Up = Direction_Up;
+    local_constant f32 SQRT_2 = SquareRoot(2.0f);
     
+#if 0    
     // NOTE(Tyler): We need to move by column, that is why X is the outer loop.
     for(s32 X=0; X<(s32)Entity->Width; X++){
         for(s32 Y=0; Y<(s32)Entity->Height; Y++){
@@ -960,27 +708,158 @@ entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physi
             TilemapCalculateFloorBlob(Asset, Entity, Floors, DoneTiles, TileTypes, Up, X, Y);
         }
     }
+#endif
+    
+    // TODO(Tyler): This new algorithm can easily be integrated with CalculateTilemapIndices.
+    dynamic_array<physics_floor> WorkingFloors = MakeDynamicArray<physics_floor>(&GlobalTransientMemory, 16);
+    s32 Width = (s32)Entity->Width;
+    s32 Height = (s32)Entity->Height;
+    for(s32 Y=0; Y<Height; Y++){
+        for(s32 X=0; X<Width; X++){
+            tile_type Type = GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, X, Y);
+            if(Type == 0) continue;
+            
+            tilemap_tile_place Place = CalculatePlace(Tiles, Width, Height, X, Y, false);
+            
+            v2 Offset = V2(X*Asset->TileSize.X, Y*Asset->TileSize.Y);
+            
+            if(Type & TileType_Wedge){
+                tilemap_tile_place WedgeMask = GetWedgeMask(Type);
+                
+                if(WedgeMask & Place){
+                    v2 Normal = GetTileTypeNormal(Type);
+                    v2 Tangent = V2Clockwise90(Normal);
+                    v2 TileOffset = V2Maximum(V2(0), V2Round(-Tangent))*Entity->TileSize.X;
+                    
+                    TilemapAddFloor(&WorkingFloors, 
+                                    MakePhysicsFloor(Entity, 
+                                                     Offset+TileOffset, 
+                                                     Normal, Tangent, 
+                                                     MakeRangeF32(0, SQRT_2*Entity->TileSize.X)));
+                    
+                    Place &= ~WedgeMask;
+                }
+            }
+            
+            if(!(Type & TileTypeFlag_Art)){
+                if(Place & 0x1000){ // Up
+                    TilemapAddFloor(&WorkingFloors, 
+                                    MakePhysicsFloor(Entity, 
+                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Up, Entity->TileSize), 
+                                                     V2(0, 1), V2(1, 0), 
+                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                }
+                if(Place & 0x100){ // Left
+                    TilemapAddFloor(&WorkingFloors, 
+                                    MakePhysicsFloor(Entity, 
+                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Left, Entity->TileSize), 
+                                                     V2(-1, 0), V2(0, 1), 
+                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                }
+                if(Place & 0x40){ // Right
+                    TilemapAddFloor(&WorkingFloors, 
+                                    MakePhysicsFloor(Entity, 
+                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Right, Entity->TileSize), 
+                                                     V2(1, 0), V2(0, -1), 
+                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                }
+                if(Place & 0x4){ // Down
+                    TilemapAddFloor(&WorkingFloors, 
+                                    MakePhysicsFloor(Entity, 
+                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Down, Entity->TileSize), 
+                                                     V2(0, -1), V2(-1, 0), 
+                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                }
+            }
+        }
+    }
+    
+    // TODO(Tyler): I hate that there are so many loops here.
+    FOR_EACH(Floor, &WorkingFloors){
+        ArrayAdd(Floors, Floor);
+    }
+    
+#if 1
+    // TODO(Tyler): This loop might be able to be condensed into the TilemapAddFloor function.
+    FOR_EACH_(FloorA, I, Floors){
+        v2 StartA = FloorCalcP(&FloorA, FloorA.Range.Min);
+        v2 EndA   = FloorCalcP(&FloorA, FloorA.Range.Max);
+        
+        f32 NextDotProduct = F32_NEGATIVE_INFINITY;
+        f32 PrevDotProduct = F32_NEGATIVE_INFINITY;
+        u32 NextIndex = 0;
+        u32 PrevIndex = 0;
+        for(u32 J=I+1; J<Floors->Count; J++){
+            physics_floor *FloorB = ArrayGetPtr(Floors, J);
+            
+            v2 StartB = FloorCalcP(FloorB, FloorB->Range.Min);
+            v2 EndB   = FloorCalcP(FloorB, FloorB->Range.Max);
+            
+            
+            if(StartA == EndB){
+                if(V2Dot(FloorB->Normal, FloorA.Tangent) > PrevDotProduct){
+                    PrevDotProduct = V2Dot(FloorB->Normal, FloorA.Tangent);
+                    PrevIndex = J+1;
+                }
+            }else if(EndA == StartB){
+                if(V2Dot(FloorA.Normal, FloorB->Tangent) > NextDotProduct){
+                    NextDotProduct = V2Dot(FloorA.Normal, FloorB->Tangent);
+                    NextIndex = J+1;
+                }
+            }
+        }
+        
+        if(PrevIndex > 0){
+            ArrayGetPtr(Floors, PrevIndex-1)->NextIndex = I+1;
+            FloorA.PrevIndex  = PrevIndex;
+        }else if(NextIndex > 0){
+            ArrayGetPtr(Floors, NextIndex-1)->PrevIndex = I+1;
+            FloorA.NextIndex  = NextIndex;
+        }else Assert(FloorA.NextIndex || FloorA.PrevIndex);
+    }
+    
+    FOR_EACH_(FloorA, I, Floors){
+        if(FloorA.ID > 0) continue;
+        
+        physics_floor *Floor = &FloorA;
+        f32 Shift = 0;
+        do{
+            Floor->ID = I+1;
+            Floor->Range = RangeShift(Floor->Range, Shift);
+            Shift = Floor->Range.Max;
+            
+            if(Floor->NextIndex > 0){
+                Floor = ArrayGetPtr(Floors, Floor->NextIndex-1);
+            }else{
+                break;
+            }
+            
+        }while(Floor != &FloorA);
+    }
+#endif
+    
 }
 
 void 
 entity_manager::LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena){
     ToManager->EntityIDCounter = EntityIDCounter;
     
-#define ENTITY_TYPE_(TypeName, ...)  \
-FOR_ENTITY_TYPE(this, TypeName){ \
-TypeName *Entity = It.Item;  \
+#define ENTITY_TYPE_(Type, Array)  \
+FOR_ENTITY_TYPE(&Array){ \
+auto *Entity = It.Item;  \
 if(Entity->Flags & EntityFlag_Deleted) continue; \
-TypeName *NewEntity = AllocEntity(ToManager, 0, TypeName); \
+auto *NewEntity = AllocEntity(ToManager, Array, 0); \
 *NewEntity = *Entity;        \
 }
-    ENTITY_TYPES;
+    ENTITY_TYPES
+        
 #undef ENTITY_TYPE_
     
     Player->StartP = WorldPosP(Player->Pos);
     *ToManager->Player = *Player;
     
     dynamic_array<physics_floor> Floors = MakeDynamicArray<physics_floor>(16, &GlobalTransientMemory);
-    FOR_ENTITY_TYPE(ToManager, tilemap_entity){
+    FOR_ENTITY_TYPE(&ToManager->Tilemaps){
         tilemap_entity *Entity = It.Item;
         Entity->TilemapData = MakeTilemapData(Arena, 
                                               Entity->Width, Entity->Height);
@@ -990,10 +869,10 @@ TypeName *NewEntity = AllocEntity(ToManager, 0, TypeName); \
         tile_type *TileTypes = ArenaPushArray(&GlobalTransientMemory, tile_type, Entity->Width*Entity->Height);
         CalculateTilemapIndices(Asset, Entity->Tiles, &Entity->TilemapData, Entity->PhysicsMap, 
                                 (Entity->Flags&EntityFlag_TilemapTreatEdgesAsTiles), TileTypes);
-        ToManager->TilemapCalculateFloors(Assets, &Floors, TileTypes, Entity);
+        ToManager->TilemapCalculateFloors(Assets, &Floors, Entity->Tiles, TileTypes, Entity);
     }
     
-    FOR_ENTITY_TYPE(ToManager, enemy_entity){
+    FOR_ENTITY_TYPE(&ToManager->Enemies){
         if(HasTag(It.Item->Tag, AssetTag_Dragonfly)){
             It.Item->TargetY = WorldPosP(It.Item->Pos).Y;
             physics_floor *Floor = ArrayAlloc(&Floors);
@@ -1017,6 +896,9 @@ TypeName *NewEntity = AllocEntity(ToManager, 0, TypeName); \
         
         Entity->Pos = ToManager->DoFloorRaycast(Entity->Pos, Entity->Size, Entity->UpNormal);
     }
+    
+    //~
+    //MakeGravityZone(&ToManager->GravityZones, V2(48, 96),  V2(80, 160), V2(1, 0));
 }
 
 
@@ -1227,6 +1109,30 @@ entity_manager::EntityTestTrails(entity *Entity){
     }
 }
 
+void
+entity_manager::EntityTestGravityZones(entity *Entity){
+    rect R = WorldPosBounds(Entity->Pos, Entity->Size, Entity->UpNormal);
+    
+    v2 NewUpNormal = V2(0);
+    FOR_EACH(Zone, &GravityZones){
+        if(RectOverlaps(Zone.Area, R)){
+            if(Entity->UpNormal != -Zone.Direction){
+                if(Entity->Type == EntityType_Player){
+                    ((player_entity *)Entity)->JumpTime = 0;
+                }
+            }
+            NewUpNormal += -Zone.Direction;
+        }
+    }
+    if(V2LengthSquared(NewUpNormal) == 0) Entity->UpNormal = V2(0, 1);
+    else Entity->UpNormal = V2Normalize(NewUpNormal);
+    
+    if(Entity->Pos.Floor &&
+       (V2Dot(Entity->Pos.Floor->Normal, Entity->UpNormal) <= 0)){
+        Entity->Pos = WorldPosConvert(Entity->Pos);
+    }
+}
+
 void 
 entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Assets, os_input *Input, settings_state *Settings){
     TIMED_FUNCTION();
@@ -1291,9 +1197,11 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asse
                 if(Movement != 0.0f) { ChangeEntityState(Entity, EntityInfo, State_Moving); }
                 else {ChangeEntityState(Entity, EntityInfo, State_Idle); }
             }
-            MovePlatformer(&UpdateContext, Entity, Movement, dTime);
             
             EntityTestTrails(Entity);
+            EntityTestGravityZones(Entity);
+            
+            MovePlatformer(&UpdateContext, Entity, Movement, dTime);
             
             v2 Center = WorldPosP(Player->Pos) + 0.5f*EntityInfo->Size;
             Renderer->SetCameraTarget(Center);
@@ -1335,22 +1243,24 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asse
     }
     
     //~ Enemies @update_enemy
-    FOR_ENTITY_TYPE(this, enemy_entity){
+    FOR_ENTITY_TYPE(&Enemies){
         enemy_entity *Entity = It.Item;
         asset_entity *EntityInfo = AssetsFind_(Assets, Entity, Entity->Asset);
+        
+        
         v2 Tangent = V2Clockwise90(Entity->UpNormal);
         
         f32 Movement = 0.0f;
         v2 P = WorldPosP(Entity->Pos);
         if(!DoesAnimationBlock(&EntityInfo->Animation, &Entity->Animation)){
-            if((P.X <= Entity->PathStart.X) &&
+            if((V2Dot(Tangent, P) <= V2Dot(Tangent, Entity->PathStart)) &&
                (Entity->Animation.Direction == Direction_Left)){
                 TurnEntity(Assets, Entity, Direction_Right);
-            }else if((P.X >= Entity->PathEnd.X) &&
+            }else if((V2Dot(Tangent, P) >= V2Dot(Tangent, Entity->PathEnd)) &&
                      (Entity->Animation.Direction == Direction_Right)){
                 TurnEntity(Assets, Entity, Direction_Left);
             }else{
-                Movement = ((Entity->Animation.Direction == Direction_Left) ?  -Tangent.X*Entity->Speed : Tangent.X*Entity->Speed);
+                Movement = ((Entity->Animation.Direction == Direction_Left) ?  -Entity->Speed : Entity->Speed);
                 ChangeEntityState(Entity, EntityInfo, State_Moving);
             }
         }
@@ -1361,10 +1271,11 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asse
             MovePlatformer(&UpdateContext, Entity, Movement, dTime);
         }
         MaybeDoTrails(Assets, Entity, dTime);
+        EntityTestGravityZones(Entity);
     }
     
     //~ Teleporters @update_teleporter
-    FOR_ENTITY_TYPE(this, teleporter_entity){
+    FOR_ENTITY_TYPE(&Teleporters){
         teleporter_entity *Teleporter = It.Item;
         if(!Teleporter->IsLocked){
             if(Teleporter->IsSelected){
@@ -1411,22 +1322,13 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         player_entity *Entity = Player;
         asset_entity *EntityInfo = AssetsFind_(Assets, Entity, Entity->Asset);
         Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), ENTITY_DEFAULT_Z, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f);
-        DoEntityAnimation(Group, EntityInfo, &Entity->Animation, Entity->Pos, ENTITY_DEFAULT_Z, dTime);
-        
-#if 1
-        {
-            physics_floor *Floor = Entity->Pos.Floor;
-            if(Floor){
-                render_group *DebugGroup = Group->Renderer->GetRenderGroup(RenderGroupID_Scaled);
-                RenderLineFrom(DebugGroup, WorldPosP(Floor->Entity->Pos)+Floor->Offset, 
-                               RangeSize(Floor->Range)*Floor->Tangent, ZLayer(1, ZLayer_DebugUI, -10), 0.5f, RED);
-            }
-        }
-#endif
+        DoEntityAnimation(Group, EntityInfo, &Entity->Animation, 
+                          Entity->Pos, Entity->Size, Entity->UpNormal,
+                          ENTITY_DEFAULT_Z, dTime);
     }
     
     //~ Enemies @render_enemy
-    FOR_ENTITY_TYPE(this, enemy_entity){
+    FOR_ENTITY_TYPE(&Enemies){
         enemy_entity *Entity = It.Item;
         z_layer Z = ENTITY_DEFAULT_Z;
 #if 0
@@ -1437,18 +1339,20 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         
         Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), Z, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, 
                            Entity->Size.X+8);
-        DoEntityAnimation(Group, AssetsFind_(Assets, Entity, Entity->Asset), &Entity->Animation, Entity->Pos, Z, dTime);
+        DoEntityAnimation(Group, AssetsFind_(Assets, Entity, Entity->Asset), &Entity->Animation, 
+                          Entity->Pos, Entity->Size, Entity->UpNormal,
+                          ENTITY_DEFAULT_Z, dTime);
     }
     
     //~ Tilemaps @render_tilemap
-    FOR_ENTITY_TYPE(this, tilemap_entity){
+    FOR_ENTITY_TYPE(&Tilemaps){
         tilemap_entity *Tilemap = It.Item;  
         asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Tilemap->Asset);
         RenderTilemap(Group, Asset, &Tilemap->TilemapData, WorldPosP(Tilemap->Pos), ENTITY_DEFAULT_Z);
     }
     
     //~ Coins @render_coin
-    FOR_ENTITY_TYPE(this, coin_entity){
+    FOR_ENTITY_TYPE(&Coins){
         coin_entity *Coin = It.Item;
         if(Coin->Animation.Cooldown > 0.0f){
             Coin->Animation.Cooldown -= dTime;
@@ -1458,7 +1362,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     }
     
     //~ Arts @render_art
-    FOR_ENTITY_TYPE(this, art_entity){
+    FOR_ENTITY_TYPE(&Arts){
         art_entity *Art = It.Item;
         asset_art *Asset = AssetsFind_(Assets, Art, Art->Asset);
         RenderArt(Group, Asset, WorldPosP(Art->Pos), ENTITY_DEFAULT_Z);
@@ -1468,7 +1372,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     }
     
     //~ Teleporters @render_teleporter
-    FOR_ENTITY_TYPE(this, teleporter_entity){
+    FOR_ENTITY_TYPE(&Teleporters){
         teleporter_entity *Entity = It.Item;
         v2 P = WorldPosP(Entity->Pos);
         if(!Entity->IsLocked){
@@ -1491,7 +1395,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     }
     
     //~ Doors @render_door
-    FOR_ENTITY_TYPE(this, door_entity){
+    FOR_ENTITY_TYPE(&Doors){
         door_entity *Entity = It.Item;
         Entity->Cooldown -= dTime;
         rect R = SizeRect(WorldPosP(Entity->Pos), Entity->Size);
@@ -1510,6 +1414,32 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     
     FOR_EACH(Trail, &Trails){
         RenderTrail(Group, Assets, &Trail, dTime);
+    }
+    
+    //~ Gravity Zones
+    render_group *NoLightingGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
+    
+    FOR_EACH(Zone, &GravityZones){
+        RenderRectOutline(Group, Zone.Area, ENTITY_DEFAULT_Z, BLUE);
+        asset_art *Arrows[ZoneArrowArt_TOTAL] = {};
+        Arrows[ZoneArrowArt_A] = AssetsFind(Assets, Art, gravity_arrow_a);
+        Arrows[ZoneArrowArt_B] = AssetsFind(Assets, Art, gravity_arrow_b);
+        Arrows[ZoneArrowArt_C] = AssetsFind(Assets, Art, gravity_arrow_c);
+        
+        FOR_RANGE(I, 0, ZoneArrowCount(&Zone)){
+            gravity_zone_arrow *Arrow = &Zone.Arrows[I];
+            
+            asset_art *Art = Arrows[Arrow->ArtType];
+            
+            RenderArt(NoLightingGroup, Art, Arrow->P, ZLayer(1, ZLayer_GameForeground, 0), UpToTransform(Zone.Direction));
+            
+            //RenderRectOutline(Group, SizeRect(Arrow->P, Art->Size), ENTITY_DEFAULT_Z, BLUE);
+            f32 Speed = GetRandomFloat(I, 20);
+            Arrow->P += Arrow->Delta;
+            if(!RectOverlaps(RectGrow(Zone.Area, -Art->Size), SizeRect(Arrow->P, Art->Size))){
+                ZoneSpawnArrow(&Zone, I, Arrow->ArtType);
+            }
+        }
     }
     
 #if 0    
@@ -1549,6 +1479,10 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
 #if 1
     //~ Backgrounds
     {
+        asset_art *Background = AssetsFind(Assets, Art, background_test_mushrooms);
+        RenderArt(Group, Background,  V2(0, 0), ZLayer(6, ZLayer_GameBackground, 0));
+        
+#if 0
         TIMED_SCOPE(Backgrounds);
         asset_art *BackgroundBack   = AssetsFind(Assets, Art, background_test_back);
         asset_art *BackgroundMiddle = AssetsFind(Assets, Art, background_test_middle);
@@ -1562,24 +1496,32 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         RenderArt(Group, BackgroundFront,  V2(0*BackgroundFront->Size.Width,  YOffset), ZLayer(1, ZLayer_GameBackground, 0));
         RenderArt(Group, BackgroundFront,  V2(1*BackgroundFront->Size.Width,  YOffset), ZLayer(1, ZLayer_GameBackground, 0));
         RenderArt(Group, BackgroundFront,  V2(2*BackgroundFront->Size.Width,  YOffset), ZLayer(1, ZLayer_GameBackground, 0));
+#endif
     }
 #endif
     
 #if defined(DEBUG_PHYSICS_FLOORS)
     {
         render_group *DebugGroup = Group->Renderer->GetRenderGroup(RenderGroupID_Scaled);
-        FOR_EACH(Floor, &PhysicsFloors){
+        FOR_EACH_(Floor, I, &PhysicsFloors){
             RenderLineFrom(DebugGroup, WorldPosP(Floor.Entity->Pos)+Floor.Offset, RangeSize(Floor.Range)*Floor.Tangent, 
                            ZLayer(1, ZLayer_DebugUI, -10), 0.5f, RED);
+#if defined(DEBUG_PHYSICS_FLOOR_CONNECTIONS)
+            DEBUG_MESSAGE(DebugMessage_PerFrame, "Floor %d (%.2f, %.2f): %.2f %.2f", I,
+                          Floor.Normal.X, Floor.Normal.Y,
+                          Floor.Range.Min, Floor.Range.Max);
+#endif
             
+#if 0
             f32 O = 2;
             physics_floor *Next = &Floor;
-            while(Next->PrevIndex > 0){
-                Next = &PhysicsFloors[Next->PrevIndex-1];
+            while(Next->NextIndex != I+1){
+                Next = &PhysicsFloors[Next->NextIndex-1];
                 RenderLineFrom(DebugGroup, O*Next->Normal+WorldPosP(Next->Entity->Pos)+Next->Offset, RangeSize(Next->Range)*Next->Tangent, 
                                ZLayer(1, ZLayer_DebugUI, -10), 0.5f, GREEN);
                 O += 2;
             }
+#endif
             
         }
     }

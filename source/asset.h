@@ -60,6 +60,7 @@ ASSET_TAG("trail_speedy",     TrailSpeedy) \
 ASSET_TAG("trail_sticky",     TrailSticky) \
 ASSET_TAG("animated",         Animated)    \
 ASSET_TAG("art",              Art)         \
+ASSET_TAG("arrow",            Arrow)       \
 
 ;
 
@@ -210,7 +211,32 @@ operator!=(asset_id A, asset_id B){
 }
 
 
+//~ Collision boundary
+enum collision_boundary_type {
+    BoundaryType_None,
+    BoundaryType_Rect,
+    BoundaryType_FreeForm,
+    BoundaryType_Point, // Basically identical(right now) to BoundaryType_None
+};
+
+struct collision_boundary {
+    collision_boundary_type Type;
+    v2 Offset;
+    rect Bounds;
+    
+    union {
+        // Rects just use 'rect Bounds'
+        
+        // FreeForm
+        struct {
+            v2 *FreeFormPoints;
+            u32 FreeFormPointCount;
+        };
+    };
+};
+
 //~ Spritesheets
+
 enum asset_sprite_sheet_frame_flags_ {
     SpriteSheetFrameFlag_None = (0 << 0),
     SpriteSheetFrameFlag_Flip = (1 << 0),
@@ -294,7 +320,7 @@ struct asset_entity {
     
     asset_animation     Animation;
     entity_flags        Flags;
-    entity_array_type   Type;
+    entity_type   Type;
     f32                 Mass;
     f32                 Speed;
     
@@ -322,7 +348,7 @@ struct sound_data {
     s16 *Samples;
     u16 ChannelCount;
     u32 SampleCount;
-    f32 BaseSpeed;
+    u32 SamplesPerSecond;
 };
 
 struct asset_sound_effect {
@@ -334,20 +360,6 @@ struct asset_sound_effect {
 
 //~ Tilemaps
 typedef u16 tilemap_tile_place;
-
-typedef u8 tile_transform;
-enum tile_transform_ {
-    TileTransform_None,
-    TileTransform_HorizontalReverse,
-    TileTransform_VerticalReverse,
-    TileTransform_HorizontalAndVerticalReverse,
-    TileTransform_Rotate90,
-    TileTransform_Rotate180,
-    TileTransform_Rotate270,
-    TileTransform_ReverseAndRotate90,
-    TileTransform_ReverseAndRotate180,
-    TileTransform_ReverseAndRotate270
-};
 
 typedef u8 tile_type;
 enum tile_type_ {
@@ -397,7 +409,7 @@ struct tilemap_data {
     u32 Width;
     u32 Height;
     u32 *Indices;
-    tile_transform *Transforms;
+    render_transform *Transforms;
     tile_connector_data *Connectors;
 };
 
@@ -417,7 +429,7 @@ struct asset_tilemap_tile_data {
     u32 FramesPer;
     u32 OffsetMin;
     u32 OffsetMax;
-    tile_transform Transform;
+    render_transform Transform;
     u8 BoundaryIndex;
 };
 
@@ -618,7 +630,7 @@ struct asset_loader {
     hash_table<const char *, direction>    DirectionTable;
     hash_table<const char *, image> LoadedImageTable;
     hash_table<const char *, entity_state> StateTable;
-    hash_table<const char *, entity_array_type>  EntityTypeTable;
+    hash_table<const char *, entity_type>  EntityTypeTable;
     
     file_reader Reader;
     
@@ -659,7 +671,7 @@ struct asset_loader {
     asset_loading_status ProcessVariables();
     
     entity_state ReadState();
-    b8 IsInvalidEntityType(asset_entity *Entity, entity_array_type Target);
+    b8 IsInvalidEntityType(asset_entity *Entity, entity_type Target);
     
     asset_loading_status ExpectDescriptionStrings(string_builder *Builder);
     

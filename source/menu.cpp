@@ -63,7 +63,7 @@ internal inline b8
 MenuShouldHoverItem(os_input *Input, menu_state *State, menu_item_state *Item, rect R){
     if(State->UsingSlider) return false;
     b8 KeyboardMode = (State->Flags & MenuFlag_KeyboardMode) != 0;
-    if(!KeyboardMode && IsPointInRect(Input->MouseP, R)){
+    if(!KeyboardMode && RectContains(R, Input->MouseP)){
         State->SelectedID = Item->ID;
         return true;
     }

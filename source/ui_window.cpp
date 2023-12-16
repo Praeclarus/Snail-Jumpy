@@ -224,7 +224,7 @@ ui_window::EndSection(){
     DrawRect(ScrollbarRect, UI_WINDOW_WIDGET_Z, Theme->Roundness, Theme->ScrollbarBaseColor);
     DrawRect(KnobRect, UI_WINDOW_WIDGET_Z-1, Theme->Roundness, KnobColor);
     
-    if(Manager->DoScrollElement(SectionID+WIDGET_ID, -1, KeyFlag_None, IsPointInRect(Input->MouseP, ScrollbarRect))){
+    if(Manager->DoScrollElement(SectionID+WIDGET_ID, -1, KeyFlag_None, RectContains(ScrollbarRect, Input->MouseP))){
         f32 dScroll = (f32)-Manager->ActiveElement.Scroll;
         State->TargetScroll += Theme->ScrollSensitivity*dScroll;
     }
@@ -300,7 +300,7 @@ ui_window::TextInput(char *Buffer, u32 BufferSize, u64 ID){
     if(Behavior == UIBehavior_JustActivate){
         Context->CursorPosition = FindCursorPositionFromClick(NormalFont, Buffer, StringP, Input->MouseP);
     }else if(Behavior == UIBehavior_Activate){
-        if(IsPointInRect(Input->MouseP, TextBoxRect)){
+        if(RectContains(TextBoxRect, Input->MouseP)){
             if(Manager->MouseButtonJustDown(MouseButton_Left)){
                 Context->SelectionMark = FindCursorPositionFromClick(NormalFont, Buffer, StringP, Input->MouseP);
             }
@@ -483,7 +483,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 Selected, u64 ID)
             rect ItemRect = SizeRect(P, V2(Width, Height));
             s8 ItemZ = UI_WINDOW_OVERLAY_Z;
             
-            if(IsPointInRect(Manager->OSInput->MouseP, ItemRect) && IsActive){
+            if(RectContains(ItemRect, Manager->OSInput->MouseP) && IsActive){
                 if(Manager->MouseButtonJustDown(MouseButton_Left)){
                     Selected = I;
                 }
@@ -532,7 +532,7 @@ ui_window::DropDownMenu(const char **Texts, u32 TextCount, u32 Selected, u64 ID)
         DrawString(NormalFont, TextColor, StringP, UI_WINDOW_STRING_Z, Texts[Selected]);
     }
     
-    if(IsPointInRect(Manager->OSInput->MouseP, ActionRect)){
+    if(RectContains(ActionRect, Manager->OSInput->MouseP)){
         if(!Manager->DoHoverElement(&Element)) return Selected;
         Manager->SetValidElement(&Element);
         State->IsOpen = true;
@@ -726,7 +726,7 @@ ui_window::List(const char **Items, u32 ItemCount, s32 Selected, u64 ID, f32 Max
         DrawRect(ScrollbarRect, UI_WINDOW_WIDGET_Z, Theme->Roundness, Theme->ScrollbarBaseColor, RoundedRectCorner_Right);
         DrawRect(KnobRect, UI_WINDOW_WIDGET_Z-1, Theme->Roundness, KnobColor, RoundedRectCorner_Right);
         
-        if(Manager->DoScrollElement(WIDGET_ID, 1, KeyFlag_None, IsPointInRect(Input->MouseP, TotalRect))){
+        if(Manager->DoScrollElement(WIDGET_ID, 1, KeyFlag_None, RectContains(TotalRect, Input->MouseP))){
             f32 dScroll = (f32)-Manager->ActiveElement.Scroll;
             State->TargetScroll += Theme->ScrollSensitivity*dScroll;
         }

@@ -248,7 +248,7 @@ ui_manager::DoButtonElement(u64 ID, rect ActionRect, os_mouse_button Button, s32
     ui_element Element = MakeElement(UIElementFlags_Button, ID, Priority, RectArea(ActionRect));
     
     ui_behavior Result = DoElement(&Element, 
-                                   IsPointInRect(OSInput->MouseP, ActionRect), 
+                                   RectContains(ActionRect, OSInput->MouseP), 
                                    MouseButtonJustDown(Button, Flags));
     if(Result == UIBehavior_JustActivate) Result = UIBehavior_Activate;
     
@@ -260,10 +260,10 @@ ui_manager::DoTextInputElement(u64 ID, rect ActionRect, char *Buffer, u32 Buffer
     ui_element Element = MakeElement(UIElementFlags_TextInput, ID, Priority, RectArea(ActionRect));
     text_input_context *Context = &TextInputContext;
     
-    b8 DoDeactivate = ((!IsPointInRect(OSInput->MouseP, ActionRect) &&
+    b8 DoDeactivate = ((!RectContains(ActionRect, OSInput->MouseP) &&
                         MouseButtonIsDown(MouseButton_Left)));
     ui_behavior Result = DoElement(&Element, 
-                                   IsPointInRect(OSInput->MouseP, ActionRect), 
+                                   RectContains(ActionRect, OSInput->MouseP), 
                                    MouseButtonJustDown(MouseButton_Left),
                                    DoDeactivate);
     if(Result == UIBehavior_JustActivate){
@@ -287,7 +287,7 @@ ui_manager::DoDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priority, os_k
     Element.Offset = P - OSInput->MouseP;
     
     ui_behavior Result = DoElement(&Element, 
-                                   IsPointInRect(OSInput->MouseP, ActionRect), 
+                                   RectContains(ActionRect, OSInput->MouseP), 
                                    MouseButtonJustDown(MouseButton_Left, KeyFlags),
                                    MouseButtonIsUp(MouseButton_Left, KeyFlags));
 #if 0
@@ -307,7 +307,7 @@ ui_manager::DoBoundedDraggableElement(u64 ID, rect ActionRect, v2 P, s32 Priorit
     Element.Offset = P - OSInput->MouseP;
     
     ui_behavior Result = DoElement(&Element, 
-                                   IsPointInRect(OSInput->MouseP, ActionRect), 
+                                   RectContains(ActionRect, OSInput->MouseP), 
                                    MouseButtonJustDown(MouseButton_Left),
                                    MouseButtonIsUp(MouseButton_Left));
     if(Result == UIBehavior_JustActivate){

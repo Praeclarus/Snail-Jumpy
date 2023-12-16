@@ -1,47 +1,6 @@
 #ifndef SNAIL_JUMPY_PHYSICS_H
 #define SNAIL_JUMPY_PHYSICS_H
 
-//~ Collision boundary
-enum collision_boundary_type {
-    BoundaryType_None,
-    BoundaryType_Rect,
-    BoundaryType_FreeForm,
-    BoundaryType_Point, // Basically identical(right now) to BoundaryType_None
-};
-
-typedef v2 gjk_simplex[3];
-
-struct collision_boundary {
-    collision_boundary_type Type;
-    v2 Offset;
-    rect Bounds;
-    
-    union {
-        // Rects just use 'rect Bounds'
-        
-        // FreeForm
-        struct {
-            v2 *FreeFormPoints;
-            u32 FreeFormPointCount;
-        };
-    };
-};
-
-//~ Particles
-struct physics_particle_x4 {
-    v2_x4 P, dP;
-    
-    f32_x4 Lifetime;
-};
-
-struct physics_particle_system {
-    collision_boundary *Boundary;
-    array<physics_particle_x4> Particles;
-    v2 P;
-    v2 StartdP;
-    f32 COR;
-};
-
 
 //~ Physics
 
@@ -76,7 +35,7 @@ struct physics_collision {
     physics_collision_type Type;
     
     f32 TimeOfImpact;
-    f32 Pentration;
+    v2 Penetration;
     v2 Normal;
     
     union{

@@ -22,7 +22,7 @@ struct wav_data_chunk {
 
 // TODO(Tyler): Make this check with a 32-bit number, not by checking 4 chars
 internal inline b8
-CheckChunkID(char ID[4], char *TestID){
+CheckChunkID(char ID[4], const char *TestID){
     return ((ID[0] == TestID[0]) &&
             (ID[1] == TestID[1]) &&
             (ID[2] == TestID[2]) &&
@@ -66,12 +66,7 @@ LoadWavFile(memory_arena *Arena, const char *Path){
                 Assert(0);
             }
             
-            if(FmtChunk->SampleRate != AUDIO_SAMPLES_PER_SECOND){
-                Result.BaseSpeed = (f32)FmtChunk->SampleRate / (f32)AUDIO_SAMPLES_PER_SECOND;
-            }else{
-                Result.BaseSpeed = 1.0f;
-            }
-            
+            Result.SamplesPerSecond = FmtChunk->SampleRate;
         }else if(CheckChunkID(ChunkID, "data")){
             DataChunk = StreamConsumeType(&Stream, wav_data_chunk);
         }else{

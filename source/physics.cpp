@@ -1,121 +1,12 @@
 
+//#define DEBUG_PHYSICS_ALL
+
+#if defined(DEBUG_PHYSICS_ALL)
 #define DEBUG_PHYSICS_BOXES
 #define DEBUG_PHYSICS_FLOORS
-
-//~ Boundary stuff
-internal inline collision_boundary
-MakeCollisionPoint(){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_Point;
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionRect(v2 Offset, v2 Size){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_Rect;
-    Result.Offset = Offset;
-    Result.Bounds = CenterRect(V2(0), Size);
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionWedge(memory_arena *Arena, v2 Offset, f32 X, f32 Y){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_FreeForm;
-    Result.Offset = Offset;
-    f32 MinX = Minimum(X, 0.0f);
-    f32 MinY = Minimum(Y, 0.0f);
-    Result.Bounds.Min = V2(MinX, MinY);
-    
-    f32 MaxX = Maximum(X, 0.0f);
-    f32 MaxY = Maximum(Y, 0.0f);
-    Result.Bounds.Max = V2(MaxX, MaxY);
-    
-    Result.FreeFormPointCount = 3;
-    Result.FreeFormPoints = ArenaPushArray(Arena, v2, 3);
-    Result.FreeFormPoints[0] = V2(0);
-    Result.FreeFormPoints[1] = V2(X, 0.0f);
-    Result.FreeFormPoints[2] = V2(0.0f, Y);
-    
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionCircle(memory_arena *Arena, v2 Offset, f32 Radius, u32 Segments){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_FreeForm;
-    Result.Offset = Offset;
-    Result.Bounds = CenterRect(V2(0), 2*V2(Radius));
-    
-    // TODO(Tyler): There might be a better way to do this that doesn't require
-    // calculation beforehand
-    Result.FreeFormPointCount = Segments;
-    Result.FreeFormPoints = ArenaPushArray(Arena, v2, Segments);
-    f32 T = 0.0f;
-    f32 Step = 1.0f/(f32)Segments;
-    for(u32 I = 0; I <= Segments; I++){
-        Result.FreeFormPoints[I] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
-        T += Step;
-    }
-    
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionPill(memory_arena *Arena, v2 Offset, f32 Radius, f32 Height, u32 HalfSegments){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_FreeForm;
-    Result.Offset = Offset;
-    Result.Bounds = MakeRect(V2(-Radius, -Radius), V2(Radius, Height+Radius));
-    
-    u32 Segments = 2*HalfSegments;
-    u32 ActualSegments = Segments + 2;
-    Result.FreeFormPointCount = ActualSegments;
-    Result.FreeFormPoints = ArenaPushArray(Arena, v2, ActualSegments);
-    
-    f32 HeightOffset = Height;
-    f32 T = 0.0f;
-    f32 Step = 1.0f/((f32)Segments);
-    u32 Index = 0;
-    
-    for(u32 I=0; I <= HalfSegments; I++){
-        Result.FreeFormPoints[Index] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
-        Result.FreeFormPoints[Index].Y += HeightOffset;
-        T += Step;
-        Index++;
-    }
-    T -= Step;
-    
-    HeightOffset = 0;
-    for(u32 I=0; I <= HalfSegments; I++){
-        Result.FreeFormPoints[Index] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
-        Result.FreeFormPoints[Index].Y += HeightOffset;
-        T += Step;
-        Index++;
-    }
-    
-    
-    return(Result);
-}
-
-internal rect
-GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
-    v2 Min = V2(F32_POSITIVE_INFINITY);
-    v2 Max = V2(F32_NEGATIVE_INFINITY);
-    for(u32 I=0; I < BoundaryCount; I++){
-        Min = V2Minimum(Boundaries[I].Bounds.Min+Boundaries[I].Offset, Min);
-        Max = V2Maximum(Boundaries[I].Bounds.Max+Boundaries[I].Offset, Max);
-    }
-    rect Result = MakeRect(Min, Max);
-    return(Result);
-}
-
-internal v2
-GetSizeOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
-    return RectSize(GetBoundsOfBoundaries(Boundaries, BoundaryCount));
-}
-
+//#define DEBUG_PHYSICS_COLLISIONS
+//#define DEBUG_PHYSICS_FLOOR_CONNECTIONS
+#endif
 
 
 //~ Helpers
@@ -160,23 +51,23 @@ MakeCollision(){
 }
 
 internal inline physics_collision
-MakeCollision(physics_collision_type Type, f32 TimeOfImpact, v2 Normal, f32 Pentration, entity *Entity){
+MakeCollision(physics_collision_type Type, f32 TimeOfImpact, v2 Normal, v2 Penetration, entity *Entity){
     physics_collision Result = {};
     Result.Type = Type;
     Result.TimeOfImpact = TimeOfImpact;
     Result.Normal       = Normal;
-    Result.Pentration   = Pentration;
+    Result.Penetration  = Penetration;
     Result.EntityB = Entity;
     return(Result);
 }
 
 internal inline physics_collision
-MakeCollision(physics_collision_type Type, f32 TimeOfImpact, v2 Normal, f32 Pentration, physics_floor *Floor){
+MakeCollision(physics_collision_type Type, f32 TimeOfImpact, v2 Normal, v2 Penetration, physics_floor *Floor){
     physics_collision Result = {};
     Result.Type = Type;
     Result.TimeOfImpact = TimeOfImpact;
     Result.Normal       = Normal;
-    Result.Pentration   = Pentration;
+    Result.Penetration  = Penetration;
     Result.Floor = Floor;
     return(Result);
 }
@@ -354,7 +245,7 @@ WorldPosPOrigin(world_position Pos){
     if(Pos.Floor){
         return Pos.Floor->Tangent*Pos.S;
     }else{
-        return Pos.P;
+        return Pos. P;
     }
 }
 
@@ -467,17 +358,6 @@ MakeFloorMoveUpdate(physics_update_context *Context, entity *Entity, f32 DeltaS)
 }
 
 //~ Physics
-physics_particle_system *
-entity_manager::AddParticleSystem(v2 P, collision_boundary *Boundary, u32 Count,
-                                  f32 COR=1.0f){
-    physics_particle_system *Result = BucketArrayAlloc(&ParticleSystems);
-    Result->Particles = MakeFullArray<physics_particle_x4>(&ParticleMemory, Count, 16);
-    Result->Boundary = Boundary;
-    Result->P = P;
-    Result->COR = COR;
-    return(Result);
-}
-
 collision_boundary *
 entity_manager::AllocBoundaries(u32 Count){
     collision_boundary *Result = ArenaPushArray(&BoundaryMemory, collision_boundary, Count);
@@ -510,7 +390,7 @@ SToDirection(f32 S){
 internal b8
 HandleSnailCollision(asset_system *Assets, entity_manager *Entities, physics_update *Update, 
                      enemy_entity *EntityA, entity *EntityB){
-    if(EntityB->Type == ENTITY_TYPE(player_entity)){
+    if(EntityB->Type == EntityType_Player){
         return true;
     }
     
@@ -520,7 +400,7 @@ HandleSnailCollision(asset_system *Assets, entity_manager *Entities, physics_upd
 internal b8
 HandleDragonflyCollision(asset_system *Assets, entity_manager *Entities, physics_update *Update, 
                          enemy_entity *EntityA, entity *EntityB){
-    if(EntityB->Type == ENTITY_TYPE(player_entity)){
+    if(EntityB->Type == EntityType_Player){
         return true;
     }
     
@@ -558,6 +438,10 @@ entity_manager::HandleCollision(asset_system *Assets, physics_update *Update, f3
                 Update->Delta = MakeWorldPos(Update->Collision.Floor, 0);
                 
                 EntityA->dP -= 1.0f*Collision->Normal*V2Dot(Collision->Normal, Update->Entity->dP);
+#if defined(DEBUG_PHYSICS_COLLISIONS)
+                DEBUG_MESSAGE(DebugMessage_PerFrame, "Collision: %f (%f, %f), (%f, %f)", 
+                              Collision->TimeOfImpact, Update->Delta.P.X, Update->Delta.P.Y, Collision->Normal.X, Collision->Normal.Y);
+#endif
                 
                 return;
             }
@@ -572,7 +456,7 @@ entity_manager::HandleCollision(asset_system *Assets, physics_update *Update, f3
                 ResetPosition = HandleSnailCollision(Assets, this, Update, (enemy_entity *)EntityA, EntityB);
             }else if(HasTag(EntityA->Tag, AssetTag_Dragonfly)){
                 ResetPosition = HandleDragonflyCollision(Assets, this, Update, (enemy_entity *)EntityA, EntityB);
-            }else if(EntityA->Type == ENTITY_TYPE(player_entity)){
+            }else if(EntityA->Type == EntityType_Player){
                 ResetPosition = HandlePlayerCollision(Assets, this, Update, (player_entity *)EntityA, EntityB);
             }
         }
@@ -635,16 +519,21 @@ entity_manager::DoFloorRaycast(world_position Pos, v2 Size, v2 UpNormal){
     
     physics_floor *FoundFloor = 0;
     FOR_EACH(Floor, &PhysicsFloors){
-        v2 RelP = P-(Floor.Offset+WorldPosP(Floor.Entity->Pos));
-        f32 AlongNormal = V2Dot(Floor.Normal, RelP);
+        rect Bounds = WorldPosBounds(Pos, Size, UpNormal);
+        v2 ObjectTangent = V2Clockwise90(UpNormal);
+        
+        v2 FloorPA = (WorldPosP(Floor.Entity->Pos)+Floor.Offset);
+        v2 FloorPB = FloorPA+(Floor.Tangent*RangeSize(Floor.Range));
+        
+        f32 AlongNormal = V2Dot(Floor.Normal, P-FloorPA);
         if((MinRange < AlongNormal) && (AlongNormal < MaxRange)){
-            f32 S = V2Dot(Floor.Tangent, RelP)+Floor.Range.Min;
-            range_f32 SRange = CenterRangeF32(S, Size.X);
-            if(RangeOverlaps(Floor.Range, SRange)){
-                if(V2Dot(Floor.Normal, UpNormal) > 0){
-                    FoundFloor = &Floor;
-                    goto floor_loop_end;
-                }
+            range_f32 TangentRange = MakeRangeF32(V2Dot(ObjectTangent, FloorPA),
+                                                  V2Dot(ObjectTangent, FloorPB));
+            
+            if(RangeContainsInclusive(TangentRange, V2Dot(ObjectTangent, Bounds.Min)) || 
+               RangeContainsInclusive(TangentRange, V2Dot(ObjectTangent, Bounds.Max))){
+                FoundFloor = &Floor;
+                goto floor_loop_end;
             }
         }
     }floor_loop_end:;
@@ -673,10 +562,10 @@ entity_manager::CalculateCollision(physics_update *UpdateA, physics_update *Upda
     else if((-UpdateB->Size.X > OriginalDistance.X) || (OriginalDistance.X > UpdateA->Size.X)) TOIY = F32_POSITIVE_INFINITY;
     
     if((TOIX <= UpdateA->Collision.TimeOfImpact) && (TOIX <= TOIY)){
-        UpdateA->Collision = MakeCollision(PhysicsCollision_Normal, TOIX, V2(-SignOf(RelDelta.X), 0), 0, UpdateB->Entity);
+        UpdateA->Collision = MakeCollision(PhysicsCollision_Normal, TOIX, V2(-SignOf(RelDelta.X), 0), V2(0), UpdateB->Entity);
         UpdateB->Collision = MakeOtherCollision(&UpdateA->Collision, UpdateA->Entity);
     }else if(TOIY <= UpdateA->Collision.TimeOfImpact){
-        UpdateA->Collision = MakeCollision(PhysicsCollision_Normal, TOIY, V2(0, -SignOf(RelDelta.Y)), 0, UpdateB->Entity);
+        UpdateA->Collision = MakeCollision(PhysicsCollision_Normal, TOIY, V2(0, -SignOf(RelDelta.Y)), V2(0), UpdateB->Entity);
         UpdateB->Collision = MakeOtherCollision(&UpdateA->Collision, UpdateA->Entity);
     }
 }
@@ -687,35 +576,66 @@ entity_manager::CalculateFloorCollision(physics_update *UpdateA, physics_floor *
        V2Dot(Floor->Normal, UpdateA->UpNormal) > 0) return;
     
     rect Bounds = WorldPosBounds(UpdateA->Pos, UpdateA->Size, UpdateA->UpNormal);
+    v2 ObjectTangent = V2Clockwise90(UpdateA->UpNormal);
     
-    v2 P = -(WorldPosP(Floor->Entity->Pos)+Floor->Offset);
-    v2 NormalBase = P;
     v2 Delta = WorldPosPOrigin(UpdateA->Delta)+Supplemental;
     f32 NormalDelta = V2Dot(Floor->Normal, Delta);
     if(NormalDelta >= 0) return;
     
-    if(V2Dot(Floor->Normal, UpdateA->UpNormal) > 0) NormalBase.X += RectCenter(Bounds).X;
-    else if(Floor->Normal.X < 0) NormalBase.X += Bounds.Max.X;
-    else                         NormalBase.X += Bounds.Min.X;
-    if(Floor->Normal.Y < 0)      NormalBase.Y += Bounds.Max.Y;
-    else                         NormalBase.Y += Bounds.Min.Y;
+    v2 FloorPA = (WorldPosP(Floor->Entity->Pos)+Floor->Offset);
+    v2 FloorPB = FloorPA+(Floor->Tangent*RangeSize(Floor->Range));
+    v2 NormalBase = V2(0);
     
-    f32 NormalDistance = V2Dot(Floor->Normal, NormalBase);
-    f32 TOI = -NormalDistance/NormalDelta;
-    if((0 <= TOI) && (TOI <= UpdateA->Collision.TimeOfImpact)){
-        v2 TangentBase = P;
-        if(Floor->Tangent.X < 0) TangentBase.X += Bounds.Max.X;
-        else                     TangentBase.X += Bounds.Min.X;
-        if(Floor->Tangent.Y < 0) TangentBase.Y += Bounds.Max.Y;
-        else                     TangentBase.Y += Bounds.Min.Y;
-        
-        f32 TangentMin = Floor->Range.Min+V2Dot(Floor->Tangent, TangentBase+TOI*Delta);
-        f32 TangentMax = TangentMin + V2Dot(V2AbsoluteValue(Floor->Tangent), UpdateA->Size);
-        if(RangeContainsInclusive(Floor->Range, TangentMin) || 
-           RangeContainsInclusive(Floor->Range, TangentMax)){
-            UpdateA->Collision = MakeCollision(PhysicsCollision_Floor, TOI, Floor->Normal, 0, Floor);
+    //- Find time of impact for the collision
+    if((UpdateA->UpNormal.X == 0) && (V2Dot(Floor->Normal, UpdateA->UpNormal) > 0)){
+        NormalBase.X += RectCenter(Bounds).X;
+    }else if(Floor->Normal.X < 0){
+        NormalBase.X += Bounds.Max.X;
+    }else{
+        NormalBase.X += Bounds.Min.X;
+    }
+    if((UpdateA->UpNormal.Y == 0) && (V2Dot(Floor->Normal, UpdateA->UpNormal) > 0)){
+        NormalBase.Y += RectCenter(Bounds).Y;
+    }else if(Floor->Normal.Y < 0){
+        NormalBase.Y += Bounds.Max.Y;
+    }else{
+        NormalBase.Y += Bounds.Min.Y;
+    }
+    
+    NormalBase -= FloorPA;
+    f32 NormalMin = V2Dot(Floor->Normal, NormalBase);
+    f32 TOI = -NormalMin/NormalDelta;
+    
+    //- Check if the collision is valid
+    v2 OtherNormal = V2(0);
+    
+    if(AbsoluteValue(V2Dot(Floor->Tangent, UpdateA->UpNormal)) > AbsoluteValue(V2Dot(Floor->Tangent, ObjectTangent))){
+        OtherNormal = UpdateA->UpNormal;
+    }else if(AbsoluteValue(V2Dot(Floor->Tangent, UpdateA->UpNormal)) < AbsoluteValue(V2Dot(Floor->Tangent, ObjectTangent))){
+        OtherNormal = ObjectTangent;
+    }else{
+        if(AbsoluteValue(V2Dot(ObjectTangent, Delta)) > AbsoluteValue(V2Dot(UpdateA->UpNormal, Delta))){
+            OtherNormal = UpdateA->UpNormal;
+        }else{
+            OtherNormal = ObjectTangent;
         }
     }
+    
+    range_f32 FloorTangentRange = MakeRangeF32(V2Dot(OtherNormal, FloorPA),
+                                               V2Dot(OtherNormal, FloorPB));
+    range_f32 ObjectTangentRange = MakeRangeF32(V2Dot(OtherNormal, Bounds.Min+Delta*TOI),
+                                                V2Dot(OtherNormal, Bounds.Max+Delta*TOI));
+    
+    if(RangeOverlaps(FloorTangentRange, ObjectTangentRange)){
+        f32 NormalMax = NormalMin + V2Dot(V2AbsoluteValue(Floor->Normal), UpdateA->Size);
+        if((0 <= TOI) && (TOI <= UpdateA->Collision.TimeOfImpact)){
+            UpdateA->Collision = MakeCollision(PhysicsCollision_Floor, TOI, Floor->Normal, V2(0), Floor);
+        }else if(SignOf(NormalMin) != SignOf(NormalMax)){ 
+            // NOTE(Tyler): The previous check against the normal, means we don't need to do one here.
+            UpdateA->Collision = MakeCollision(PhysicsCollision_Floor, 0.0f, Floor->Normal, V2(0), Floor);
+        }
+    }
+    
 }
 
 void
@@ -772,8 +692,10 @@ entity_manager::DoPhysics(audio_mixer *Mixer, asset_system *Assets, physics_upda
     
 #if defined(DEBUG_PHYSICS_BOXES)
     FOR_EACH(Update, &Context->PhysicsUpdates){
+#if 1
         RenderRectOutline(DebugInfo.State->Renderer.GetRenderGroup(RenderGroupID_Scaled), 
                           WorldPosBounds(Update.Pos, Update.Size, Update.UpNormal), ZLayer(1, ZLayer_DebugUI, -1), GREEN, 0.5f);
+#endif
         RenderRect(DebugInfo.State->Renderer.GetRenderGroup(RenderGroupID_Scaled), 
                    CenterRect(WorldPosP(Update.Pos, Update.Size), V2(2)), ZLayer(1, ZLayer_DebugUI, -1), RED);
         RenderRectOutline(DebugInfo.State->Renderer.GetRenderGroup(RenderGroupID_Scaled), 

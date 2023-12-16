@@ -1139,12 +1139,6 @@ RangeContains(range_s32 A, range_s32 B){
     return Result;
 }
 
-tyler_function inline b8
-RangeContainsInclusive(range_s32 A, range_s32 B){
-    b8 Result = (A.Min <= B.Min) && (B.Max <= A.Max);
-    return Result;
-}
-
 tyler_function inline range_s32
 RangeCrop(range_s32 Super, range_s32 Sub){
     range_s32 Result;
@@ -1161,13 +1155,13 @@ RangeClamp(range_s32 R, s32 S){
 
 tyler_function inline b8
 RangeOverlaps(range_s32 A, range_s32 B){
-    b8 Result = (RangeContains(A, B.Min) || RangeContains(A, B.Max));
+    b8 Result = (A.Min < B.Max) && (B.Min < A.Max);
     return Result;
 }
 
 tyler_function inline b8
 RangeOverlapsInclusive(range_s32 A, range_s32 B){
-    b8 Result = (RangeContainsInclusive(A, B.Min) || RangeContainsInclusive(A, B.Max));
+    b8 Result = (A.Min <= B.Max) && (B.Min <= A.Max);
     return Result;
 }
 
@@ -1245,12 +1239,6 @@ RangeContains(range_f32 A, range_f32 B){
     return Result;
 }
 
-tyler_function inline b8
-RangeContainsInclusive(range_f32 A, range_f32 B){
-    b8 Result = (A.Min <= B.Min) && (B.Max <= A.Max);
-    return Result;
-}
-
 tyler_function inline range_f32
 RangeCrop(range_f32 Super, range_f32 Sub){
     range_f32 Result;
@@ -1267,13 +1255,13 @@ RangeClamp(range_f32 R, f32 S){
 
 tyler_function inline b8
 RangeOverlaps(range_f32 A, range_f32 B){
-    b8 Result = (RangeContains(A, B.Min) || RangeContains(A, B.Max));
+    b8 Result = (A.Min < B.Max) && (B.Min < A.Max);
     return Result;
 }
 
 tyler_function inline b8
 RangeOverlapsInclusive(range_f32 A, range_f32 B){
-    b8 Result = (RangeContainsInclusive(A, B.Min) || RangeContainsInclusive(A, B.Max));
+    b8 Result = (A.Min <= B.Max) && (B.Min <= A.Max);
     return Result;
 }
 
@@ -1472,15 +1460,21 @@ RectWidth(rect Rect){
     return Result;
 }
 
+tyler_function inline f32
+RectHeight(rect Rect){
+    f32 Result = Rect.Top - Rect.Bottom;
+    return Result;
+}
+
 tyler_function inline b8
-IsPointInRect(v2 Point, rect Rect){
+RectContains(rect Rect, v2 Point){
     b8 Result = ((Rect.Min.X < Point.X) && (Point.X < Rect.Max.X) &&
                  (Rect.Min.Y < Point.Y) && (Point.Y < Rect.Max.Y));
     return(Result);
 }
 
 tyler_function inline b8
-DoRectsOverlap(rect A, rect B){
+RectOverlaps(rect A, rect B){
     b8 Result = ((A.Min.X <= B.Max.X) &&
                  (B.Min.X <= A.Max.X) &&
                  (A.Min.Y <= B.Max.Y) &&
@@ -1510,6 +1504,18 @@ RectCenter(rect Rect){
     v2 Size = RectSize(Rect);
     Result = Rect.Min + 0.5f*Size;
     
+    return(Result);
+}
+
+tyler_function inline f32
+RectCenterX(rect Rect){
+    f32 Result = 0.5f*(Rect.Max.X+Rect.Min.X);
+    return(Result);
+}
+
+tyler_function inline f32
+RectCenterY(rect Rect){
+    f32 Result = 0.5f*(Rect.Max.Y+Rect.Min.Y);
     return(Result);
 }
 
@@ -1577,14 +1583,14 @@ struct bit_scan_result
 tyler_function inline bit_scan_result
 ScanForLeastSignificantSetBit(u64 Mask){
     bit_scan_result Result;
-    Result.Found = _BitScanForward64(&(unsigned long)Result.Index, Mask);
+    Result.Found = _BitScanForward64((unsigned long *)&Result.Index, Mask);
     return(Result);
 }
-
 tyler_function inline bit_scan_result
 ScanForMostSignificantSetBit(u64 Mask){
     bit_scan_result Result;
-    Result.Found = _BitScanReverse64(&(unsigned long)Result.Index, Mask);
+    
+    Result.Found = _BitScanReverse64((unsigned long *)&Result.Index, Mask);
     return(Result);
 }
 
@@ -2064,7 +2070,7 @@ template<typename T> tyler_function inline array<T>
 MakeFullArrayFromArgs(memory_arena *Arena, u32 Count, ...){
     va_list VarArgs;
     va_start(VarArgs, Count);
-    array<T> Result = MakeArray(Arena, Count);
+    array<T> Result = MakeArray<T>(Arena, Count);
     FOR_RANGE(I, 0, Count){
         T Arg = va_arg(VarArgs, T);
         ArrayAdd(&Result, Arg);
@@ -2090,6 +2096,12 @@ template<typename T> tyler_function inline T
 ArrayGet(array<T> *Array, s64 Index){
     Assert(Index < Array->Count);
     return Array->Items[Index];
+}
+
+template<typename T> tyler_function inline T *
+ArrayGetPtr(array<T> *Array, s64 Index){
+    Assert(Index < Array->Count);
+    return &Array->Items[Index];
 }
 
 template<typename T> tyler_function inline void
@@ -2297,6 +2309,12 @@ ArrayGet(dynamic_array<T> *Array, s64 Index){
     return Array->Items[Index];
 }
 
+template<typename T> tyler_function inline T *
+ArrayGetPtr(dynamic_array<T> *Array, s64 Index){
+    Assert(Index < Array->Count);
+    return &Array->Items[Index];
+}
+
 template <typename T> tyler_function inline array<T>
 MakeArray(dynamic_array<T> *Array){
     array<T> Result = MakeFullArray(Array->Items, Array->Count);
@@ -2427,6 +2445,12 @@ template<typename T, u32 U> tyler_function inline T
 ArrayGet(static_array<T, U> *Array, s64 Index){
     Assert(Index < Array->Count);
     return Array->Items[Index];
+}
+
+template<typename T, u32 U> tyler_function inline T *
+ArrayGetPtr(static_array<T, U> *Array, s64 Index){
+    Assert(Index < Array->Count);
+    return &Array->Items[Index];
 }
 
 template<typename T, u32 U> tyler_function inline void
@@ -2646,6 +2670,13 @@ BucketArrayAllocBucket(bucket_array<T, U> *Array){
 }
 
 template<typename T, u32 U>
+tyler_function inline bucket_array_iterator<T>
+BucketArrayMakeBucketIterator(bucket_array<T, U> *Array){
+    bucket_array_iterator<T> Result = {};
+    return Result;
+}
+
+template<typename T, u32 U>
 tyler_function void
 InitializeBucketArray(bucket_array<T, U> *Array, memory_arena *Arena, u32 InitialBuckets=4){
     Assert(Arena);
@@ -2787,7 +2818,7 @@ BucketArrayContinueIteration(bucket_array<T, U> *Array, bucket_array_iterator<T>
                  (Iterator->Index.Bucket < Array->Buckets.Count));
     if(Result){
         Iterator->Item = BucketArrayGet(Array, Iterator->Index);
-        if(Iterator->Item->Flags & EntityFlag_Deleted) return false;
+        if(Iterator->Item->Flags & BUCKET_ARRAY_IGNORE_FLAG) return false;
     }
     
     return(Result);

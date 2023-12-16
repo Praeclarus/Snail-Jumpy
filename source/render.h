@@ -146,6 +146,29 @@ enum render_group_id {
     RenderGroupID_TOTAL,
 };
 
+typedef u16 tilemap_tile_place;
+
+typedef u8 render_transform;
+enum render_transform_ {
+    RenderTransform_None,
+    RenderTransform_HorizontalReverse,
+    RenderTransform_VerticalReverse,
+    RenderTransform_HorizontalAndVerticalReverse,
+    RenderTransform_Rotate90,
+    RenderTransform_Rotate180,
+    RenderTransform_Rotate270,
+    RenderTransform_ReverseAndRotate90,
+    RenderTransform_ReverseAndRotate180,
+    RenderTransform_ReverseAndRotate270
+};
+
+struct render_quad {
+    v2 P0;
+    v2 P1;
+    v2 P2;
+    v2 P3;
+};
+
 global_constant u32 RENDER_NODE_ITEMS = 256;
 struct render_node {
     render_node *Next;

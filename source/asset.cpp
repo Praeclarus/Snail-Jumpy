@@ -90,7 +90,8 @@ SheetAnimationIndex(asset_sprite_sheet *Sheet, entity_state State, direction Dir
 
 internal void 
 RenderSpriteSheetAnimationFrame(render_group *Group, asset_sprite_sheet *Sheet, v2 BaseP, z_layer Z,
-                                u32 AnimationIndex, u32 RelativeFrame){
+                                u32 AnimationIndex, u32 RelativeFrame,
+                                render_transform Transform=RenderTransform_None){
     if(AnimationIndex == 0) return;
     AnimationIndex--;
     
@@ -140,7 +141,7 @@ RenderSpriteSheetAnimationFrame(render_group *Group, asset_sprite_sheet *Sheet, 
         TextureRect.Max.X /= TextureSize.X;
         TextureRect.Max.Y /= TextureSize.Y;
         
-        RenderTexture(Group, R, Z, Piece->Texture, TextureRect, true);
+        RenderTexture(Group, R, Z, Piece->Texture, Transform, TextureRect, true);
         Z.Sub -= 1;
     }
     
@@ -203,7 +204,8 @@ UpdateSpriteSheetAnimation(asset_sprite_sheet *Sheet, asset_animation *Animation
 
 internal inline void
 RenderSpriteSheetAnimation(render_group *Group, asset_sprite_sheet *Sheet, asset_animation *Animation, 
-                           animation_state *State, v2 BaseP, z_layer Z){
+                           animation_state *State, v2 BaseP, z_layer Z, 
+                           render_transform Transform=RenderTransform_None){
     u32 AnimationIndex = Sheet->StateTable[State->State][State->Direction];
     if(AnimationIndex == 0) {
         // TODO(Tyler): BETTER ERROR LOGGING SYSTEM!
@@ -256,14 +258,15 @@ RenderSpriteSheetAnimation(render_group *Group, asset_sprite_sheet *Sheet, asset
         TextureRect.Max.X /= TextureSize.X;
         TextureRect.Max.Y /= TextureSize.Y;
         
-        RenderTexture(Group, R, Z, Piece->Texture, TextureRect, true);
+        RenderTexture(Group, R, Z, Piece->Texture, Transform, TextureRect, true);
         Z.Sub -= 1;
     }
     
 }
 
 internal void 
-DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *State, v2 P, z_layer Z, f32 dTime){
+DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *State, v2 P, z_layer Z, f32 dTime,
+                  render_transform Transform=RenderTransform_None){
     asset_animation *Animation = &Entity->Animation;
     
     animation_change_data *ChangeData = &Entity->Animation.ChangeDatas[State->State];
@@ -281,7 +284,7 @@ DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *St
     
     s32 ZOffset = Entity->ZOffset;
     RenderSpriteSheetAnimation(Group, Sheet, &Entity->Animation, State,
-                               P, ZLayerShift(Z, (s8)ZOffset));
+                               P, ZLayerShift(Z, (s8)ZOffset), Transform);
     
     if(ChangeData->Condition == ChangeCondition_CooldownOver){
         State->Cooldown -= dTime;
@@ -291,19 +294,33 @@ DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *St
     }
 }
 
+internal inline render_transform UpToTransform(v2 Up);
+internal inline rect WorldPosBounds(world_position Pos, v2 Size, v2 Up);
 internal void 
 DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *State, 
-                  world_position Pos, z_layer Z, f32 dTime){
-    v2 P = WorldPosP(Pos);
+                  world_position Pos, v2 Size, v2 Up, 
+                  z_layer Z, f32 dTime){
+    rect Bounds = WorldPosBounds(Pos, Size, Up);
+    v2 P = V2(RectCenterX(Bounds), Bounds.Min.Y);
     P.X -= 0.5f*(Entity->SpriteSheet->FrameSize.X);
-    DoEntityAnimation(Group, Entity, State, P, Z, dTime);
+    DoEntityAnimation(Group, Entity, State, P, Z, dTime, UpToTransform(Up));
 }
+
 //~ Arts
 
 void 
 RenderArt(render_group *Group, asset_art *Art, v2 P, z_layer Z){
     v2 Size = Art->Size;
     RenderTexture(Group, SizeRect(P, Size), Z, Art->Texture, 
+                  MakeRect(V2(0), V2(1)), true);
+}
+
+void 
+RenderArt(render_group *Group, asset_art *Art, v2 P, z_layer Z, render_transform Transform){
+    v2 Size = Art->Size;
+    rect TextureRect = MakeRect(V2(0), V2(1));
+    
+    RenderTexture(Group, SizeRect(P, Size), Z, Art->Texture, Transform,
                   MakeRect(V2(0), V2(1)), true);
 }
 
@@ -417,7 +434,7 @@ global_constant tilemap_tile_place WedgePlaces[2*4] = {
 
 internal inline void
 RenderTileAtIndex(render_group *Group, asset_tilemap *Tilemap, v2 P, z_layer Z,
-                  u32 Index, tile_transform Transform=TileTransform_None){
+                  u32 Index, render_transform Transform=RenderTransform_None){
     v2 RenderSize = Tilemap->CellSize;
     v2 CellSize = Tilemap->CellSize;
     v2 TextureSize = V2((f32)Tilemap->XTiles*Tilemap->CellSize.X, 
@@ -435,75 +452,12 @@ RenderTileAtIndex(render_group *Group, asset_tilemap *Tilemap, v2 P, z_layer Z,
     v2 Min = V2(0);
     v2 Max = Min + V2(CellSize.X/TextureSize.X, CellSize.Y/TextureSize.Y);
     
-    v2 T0 = {};
-    v2 T1 = {};
-    v2 T2 = {};
-    v2 T3 = {};
+    rect TR = SizeRect(V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y),
+                       V2(CellSize.X/TextureSize.X, CellSize.Y/TextureSize.Y));
     
-    switch(Transform){
-        case TileTransform_None: {
-            T0 = V2(Min.X, Min.Y);
-            T1 = V2(Min.X, Max.Y);
-            T2 = V2(Max.X, Max.Y);
-            T3 = V2(Max.X, Min.Y);
-        }break;
-        case TileTransform_HorizontalReverse: {
-            T0 = V2(Max.X, Min.Y);
-            T1 = V2(Max.X, Max.Y);
-            T2 = V2(Min.X, Max.Y);
-            T3 = V2(Min.X, Min.Y);
-        }break;
-        case TileTransform_VerticalReverse: {
-            T0 = V2(Min.X, Max.Y);
-            T1 = V2(Min.X, Min.Y);
-            T2 = V2(Max.X, Min.Y);
-            T3 = V2(Max.X, Max.Y);
-        }break;
-        case TileTransform_HorizontalAndVerticalReverse: {
-            T0 = V2(Max.X, Max.Y);
-            T1 = V2(Max.X, Min.Y);
-            T2 = V2(Min.X, Min.Y);
-            T3 = V2(Min.X, Max.Y);
-        }break;
-        case TileTransform_Rotate90: {
-            T0 = V2(Max.X, Min.Y);
-            T1 = V2(Min.X, Min.Y);
-            T2 = V2(Min.X, Max.Y);
-            T3 = V2(Max.X, Max.Y);
-        }break;
-        case TileTransform_Rotate180: {
-            T0 = V2(Max.X, Max.Y);
-            T1 = V2(Max.X, Min.Y);
-            T2 = V2(Min.X, Min.Y);
-            T3 = V2(Min.X, Max.Y);
-        }break;
-        case TileTransform_Rotate270: {
-            T0 = V2(Min.X, Max.Y);
-            T1 = V2(Max.X, Max.Y);
-            T2 = V2(Max.X, Min.Y);
-            T3 = V2(Min.X, Min.Y);
-        }break;
-        case TileTransform_ReverseAndRotate90: {
-            T0 = V2(Min.X, Min.Y);
-            T1 = V2(Max.X, Min.Y);
-            T2 = V2(Max.X, Max.Y);
-            T3 = V2(Min.X, Max.Y);
-        }break;
-        case TileTransform_ReverseAndRotate180: {
-            T0 = V2(Min.X, Max.Y);
-            T1 = V2(Min.X, Min.Y);
-            T2 = V2(Max.X, Min.Y);
-            T3 = V2(Max.X, Max.Y);
-        }break;
-        case TileTransform_ReverseAndRotate270: {
-            T0 = V2(Min.X, Min.Y);
-            T1 = V2(Max.X, Min.Y);
-            T2 = V2(Max.X, Max.Y);
-            T3 = V2(Min.X, Max.Y);
-        }break;
-        default: { INVALID_CODE_PATH; }break;
-    }
+    RenderTexture(Group, SizeRect(P, RenderSize), Z, Tilemap->Texture, Transform, TR);
     
+#if 0    
     T0 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
     T1 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
     T2 += V2(Column*CellSize.X/TextureSize.X, Row*CellSize.Y/TextureSize.Y);
@@ -515,6 +469,7 @@ RenderTileAtIndex(render_group *Group, asset_tilemap *Tilemap, v2 P, z_layer Z,
                V2(R.Min.X, R.Max.Y), T1, WHITE,
                V2(R.Max.X, R.Max.Y), T2, WHITE,
                V2(R.Max.X, R.Min.Y), T3, WHITE);
+#endif
 }
 
 internal asset_tilemap_tile_data *
@@ -565,7 +520,7 @@ MakeTilemapData(memory_arena *Arena, u32 Width, u32 Height){
     Result.Width  = Width;
     Result.Height = Height;
     Result.Indices = ArenaPushArray(Arena, u32, Width*Height);
-    Result.Transforms = ArenaPushArray(Arena, tile_transform, Width*Height);
+    Result.Transforms = ArenaPushArray(Arena, render_transform, Width*Height);
     Result.Connectors = ArenaPushArray(Arena, tile_connector_data, Width*Height);
     return(Result);
 }
@@ -595,7 +550,7 @@ RenderTilemap(render_group *Group, asset_tilemap *Tilemap, tilemap_data *Data, v
             if(TileIndex){
                 
                 TileIndex--;
-                tile_transform Transform = Data->Transforms[MapIndex];
+                render_transform Transform = Data->Transforms[MapIndex];
                 
                 RenderTileAtIndex(Group, Tilemap, TileP, Z, TileIndex, Transform);
                 

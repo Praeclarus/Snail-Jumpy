@@ -113,9 +113,80 @@ RenderRectOutline(render_group *Group, rect R, z_layer Z, color Color, f32 Thick
     //RenderRect(Rect(V2(R.Min.X, R.Min.Y),           V2(R.Min.X+Thickness, R.Max.Y)), Z, Color);
 }
 
+internal inline render_quad 
+RenderGenerateQuad(rect R, render_transform Transform){
+    render_quad Result = {};
+    
+    switch(Transform){
+        case RenderTransform_None: {
+            Result.P0 = V2(R.Min.X, R.Min.Y);
+            Result.P1 = V2(R.Min.X, R.Max.Y);
+            Result.P2 = V2(R.Max.X, R.Max.Y);
+            Result.P3 = V2(R.Max.X, R.Min.Y);
+        }break;
+        case RenderTransform_HorizontalReverse: {
+            Result.P0 = V2(R.Max.X, R.Min.Y);
+            Result.P1 = V2(R.Max.X, R.Max.Y);
+            Result.P2 = V2(R.Min.X, R.Max.Y);
+            Result.P3 = V2(R.Min.X, R.Min.Y);
+        }break;
+        case RenderTransform_VerticalReverse: {
+            Result.P0 = V2(R.Min.X, R.Max.Y);
+            Result.P1 = V2(R.Min.X, R.Min.Y);
+            Result.P2 = V2(R.Max.X, R.Min.Y);
+            Result.P3 = V2(R.Max.X, R.Max.Y);
+        }break;
+        case RenderTransform_HorizontalAndVerticalReverse: {
+            Result.P0 = V2(R.Max.X, R.Max.Y);
+            Result.P1 = V2(R.Max.X, R.Min.Y);
+            Result.P2 = V2(R.Min.X, R.Min.Y);
+            Result.P3 = V2(R.Min.X, R.Max.Y);
+        }break;
+        case RenderTransform_Rotate90: {
+            Result.P0 = V2(R.Max.X, R.Min.Y);
+            Result.P1 = V2(R.Min.X, R.Min.Y);
+            Result.P2 = V2(R.Min.X, R.Max.Y);
+            Result.P3 = V2(R.Max.X, R.Max.Y);
+        }break;
+        case RenderTransform_Rotate180: {
+            Result.P0 = V2(R.Max.X, R.Max.Y);
+            Result.P1 = V2(R.Max.X, R.Min.Y);
+            Result.P2 = V2(R.Min.X, R.Min.Y);
+            Result.P3 = V2(R.Min.X, R.Max.Y);
+        }break;
+        case RenderTransform_Rotate270: {
+            Result.P0 = V2(R.Min.X, R.Max.Y);
+            Result.P1 = V2(R.Max.X, R.Max.Y);
+            Result.P2 = V2(R.Max.X, R.Min.Y);
+            Result.P3 = V2(R.Min.X, R.Min.Y);
+        }break;
+        case RenderTransform_ReverseAndRotate90: {
+            Result.P0 = V2(R.Min.X, R.Min.Y);
+            Result.P1 = V2(R.Max.X, R.Min.Y);
+            Result.P2 = V2(R.Max.X, R.Max.Y);
+            Result.P3 = V2(R.Min.X, R.Max.Y);
+        }break;
+        case RenderTransform_ReverseAndRotate180: {
+            Result.P0 = V2(R.Min.X, R.Max.Y);
+            Result.P1 = V2(R.Min.X, R.Min.Y);
+            Result.P2 = V2(R.Max.X, R.Min.Y);
+            Result.P3 = V2(R.Max.X, R.Max.Y);
+        }break;
+        case RenderTransform_ReverseAndRotate270: {
+            Result.P0 = V2(R.Min.X, R.Min.Y);
+            Result.P1 = V2(R.Max.X, R.Min.Y);
+            Result.P2 = V2(R.Max.X, R.Max.Y);
+            Result.P3 = V2(R.Min.X, R.Max.Y);
+        }break;
+        default: { INVALID_CODE_PATH; }break;
+    }
+    
+    return Result;
+}
+
 internal void
 RenderTexture(render_group *Group, rect R, z_layer Z, render_texture Texture, 
-              rect TextureRect=MakeRect(V2(0,0), V2(1,1)), b8 HasAlpha=false, color Color = WHITE){
+              rect TextureRect=MakeRect(V2(0,0), V2(1,1)), b8 HasAlpha=false, color Color=WHITE){
     Assert(Texture);
     
     RenderQuad(Group, Texture, Z,
@@ -123,6 +194,22 @@ RenderTexture(render_group *Group, rect R, z_layer Z, render_texture Texture,
                V2(R.Min.X, R.Max.Y), V2(TextureRect.Min.X, TextureRect.Max.Y), Color,
                V2(R.Max.X, R.Max.Y), V2(TextureRect.Max.X, TextureRect.Max.Y), Color,
                V2(R.Max.X, R.Min.Y), V2(TextureRect.Max.X, TextureRect.Min.Y), Color,
+               HasAlpha);
+}
+
+internal void
+RenderTexture(render_group *Group, rect R, z_layer Z, render_texture Texture, 
+              render_transform Transform, rect TextureRect=MakeRect(V2(0,0), V2(1,1)), 
+              b8 HasAlpha=false, color Color=WHITE){
+    Assert(Texture);
+    
+    render_quad T = RenderGenerateQuad(TextureRect, Transform);
+    
+    RenderQuad(Group, Texture, Z,
+               V2(R.Min.X, R.Min.Y), T.P0, Color,
+               V2(R.Min.X, R.Max.Y), T.P1, Color,
+               V2(R.Max.X, R.Max.Y), T.P2, Color,
+               V2(R.Max.X, R.Min.Y), T.P3, Color,
                HasAlpha);
 }
 
@@ -875,4 +962,4 @@ game_renderer::ScreenToWorld(rect R, s8 Layer){
     Result.Min = ScreenToWorld(R.Min, Layer);
     Result.Max = ScreenToWorld(R.Max, Layer);
     return(Result);
-}\
+}

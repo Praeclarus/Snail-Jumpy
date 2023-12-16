@@ -17,6 +17,51 @@ InverseDirection(direction Direction){
     return(Result);
 }
 
+internal inline v2 
+DirectionToV2(direction Direction){
+    local_constant f32 SQRT_2 = SquareRoot(2.0f);
+    switch(Direction){
+        case Direction_North:     return V2( 0,    1);
+        case Direction_Northeast: return V2( 0.5,  0.5)*SQRT_2;
+        case Direction_East:      return V2( 1,    0);
+        case Direction_Southeast: return V2( 0.5, -0.5)*SQRT_2;
+        case Direction_South:     return V2( 0,   -1);
+        case Direction_Southwest: return V2(-0.5, -0.5)*SQRT_2;
+        case Direction_West:      return V2(-1,    0);
+        case Direction_Northwest: return V2(-0.5,  0.5)*SQRT_2;
+        
+    }
+    INVALID_CODE_PATH;
+    return V2(0);
+}
+
+internal inline direction
+V2ToDirection(v2 V){
+    f32 Greatest = F32_NEGATIVE_INFINITY;
+    direction Result = Direction_None;
+    
+#define V2_TO_DIRECTION_(Direction) \
+if(V2Dot(V, DirectionToV2(Direction)) > Greatest){ \
+Greatest = V2Dot(V, DirectionToV2(Direction));     \
+Result = Direction;                                \
+}
+    if(0){}
+    V2_TO_DIRECTION_(Direction_North)
+        V2_TO_DIRECTION_(Direction_Northeast)
+        V2_TO_DIRECTION_(Direction_East)
+        V2_TO_DIRECTION_(Direction_Southeast)
+        V2_TO_DIRECTION_(Direction_South)
+        V2_TO_DIRECTION_(Direction_Southwest)
+        V2_TO_DIRECTION_(Direction_West)
+        V2_TO_DIRECTION_(Direction_Northwest)
+        
+#undef V2_TO_DIRECTION_
+    
+    
+    Assert(Greatest > F32_NEGATIVE_INFINITY);
+    return Result;
+}
+
 internal inline u32
 GetRandomNumberJustSeed(u32 Seed){
     u32 RandomNumber = RANDOM_NUMBER_TABLE[(Seed * 3124 + 3809) % ArrayCount(RANDOM_NUMBER_TABLE)];

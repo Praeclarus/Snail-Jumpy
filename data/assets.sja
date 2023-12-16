@@ -323,6 +323,9 @@ base_y_offset -11
 
 #~ @sja_backgrounds
 
+: Art "background_test_mushrooms" Tag("background")
+	   path "asset_backgrounds/background_test_mushroom_2.png"
+
 : Art "background_test_back" Tag("background")
 	   path "asset_backgrounds/background_test_back.png"
 
@@ -332,6 +335,16 @@ base_y_offset -11
 : Art "background_test_front" Tag("background")
 	   path "asset_backgrounds/background_test_front.png"
 	
+#~ @sja_other
+: Art "gravity_arrow_a" Tag("arrow")
+path "asset_arts/cyan_arrow_1.png"
+
+: Art "gravity_arrow_b" Tag("arrow")
+path "asset_arts/cyan_arrow_2.png"
+
+: Art "gravity_arrow_c" Tag("arrow")
+path "asset_arts/cyan_arrow_3.png"
+
 #~ @sja_tilemaps
 
 : Tilemap "grass_and_dirt"

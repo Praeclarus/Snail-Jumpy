@@ -52,7 +52,8 @@ struct editor_action_system {
     void CleanupActionReverse(editor_action *Action);
     void ClearActionHistory();
     editor_action *MakeAction(editor_action_type Type);
-    entity *ActionAddEntity(world_data *World, entity_array_type Type);
+    template<typename T, u32 U> T *
+        ActionAddEntity(world_data *World, bucket_array<T, U> *Array);
     inline void ActionDeleteEntity(entity *Entity);
     inline void LogActionMoveEntity(entity *Entity);
     inline void LogActionTilemap(editor_action_type Type, entity *Entity, tilemap_tile *Tiles, u32 Width, u32 Height);
@@ -79,8 +80,6 @@ struct world_data {
     u32 Height;
     
     entity_manager Manager;
-    
-    collision_boundary *TeleporterBoundary;
     
     u32 CoinsToSpawn;
     u32 CoinsRequired;

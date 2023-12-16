@@ -9,11 +9,6 @@ enum entity_type_flags_ {
     EntityTypeFlag_Trigger = (1 << 2),
 };
 
-#define AllocEntity(Manager, World, TypeName) \
-(TypeName *)(Manager)->AllocBasicEntity(World, ENTITY_TYPE(TypeName))
-
-#define ENTITY_ARRAY(TypeName) EntityArray_##TypeName
-
 template<typename T, u32 U> tyler_function inline bucket_array_iterator<T>
 EntityBucketArrayBeginIteration(bucket_array<T, U> *Array, entity_flags ExcludeFlags);
 template<typename T, u32 U> tyler_function inline b8 
@@ -21,11 +16,11 @@ EntityBucketArrayNextIteration(bucket_array<T, U> *Array, bucket_array_iterator<
 template<typename T, u32 U> tyler_function inline b8
 EntityBucketArrayContinueIteration(bucket_array<T, U> *Array, bucket_array_iterator<T> *Iterator, entity_flags ExcludeFlags);
 
-#define FOR_ENTITY_TYPE_(Manager, TypeName, ExcludeFlags) for(auto It = EntityBucketArrayBeginIteration(&(Manager)->EntityArray_##TypeName, ExcludeFlags); \
-EntityBucketArrayContinueIteration(&(Manager)->EntityArray_##TypeName, &It, ExcludeFlags); \
-EntityBucketArrayNextIteration(&(Manager)->EntityArray_##TypeName, &It, ExcludeFlags))
+#define FOR_ENTITY_TYPE_(BucketArray, ExcludeFlags) for(auto It = EntityBucketArrayBeginIteration(BucketArray, ExcludeFlags); \
+EntityBucketArrayContinueIteration(BucketArray, &It, ExcludeFlags); \
+EntityBucketArrayNextIteration(BucketArray, &It, ExcludeFlags))
 
-#define FOR_ENTITY_TYPE(Manager, TypeName) FOR_ENTITY_TYPE_(Manager, TypeName, EntityFlag_Deleted)
+#define FOR_ENTITY_TYPE(BucketArray) FOR_ENTITY_TYPE_(BucketArray, EntityFlag_Deleted)
 
 #define FOR_EACH_ENTITY_(Manager, ExcludeFlags) for(auto It = EntityManagerBeginIteration(Manager, ExcludeFlags); \
 EntityManagerContinueIteration(Manager, &It, ExcludeFlags);   \
@@ -34,51 +29,60 @@ EntityManagerNextIteration(Manager, &It, ExcludeFlags))
 #define FOR_EACH_ENTITY(Manager) FOR_EACH_ENTITY_(Manager, EntityFlag_Deleted)
 
 #define ENTITY_TYPES \
-ENTITY_TYPE_(tilemap_entity,    EntityTypeFlag_None,    PhysicsLayerFlag_Static,                            "tilemap") \
-ENTITY_TYPE_(coin_entity,       EntityTypeFlag_Trigger, PhysicsLayerFlag_PlayerTrigger,                     "coin") \
-ENTITY_TYPE_(enemy_entity,      EntityTypeFlag_Dynamic, PhysicsLayerFlag_Basic|PhysicsLayerFlag_Projectile, "enemy")  \
-ENTITY_TYPE_(teleporter_entity, EntityTypeFlag_Trigger, PhysicsLayerFlag_PlayerTrigger,                     "teleporter") \
-ENTITY_TYPE_(door_entity,       EntityTypeFlag_Static,  PhysicsLayerFlag_Static,                            "door") \
-ENTITY_TYPE_(projectile_entity, EntityTypeFlag_Dynamic, PhysicsLayerFlag_Projectile,                        "projectile") \
-ENTITY_TYPE_(art_entity,        EntityTypeFlag_None,    PhysicsLayerFlag_None,                              "art")
+ENTITY_TYPE_(EntityType_Tilemap,    Tilemaps)    \
+ENTITY_TYPE_(EntityType_Coin,       Coins)       \
+ENTITY_TYPE_(EntityType_Enemy,      Enemies)     \
+ENTITY_TYPE_(EntityType_Teleporter, Teleporters) \
+ENTITY_TYPE_(EntityType_Door,       Doors)       \
+ENTITY_TYPE_(EntityType_Projectile, Projectiles) \
+ENTITY_TYPE_(EntityType_Art,        Arts)        
 
-#define SPECIAL_ENTITY_TYPES
-
-#define PLAYER_ENTITY_TYPE \
-ENTITY_TYPE_(player_entity, EntityTypeFlag_Dynamic, PhysicsLayerFlag_Basic|PhysicsLayerFlag_PlayerTrigger, "player")
-
-#define ENTITY_TYPE_(TypeName, ...) EntityArrayType_##TypeName,
-enum entity_array_type {
-    EntityArrayType_None,
-    PLAYER_ENTITY_TYPE
-        
-        ENTITY_TYPES
-        EntityArrayType_TOTAL
+enum entity_type {
+    EntityType_None       = 0,
+    
+    EntityType_Player     = 1,
+    EntityType_Tilemap    = 2,
+    EntityType_Coin       = 3,
+    EntityType_Enemy      = 4,
+    EntityType_Teleporter = 5,
+    EntityType_Door       = 6,
+    EntityType_Projectile = 7,
+    EntityType_Art        = 8,
+    
+    EntityType_TOTAL,
 };
-#undef ENTITY_TYPE_
 
-#define ENTITY_TYPE_(TypeName, TypeFlags, LayerFlags, ...) (TypeFlags),
-entity_type_flags ENTITY_TYPE_TYPE_FLAGS[EntityArrayType_TOTAL]  = {
-    EntityTypeFlag_None,
-    PLAYER_ENTITY_TYPE
-        
-        ENTITY_TYPES
-};
-#undef ENTITY_TYPE_
-
-#define ENTITY_TYPE_(TypeName, TypeFlags, LayerFlags, NameString, ...) NameString,
-const char *ENTITY_TYPE_NAME_TABLE[EntityArrayType_TOTAL]  = {
+#define ENTITY_TYPE_(TypeName, TypeFlags, NameString, ...) NameString,
+const char *ENTITY_TYPE_NAME_TABLE[EntityType_TOTAL]  = {
     "None",
-    PLAYER_ENTITY_TYPE
-        
-        ENTITY_TYPES
+    "Player",
+    "Tilemap",
+    "Coin",
+    "Enemy",
+    "Teleporter",
+    "Door",
+    "Projectile",
+    "Art",
 };
 #undef ENTITY_TYPE_
+
+entity_type_flags ENTITY_TYPE_TYPE_FLAGS[EntityType_TOTAL]  = {
+    EntityTypeFlag_None,
+    
+    EntityTypeFlag_Dynamic,
+    EntityTypeFlag_None,
+    EntityTypeFlag_Trigger,
+    EntityTypeFlag_Dynamic,
+    EntityTypeFlag_Trigger,
+    EntityTypeFlag_Static,
+    EntityTypeFlag_Dynamic,
+    
+    EntityTypeFlag_None,
+};
 
 #define ENTITY_TYPE(TypeName) EntityArrayType_##TypeName
-
 struct entity_iterator {
-    entity_array_type CurrentArray;
+    entity_type CurrentType;
     
     entity *Item;
     bucket_index Index;

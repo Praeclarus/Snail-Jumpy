@@ -45,6 +45,9 @@ struct audio_mixer {
     v2 MusicMasterVolume;
     v2 SoundEffectMasterVolume;
     
+    u32 SamplesPerSecond;
+    u32 BufferSizeInSamples;;
+    
     sound_handle PlaySound(asset_sound_effect *Asset, mixer_sound_flags Flags=MixerSoundFlag_None, 
                            f32 PlaybackSpeed=1.0f, f32 Volume1=1.0f, f32 Volume2=1.0f);
     void StopSound(sound_handle Handle);

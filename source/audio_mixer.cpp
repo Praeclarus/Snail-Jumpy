@@ -61,13 +61,13 @@ void
 audio_mixer::OutputSamples(memory_arena *WorkingMemory, os_sound_buffer *SoundBuffer){
     //TIMED_FUNCTION();
     
+    ZeroMemory(SoundBuffer->Samples, SoundBuffer->SamplesToWrite*2*sizeof(*SoundBuffer->Samples));
+    
     const __m128 SignMask = _mm_castsi128_ps(_mm_set1_epi32(0x80000000));
     const __m128 One = _mm_set1_ps(1.0f);
-    const __m128 Half = _mm_set1_ps(0.49999f); // With epsilon
     
-    ZeroMemory(SoundBuffer->Samples, SoundBuffer->SamplesToWrite*2*sizeof(*SoundBuffer->Samples));
     u32 MaxChunksToWrite = SoundBuffer->SamplesToWrite / 4;
-    Assert(!(SoundBuffer->SamplesToWrite % 4));
+    Assert((SoundBuffer->SamplesToWrite % 4) == 0);
     
     memory_arena_marker Marker = ArenaBeginMarker(WorkingMemory);
     __m128 *OutputChannel0 = ArenaPushArraySpecial(WorkingMemory, __m128, MaxChunksToWrite, ZeroAndAlign(16));
@@ -78,9 +78,11 @@ audio_mixer::OutputSamples(memory_arena *WorkingMemory, os_sound_buffer *SoundBu
     while(Sound != &FirstSound){
         sound_data *SoundData = Sound->Data;
         Assert(SoundData->ChannelCount == 2);
+        //f32 BaseSpeed = (f32)SoundData->SamplesPerSecond / (f32)SoundBuffer->SampleRate;
+        f32 BaseSpeed = 1.0f;
         
-        u32 RemainingSamples = SoundData->SampleCount-RoundToS32(Sound->SamplesPlayed);
-        u32 RemainingChunks = RemainingSamples / 4;
+        u32 RemainingSamples = (u32)(((f32)SoundData->SampleCount-RoundToS32(Sound->SamplesPlayed))*BaseSpeed);
+        u32 RemainingChunks = (RemainingSamples+3) / 4;
         if(Sound->Flags & MixerSoundFlag_Loop){
             RemainingChunks = MaxChunksToWrite;
         }
@@ -93,10 +95,8 @@ audio_mixer::OutputSamples(memory_arena *WorkingMemory, os_sound_buffer *SoundBu
         
         __m128 MasterVolume0 = _mm_set1_ps(MasterVolume.E[0]);
         __m128 MasterVolume1 = _mm_set1_ps(MasterVolume.E[1]);
-        {
-            
-        }
-        f32 dSample = Sound->Speed*SoundData->BaseSpeed;
+        
+        f32 dSample = Sound->Speed*BaseSpeed;
         __m128 dSampleM128 = _mm_set1_ps(4*dSample);
         __m128 SampleP = _mm_setr_ps(Sound->SamplesPlayed + 0.0f*dSample, 
                                      Sound->SamplesPlayed + 1.0f*dSample, 
@@ -113,7 +113,7 @@ audio_mixer::OutputSamples(memory_arena *WorkingMemory, os_sound_buffer *SoundBu
             __m128 D0 = _mm_load_ps((float*)Dest0);
             __m128 D1 = _mm_load_ps((float*)Dest1);
             
-            __m128i SampleIndex = _mm_cvtps_epi32(_mm_sub_ps(SampleP, Half));
+            __m128i SampleIndex = _mm_cvttps_epi32(SampleP);
             __m128 Fraction = _mm_sub_ps(SampleP, _mm_cvtepi32_ps(SampleIndex));
             
             // TODO(Tyler): It would work to save this and use it for the next iteration of the loop
@@ -152,6 +152,7 @@ audio_mixer::OutputSamples(memory_arena *WorkingMemory, os_sound_buffer *SoundBu
             
             SampleP = _mm_add_ps(SampleP, dSampleM128);
         }
+        
         
         Sound->SamplesPlayed += dSample*(f32)SoundBuffer->SamplesPerFrame;
         if((Sound->SamplesPlayed > SoundData->SampleCount) &&

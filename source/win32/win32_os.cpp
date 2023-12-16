@@ -29,6 +29,8 @@ global WINDOWPLACEMENT Win32WindowPlacement = {sizeof(Win32WindowPlacement)};
 
 global IAudioClient *Win32AudioClient;
 global IAudioRenderClient *Win32AudioRenderClient;
+global IMMDeviceEnumerator *Win32AudioDeviceEnumerator;
+global IMMDevice *Win32NewAudioDevice;
 
 global u32 Win32SoundCursor;
 

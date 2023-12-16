@@ -12,13 +12,16 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
     if(Input->KeyJustDown(KeyCode_Escape)) ChangeState(GameMode_Menu, MakeString(0));
     
     //~ 
-    Renderer->NewFrame(&GlobalTransientMemory, Input->WindowSize, MakeColor(0.30f, 0.55f, 0.70f), Input->dTime);
+    {
+        Renderer->NewFrame(&GlobalTransientMemory, Input->WindowSize, 
+                           HSBToRGB(CurrentWorld->BackgroundColor), Input->dTime);
+    }
     Renderer->CalculateCameraBounds(CurrentWorld); 
     Renderer->SetCameraSettings(0.3f/Input->dTime);
     Renderer->SetLightingConditions(HSBToRGB(CurrentWorld->AmbientColor), CurrentWorld->Exposure);
     
     
-    render_group *GameGroup       = Renderer->GetRenderGroup(RenderGroupID_Lighting);
+    render_group *GameGroup   = Renderer->GetRenderGroup(RenderGroupID_Lighting);
     render_group *GameUIGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
     Entities->UpdateEntities(Renderer, Mixer, Assets, Input, Settings);
     Entities->RenderEntities(GameGroup, Assets, Renderer, Input->dTime, Worlds);

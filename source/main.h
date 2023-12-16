@@ -5,6 +5,8 @@
 #define SNAIL_JUMPY_DEBUG_BUILD
 #define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
 
+#define BUCKET_ARRAY_IGNORE_FLAG (1 << 3)
+
 #include "tyler_basics.h"
 #include "simd.h"
 
@@ -28,7 +30,7 @@ global_constant const char *WINDOW_NAME = "Snail Jumpy";
 global_constant const char *NORMAL_WINDOW_ICON_PATH = "other_data/sally.ico";
 global_constant const char *SMALL_WINDOW_ICON_PATH = "other_data/sally.ico";
 
-global_constant s32 AUDIO_SAMPLES_PER_SECOND = 48000;
+global_constant s32 AUDIO_TARGET_SAMPLES_PER_SECOND = 44100;
 
 //~ TODO(Tyler): Things that need a better place to go
 enum entity_state {
@@ -68,28 +70,9 @@ enum direction {
 typedef u32 entity_flags;
 enum _entity_flags {
     EntityFlag_None                     = 0,
-    EntityFlag_Deleted                  = (1 << 3),
+    EntityFlag_Deleted                  = BUCKET_ARRAY_IGNORE_FLAG,
     EntityFlag_TilemapTreatEdgesAsTiles = (1 << 4),
 };
-
-#if 0
-enum entity_type {
-    EntityType_None = 0,
-    
-    EntityType_Tilemap    = 1,
-    EntityType_Coin       = 2,
-    EntityType_Enemy      = 3,
-    EntityType_Art        = 4,
-    EntityType_Particles  = 5,
-    EntityType_Gate       = 6,
-    EntityType_Player     = 7,
-    EntityType_Teleporter = 8,
-    EntityType_Door       = 9,
-    EntityType_Projectile = 10,
-    
-    EntityType_TOTAL,
-};
-#endif
 
 //~ Enum to string tables
 local_constant char *TRUE_FALSE_TABLE[2] = {

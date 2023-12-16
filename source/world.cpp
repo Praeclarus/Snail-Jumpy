@@ -17,13 +17,6 @@ world_manager::IsLevelCompleted(asset_system *Assets, string LevelName){
 
 
 //~ World loading
-internal void
-AddParticles(entity_manager *Manager, v2 P){
-    collision_boundary *Boundary = Manager->AllocBoundaries(1);
-    *Boundary = MakeCollisionPoint();
-    physics_particle_system *System = Manager->AddParticleSystem(P, Boundary, 100, 1.5f);
-    System->StartdP = V2(0.0f, -3.0f);
-}
 
 void
 world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const char *LevelName){
@@ -52,17 +45,17 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
                 for(u32 Y = 0; Y < World->Height; Y++){
                     for(u32 X = 0; X < World->Width; X++){
                         u8 TileId = World->Map[(Y*World->Width)+X];
-                        if(TileId == ENTITY_TYPE(coin_entity)){
+                        if(TileId == EntityType_Coin){
                             Entities->CoinData.NumberOfCoinPs++;
                             continue;
                         }
                     }
                 }
                 
+#if 0                
                 collision_boundary *Boundary = Entities->AllocBoundaries(1);
                 *Boundary = MakeCollisionRect(V2(0), V2(8.0f));
                 
-#if 0                
                 u32 N = Minimum(CurrentWorld->CoinsToSpawn, Entities->CoinData.NumberOfCoinPs);
                 for(u32 I = 0; I < N; I++){
                     coin_entity *Coin = AllocEntity(Entities, World, coin_entity);
@@ -153,18 +146,18 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
     }
     
     for(u32 I=0; I<Header->EntityCount; I++){
-        entity_array_type Type; StreamReadVar(&Stream, Type);
-        if(Type == ENTITY_TYPE(tilemap_entity)){
-            tilemap_entity *Entity = AllocEntity(&World->Manager, 0, tilemap_entity);
-            WORLDS_READ_ENTITY(Entity, Entity->Type);
+        entity_type Type; StreamReadVar(&Stream, Type);
+        if(Type == EntityType_Tilemap){
+            tilemap_entity *Entity = AllocEntity(&World->Manager, Tilemaps, 0);
+            WORLDS_READ_ENTITY(Entity, Type);
             WORLDS_READ_ASSET(Entity->Asset, 1, 1);
             WORLDS_READ_VAR(Entity->Width, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->Height, 1, U32_MAX);
             WORLDS_READ_ARRAY(Entity->Tiles, Entity->Width*Entity->Height, 1, U32_MAX);
             SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
-        }else if(Type == ENTITY_TYPE(enemy_entity)){
-            enemy_entity *Entity = AllocEntity(&World->Manager, 0, enemy_entity);
-            WORLDS_READ_ENTITY(Entity, Entity->Type);
+        }else if(Type == EntityType_Enemy){
+            enemy_entity *Entity = AllocEntity(&World->Manager, Enemies, 0);
+            WORLDS_READ_ENTITY(Entity, Type);
             WORLDS_READ_ASSET(Entity->Asset, 1, 1);
             WORLDS_READ_VAR(Entity->PathStart.X, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->PathStart.Y, 1, U32_MAX);
@@ -173,15 +166,15 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
             WORLDS_READ_VAR(Entity->TargetY, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->Animation.Direction, 1, U32_MAX);
             SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
-        }else if(Type == ENTITY_TYPE(teleporter_entity)){
-            teleporter_entity *Entity = AllocEntity(&World->Manager, 0, teleporter_entity);
-            WORLDS_READ_ENTITY(Entity, Entity->Type);
+        }else if(Type == EntityType_Teleporter){
+            teleporter_entity *Entity = AllocEntity(&World->Manager, Teleporters, 0);
+            WORLDS_READ_ENTITY(Entity, Type);
             WORLDS_READ_STRING(Entity->Level, 1, U32_MAX);
             WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
             SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
-        }else if(Type == ENTITY_TYPE(door_entity)){
-            door_entity *Entity = AllocEntity(&World->Manager, 0, door_entity);
-            WORLDS_READ_ENTITY(Entity, Entity->Type);
+        }else if(Type == EntityType_Door){
+            door_entity *Entity = AllocEntity(&World->Manager, Doors, 0);
+            WORLDS_READ_ENTITY(Entity, Type);
             rect Bounds = {};
             WORLDS_READ_VAR(Bounds.X0, 1, U32_MAX);
             WORLDS_READ_VAR(Bounds.Y0, 1, U32_MAX);
@@ -190,10 +183,10 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
             Entity->Size = RectSize(Bounds);
             WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
             SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
-        }else if(Type == ENTITY_TYPE(art_entity)){
-            art_entity *Entity = AllocEntity(&World->Manager, 0, art_entity);
+        }else if(Type == EntityType_Art){
+            art_entity *Entity = AllocEntity(&World->Manager, Arts, 0);
             Entity->Type = Type;
-            WORLDS_READ_ENTITY(Entity, Entity->Type);
+            WORLDS_READ_ENTITY(Entity, Type);
             WORLDS_READ_ASSET(Entity->Asset, 1, 1);
             SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
         }
@@ -221,6 +214,12 @@ WriteStringToFile(os_file *File, u32 *Offset, string S_){
     *Offset += Length+1;
 }
 
+internal inline void 
+WriteF32ToFile(os_file *File, u32 *Offset, f32 F){
+    OSWriteToFile(File, *Offset, &F, sizeof(F));
+    *Offset += sizeof(F);
+}
+
 internal inline void
 WriteDataToFile(os_file *File, u32 *Offset, void *Data, u32 Size){
     OSWriteToFile(File, *Offset, Data, Size);
@@ -237,8 +236,8 @@ Offset += (Count)*sizeof(*(Array)); }
 #define WORLDS_WRITE_ENTITY(Entity)           \
 WORLDS_WRITE_VAR(Entity->Type);        \
 WORLDS_WRITE_VAR(Entity->Flags);       \
-WORLDS_WRITE_VAR(WorldPosP(Entity->Pos).X); \
-WORLDS_WRITE_VAR(WorldPosP(Entity->Pos).Y); \
+WriteF32ToFile(File, &Offset, WorldPosP(Entity->Pos).X); \
+WriteF32ToFile(File, &Offset, WorldPosP(Entity->Pos).Y); \
 WORLDS_WRITE_VAR(Entity->ID.WorldID);  \
 WORLDS_WRITE_VAR(Entity->ID.EntityID); \
 WORLDS_WRITE_ASSET(Entity->Asset);
@@ -279,7 +278,7 @@ world_manager::WriteWorldsToFiles(){
             WORLDS_WRITE_ENTITY(Entity);
         }
         
-        FOR_ENTITY_TYPE(&World->Manager, tilemap_entity){
+        FOR_ENTITY_TYPE(&World->Manager.Tilemaps){
             tilemap_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
             WORLDS_WRITE_VAR(Entity->Width);
@@ -287,7 +286,7 @@ world_manager::WriteWorldsToFiles(){
             WORLDS_WRITE_ARRAY(Entity->Tiles, Entity->Width*Entity->Height);
         }
         
-        FOR_ENTITY_TYPE(&World->Manager, enemy_entity){
+        FOR_ENTITY_TYPE(&World->Manager.Enemies){
             enemy_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
             WORLDS_WRITE_VAR(Entity->PathStart.X);
@@ -298,14 +297,14 @@ world_manager::WriteWorldsToFiles(){
             WORLDS_WRITE_VAR(Entity->Animation.Direction);
         }
         
-        FOR_ENTITY_TYPE(&World->Manager, teleporter_entity){
+        FOR_ENTITY_TYPE(&World->Manager.Teleporters){
             teleporter_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
             WORLDS_WRITE_STRING(Entity->Level);
             WORLDS_WRITE_STRING(Entity->RequiredLevel);
         }
         
-        FOR_ENTITY_TYPE(&World->Manager, door_entity){
+        FOR_ENTITY_TYPE(&World->Manager.Doors){
             door_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
             WORLDS_WRITE_STRING(Entity->RequiredLevel);
@@ -316,7 +315,7 @@ world_manager::WriteWorldsToFiles(){
             WORLDS_WRITE_VAR(Bounds.Y1);
         }
         
-        FOR_ENTITY_TYPE(&World->Manager, art_entity){
+        FOR_ENTITY_TYPE(&World->Manager.Arts){
             art_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
         }
@@ -372,15 +371,17 @@ world_manager::MakeWorld(asset_system *Assets, string Name){
         Result->Actions.Actions = MakeArray<editor_action>(&Memory, EDITOR_HISTORY_DEPTH);
         Result->Actions.Entities = &Result->Manager;
         
+#if 0
         Result->TeleporterBoundary = Result->Manager.AllocBoundaries(1);
         *Result->TeleporterBoundary = MakeCollisionRect(V2(0), TILE_SIZE);
         Result->TeleporterBoundary->Offset += V2(8);
+#endif
         
         //~ Setup default player
         player_entity *Player = Result->Manager.Player;
         *Player = {};
         Player->Animation.Direction = Direction_Right;
-        SetupEntity(Assets, Player, ENTITY_TYPE(player_entity), V2(32.0f), AssetID(Entity, player));
+        SetupEntity(Assets, Player, EntityType_Player, V2(32.0f), AssetID(Entity, player));
     }
     
     return(Result);

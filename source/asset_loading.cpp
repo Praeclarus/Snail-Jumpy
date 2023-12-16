@@ -101,11 +101,109 @@ asset_loader::Initialize(memory_arena *Arena, asset_system *Assets,
     HashTableAdd(&StateTable, "state_stunned",    State_Stunned);
     HashTableAdd(&StateTable, "state_returning",  State_Returning);
     
-    EntityTypeTable = MakeHashTable<const char *, entity_array_type>(Arena, EntityArrayType_TOTAL);
-    HashTableAdd(&EntityTypeTable, "player", ENTITY_TYPE(player_entity));
-    HashTableAdd(&EntityTypeTable, "enemy",  ENTITY_TYPE(enemy_entity));
+    EntityTypeTable = MakeHashTable<const char *, entity_type>(Arena, EntityType_TOTAL);
+    HashTableAdd(&EntityTypeTable, "player", EntityType_Player);
+    HashTableAdd(&EntityTypeTable, "enemy",  EntityType_Enemy);
     
     LoadedImageTable = MakeHashTable<const char *, image>(Arena, 256);
+}
+
+//~ Boundary stuff
+// TODO(Tyler): All of this stuff can be removed
+internal inline collision_boundary
+MakeCollisionPoint(){
+    collision_boundary Result = {};
+    Result.Type = BoundaryType_Point;
+    return(Result);
+}
+
+internal inline collision_boundary
+MakeCollisionRect(v2 Offset, v2 Size){
+    collision_boundary Result = {};
+    Result.Type = BoundaryType_Rect;
+    Result.Offset = Offset;
+    Result.Bounds = CenterRect(V2(0), Size);
+    return(Result);
+}
+
+internal inline collision_boundary
+MakeCollisionWedge(memory_arena *Arena, v2 Offset, f32 X, f32 Y){
+    collision_boundary Result = {};
+    Result.Type = BoundaryType_FreeForm;
+    Result.Offset = Offset;
+    f32 MinX = Minimum(X, 0.0f);
+    f32 MinY = Minimum(Y, 0.0f);
+    Result.Bounds.Min = V2(MinX, MinY);
+    
+    f32 MaxX = Maximum(X, 0.0f);
+    f32 MaxY = Maximum(Y, 0.0f);
+    Result.Bounds.Max = V2(MaxX, MaxY);
+    
+    Result.FreeFormPointCount = 3;
+    Result.FreeFormPoints = ArenaPushArray(Arena, v2, 3);
+    Result.FreeFormPoints[0] = V2(0);
+    Result.FreeFormPoints[1] = V2(X, 0.0f);
+    Result.FreeFormPoints[2] = V2(0.0f, Y);
+    
+    return(Result);
+}
+
+internal inline collision_boundary
+MakeCollisionCircle(memory_arena *Arena, v2 Offset, f32 Radius, u32 Segments){
+    collision_boundary Result = {};
+    Result.Type = BoundaryType_FreeForm;
+    Result.Offset = Offset;
+    Result.Bounds = CenterRect(V2(0), 2*V2(Radius));
+    
+    // TODO(Tyler): There might be a better way to do this that doesn't require
+    // calculation beforehand
+    Result.FreeFormPointCount = Segments;
+    Result.FreeFormPoints = ArenaPushArray(Arena, v2, Segments);
+    f32 T = 0.0f;
+    f32 Step = 1.0f/(f32)Segments;
+    for(u32 I = 0; I <= Segments; I++){
+        Result.FreeFormPoints[I] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
+        T += Step;
+    }
+    
+    return(Result);
+}
+
+internal inline collision_boundary
+MakeCollisionPill(memory_arena *Arena, v2 Offset, f32 Radius, f32 Height, u32 HalfSegments){
+    collision_boundary Result = {};
+    Result.Type = BoundaryType_FreeForm;
+    Result.Offset = Offset;
+    Result.Bounds = MakeRect(V2(-Radius, -Radius), V2(Radius, Height+Radius));
+    
+    u32 Segments = 2*HalfSegments;
+    u32 ActualSegments = Segments + 2;
+    Result.FreeFormPointCount = ActualSegments;
+    Result.FreeFormPoints = ArenaPushArray(Arena, v2, ActualSegments);
+    
+    f32 HeightOffset = Height;
+    f32 T = 0.0f;
+    f32 Step = 1.0f/((f32)Segments);
+    u32 Index = 0;
+    
+    for(u32 I=0; I <= HalfSegments; I++){
+        Result.FreeFormPoints[Index] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
+        Result.FreeFormPoints[Index].Y += HeightOffset;
+        T += Step;
+        Index++;
+    }
+    T -= Step;
+    
+    HeightOffset = 0;
+    for(u32 I=0; I <= HalfSegments; I++){
+        Result.FreeFormPoints[Index] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
+        Result.FreeFormPoints[Index].Y += HeightOffset;
+        T += Step;
+        Index++;
+    }
+    
+    
+    return(Result);
 }
 
 //~ Base
@@ -1117,10 +1215,10 @@ asset_loader::ProcessAnimation(){
 
 //~ Entities
 inline b8
-asset_loader::IsInvalidEntityType(asset_entity *Entity, entity_array_type Target){
+asset_loader::IsInvalidEntityType(asset_entity *Entity, entity_type Target){
     b8 Result = false;
     if(Entity->Type != Target){
-        if(Entity->Type == EntityArrayType_None){
+        if(Entity->Type == EntityType_None){
             LogWarning("Entity type must be defined before!");
         }else{
             LogWarning("Entity type must be: %s", ENTITY_TYPE_NAME_TABLE[Target]);
@@ -1150,8 +1248,8 @@ asset_loader::ProcessEntity(){
         
         if(DoAttribute(String, "type")){
             const char *TypeName = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            entity_array_type Type = HashTableFind(&EntityTypeTable, TypeName);
-            if(Type == EntityArrayType_None){
+            entity_type Type = HashTableFind(&EntityTypeTable, TypeName);
+            if(Type == EntityType_None){
                 LogWarning("Invalid type name: '%s'!", TypeName);
                 SJA_ERROR_BEHAVIOR_ATTRIBUTE;
             }
@@ -1225,7 +1323,7 @@ asset_loader::ProcessEntity(){
             if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
             Boundaries[Index] = ExpectTypeBoundary();
         }else if(DoAttribute(String, "damage")){
-            if(IsInvalidEntityType(Entity, ENTITY_TYPE(enemy_entity))) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            if(IsInvalidEntityType(Entity, EntityType_Enemy)) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
             
             Entity->Damage = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             
@@ -1394,16 +1492,16 @@ asset_loader::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
         
         // NOTE(Tyler): This do while is here for macro reasons
         do{
-            AssetLoaderProcessTilemapTransform(Tiles, "COPY_PREVIOUS",       TileTransform_None);
-            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_PREVIOUS",    TileTransform_HorizontalReverse);
-            AssetLoaderProcessTilemapTransform(Tiles, "V_REVERSE_PREVIOUS",  TileTransform_VerticalReverse);
-            AssetLoaderProcessTilemapTransform(Tiles, "HV_REVERSE_PREVIOUS", TileTransform_HorizontalAndVerticalReverse);
-            AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_90",  TileTransform_Rotate90);
-            AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_180", TileTransform_Rotate180);
-            AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_270", TileTransform_Rotate270);
-            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_90",  TileTransform_ReverseAndRotate90);
-            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_180", TileTransform_ReverseAndRotate180);
-            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_270", TileTransform_ReverseAndRotate270);
+            AssetLoaderProcessTilemapTransform(Tiles, "COPY_PREVIOUS",       RenderTransform_None);
+            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_PREVIOUS",    RenderTransform_HorizontalReverse);
+            AssetLoaderProcessTilemapTransform(Tiles, "V_REVERSE_PREVIOUS",  RenderTransform_VerticalReverse);
+            AssetLoaderProcessTilemapTransform(Tiles, "HV_REVERSE_PREVIOUS", RenderTransform_HorizontalAndVerticalReverse);
+            AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_90",  RenderTransform_Rotate90);
+            AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_180", RenderTransform_Rotate180);
+            AssetLoaderProcessTilemapTransform(Tiles, "ROTATE_PREVIOUS_270", RenderTransform_Rotate270);
+            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_90",  RenderTransform_ReverseAndRotate90);
+            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_180", RenderTransform_ReverseAndRotate180);
+            AssetLoaderProcessTilemapTransform(Tiles, "REVERSE_AND_ROTATE_PREVIOUS_270", RenderTransform_ReverseAndRotate270);
             
             LogWarning("'%s' is not a valid transformation", S);
             SeekNextAttribute();
@@ -1527,16 +1625,16 @@ asset_loader::ProcessTilemap(){
                 
                 // NOTE(Tyler): This do while is here for macro reasons
                 do{
-                    AssetLoaderProcessTilemapTransform(&Tiles, "COPY_PREVIOUS",       TileTransform_None);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_PREVIOUS",    TileTransform_HorizontalReverse);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "V_REVERSE_PREVIOUS",  TileTransform_VerticalReverse);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "HV_REVERSE_PREVIOUS", TileTransform_HorizontalAndVerticalReverse);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_90",  TileTransform_Rotate90);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_180", TileTransform_Rotate180);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_270", TileTransform_Rotate270);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_90",  TileTransform_ReverseAndRotate90);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_180", TileTransform_ReverseAndRotate180);
-                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_270", TileTransform_ReverseAndRotate270);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "COPY_PREVIOUS",       RenderTransform_None);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_PREVIOUS",    RenderTransform_HorizontalReverse);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "V_REVERSE_PREVIOUS",  RenderTransform_VerticalReverse);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "HV_REVERSE_PREVIOUS", RenderTransform_HorizontalAndVerticalReverse);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_90",  RenderTransform_Rotate90);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_180", RenderTransform_Rotate180);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "ROTATE_PREVIOUS_270", RenderTransform_Rotate270);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_90",  RenderTransform_ReverseAndRotate90);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_180", RenderTransform_ReverseAndRotate180);
+                    AssetLoaderProcessTilemapTransform(&Tiles, "REVERSE_AND_ROTATE_PREVIOUS_270", RenderTransform_ReverseAndRotate270);
                     
                     LogWarning("'%s' is not a valid string", S);
                     Result = AssetLoadingStatus_Warnings;

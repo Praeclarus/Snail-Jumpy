@@ -2,7 +2,6 @@
 #define SNAIL_JUMPY_ENTITY_H
 
 //~ Other
-
 struct coin_data {
     u8 *Tiles;
     u32 XTiles;
@@ -24,7 +23,7 @@ struct entity {
     asset_id Asset;
     asset_tag Tag;
     
-    entity_array_type Type;
+    entity_type Type;
     entity_type_flags TypeFlags;
     entity_flags Flags;
     
@@ -75,15 +74,33 @@ struct trail {
     range_f32 Range;
 };
 
+enum enemy_type {
+    EnemyType_None, 
+    EnemyType_Snail,
+    EnemyType_Dragonfly,
+    EnemyType_BoxingDragonfly
+};
+
 struct enemy_entity : public entity {
-    f32 Speed;
-    union{
-        struct { v2 PathStart, PathEnd; };
-        v2 Path[2];
-    };
-    f32 TargetY; // Dragonflies
     s32 Damage;
+    f32 Speed;
     
+    union {
+        struct { // Snails
+            union{
+                struct { v2 PathStart, PathEnd; };
+                v2 Path[2];
+            };
+        };
+        
+        struct { // Dragonflies 
+            f32 TargetY; // Dragonflies
+        };
+        
+        struct { // Boxing dragonfly
+            v2 TargetP;
+        };
+    };
     trail *CurrentTrail;
 };
 
@@ -103,7 +120,26 @@ struct projectile_entity : public entity {
 struct art_entity : public entity {
 };
 
+enum gravity_zone_arrow_art_type {
+    ZoneArrowArt_A, 
+    ZoneArrowArt_B, 
+    ZoneArrowArt_C, 
+    
+    ZoneArrowArt_TOTAL,
+};
 
+struct gravity_zone_arrow {
+    gravity_zone_arrow_art_type ArtType;
+    v2 P;
+    v2 Delta;
+};
+
+global_constant u32 GRAVITY_ZONE_MAX_ARROW_COUNT = 32;
+struct gravity_zone {
+    gravity_zone_arrow Arrows[GRAVITY_ZONE_MAX_ARROW_COUNT];
+    v2 Direction;
+    rect Area;
+};
 
 typedef u8 tilemap_floor_side;
 enum tilemap_floor_side_ {
@@ -125,12 +161,18 @@ struct entity_manager {
     u64 EntityIDCounter=1;
     
     dynamic_array<trail> Trails;
+    dynamic_array<gravity_zone> GravityZones;
     
-#define ENTITY_TYPE_(TypeName, ...) bucket_array<TypeName, 32> EntityArray_##TypeName;
     player_entity *Player;
-    ENTITY_TYPES;
-    SPECIAL_ENTITY_TYPES;
-#undef ENTITY_TYPE_
+    
+    bucket_array<tilemap_entity,    32> Tilemaps;
+    bucket_array<coin_entity,       32> Coins;
+    bucket_array<enemy_entity,      32> Enemies;
+    bucket_array<teleporter_entity, 32> Teleporters;
+    bucket_array<door_entity,       32> Doors;
+    bucket_array<projectile_entity, 32> Projectiles;
+    bucket_array<art_entity,        32> Arts;
+    
     
     void Initialize(memory_arena *Arena);
     void Reset();
@@ -139,23 +181,21 @@ struct entity_manager {
     void MaybeDoTrails(asset_system *Assets, enemy_entity *Entity, f32 dTime);
     void RenderTrail(render_group *Group, asset_system *Assets, trail *Trail, f32 dTime);
     void EntityTestTrails(entity *Entity);
+    void EntityTestGravityZones(entity *Entity);
     inline void DamagePlayer(u32 Damage);
     inline void LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena);
     
-    entity *AllocBasicEntity(world_data *World, entity_array_type Type);
+    template<typename T, u32 U> T *AllocEntity_(world_data *World, bucket_array<T, U> *Array);
     void FullRemoveEntity(entity *Entity);
     
     void DeleteEntity(entity *Entity);
     void ReturnEntity(entity *Entity);
     
     //~ Physics
-    bucket_array<physics_particle_system, 64> ParticleSystems;
     array<physics_floor> PhysicsFloors;
     
     memory_arena ParticleMemory;
     memory_arena BoundaryMemory;
-    
-    physics_particle_system *AddParticleSystem(v2 P, collision_boundary *Boundary, u32 ParticleCount, f32 COR);
     
     collision_boundary *AllocBoundaries(u32 Count);
     
@@ -165,7 +205,8 @@ struct entity_manager {
     void TilemapCalculateFloorBlob(asset_tilemap *Asset, tilemap_entity *Entity, dynamic_array<physics_floor> *Floors, 
                                    tilemap_floor_side *DoneTiles, tile_type *TileTypes, 
                                    direction Up, s32 X, s32 Y);
-    void TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, tile_type *Types, tilemap_entity *Entity);
+    void TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
+                                tilemap_tile *Tiles, tile_type *Types, tilemap_entity *Entity);
     
     void HandleCollision(asset_system *Assets, physics_update *Update, f32 TimeElapsed);
     inline physics_floor *FloorFindFloor(physics_floor *Floor, f32 S);
