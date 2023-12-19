@@ -18,19 +18,20 @@ entity_manager::Reset(){
     ArrayClear(&Trails);
     ArrayClear(&GravityZones);
     
-    ArenaClear(&BoundaryMemory);
     ArrayClear(&PhysicsFloors);
 }
 
 void
-entity_manager::Initialize(memory_arena *Arena){
+entity_manager::Initialize(memory_arena *Arena, player_data *PlayerData_, enemy_data *EnemyData_){
     *this = {};
     Memory = MakeArena(Arena, Megabytes(10));
     
     Trails = MakeDynamicArray<trail>(Arena, 8);
     GravityZones = MakeDynamicArray<gravity_zone>(Arena, 8);
     
-    BoundaryMemory = MakeArena(Arena, 3*128*sizeof(collision_boundary));
+    PlayerData = PlayerData_;
+    EnemyDatas = EnemyData_;
+    
     // NOTE(Tyler): PhysicsFloors is initialized elsewhere
     
     Reset();
@@ -308,62 +309,59 @@ MakeGravityZone(dynamic_array<gravity_zone> *GravityZones, v2 P, v2 Size,
 
 
 //~ 
-
-internal rect
-GetBoundsOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
-    v2 Min = V2(F32_POSITIVE_INFINITY);
-    v2 Max = V2(F32_NEGATIVE_INFINITY);
-    for(u32 I=0; I < BoundaryCount; I++){
-        Min = V2Minimum(Boundaries[I].Bounds.Min+Boundaries[I].Offset, Min);
-        Max = V2Maximum(Boundaries[I].Bounds.Max+Boundaries[I].Offset, Max);
-    }
-    rect Result = MakeRect(Min, Max);
-    return(Result);
+internal inline void 
+SetupBaseEntity(entity *Entity, v2 P, entity_type Type){
+    Entity->Type = Type;
+    Entity->Pos = MakeWorldPos(P);
+    Entity->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[Type];
+    Entity->UpNormal = V2(0, 1);
 }
 
-internal v2
-GetSizeOfBoundaries(collision_boundary *Boundaries, u32 BoundaryCount){
-    return RectSize(GetBoundsOfBoundaries(Boundaries, BoundaryCount));
+internal inline void
+SetupTeleporterEntity(teleporter_entity *Entity, v2 P){
+    SetupBaseEntity(Entity, P, EntityType_Teleporter);
+}
+
+internal inline void
+SetupDoorEntity(door_entity *Entity, v2 P){
+    SetupBaseEntity(Entity, P, EntityType_Door);
+}
+
+internal inline void
+SetupTilemapEntity(asset_system *Assets, tilemap_entity *Entity, v2 P, asset_id Asset_){
+    SetupBaseEntity(Entity, P, EntityType_Tilemap);
+    Entity->Asset = Asset_;
+    asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Entity->Asset);
+    Entity->TileSize = Asset->TileSize;
+    Entity->Size = V2(Entity->TileSize.X*(f32)Entity->Width, Entity->TileSize.Y*(f32)Entity->Height);
+}
+
+internal inline void
+SetupPlayerEntity(entity_manager *Entities, player_entity *Entity, v2 P){
+    SetupBaseEntity(Entity, P, EntityType_Player);
+    player_data *Data = Entities->PlayerData;
+    Entity->Size = RectSize(Data->Rect);
+    Entity->JumpTime = 1.0f;
+    Entity->Health = 9;
+    Entity->Pos = MakeWorldPos(V2(P.X, P.Y));
+    Entity->StartP = V2(P.X, P.Y);
+}
+
+internal inline void
+SetupEnemyEntity(entity_manager *Entities, enemy_entity *Entity, enemy_type EnemyType, v2 P){
+    SetupBaseEntity(Entity, P, EntityType_Enemy);
+    enemy_data *Data = &Entities->EnemyDatas[EnemyType];
+    Entity->EnemyType = EnemyType;
+    Entity->Size = RectSize(Data->Rect);
+    Entity->Tag = Data->Tag;
+    Entity->TargetY = P.Y;
 }
 
 internal inline void 
-SetupEntity(asset_system *Assets, entity *Entity_, entity_type Type, v2 P, asset_id Asset_){
-    Entity_->Type = Type;
-    Entity_->Pos = MakeWorldPos(P);
-    Entity_->Asset = Asset_;
-    Entity_->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[Type];
-    Entity_->UpNormal = V2(0, 1);
-    switch(Type){
-        case EntityType_Tilemap: {
-            tilemap_entity *Entity = (tilemap_entity *)Entity_;
-            asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Entity->Asset);
-            Entity->TileSize = AssetsFind_(Assets, Tilemap, Entity->Asset)->TileSize;
-            Entity->Size = V2(Entity->TileSize.X*(f32)Entity->Width, Entity->TileSize.Y*(f32)Entity->Height);
-        }break;
-        case EntityType_Player: {
-            player_entity *Entity = (player_entity *)Entity_;
-            asset_entity *Asset = AssetsFind_(Assets, Entity, Entity->Asset);
-            Entity->Tag = Asset->Tag;
-            Entity->Size = GetSizeOfBoundaries(Asset->Boundaries, Asset->BoundaryCount);
-            Entity->JumpTime = 1.0f;
-            Entity->Health = 9;
-            Entity_->Pos = MakeWorldPos(V2(P.X, P.Y));
-            Entity->StartP = V2(P.X, P.Y);
-        }break;
-        case EntityType_Enemy: {
-            enemy_entity *Entity = (enemy_entity *)Entity_;
-            asset_entity *Asset = AssetsFind_(Assets, Entity, Entity->Asset);
-            Entity->Tag = Asset->Tag;
-            Entity->Size = GetSizeOfBoundaries(Asset->Boundaries, Asset->BoundaryCount);
-            Entity->Speed = Asset->Speed;
-            Entity->Damage = Asset->Damage;
-            Entity->TargetY = P.Y;
-        }break;
-        case EntityType_Art: {
-            art_entity *Entity = (art_entity *)Entity_;
-            Entity->Size = AssetsFind_(Assets, Art, Entity->Asset)->Size;
-        }break;
-    }
+SetupArtEntity(asset_system *Assets, art_entity *Entity, v2 P, asset_id Asset_){
+    SetupBaseEntity(Entity, P, EntityType_Art);
+    Entity->Asset = Asset_;
+    Entity->Size = AssetsFind_(Assets, Art, Entity->Asset)->Size;
 }
 
 internal inline void
@@ -915,9 +913,17 @@ StartTrail(entity *Parent, physics_floor *Floor){
     return Trail;
 }
 
+internal inline b8
+DoesTrails(entity *Entity){
+    if(HasTag(Entity->Tag, AssetTag_TrailSpeedy)) return true;
+    if(HasTag(Entity->Tag, AssetTag_TrailBouncy)) return true;
+    if(HasTag(Entity->Tag, AssetTag_TrailSticky)) return true;
+    return false;
+}
+
 void
-entity_manager::MaybeDoTrails(asset_system *Assets, enemy_entity *Entity, f32 dTime){
-    if(!DoesTrails(Assets, Entity)) return;
+entity_manager::MaybeDoTrails(enemy_entity *Entity, f32 dTime){
+    if(!DoesTrails(Entity)) return;
     
     if(Entity->Pos.Floor){
         v2 Size = Entity->Size;
@@ -1133,8 +1139,13 @@ entity_manager::EntityTestGravityZones(entity *Entity){
     }
 }
 
+void
+entity_manager::UpdateBoxing(enemy_entity *Entity){
+    
+}
+
 void 
-entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Assets, os_input *Input, settings_state *Settings){
+entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_input *Input, settings_state *Settings){
     TIMED_FUNCTION();
     
     physics_update_context UpdateContext = MakeUpdateContext(&GlobalTransientMemory, 512);
@@ -1143,135 +1154,143 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asse
     //~ Player @update_player
     {
         player_entity *Entity = Player;
-        
-        asset_entity *EntityInfo = AssetsFind_(Assets, Entity, Entity->Asset);
-        if(!DoesAnimationBlock(&EntityInfo->Animation, &Entity->Animation)){
-            if(WorldPosP(Entity->Pos).Y < -30.0f){
-                DamagePlayer(2);
-            }
-            
-            f32 MovementSpeed = EntityInfo->Speed; // TODO(Tyler): Load this from a variables file
-            f32 Movement = 0.0f;
-            b8 Left  = Input->KeyDown(Settings->PlayerLeft,  KeyFlag_Any);
-            b8 Right = Input->KeyDown(Settings->PlayerRight, KeyFlag_Any);
-            b8 Shoot = Input->KeyDown(Settings->PlayerShoot, KeyFlag_Any);
-            b8 DoStartJump = Input->KeyJustDown(Settings->PlayerJump, KeyFlag_Any);
-            b8 DoJump      = Input->KeyDown(Settings->PlayerJump, KeyFlag_Any);
-            
-            if(Right && !Left){
-                Entity->Animation.Direction = Direction_Right;
-                Movement += MovementSpeed;
-            }else if(Left && !Right){
-                Entity->Animation.Direction = Direction_Left;
-                Movement -= MovementSpeed;
-            }
-            
-            // TODO(Tyler): Load 'JumpTime' and 'JumpPower' from a variables file
-            if(Entity->Pos.Floor){
-                if((Entity->JumpTime >= 0.0f) && DoJump) DoStartJump = true;
-                Entity->JumpTime = 0.05f;
-            }
-            local_constant f32 JumpStartPower = 60.0f;
-            local_constant f32 JumpBoostPower = 40.0f;
-            if(Entity->JumpTime > 0.0f){
-                if(DoStartJump){
-                    Entity->JumpNormal = Entity->UpNormal;
-                    Entity->dP += JumpStartPower*Entity->JumpNormal;
-                    Entity->Pos = WorldPosConvert(Entity->Pos);
-                }else if(DoJump){
-                    Entity->dP += JumpBoostPower*Entity->JumpNormal;
-                }else{
-                    Entity->JumpTime = 0.0f;
-                }
-                Entity->JumpTime -= dTime;
-            }
-            
-            if(!Entity->Pos.Floor){
-                f32 Epsilon = 0.01f;
-                if(Epsilon < Entity->dP.Y){
-                    ChangeEntityState(Entity, EntityInfo, State_Jumping);
-                }else if((Entity->dP.Y < -Epsilon)){
-                    ChangeEntityState(Entity, EntityInfo, State_Falling);
-                }
-            }else{
-                if(Movement != 0.0f) { ChangeEntityState(Entity, EntityInfo, State_Moving); }
-                else {ChangeEntityState(Entity, EntityInfo, State_Idle); }
-            }
-            
-            EntityTestTrails(Entity);
-            EntityTestGravityZones(Entity);
-            
-            MovePlatformer(&UpdateContext, Entity, Movement, dTime);
-            
-            v2 Center = WorldPosP(Player->Pos) + 0.5f*EntityInfo->Size;
-            Renderer->SetCameraTarget(Center);
-            
-#if 0                
-            if(Shoot){
-                Entity->WeaponChargeTime += dTime;
-                if(Entity->WeaponChargeTime > 1.0f){
-                    Entity->WeaponChargeTime = 1.0f;
-                }
-            }else if(Entity->WeaponChargeTime > 0.0f){
-                projectile_entity *Projectile = BucketArrayGet(&EntityArray_projectile_entity, BucketIndex(0,0));
-                
-                if(Entity->WeaponChargeTime < 0.1f){
-                    Entity->WeaponChargeTime = 0.1f;
-                }else if(Entity->WeaponChargeTime < 0.6f){
-                    Entity->WeaponChargeTime = 0.6f;
-                }
-                
-                
-                // TODO(Tyler): Hot loaded variables file for tweaking these values in 
-                // realtime
-                f32 XPower = 100.0f;
-                f32 YPower = 30.0f;
-                switch(Entity->Animation.Direction){
-                    case Direction_Left:  Projectile->dP = V2(-XPower, YPower); break;
-                    case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
-                }
-                
-                Projectile->P = Entity->P + 0.5f*EntityInfo->Size;
-                Projectile->P.Y += 0.15f;
-                Projectile->dP *= Entity->WeaponChargeTime+0.2f;
-                Projectile->dP += 0.3f*Entity->dP;
-                Projectile->RemainingLife = 3.0f;
-                Entity->WeaponChargeTime = 0.0f;
-            }
-#endif
+        if(WorldPosP(Entity->Pos).Y < -30.0f){
+            DamagePlayer(2);
         }
+        
+        f32 MovementSpeed = PlayerData->Speed;
+        f32 Movement = 0.0f;
+        b8 Left  = Input->KeyDown(Settings->PlayerLeft,  KeyFlag_Any);
+        b8 Right = Input->KeyDown(Settings->PlayerRight, KeyFlag_Any);
+        b8 Shoot = Input->KeyDown(Settings->PlayerShoot, KeyFlag_Any);
+        b8 DoStartJump = Input->KeyJustDown(Settings->PlayerJump, KeyFlag_Any);
+        b8 DoJump      = Input->KeyDown(Settings->PlayerJump, KeyFlag_Any);
+        
+        if(Right && !Left){
+            Entity->Animation.Direction = Direction_Right;
+            Movement += MovementSpeed;
+        }else if(Left && !Right){
+            Entity->Animation.Direction = Direction_Left;
+            Movement -= MovementSpeed;
+        }
+        
+        // TODO(Tyler): Load 'JumpTime' and 'JumpPower' from a variables file
+        if(Entity->Pos.Floor){
+            if((Entity->JumpTime >= 0.0f) && DoJump) DoStartJump = true;
+            Entity->JumpTime = 0.05f;
+        }
+        local_constant f32 JumpStartPower = 60.0f;
+        local_constant f32 JumpBoostPower = 40.0f;
+        if(Entity->JumpTime > 0.0f){
+            if(DoStartJump){
+                Entity->JumpNormal = Entity->UpNormal;
+                Entity->dP += JumpStartPower*Entity->JumpNormal;
+                Entity->Pos = WorldPosConvert(Entity->Pos);
+            }else if(DoJump){
+                Entity->dP += JumpBoostPower*Entity->JumpNormal;
+            }else{
+                Entity->JumpTime = 0.0f;
+            }
+            Entity->JumpTime -= dTime;
+        }
+        
+        if(!Entity->Pos.Floor){
+            f32 Epsilon = 0.01f;
+            if(Epsilon < Entity->dP.Y){
+                ChangeEntityState(Entity, State_Jumping);
+            }else if((Entity->dP.Y < -Epsilon)){
+                ChangeEntityState(Entity, State_Falling);
+            }
+        }else{
+            if(Movement != 0.0f) { ChangeEntityState(Entity, State_Moving); }
+            else {ChangeEntityState(Entity, State_Idle); }
+        }
+        
+        EntityTestTrails(Entity);
+        EntityTestGravityZones(Entity);
+        
+        MovePlatformer(&UpdateContext, Entity, Movement, dTime);
+        
+        v2 Center = WorldPosP(Player->Pos) + 0.5f*Entity->Size;
+        Renderer->SetCameraTarget(Center);
+        
+#if 0                
+        if(Shoot){
+            Entity->WeaponChargeTime += dTime;
+            if(Entity->WeaponChargeTime > 1.0f){
+                Entity->WeaponChargeTime = 1.0f;
+            }
+        }else if(Entity->WeaponChargeTime > 0.0f){
+            projectile_entity *Projectile = BucketArrayGet(&EntityArray_projectile_entity, BucketIndex(0,0));
+            
+            if(Entity->WeaponChargeTime < 0.1f){
+                Entity->WeaponChargeTime = 0.1f;
+            }else if(Entity->WeaponChargeTime < 0.6f){
+                Entity->WeaponChargeTime = 0.6f;
+            }
+            
+            
+            // TODO(Tyler): Hot loaded variables file for tweaking these values in 
+            // realtime
+            f32 XPower = 100.0f;
+            f32 YPower = 30.0f;
+            switch(Entity->Animation.Direction){
+                case Direction_Left:  Projectile->dP = V2(-XPower, YPower); break;
+                case Direction_Right: Projectile->dP = V2( XPower, YPower); break;
+            }
+            
+            Projectile->P = Entity->P + 0.5f*EntityInfo->Size;
+            Projectile->P.Y += 0.15f;
+            Projectile->dP *= Entity->WeaponChargeTime+0.2f;
+            Projectile->dP += 0.3f*Entity->dP;
+            Projectile->RemainingLife = 3.0f;
+            Entity->WeaponChargeTime = 0.0f;
+        }
+#endif
     }
     
     //~ Enemies @update_enemy
     FOR_ENTITY_TYPE(&Enemies){
         enemy_entity *Entity = It.Item;
-        asset_entity *EntityInfo = AssetsFind_(Assets, Entity, Entity->Asset);
+        enemy_data *Data = &EnemyDatas[Entity->EnemyType];
         
-        
-        v2 Tangent = V2Clockwise90(Entity->UpNormal);
-        
-        f32 Movement = 0.0f;
-        v2 P = WorldPosP(Entity->Pos);
-        if(!DoesAnimationBlock(&EntityInfo->Animation, &Entity->Animation)){
-            if((V2Dot(Tangent, P) <= V2Dot(Tangent, Entity->PathStart)) &&
-               (Entity->Animation.Direction == Direction_Left)){
-                TurnEntity(Assets, Entity, Direction_Right);
-            }else if((V2Dot(Tangent, P) >= V2Dot(Tangent, Entity->PathEnd)) &&
-                     (Entity->Animation.Direction == Direction_Right)){
-                TurnEntity(Assets, Entity, Direction_Left);
-            }else{
-                Movement = ((Entity->Animation.Direction == Direction_Left) ?  -Entity->Speed : Entity->Speed);
-                ChangeEntityState(Entity, EntityInfo, State_Moving);
-            }
+        // TODO(Tyler): This is here to sync the information for when the SJA is updated.
+        {
+            Entity->Tag    = Data->Tag;
+            Entity->Size   = RectSize(Data->Rect);
+            Entity->Speed  = Data->Speed;
+            Entity->Damage = Data->Damage;
         }
         
-        if(HasTag(EntityInfo->Tag, AssetTag_Dragonfly)){
-            MoveDragonfly(&UpdateContext, Entity, Movement, dTime, Entity->TargetY);
+        if(Entity->EnemyType == EnemyType_BoxingDragonfly){
+            UpdateBoxing(Entity);
         }else{
-            MovePlatformer(&UpdateContext, Entity, Movement, dTime);
+            v2 Tangent = V2Clockwise90(Entity->UpNormal);
+            
+            f32 Movement = 0.0f;
+            v2 P = WorldPosP(Entity->Pos);
+            if(!(IsEnemyStunned(Entity) || 
+                 Entity->Animation.State == State_Turning)){
+                if((V2Dot(Tangent, P) <= V2Dot(Tangent, Entity->PathStart)) &&
+                   (Entity->Animation.Direction == Direction_Left)){
+                    TurnEntity(Entity, Direction_Right);
+                }else if((V2Dot(Tangent, P) >= V2Dot(Tangent, Entity->PathEnd)) &&
+                         (Entity->Animation.Direction == Direction_Right)){
+                    TurnEntity(Entity, Direction_Left);
+                }else{
+                    Movement = ((Entity->Animation.Direction == Direction_Left) ?  -Entity->Speed : Entity->Speed);
+                    ChangeEntityState(Entity, State_Moving);
+                }
+            }
+            
+            if(Entity->EnemyType == EnemyType_Dragonfly){
+                MoveDragonfly(&UpdateContext, Entity, Movement, dTime, Entity->TargetY);
+            }else{
+                MovePlatformer(&UpdateContext, Entity, Movement, dTime);
+            }
+            MaybeDoTrails(Entity, dTime);
+            EntityTestGravityZones(Entity);
         }
-        MaybeDoTrails(Assets, Entity, dTime);
-        EntityTestGravityZones(Entity);
     }
     
     //~ Teleporters @update_teleporter
@@ -1310,7 +1329,7 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asse
     }
 #endif
     
-    DoPhysics(Mixer, Assets, &UpdateContext, dTime);
+    DoPhysics(Mixer, &UpdateContext, dTime);
 }
 
 void 
@@ -1320,9 +1339,8 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     //~ Player @render_player
     {
         player_entity *Entity = Player;
-        asset_entity *EntityInfo = AssetsFind_(Assets, Entity, Entity->Asset);
         Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), ENTITY_DEFAULT_Z, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f);
-        DoEntityAnimation(Group, EntityInfo, &Entity->Animation, 
+        DoEntityAnimation(Group, PlayerData->SpriteSheet, &Entity->Animation, 
                           Entity->Pos, Entity->Size, Entity->UpNormal,
                           ENTITY_DEFAULT_Z, dTime);
     }
@@ -1330,6 +1348,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     //~ Enemies @render_enemy
     FOR_ENTITY_TYPE(&Enemies){
         enemy_entity *Entity = It.Item;
+        enemy_data *Data = &EnemyDatas[Entity->EnemyType];
         z_layer Z = ENTITY_DEFAULT_Z;
 #if 0
         if(HasTag(Assets, Entity, AssetTag_TrailBouncy)){ 
@@ -1339,7 +1358,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         
         Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), Z, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, 
                            Entity->Size.X+8);
-        DoEntityAnimation(Group, AssetsFind_(Assets, Entity, Entity->Asset), &Entity->Animation, 
+        DoEntityAnimation(Group, Data->SpriteSheet, &Entity->Animation, 
                           Entity->Pos, Entity->Size, Entity->UpNormal,
                           ENTITY_DEFAULT_Z, dTime);
     }

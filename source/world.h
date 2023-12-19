@@ -97,15 +97,19 @@ struct world_data {
 
 global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
 
+struct player_data;
+struct enemy_data;
 struct world_manager {
     memory_arena Memory;
     memory_arena TransientMemory;
     hash_table<string, world_data> WorldTable;
+    player_data *PlayerData;
+    enemy_data  *EnemyData;
     
-    void        Initialize(memory_arena *Arena);
+    void        Initialize(memory_arena *Arena, player_data *PlayerData_, enemy_data *EnemyData_);
     world_data *GetWorld(asset_system *Assets, string Name);
     world_data *FindWorld(asset_system *Assets, string Name);
-    world_data *MakeWorld(asset_system *Assets, string Name);
+    world_data *MakeWorld(string Name);
     
     world_data *LoadWorldFromFile(asset_system *Assets, const char *Name);
     

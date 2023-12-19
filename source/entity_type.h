@@ -80,7 +80,6 @@ entity_type_flags ENTITY_TYPE_TYPE_FLAGS[EntityType_TOTAL]  = {
     EntityTypeFlag_None,
 };
 
-#define ENTITY_TYPE(TypeName) EntityArrayType_##TypeName
 struct entity_iterator {
     entity_type CurrentType;
     

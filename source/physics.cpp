@@ -11,9 +11,9 @@
 
 //~ Helpers
 internal void
-ChangeEntityState(entity *Entity, asset_entity *EntityInfo, entity_state NewState){
+ChangeEntityState(entity *Entity, entity_state NewState){
     if(Entity->Animation.State != NewState){
-        ChangeAnimationState(&EntityInfo->Animation, &Entity->Animation, NewState);
+        ChangeAnimationState(&Entity->Animation, NewState);
     }
 }
 
@@ -27,18 +27,18 @@ IsEnemyStunned(enemy_entity *Enemy){
 }
 
 internal void
-StunEnemy(asset_system *Assets, enemy_entity *Enemy){
+StunEnemy(enemy_entity *Enemy){
     if(IsEnemyStunned(Enemy)) return;
     
     if(!HasTag(Enemy->Tag, AssetTag_Dragonfly)){
-        ChangeEntityState(Enemy, AssetsFind_(Assets, Entity, Enemy->Asset), State_Retreating);
+        ChangeEntityState(Enemy, State_Retreating);
     }
 }
 
 internal void
-TurnEntity(asset_system *Assets, entity *Enemy, direction Direction){
+TurnEntity(entity *Enemy, direction Direction){
     if(Enemy->Animation.Direction == Direction) return;
-    ChangeEntityState(Enemy, AssetsFind_(Assets, Entity, Enemy->Asset), State_Turning);
+    ChangeEntityState(Enemy, State_Turning);
     Enemy->Animation.Direction = Direction;
     Enemy->dP.X = 0.0f;
 }
@@ -357,17 +357,10 @@ MakeFloorMoveUpdate(physics_update_context *Context, entity *Entity, f32 DeltaS)
     return Result;
 }
 
-//~ Physics
-collision_boundary *
-entity_manager::AllocBoundaries(u32 Count){
-    collision_boundary *Result = ArenaPushArray(&BoundaryMemory, collision_boundary, Count);
-    return(Result);
-}
-
 //~ Physics system
 
 internal b8
-HandlePlayerCollision(asset_system *Assets, entity_manager *Entities, physics_update *Update, 
+HandlePlayerCollision(entity_manager *Entities, physics_update *Update, 
                       player_entity *EntityA, entity *EntityB){
     if(HasTag(EntityB->Tag, AssetTag_Snail) ||
        HasTag(EntityB->Tag, AssetTag_Dragonfly)){
@@ -388,7 +381,7 @@ SToDirection(f32 S){
 }
 
 internal b8
-HandleSnailCollision(asset_system *Assets, entity_manager *Entities, physics_update *Update, 
+HandleSnailCollision(entity_manager *Entities, physics_update *Update, 
                      enemy_entity *EntityA, entity *EntityB){
     if(EntityB->Type == EntityType_Player){
         return true;
@@ -398,7 +391,7 @@ HandleSnailCollision(asset_system *Assets, entity_manager *Entities, physics_upd
 }
 
 internal b8
-HandleDragonflyCollision(asset_system *Assets, entity_manager *Entities, physics_update *Update, 
+HandleDragonflyCollision(entity_manager *Entities, physics_update *Update, 
                          enemy_entity *EntityA, entity *EntityB){
     if(EntityB->Type == EntityType_Player){
         return true;
@@ -410,7 +403,7 @@ HandleDragonflyCollision(asset_system *Assets, entity_manager *Entities, physics
 // TODO(Tyler): There is probably a better way of handling moving floors... The current method
 // seems to be rather innacurate.
 void
-entity_manager::HandleCollision(asset_system *Assets, physics_update *Update, f32 TimeElapsed){
+entity_manager::HandleCollision(physics_update *Update, f32 TimeElapsed){
     physics_collision *Collision = &Update->Collision;
     entity *EntityA = Update->Entity;
     
@@ -453,11 +446,11 @@ entity_manager::HandleCollision(asset_system *Assets, physics_update *Update, f3
         b8 ResetPosition = false;
         if(EntityA && EntityB){
             if(HasTag(EntityA->Tag, AssetTag_Snail)){
-                ResetPosition = HandleSnailCollision(Assets, this, Update, (enemy_entity *)EntityA, EntityB);
+                ResetPosition = HandleSnailCollision(this, Update, (enemy_entity *)EntityA, EntityB);
             }else if(HasTag(EntityA->Tag, AssetTag_Dragonfly)){
-                ResetPosition = HandleDragonflyCollision(Assets, this, Update, (enemy_entity *)EntityA, EntityB);
+                ResetPosition = HandleDragonflyCollision(this, Update, (enemy_entity *)EntityA, EntityB);
             }else if(EntityA->Type == EntityType_Player){
-                ResetPosition = HandlePlayerCollision(Assets, this, Update, (player_entity *)EntityA, EntityB);
+                ResetPosition = HandlePlayerCollision(this, Update, (player_entity *)EntityA, EntityB);
             }
         }
         
@@ -477,7 +470,7 @@ entity_manager::HandleCollision(asset_system *Assets, physics_update *Update, f3
        HasTag(EntityA->Tag, AssetTag_Dragonfly)){
         v2 Tangent = V2Clockwise90(EntityA->UpNormal);
         if(V2Dot(Collision->Normal, Tangent*V2Dot(Tangent, Update->Delta.P)) < 0){
-            TurnEntity(Assets, EntityA, SToDirection(-Update->Delta.S));
+            TurnEntity(EntityA, SToDirection(-Update->Delta.S));
         }
     }
     
@@ -639,7 +632,7 @@ entity_manager::CalculateFloorCollision(physics_update *UpdateA, physics_floor *
 }
 
 void
-entity_manager::DoPhysics(audio_mixer *Mixer, asset_system *Assets, physics_update_context *Context, f32 dTime){
+entity_manager::DoPhysics(audio_mixer *Mixer, physics_update_context *Context, f32 dTime){
     TIMED_FUNCTION();
     
     local_constant u32 MAX_ITERATIONS = 8;
@@ -676,7 +669,7 @@ entity_manager::DoPhysics(audio_mixer *Mixer, asset_system *Assets, physics_upda
                           Update.TimeRemaining, Update.Collision.TimeOfImpact, TimeElapsed);
 #endif
             
-            HandleCollision(Assets, &Update, TimeElapsed);
+            HandleCollision(&Update, TimeElapsed);
             
             Update.Collision = MakeCollision();
             

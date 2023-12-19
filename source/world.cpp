@@ -91,7 +91,6 @@ WORLDS_READ_VAR(P.X, 1, U32_MAX);                  \
 WORLDS_READ_VAR(P.Y, 1, U32_MAX);                  \
 WORLDS_READ_VAR(Entity->ID.WorldID, 1, U32_MAX);   \
 WORLDS_READ_VAR(Entity->ID.EntityID, 1, U32_MAX);  \
-WORLDS_READ_ASSET(Entity->Asset, 2, U32_MAX);
 
 #define WORLDS_READ_STRING(Var, MinVersion, MaxVersion) \
 if((MinVersion <= Header->Version) && (Header->Version <= MaxVersion)) \
@@ -113,7 +112,7 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
     if(!OSFile) return World;
     entire_file File = ReadEntireFile(&GlobalTransientMemory, Path);
     string String = Strings.GetString(Name);
-    World = MakeWorld(Assets, String);
+    World = MakeWorld(String);
     stream Stream = MakeReadStream(File.Data, File.Size);
     
     world_file_header *Header = StreamConsumeType(&Stream, world_file_header);
@@ -141,8 +140,7 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
         player_entity *Entity = World->Manager.Player;
         WORLDS_READ_VAR(Entity->Type, 1, U32_MAX);
         WORLDS_READ_ENTITY(Entity, Entity->Type);
-        WORLDS_READ_ASSET(Entity->Asset, 1, 1);
-        SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
+        SetupPlayerEntity(&World->Manager, Entity, P);
     }
     
     for(u32 I=0; I<Header->EntityCount; I++){
@@ -150,28 +148,28 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
         if(Type == EntityType_Tilemap){
             tilemap_entity *Entity = AllocEntity(&World->Manager, Tilemaps, 0);
             WORLDS_READ_ENTITY(Entity, Type);
-            WORLDS_READ_ASSET(Entity->Asset, 1, 1);
+            WORLDS_READ_ASSET(Entity->Asset, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->Width, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->Height, 1, U32_MAX);
             WORLDS_READ_ARRAY(Entity->Tiles, Entity->Width*Entity->Height, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
+            SetupTilemapEntity(Assets, Entity, P, Entity->Asset);
         }else if(Type == EntityType_Enemy){
             enemy_entity *Entity = AllocEntity(&World->Manager, Enemies, 0);
             WORLDS_READ_ENTITY(Entity, Type);
-            WORLDS_READ_ASSET(Entity->Asset, 1, 1);
+            WORLDS_READ_VAR(Entity->EnemyType, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->PathStart.X, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->PathStart.Y, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->PathEnd.X, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->PathEnd.Y, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->TargetY, 1, U32_MAX);
             WORLDS_READ_VAR(Entity->Animation.Direction, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
+            SetupEnemyEntity(&World->Manager, Entity, Entity->EnemyType, P);
         }else if(Type == EntityType_Teleporter){
             teleporter_entity *Entity = AllocEntity(&World->Manager, Teleporters, 0);
             WORLDS_READ_ENTITY(Entity, Type);
             WORLDS_READ_STRING(Entity->Level, 1, U32_MAX);
             WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
+            SetupTeleporterEntity(Entity, P);
         }else if(Type == EntityType_Door){
             door_entity *Entity = AllocEntity(&World->Manager, Doors, 0);
             WORLDS_READ_ENTITY(Entity, Type);
@@ -182,13 +180,13 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
             WORLDS_READ_VAR(Bounds.Y1, 1, U32_MAX);
             Entity->Size = RectSize(Bounds);
             WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
-            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
+            SetupDoorEntity(Entity, P);
         }else if(Type == EntityType_Art){
             art_entity *Entity = AllocEntity(&World->Manager, Arts, 0);
             Entity->Type = Type;
             WORLDS_READ_ENTITY(Entity, Type);
-            WORLDS_READ_ASSET(Entity->Asset, 1, 1);
-            SetupEntity(Assets, Entity, Entity->Type, P, Entity->Asset);
+            WORLDS_READ_ASSET(Entity->Asset, 1, U32_MAX);
+            SetupArtEntity(Assets, Entity, P, Entity->Asset);
         }
     }
     
@@ -239,9 +237,7 @@ WORLDS_WRITE_VAR(Entity->Flags);       \
 WriteF32ToFile(File, &Offset, WorldPosP(Entity->Pos).X); \
 WriteF32ToFile(File, &Offset, WorldPosP(Entity->Pos).Y); \
 WORLDS_WRITE_VAR(Entity->ID.WorldID);  \
-WORLDS_WRITE_VAR(Entity->ID.EntityID); \
-WORLDS_WRITE_ASSET(Entity->Asset);
-
+WORLDS_WRITE_VAR(Entity->ID.EntityID);
 
 void
 world_manager::WriteWorldsToFiles(){
@@ -281,6 +277,7 @@ world_manager::WriteWorldsToFiles(){
         FOR_ENTITY_TYPE(&World->Manager.Tilemaps){
             tilemap_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
+            WORLDS_WRITE_ASSET(Entity->Asset);
             WORLDS_WRITE_VAR(Entity->Width);
             WORLDS_WRITE_VAR(Entity->Height);
             WORLDS_WRITE_ARRAY(Entity->Tiles, Entity->Width*Entity->Height);
@@ -289,6 +286,7 @@ world_manager::WriteWorldsToFiles(){
         FOR_ENTITY_TYPE(&World->Manager.Enemies){
             enemy_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
+            WORLDS_WRITE_VAR(Entity->EnemyType);
             WORLDS_WRITE_VAR(Entity->PathStart.X);
             WORLDS_WRITE_VAR(Entity->PathStart.Y);
             WORLDS_WRITE_VAR(Entity->PathEnd.X);
@@ -318,6 +316,7 @@ world_manager::WriteWorldsToFiles(){
         FOR_ENTITY_TYPE(&World->Manager.Arts){
             art_entity *Entity = It.Item;
             WORLDS_WRITE_ENTITY(Entity);
+            WORLDS_WRITE_ASSET(Entity->Asset);
         }
         
         OSCloseFile(File);
@@ -325,10 +324,12 @@ world_manager::WriteWorldsToFiles(){
 }
 
 void
-world_manager::Initialize(memory_arena *Arena){
+world_manager::Initialize(memory_arena *Arena, player_data *PlayerData_, enemy_data *EnemyData_){
     Memory          = MakeArena(Arena, Megabytes(200));
     TransientMemory = MakeArena(Arena, Kilobytes(512));
     WorldTable      = MakeHashTable<string, world_data>(Arena, 512);
+    PlayerData = PlayerData_;
+    EnemyData  = EnemyData_;
 }
 
 world_data *
@@ -345,7 +346,7 @@ world_data *
 world_manager::GetWorld(asset_system *Assets, string Name){
     world_data *Result = FindWorld(Assets, Name);
     if(!Result){
-        Result = MakeWorld(Assets, Name);
+        Result = MakeWorld(Name);
         Result->Width = 32;
         Result->Height = 18;
         Result->Map = (u8 *)OSDefaultAlloc(Result->Width*Result->Height);
@@ -354,7 +355,7 @@ world_manager::GetWorld(asset_system *Assets, string Name){
 }
 
 world_data *
-world_manager::MakeWorld(asset_system *Assets, string Name){
+world_manager::MakeWorld(string Name){
     world_data *Result = HashTableFindPtr(&WorldTable, Name);
     if(Result){
         Result = 0;
@@ -367,7 +368,7 @@ world_manager::MakeWorld(asset_system *Assets, string Name){
         Result->AmbientColor    = HSBColor(1.0f, 0.0f, 1.0f);
         Result->Exposure = 1.0f;
         
-        Result->Manager.Initialize(&Memory);
+        Result->Manager.Initialize(&Memory, PlayerData, EnemyData);
         Result->Actions.Actions = MakeArray<editor_action>(&Memory, EDITOR_HISTORY_DEPTH);
         Result->Actions.Entities = &Result->Manager;
         
@@ -381,7 +382,7 @@ world_manager::MakeWorld(asset_system *Assets, string Name){
         player_entity *Player = Result->Manager.Player;
         *Player = {};
         Player->Animation.Direction = Direction_Right;
-        SetupEntity(Assets, Player, EntityType_Player, V2(32.0f), AssetID(Entity, player));
+        SetupPlayerEntity(&Result->Manager, Player, V2(32.0f));
     }
     
     return(Result);

@@ -122,9 +122,9 @@ struct world_editor {
     ui_manager *UI;
     world_manager *Worlds;
     
-    asset_id ArtToAdd;
-    asset_id EntityInfoToAdd;
-    asset_id TilemapToAdd;
+    asset_id   ArtToAdd;
+    enemy_type EnemyTypeToAdd;
+    asset_id   TilemapToAdd;
     
     world_editor_flags EditorFlags;
     char NameBuffer[DEFAULT_BUFFER_SIZE];

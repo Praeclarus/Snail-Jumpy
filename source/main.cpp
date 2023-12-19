@@ -95,8 +95,8 @@ MainStateInitialize(main_state *State, void *Data, u32 DataSize){
     State->UI.Fonts.LoadFont(String("main_font"),  "asset_fonts/Press-Start-2P.ttf", 26);
     DebugConfig.Font = State->UI.Fonts.FindFont(String("normal_font"));
     
-    State->Entities.Initialize(&GlobalPermanentMemory);
-    State->Worlds.Initialize(&GlobalPermanentMemory);
+    State->Entities.Initialize(&GlobalPermanentMemory, &State->PlayerData, State->EnemyData);
+    State->Worlds.Initialize(&GlobalPermanentMemory, &State->PlayerData, State->EnemyData);
     State->UI.Initialize(&GlobalPermanentMemory, &State->Input, &State->Renderer);
     
     DebugConfig.MainState = State;
@@ -108,7 +108,8 @@ MainStateInitialize(main_state *State, void *Data, u32 DataSize){
     State->Assets.Initialize(&GlobalPermanentMemory);
     
 #if !defined(SNAIL_JUMPY_USE_PROCESSED_ASSETS)
-    State->AssetLoader.Initialize(&GlobalPermanentMemory, &State->Assets, &State->Mixer, &State->Worlds);
+    State->AssetLoader.Initialize(&GlobalPermanentMemory, &State->Assets, &State->Mixer, &State->Worlds,
+                                  &State->PlayerData, State->EnemyData);
     State->AssetLoader.LoadAssetFile(ASSET_FILE_PATH);
 #endif
     

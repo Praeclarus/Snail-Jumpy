@@ -1,4 +1,5 @@
 
+
 #~
 : SpecialCommands
 #worlds Array("Debug")
@@ -14,9 +15,34 @@
 	   blocking state_returning
 	   blocking state_turning
 
-: Animation "player"
-	
-#~ @sja_spritesheets
+: Animation "boxing"
+    on_finish              state_turning    state_moving
+	   on_finish              state_retreating state_stunned
+	   after_time "stun_time" state_stunned    state_returning
+	   on_finish              state_returning  state_moving
+	   blocking state_retreating
+	   blocking state_stunned
+	   blocking state_returning
+	   blocking state_turning
+
+#~ @sja_sprite_sheets
+: SpriteSheet "boxing"
+    size 33 33
+    piece 0 "asset_sprite_sheets/boxing_sprite_sheet.png"
+        consecutive  0 10 8 0
+        consecutive 10 10 8 0
+        consecutive 20  3 8 0
+        consecutive 23  3 8 0
+    state_none
+        left  1
+        right 2
+    state_moving          
+        left  1
+        right 2
+    state_turning 
+        left  3
+        right 4
+animation "boxing"
 
 : SpriteSheet "dragonfly"
     size 34 34
@@ -47,6 +73,7 @@ base_y_offset -11
     state_turning
         right 3
         left  4
+animation "enemy"
 
 : SpriteSheet "snail"
     size 17 17
@@ -79,6 +106,7 @@ base_y_offset -11
     state_returning
         left  9
         right 10
+animation "enemy"
 
 : SpriteSheet "sally"
     size 33 33
@@ -111,6 +139,7 @@ base_y_offset -11
     state_returning
         left  9
         right 10
+animation "enemy"
 
 : SpriteSheet "speedy"
     size 17 17
@@ -144,23 +173,7 @@ base_y_offset -11
     state_returning
         left  9
         right 10
-
-: SpriteSheet "boxing_dragonfly"
-    size 33 33
-    piece 0 "asset_sprite_sheets/boxing_sprite_sheet.png"
-        consecutive  0 10 8 0
-        consecutive 10 10 8 0
-        consecutive 20  3 8 0
-        consecutive 23  3 8 0
-    state_none
-        left  1
-        right 2
-    state_moving          
-        left  1
-        right 2
-    state_turning 
-        left  3
-        right 4
+animation "enemy"
 
 : SpriteSheet "player"
     size 16 16
@@ -189,37 +202,6 @@ base_y_offset -11
         left  5
         right 6
 
-# : SpriteSheet overworld_player
-: Ignore 
-	   path "asset_sprite_sheets/overworld_avatar_sprite_sheet.png"
-	   size 64 64
-	   frame_counts Array(3 3 3 3 3 3 3 3 4 5 5 5 4 5 5 5)
-	   base_fps 8
-	   y_offset 0
-		      state_idle
-            north     1
-            northeast 2
-            east      3
-            southeast 4
-            south     5
-            southwest 6
-            west      7
-            northwest 8
-        state_moving
-            north      9
-            northeast 10
-            east      11
-            southeast 12
-            south     13
-            southwest 14
-            west      15
-            northwest 16
-
-: SpriteSheet "heart"
-	   size 8 8
-	   piece 0 "asset_sprite_sheets/heart_8x8.png"
-        consecutive 0 4 0 0
-
 : SpriteSheet "bouncy_snail"
     size 16 16
     piece 0 "asset_sprite_sheets/snail_test_bouncy.png"
@@ -236,67 +218,64 @@ base_y_offset -11
    state_turning 
         left  3
         right 4
+animation "enemy"
+
+#~ @sja_art_spritesheets
+
+: SpriteSheet "heart"
+	   size 8 8
+	   piece 0 "asset_sprite_sheets/heart_8x8.png"
+        consecutive 0 4 0 0
+
 
 #~ @sja_entities
-
-: Entity "player"
-	   type          player
-	   piece         player 0
-	   animation     player 
-	   mass          1.0
-	   speed         70
+: Player
+	   speed       70
+spritesheet player
 #    speed 150
-	   boundary 0 Boundary_Pill(0 0 3 8)
+	    boundary Rect(0 0 5 12)
 
-: Entity "snail" Tag("snail")
-   	type          enemy
-	   piece         snail 0
-	   animation     enemy
-    animation_var "stun_time" 3.0
-	   mass          1.0  
+: Enemy "Snail" Tag("snail")
+	            spritesheet   snail
+    #animation_var "stun_time" 3.0
 	   speed         20
-	   boundary      0 Boundary_Circle(0 0 6)
+	   boundary      Rect(0 0 12 12)
 	   damage        2    
 
-: Entity "sally" Tag("snail")
-   	type          enemy
-	   piece         sally 0
-	   animation     enemy
-    animation_var "stun_time" 4.0
-	   mass          2.0
+: Enemy "Sally" Tag("snail")
+	            spritesheet   sally
+    #animation_var "stun_time" 4.0
 	   speed         30
-	   boundary      0 Boundary_Circle(0 0 13)
+	   boundary      Rect(0 0 26 26)
 	   damage        3
 
-: Entity "speedy" Tag("snail")
-   	type          enemy
-	   piece         speedy 0
-	   animation     enemy
-    animation_var "stun_time" 2.0
-	   mass          0.7
+: Enemy "Speedy" Tag("snail")
+	            spritesheet   speedy
+    #animation_var "stun_time" 2.0
 	   speed         100
-    boundary      0 Boundary_Circle(0 0 6)
+    boundary      Rect(0 0 12 12)
 	   damage        1
 
-: Entity "dragonfly" Tag("dragonfly")
-   	type          enemy
-	   piece         dragonfly 0
-	   animation     enemy
-    animation_var "stun_time" 0.0
-	   mass          1.5
+: Enemy "Dragonfly" Tag("dragonfly")
+	            spritesheet   dragonfly
+    #animation_var "stun_time" 0.0
 	   speed         50
-	   boundary      0 Boundary_Rect(0 11 31 3)
+	   boundary      Rect(0 11 31 3)
 	   damage        1
 
-: Entity "bouncy_snail" Tag("snail" "trail_bouncy")
-   	type          enemy
-	   piece         bouncy_snail 0
-	   animation     enemy
-    animation_var "stun_time" 3.0
-	   mass          1.0  
+: Enemy "TrailSnail" Tag("snail" "trail_bouncy")
+	            spritesheet bouncy_snail
+    #animation_var  "stun_time" 3.0
+	   speed          50
+	   boundary       Rect(0 0 12 12)
+	   damage         2    
+
+: Enemy "Boxing"
+	            spritesheet   boxing
+    #animation_var "stun_time" 0.0
 	   speed         50
-	   boundary      0 Boundary_Rect(0 0 12 12)
-	   damage        2    
+	   boundary      Rect(0 11 31 3)
+	   damage        1
 
 #~ @sja_arts
 
@@ -351,11 +330,7 @@ path "asset_arts/cyan_arrow_3.png"
     path "asset_tilemaps/grass_and_dirt_platform.png"
     tile_size 16 16
     dimensions 9 9
-    boundary 0 Boundary_Rect(0 0 16 16)
-    boundary 1 Boundary_Wedge( 0  0 -16  16)
-    boundary 2 Boundary_Wedge( 0  0  16  16)
-    boundary 3 Boundary_Wedge( 0  0 -16 -16)
-    boundary 4 Boundary_Wedge( 0  0  16 -16)
+    boundary Rect(0 0 16 16)
     tile 0           "?_?_#_?_?" 4
     tile 0           "XXX_#_?_?" 2
     tile 0           "_XX_#_?_?" 2
@@ -412,11 +387,7 @@ path "asset_arts/cyan_arrow_3.png"
     path "asset_tilemaps/dirt_platform.png"
     tile_size 16 16
     dimensions 7 6
-    boundary 0 Boundary_Rect(0 0 16 16)
-    boundary 1 Boundary_Wedge( 0  0 -16  16)
-    boundary 2 Boundary_Wedge( 0  0  16  16)
-    boundary 3 Boundary_Wedge( 0  0 -16 -16)
-    boundary 4 Boundary_Wedge( 0  0  16 -16)
+    boundary Rect(0 0 16 16)
     tile 0           "?_?_#_?_?" 3
     tile 0           "?X?_#_?_?" 2
     tile 0           "?_?_#X?_?" 4
@@ -450,11 +421,7 @@ path "asset_arts/cyan_arrow_3.png"
     path "asset_tilemaps/cobblestone_platform.png"
     tile_size 16 16
     dimensions 5 5
-    boundary 0 Boundary_Rect(0 0 16 16)
-    boundary 1 Boundary_Wedge( 0  0 -16  16)
-    boundary 2 Boundary_Wedge( 0  0  16  16)
-    boundary 3 Boundary_Wedge( 0  0 -16 -16)
-    boundary 4 Boundary_Wedge( 0  0  16 -16)
+    boundary Rect(0 0 16 16)
     tile 0 "?_?_#_?_?" 2 
     tile 0 "?_?_#X?_?" 2
     tile 0 "?_?_#_?X?" ROTATE_PREVIOUS_90
@@ -495,11 +462,7 @@ path "asset_arts/cyan_arrow_3.png"
     path "asset_tilemaps/plant_platform.png"
     tile_size 16 16
     dimensions 9 7
-    boundary 0 Boundary_Rect(0 0 16 16)
-    boundary 1 Boundary_Wedge( 0  0 -16  16)
-    boundary 2 Boundary_Wedge( 0  0  16  16)
-    boundary 3 Boundary_Wedge( 0  0 -16 -16)
-    boundary 4 Boundary_Wedge( 0  0  16 -16)
+    boundary Rect(0 0 16 16)
     # normal tiles
     tile 0 "?_?_#_?_?" 3
     tile 0 "XXX_#_?_?" 2
@@ -548,11 +511,7 @@ path "asset_arts/cyan_arrow_3.png"
     path "asset_tilemaps/wood_plank_platform.png"
     tile_size 16 16
     dimensions 5 6
-    boundary 0 Boundary_Rect(0 5 16 6)
-    boundary 1 Boundary_Quad(-8 -8  0  0   6 0  16 10 16 16)
-    boundary 2 Boundary_Quad(-8 -8  16 0  10 0   0 10  0 16)
-    boundary 3 Boundary_Wedge( 5  5 -6 -6)
-    boundary 4 Boundary_Wedge(-5  5  6 -6)
+    boundary Rect(0 5 16 6)
     # normal tiles
     tile 0 "???_#_?_?" 3
     tile 0 "???_#X?_?" 1
@@ -598,7 +557,7 @@ path "asset_arts/cyan_arrow_3.png"
 : Tilemap "flower_box"
     path "asset_tilemaps/flower_box_platform.png"
     tile_size 16 16
-    boundary 0 Boundary_Rect(0 0 16 16)
+    boundary Rect(0 0 16 16)
     dimensions 4 2
     tile 0 "???_#_???" 2
     tile 0 "???_#X???" 4
@@ -609,7 +568,7 @@ path "asset_arts/cyan_arrow_3.png"
     path "asset_tilemaps/snailsheet.png"
     tile_size 16 16
     dimensions 7 4
-    boundary 0 Boundary_Rect(0 0 16 16)
+    boundary Rect(0 0 16 16)
     tile 0 "?_?_#_?_?" 1
     # shell end
     tile 0 "?_?_#X?_X" 1
@@ -657,7 +616,7 @@ path "asset_arts/cyan_arrow_3.png"
     path "asset_tilemaps/cactus.png"
     tile_size 16 16
     dimensions 5 3
-    boundary 0 Boundary_Rect(0 0 16 16)
+    boundary Rect(0 0 16 16)
     tile 0 "?_?_#_???" 3
     tile 0 "?_?_#X?_?" ROTATE_PREVIOUS_270
     tile 0 "?_?X#_?_?" ROTATE_PREVIOUS_90
@@ -678,7 +637,7 @@ path "asset_arts/cyan_arrow_3.png"
 path "asset_tilemaps/trail_bouncy.png"
 tile_size 16 16
 dimensions 10 6
-boundary 0 Boundary_Rect(0 0 16 10)
+boundary Rect(0 0 16 10)
 tile                0 "___X#X___" 10
                  wedge_up_left       0 "___X#X___" 4
                  wedge_down_left     0 "___X#X___" 1
@@ -698,7 +657,7 @@ tile 0 "____#____" 1
 path "asset_tilemaps/trail_speedy.png"
 tile_size 16 16
 dimensions 10 6
-boundary 0 Boundary_Rect(0 0 16 10)
+boundary Rect(0 0 16 10)
 tile                0 "___X#X___" 10
                  wedge_up_left       0 "___X#X___" 4
                  wedge_down_left     0 "___X#X___" 1
@@ -719,11 +678,10 @@ tile 0 "____#____" 1
 path "asset_tilemaps/trail_strong.png"
 tile_size 16 16
 dimensions 5 5
-boundary 0 Boundary_Rect(0 0 16 10)
+boundary Rect(0 0 16 10)
 tile 0 "___?#?___" 10
 
 #~ @sja_fonts
-
 : Font "font_basic"
     path "asset_fonts/basic.png"
     height 7

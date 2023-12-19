@@ -10,6 +10,56 @@ struct coin_data {
     f32 TileSideInMeters;
 };
 
+//~
+enum enemy_type {
+    EnemyType_None,
+    EnemyType_Snail,
+    EnemyType_Sally,
+    EnemyType_Speedy,
+    EnemyType_Dragonfly,
+    EnemyType_TrailSnail,
+    EnemyType_BoxingDragonfly,
+    
+    EnemyType_TOTAL,
+};
+
+#define ENEMY_TYPES \
+ENEMY_TYPE_(EnemyType_Snail,           "Snail")      \
+ENEMY_TYPE_(EnemyType_Sally,           "Sally")      \
+ENEMY_TYPE_(EnemyType_Speedy,          "Speedy")     \
+ENEMY_TYPE_(EnemyType_Dragonfly,       "Dragonfly")  \
+ENEMY_TYPE_(EnemyType_TrailSnail,      "TrailSnail") \
+ENEMY_TYPE_(EnemyType_BoxingDragonfly, "Boxing")
+
+#define ENEMY_TYPE_(Type, TypeName) TypeName,
+const char *ENEMY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
+    "None",
+    ENEMY_TYPES
+};
+#undef ENEMY_TYPE_
+
+struct asset_sprite_sheet;
+struct player_data {
+    f32 JumpPower;
+    f32 JumpDuration;
+    f32 Speed;
+    rect Rect;
+    asset_sprite_sheet *SpriteSheet;
+};
+
+struct enemy_data {
+    asset_tag Tag;
+    s32 ZOffset;
+    rect Rect;
+    
+    f32 Mass;
+    f32 Speed;
+    
+    s32 Damage;
+    
+    asset_sprite_sheet *SpriteSheet;
+};
+
 //~ Entities
 struct entity_id {
     u64 WorldID;
@@ -20,7 +70,6 @@ struct physics_group;
 global_constant z_layer ENTITY_DEFAULT_Z = ZLayer(1, ZLayer_GameEntities, 0);
 struct entity {
     entity_id ID;
-    asset_id Asset;
     asset_tag Tag;
     
     entity_type Type;
@@ -44,6 +93,7 @@ struct entity {
 struct tilemap_entity : public entity {
     v2 TileSize;
     tilemap_data TilemapData;
+    asset_id Asset;
     u8 *PhysicsMap;
     
     u32 Width;
@@ -74,16 +124,10 @@ struct trail {
     range_f32 Range;
 };
 
-enum enemy_type {
-    EnemyType_None, 
-    EnemyType_Snail,
-    EnemyType_Dragonfly,
-    EnemyType_BoxingDragonfly
-};
-
 struct enemy_entity : public entity {
     s32 Damage;
     f32 Speed;
+    enemy_type EnemyType;
     
     union {
         struct { // Snails
@@ -118,6 +162,7 @@ struct projectile_entity : public entity {
 
 // TODO(Tyler): This has a lot of unnecessary stuff in it
 struct art_entity : public entity {
+    asset_id Asset;
 };
 
 enum gravity_zone_arrow_art_type {
@@ -163,6 +208,9 @@ struct entity_manager {
     dynamic_array<trail> Trails;
     dynamic_array<gravity_zone> GravityZones;
     
+    player_data *PlayerData;
+    enemy_data  *EnemyDatas;
+    
     player_entity *Player;
     
     bucket_array<tilemap_entity,    32> Tilemaps;
@@ -171,14 +219,18 @@ struct entity_manager {
     bucket_array<teleporter_entity, 32> Teleporters;
     bucket_array<door_entity,       32> Doors;
     bucket_array<projectile_entity, 32> Projectiles;
+    
+    // TODO(Tyler): Art entities can be easily removed from the entity struct. 
+    // It is now easy to turn them into their own completely separte thing. This is
+    // to be done in the future.
     bucket_array<art_entity,        32> Arts;
     
-    
-    void Initialize(memory_arena *Arena);
+    void Initialize(memory_arena *Arena, player_data *PlayerData, enemy_data *EnemyData);
     void Reset();
-    void UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Assets, os_input *Input, settings_state *Settings);
+    void UpdateBoxing(enemy_entity *Entity);
+    void UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_input *Input, settings_state *Settings);
     void RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, f32 dTime, world_manager *Worlds);
-    void MaybeDoTrails(asset_system *Assets, enemy_entity *Entity, f32 dTime);
+    void MaybeDoTrails(enemy_entity *Entity, f32 dTime);
     void RenderTrail(render_group *Group, asset_system *Assets, trail *Trail, f32 dTime);
     void EntityTestTrails(entity *Entity);
     void EntityTestGravityZones(entity *Entity);
@@ -195,20 +247,14 @@ struct entity_manager {
     array<physics_floor> PhysicsFloors;
     
     memory_arena ParticleMemory;
-    memory_arena BoundaryMemory;
-    
-    collision_boundary *AllocBoundaries(u32 Count);
     
     world_position DoFloorRaycast(world_position Pos, v2 Size, v2 GravityNormal);
-    void DoPhysics(audio_mixer *Mixer, asset_system *Assets, physics_update_context *Context, f32 dTime);
+    void DoPhysics(audio_mixer *Mixer, physics_update_context *Context, f32 dTime);
     
-    void TilemapCalculateFloorBlob(asset_tilemap *Asset, tilemap_entity *Entity, dynamic_array<physics_floor> *Floors, 
-                                   tilemap_floor_side *DoneTiles, tile_type *TileTypes, 
-                                   direction Up, s32 X, s32 Y);
     void TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
                                 tilemap_tile *Tiles, tile_type *Types, tilemap_entity *Entity);
     
-    void HandleCollision(asset_system *Assets, physics_update *Update, f32 TimeElapsed);
+    void HandleCollision(physics_update *Update, f32 TimeElapsed);
     inline physics_floor *FloorFindFloor(physics_floor *Floor, f32 S);
     inline physics_floor *FloorPrevFloor(physics_floor *Floor);
     inline physics_floor *FloorNextFloor(physics_floor *Floor);

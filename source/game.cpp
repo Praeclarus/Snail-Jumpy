@@ -20,10 +20,9 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
     Renderer->SetCameraSettings(0.3f/Input->dTime);
     Renderer->SetLightingConditions(HSBToRGB(CurrentWorld->AmbientColor), CurrentWorld->Exposure);
     
-    
     render_group *GameGroup   = Renderer->GetRenderGroup(RenderGroupID_Lighting);
     render_group *GameUIGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
-    Entities->UpdateEntities(Renderer, Mixer, Assets, Input, Settings);
+    Entities->UpdateEntities(Renderer, Mixer, Input, Settings);
     Entities->RenderEntities(GameGroup, Assets, Renderer, Input->dTime, Worlds);
     
     player_entity *Player = Entities->Player;

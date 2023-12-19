@@ -176,6 +176,9 @@ struct main_state {
     audio_mixer Mixer;
     os_input Input;
     
+    player_data PlayerData;
+    enemy_data EnemyData[EnemyType_TOTAL];
+    
     entity_manager Entities;
     world_manager Worlds;
     

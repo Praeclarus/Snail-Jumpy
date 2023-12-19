@@ -58,14 +58,6 @@ SwitchTag(asset_tag *ID, asset_tag_id From, asset_tag_id To){
     return true;
 }
 
-internal inline b8
-DoesTrails(asset_system *Assets, entity *Entity){
-    if(HasTag(Entity->Tag, AssetTag_TrailSpeedy)) return true;
-    if(HasTag(Entity->Tag, AssetTag_TrailBouncy)) return true;
-    if(HasTag(Entity->Tag, AssetTag_TrailSticky)) return true;
-    return false;
-}
-
 internal inline snail_trail_type
 GetTrailType(asset_system *Assets, entity *Entity){
     if(HasTag(Entity->Tag, AssetTag_TrailSpeedy)) return SnailTrail_Speedy;
@@ -150,22 +142,12 @@ RenderSpriteSheetAnimationFrame(render_group *Group, asset_sprite_sheet *Sheet, 
 //~ Entities and animation
 
 internal inline void
-ChangeAnimationState(asset_animation *Animation, animation_state *AnimationState, entity_state NewState){
+ChangeAnimationState(animation_state *AnimationState, entity_state NewState){
     if(NewState == State_None) return;
     AnimationState->State = NewState;
     AnimationState->YOffsetT = 0.0f;
     AnimationState->T = 0.0f;
-    animation_change_data *ChangeData = &Animation->ChangeDatas[AnimationState->State];
-    if(ChangeData->Condition == ChangeCondition_CooldownOver){
-        AnimationState->Cooldown = ChangeData->Cooldown;
-    }
-}
-
-
-internal inline b8
-DoesAnimationBlock(asset_animation *Animation, animation_state *State){
-    b8 Result = Animation->BlockingStates[State->State];
-    return(Result);
+    AnimationState->Cooldown = 0;
 }
 
 internal inline b8
@@ -265,31 +247,31 @@ RenderSpriteSheetAnimation(render_group *Group, asset_sprite_sheet *Sheet, asset
 }
 
 internal void 
-DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *State, v2 P, z_layer Z, f32 dTime,
+DoEntityAnimation(render_group *Group, asset_sprite_sheet *Sheet, animation_state *State, v2 P, z_layer Z, f32 dTime,
                   render_transform Transform=RenderTransform_None){
-    asset_animation *Animation = &Entity->Animation;
+    asset_animation *Animation = &Sheet->Animation;
     
-    animation_change_data *ChangeData = &Entity->Animation.ChangeDatas[State->State];
+    animation_change_data *ChangeData = &Animation->ChangeDatas[State->State];
     
     b8 AllAnimationsFinished = true;
-    asset_sprite_sheet *Sheet = Entity->SpriteSheet;
-    if(!UpdateSpriteSheetAnimation(Sheet, &Entity->Animation, State, dTime)){
+    if(!UpdateSpriteSheetAnimation(Sheet, Animation, State, dTime)){
         AllAnimationsFinished = false;
     }
     
     if((ChangeData->Condition == ChangeCondition_AnimationOver) &&
        AllAnimationsFinished){
-        ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
+        ChangeAnimationState(State, Animation->NextStates[State->State]);
     }
     
-    s32 ZOffset = Entity->ZOffset;
-    RenderSpriteSheetAnimation(Group, Sheet, &Entity->Animation, State,
+    //s32 ZOffset = Sheet->ZOffset;
+    s32 ZOffset = 0;
+    RenderSpriteSheetAnimation(Group, Sheet, Animation, State,
                                P, ZLayerShift(Z, (s8)ZOffset), Transform);
     
     if(ChangeData->Condition == ChangeCondition_CooldownOver){
-        State->Cooldown -= dTime;
-        if(State->Cooldown < 0.0f){
-            ChangeAnimationState(&Entity->Animation, State, Animation->NextStates[State->State]);
+        State->Cooldown += dTime;
+        if(State->Cooldown >= ChangeData->Cooldown){
+            ChangeAnimationState(State, Animation->NextStates[State->State]);
         }
     }
 }
@@ -297,13 +279,13 @@ DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *St
 internal inline render_transform UpToTransform(v2 Up);
 internal inline rect WorldPosBounds(world_position Pos, v2 Size, v2 Up);
 internal void 
-DoEntityAnimation(render_group *Group, asset_entity *Entity, animation_state *State, 
+DoEntityAnimation(render_group *Group, asset_sprite_sheet *Sheet, animation_state *State, 
                   world_position Pos, v2 Size, v2 Up, 
                   z_layer Z, f32 dTime){
     rect Bounds = WorldPosBounds(Pos, Size, Up);
     v2 P = V2(RectCenterX(Bounds), Bounds.Min.Y);
-    P.X -= 0.5f*(Entity->SpriteSheet->FrameSize.X);
-    DoEntityAnimation(Group, Entity, State, P, Z, dTime, UpToTransform(Up));
+    P.X -= 0.5f*(Sheet->FrameSize.X);
+    DoEntityAnimation(Group, Sheet, State, P, Z, dTime, UpToTransform(Up));
 }
 
 //~ Arts
@@ -1212,7 +1194,6 @@ asset_system::Initialize(memory_arena *Arena, void *Data, u32 DataSize){
     Memory = MakeArena(Arena, Megabytes(128));
     AssetTableInit(SpriteSheet, Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(Animation,   Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
-    AssetTableInit(Entity,      Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(Art,         Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(SoundEffect, Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(Tilemap,     Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);

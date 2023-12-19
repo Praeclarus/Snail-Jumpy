@@ -211,30 +211,6 @@ operator!=(asset_id A, asset_id B){
 }
 
 
-//~ Collision boundary
-enum collision_boundary_type {
-    BoundaryType_None,
-    BoundaryType_Rect,
-    BoundaryType_FreeForm,
-    BoundaryType_Point, // Basically identical(right now) to BoundaryType_None
-};
-
-struct collision_boundary {
-    collision_boundary_type Type;
-    v2 Offset;
-    rect Bounds;
-    
-    union {
-        // Rects just use 'rect Bounds'
-        
-        // FreeForm
-        struct {
-            v2 *FreeFormPoints;
-            u32 FreeFormPointCount;
-        };
-    };
-};
-
 //~ Spritesheets
 
 enum asset_sprite_sheet_frame_flags_ {
@@ -264,20 +240,6 @@ struct asset_sprite_sheet_piece {
     asset_sprite_sheet_animation Animations[MAX_SPRITE_SHEET_ANIMATIONS];
 };
 
-struct asset_sprite_sheet {
-    asset_loading_data LoadingData;
-    
-    u32 StateTable[State_TOTAL][Direction_TOTAL];
-    
-    u32 PieceCount;
-    asset_sprite_sheet_piece Pieces[MAX_SPRITE_SHEET_PIECES];
-    u8 YOffsetCounts[MAX_SPRITE_SHEET_ANIMATIONS];
-    f32 YOffsets[MAX_SPRITE_SHEET_ANIMATION_FRAMES][MAX_SPRITE_SHEET_ANIMATIONS];
-    f32 YOffsetFPS;
-    
-    v2  FrameSize; 
-};
-
 enum animation_change_condition {
     ChangeCondition_None,
     ChangeCondition_CooldownOver,
@@ -302,37 +264,30 @@ struct asset_animation {
     b8                    BlockingStates[State_TOTAL];
 };
 
+// TODO(Tyler): This struct is absolutely gigantic, 
+// I would like to reduce its size significantly.
+struct asset_sprite_sheet {
+    asset_loading_data LoadingData;
+    
+    u32 StateTable[State_TOTAL][Direction_TOTAL];
+    
+    u32 PieceCount;
+    asset_sprite_sheet_piece Pieces[MAX_SPRITE_SHEET_PIECES];
+    u8 YOffsetCounts[MAX_SPRITE_SHEET_ANIMATIONS];
+    f32 YOffsets[MAX_SPRITE_SHEET_ANIMATION_FRAMES][MAX_SPRITE_SHEET_ANIMATIONS];
+    f32 YOffsetFPS;
+    
+    v2  FrameSize; 
+    
+    asset_animation Animation;
+};
+
 struct animation_state {
     entity_state State;
     direction Direction;
     f32 T;
     f32 YOffsetT;
     f32 Cooldown;
-};
-
-struct asset_entity {
-    asset_loading_data LoadingData;
-    
-    asset_tag Tag;
-    asset_sprite_sheet *SpriteSheet;
-    s32                 ZOffset;
-    v2 Size;
-    
-    asset_animation     Animation;
-    entity_flags        Flags;
-    entity_type   Type;
-    f32                 Mass;
-    f32                 Speed;
-    
-    union {
-        // Enemy
-        struct {
-            u32 Damage;
-        };
-    };
-    
-    collision_boundary *Boundaries;
-    u32 BoundaryCount;
 };
 
 //~ Arts
@@ -447,8 +402,7 @@ struct asset_tilemap {
     u32 ConnectorCount;
     asset_tilemap_tile_data *Connectors;
     
-    u32 BoundaryCount;
-    collision_boundary *Boundaries;
+    rect TileRect;
 };
 
 struct new_tilemap_tile {
@@ -554,7 +508,6 @@ struct asset_system {
     memory_arena Memory;
     asset_table(SpriteSheet, asset_sprite_sheet);
     asset_table(Animation,   asset_animation);
-    asset_table(Entity,      asset_entity);
     asset_table(Art,         asset_art);
     asset_table(SoundEffect, asset_sound_effect);
     asset_table(Tilemap,     asset_tilemap);
@@ -600,12 +553,17 @@ struct asset_system {
 //~ Asset loading
 struct audio_mixer;
 struct world_manager;
+struct player_data;
+struct enemy_data;
 struct asset_loader {
     asset_system *MainAssets;
     asset_system InProgress;
     
     audio_mixer *Mixer;
     world_manager *Worlds;
+    
+    player_data *PlayerData;
+    enemy_data *EnemyData;
     
     //~ Logging 
     const char *CurrentCommand;
@@ -643,11 +601,13 @@ struct asset_loader {
     color               ExpectTypeColor();
     fancy_font_format   ExpectTypeFancy();
     asset_tag           MaybeExpectTag();
-    collision_boundary ExpectTypeBoundary();
+    rect                ExpectTypeRect();
     asset_sprite_sheet_frame ExpectTypeSpriteSheetFrame();
     array<asset_sprite_sheet_frame> ExpectTypeArraySpriteSheetFrame();
     
-    void Initialize(memory_arena *Arena, asset_system *Assets, audio_mixer *Mixer_, world_manager *Worlds_);
+    void Initialize(memory_arena *Arena, asset_system *Assets, 
+                    audio_mixer *Mixer_, world_manager *Worlds_, 
+                    player_data *PlayerData_, enemy_data *EnemyData_);
     
     b8 DoAttribute(const char *String, const char *Attribute);
     
@@ -661,9 +621,9 @@ struct asset_loader {
     // NOTE(Tyler): This could be changed to b8
     asset_loading_status ProcessSpriteSheetStates(const char *StateName, asset_sprite_sheet *Sheet);
     asset_loading_status ProcessAnimation();
-    asset_loading_status ProcessEntity();
+    asset_loading_status ProcessPlayer();
+    asset_loading_status ProcessEnemy();
     asset_loading_status ProcessArt();
-    asset_loading_status ProcessBackground();
     asset_loading_status ProcessSoundEffect();
     asset_loading_status ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *TileOffset);
     asset_loading_status ProcessTilemap();
@@ -671,7 +631,6 @@ struct asset_loader {
     asset_loading_status ProcessVariables();
     
     entity_state ReadState();
-    b8 IsInvalidEntityType(asset_entity *Entity, entity_type Target);
     
     asset_loading_status ExpectDescriptionStrings(string_builder *Builder);
     

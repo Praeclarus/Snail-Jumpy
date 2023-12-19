@@ -1736,7 +1736,7 @@ CStringMakeLower(char *S){
 }
 
 tyler_function constexpr b8
-CompareCStrings(const char *A, const char *B){
+CStringsEqual(const char *A, const char *B){
     while(*A && *B){
         if(*A++ != *B++){
             return false;
@@ -2867,7 +2867,7 @@ HashKey(u64 Value) {
 
 tyler_function constexpr b32
 CompareKeys(const char *A, const char *B){
-    b32 Result = CompareCStrings(A, B);
+    b32 Result = CStringsEqual(A, B);
     return(Result);
 }
 

@@ -418,7 +418,7 @@ world_editor::DoEditThingTilemap(render_group *GameGroup, asset_system *Assets, 
         u32 MapSize = Entity->Width*Entity->Height*sizeof(*Entity->Tiles);
         Entity->Tiles = (tilemap_tile *)OSDefaultAlloc(MapSize);
         
-        SetupEntity(Assets, Entity, EntityType_Tilemap, P, TilemapToAdd);
+        SetupTilemapEntity(Assets, Entity, P, TilemapToAdd);
         EditThing = EditThing_None;
         EditModeEntity(Entity);
     }
@@ -494,44 +494,45 @@ void
 world_editor::DoEditThingEnemy(render_group *GameGroup, asset_system *Assets, f32 dTime){
     //~ Selector
     u32 SelectedIndex = 0;
-    array<asset_id> Entities = MakeArray<asset_id>(&GlobalTransientMemory, AssetsCount(Assets, Entity));
-    ASSET_TABLE_FOR_EACH(It, Assets, Entity){
-        asset_id Key = It.Key;
-        if(Key.ID){ 
-            if(Key == EntityInfoToAdd) SelectedIndex = Entities.Count;
-            ArrayAdd(&Entities, Key); 
+    
+    static_array<enemy_type, EnemyType_TOTAL> EnemyTypes = {};
+    {
+        for(u32 I=1; I<EnemyType_TOTAL; I++){
+            if(!Actions->Entities->EnemyDatas[I].SpriteSheet) break;
+            ArrayAdd(&EnemyTypes, (enemy_type)I);
+            if((enemy_type)I == EnemyTypeToAdd) SelectedIndex = EnemyTypes.Count-1;
         }
     }
     
-    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Entities.Count);
-    for(u32 I=0; I<Entities.Count; I++){
-        asset_entity *Info = AssetsFind_(Assets, Entity, Entities[I]);
-        if(!IsTagAnEnemy(Info->Tag)) continue;
+    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, EnemyTypes.Count);
+    FOR_EACH_(Type, I, &EnemyTypes){
+        enemy_data *Data = &Actions->Entities->EnemyDatas[Type];
+        asset_sprite_sheet *Asset = Data->SpriteSheet;
+        if(!Asset) continue;
         
-        asset_sprite_sheet *Asset = Info->SpriteSheet;
         u32 AnimationIndex = SheetAnimationIndex(Asset, State_Moving, Direction_Left);
-        v2 Size = SelectorClampSize(&Selector, Info->Size);
+        v2 Size = SelectorClampSize(&Selector, Asset->FrameSize);
         
         RenderSpriteSheetAnimationFrame(GameGroup, Asset, Selector.P, EDITOR_SELECTOR_Z, AnimationIndex, 0);
         
         SelectorDoItem(UI, &Selector, WIDGET_ID_CHILD(WIDGET_ID, I+1), Size, I, dTime);
     }
     
-    StringSelectorSelectItem(Entities, EntityInfoToAdd);
+    StringSelectorSelectItem(EnemyTypes, EnemyTypeToAdd);
+    //EnemyTypeToAdd = (enemy_type)SelectorSelectItem(UI, &Selector);
     
     //~ Cursor
-    asset_entity *EntityInfo = AssetsFind_(Assets, Entity, EntityInfoToAdd);
-    v2 Size = EntityInfo->Size;
+    enemy_data *Data = &Actions->Entities->EnemyDatas[EnemyTypeToAdd];
+    v2 Size = RectSize(Data->Rect);
     v2 P = MouseP - 0.5f*Size;
     P = SnapToGrid(P, Grid);
     
-    u32 AnimationIndex = SheetAnimationIndex(EntityInfo->SpriteSheet, State_Moving, Direction_Left);
-    RenderSpriteSheetAnimationFrame(GameGroup, EntityInfo->SpriteSheet, P, EDITOR_CURSOR_Z, AnimationIndex, 0);
+    u32 AnimationIndex = SheetAnimationIndex(Data->SpriteSheet, State_Moving, Direction_Left);
+    RenderSpriteSheetAnimationFrame(GameGroup, Data->SpriteSheet, P, EDITOR_CURSOR_Z, AnimationIndex, 0);
     
     //~ Adding
     if(UI->DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
         enemy_entity *Entity = EditorAllocEntity(this, Enemies);
-        asset_entity *EntityInfo = AssetsFind_(Assets, Entity, EntityInfoToAdd);
         Entity->Animation.Direction = Direction_Right;
         
         Entity->PathStart = P + V2(-0.5f*Size.X, 0.5f*Size.Y);
@@ -539,7 +540,7 @@ world_editor::DoEditThingEnemy(render_group *GameGroup, asset_system *Assets, f3
         Entity->PathEnd   = P + V2(1.5f*Size.X, 0.5f*Size.Y);
         Entity->PathEnd   = SnapToGrid(Entity->PathEnd, Grid);
         
-        SetupEntity(Assets, Entity, EntityType_Enemy, SnapToGrid(P, Grid), EntityInfoToAdd);
+        SetupEnemyEntity(Actions->Entities, Entity, EnemyTypeToAdd, SnapToGrid(P, Grid));
         EditModeEntity(Entity);
     }
 }
@@ -1087,6 +1088,11 @@ world_editor::DoSelectedThingUI(render_group *Group, asset_system *Assets){
         }break;
         case EntityType_Enemy: {
             DoEnemyOverlay(Group, (enemy_entity *)Selected, OSInput->dTime);
+            if(Window->BeginSection("Edit Enemy", WIDGET_ID, 10, true)){
+                enemy_entity *Enemy = (enemy_entity *)Selected;
+                Window->Text("Enemy Type: %s", ENEMY_TYPE_NAME_TABLE[Enemy->EnemyType]);
+                Window->EndSection();
+            }
         }break;
         case EntityType_Player: {
             player_entity *Player = (player_entity *)Selected;
@@ -1408,7 +1414,7 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
     UI = UI_;
     if(!World){
         ChangeWorld(CurrentWorld);
-        EntityInfoToAdd = AssetID(Entity, snail);
+        EnemyTypeToAdd = EnemyType_Snail;
         Grid.Offset = V2(0);
         Grid.CellSize = TILE_SIZE;
         EditModeEntity(0);

@@ -3,11 +3,14 @@
 //~ Initialization
 void
 asset_loader::Initialize(memory_arena *Arena, asset_system *Assets, 
-                         audio_mixer *Mixer_, world_manager *Worlds_){
+                         audio_mixer *Mixer_, world_manager *Worlds_,
+                         player_data *PlayerData_, enemy_data *EnemyData_){
     InProgress.Initialize(Arena);
     MainAssets = Assets;
     Mixer  = Mixer_;
     Worlds = Worlds_;
+    PlayerData = PlayerData_;
+    EnemyData  = EnemyData_;
     
     ASCIITable = MakeHashTable<const char *, char>(Arena, 128);
     HashTableAdd(&ASCIITable, "SPACE",                ' ');
@@ -107,105 +110,6 @@ asset_loader::Initialize(memory_arena *Arena, asset_system *Assets,
     
     LoadedImageTable = MakeHashTable<const char *, image>(Arena, 256);
 }
-
-//~ Boundary stuff
-// TODO(Tyler): All of this stuff can be removed
-internal inline collision_boundary
-MakeCollisionPoint(){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_Point;
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionRect(v2 Offset, v2 Size){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_Rect;
-    Result.Offset = Offset;
-    Result.Bounds = CenterRect(V2(0), Size);
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionWedge(memory_arena *Arena, v2 Offset, f32 X, f32 Y){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_FreeForm;
-    Result.Offset = Offset;
-    f32 MinX = Minimum(X, 0.0f);
-    f32 MinY = Minimum(Y, 0.0f);
-    Result.Bounds.Min = V2(MinX, MinY);
-    
-    f32 MaxX = Maximum(X, 0.0f);
-    f32 MaxY = Maximum(Y, 0.0f);
-    Result.Bounds.Max = V2(MaxX, MaxY);
-    
-    Result.FreeFormPointCount = 3;
-    Result.FreeFormPoints = ArenaPushArray(Arena, v2, 3);
-    Result.FreeFormPoints[0] = V2(0);
-    Result.FreeFormPoints[1] = V2(X, 0.0f);
-    Result.FreeFormPoints[2] = V2(0.0f, Y);
-    
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionCircle(memory_arena *Arena, v2 Offset, f32 Radius, u32 Segments){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_FreeForm;
-    Result.Offset = Offset;
-    Result.Bounds = CenterRect(V2(0), 2*V2(Radius));
-    
-    // TODO(Tyler): There might be a better way to do this that doesn't require
-    // calculation beforehand
-    Result.FreeFormPointCount = Segments;
-    Result.FreeFormPoints = ArenaPushArray(Arena, v2, Segments);
-    f32 T = 0.0f;
-    f32 Step = 1.0f/(f32)Segments;
-    for(u32 I = 0; I <= Segments; I++){
-        Result.FreeFormPoints[I] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
-        T += Step;
-    }
-    
-    return(Result);
-}
-
-internal inline collision_boundary
-MakeCollisionPill(memory_arena *Arena, v2 Offset, f32 Radius, f32 Height, u32 HalfSegments){
-    collision_boundary Result = {};
-    Result.Type = BoundaryType_FreeForm;
-    Result.Offset = Offset;
-    Result.Bounds = MakeRect(V2(-Radius, -Radius), V2(Radius, Height+Radius));
-    
-    u32 Segments = 2*HalfSegments;
-    u32 ActualSegments = Segments + 2;
-    Result.FreeFormPointCount = ActualSegments;
-    Result.FreeFormPoints = ArenaPushArray(Arena, v2, ActualSegments);
-    
-    f32 HeightOffset = Height;
-    f32 T = 0.0f;
-    f32 Step = 1.0f/((f32)Segments);
-    u32 Index = 0;
-    
-    for(u32 I=0; I <= HalfSegments; I++){
-        Result.FreeFormPoints[Index] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
-        Result.FreeFormPoints[Index].Y += HeightOffset;
-        T += Step;
-        Index++;
-    }
-    T -= Step;
-    
-    HeightOffset = 0;
-    for(u32 I=0; I <= HalfSegments; I++){
-        Result.FreeFormPoints[Index] = V2(Radius*Cos(T*TAU), Radius*Sin(T*TAU));
-        Result.FreeFormPoints[Index].Y += HeightOffset;
-        T += Step;
-        Index++;
-    }
-    
-    
-    return(Result);
-}
-
 //~ Base
 
 #define HandleToken(Token)                   \
@@ -265,7 +169,7 @@ SJA_HANDLE_ERROR_(Reader, FileTokenType_Float, __VA_ARGS__);
 
 #define SJA_BEGIN_FUNCTION(Reader, Name, ErrorResult) \
 const char *Identifier = SJA_EXPECT_IDENTIFIER(Reader, return ErrorResult); \
-if(!CompareCStrings(Identifier, Name)){ \
+if(!CStringsEqual(Identifier, Name)){ \
 LogWarning("Expected \"%s\" instead read: \"%s\"", Name, Identifier); \
 return ErrorResult; \
 } \
@@ -548,7 +452,7 @@ asset_loader::MaybeExpectTag(){
     
     file_token Token = Reader.PeekToken();
     if(Token.Type != FileTokenType_Identifier) return Result;
-    if(CompareCStrings(Token.Identifier, "Tag")){
+    if(CStringsEqual(Token.Identifier, "Tag")){
         SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
         
         SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, Result);
@@ -574,96 +478,22 @@ asset_loader::MaybeExpectTag(){
     return(Result);
 }
 
-collision_boundary
-asset_loader::ExpectTypeBoundary(){
-    collision_boundary Result = {};
+rect
+asset_loader::ExpectTypeRect(){
+    rect Result = {};
     
-    const char *Identifier = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-    if(CompareCStrings(Identifier, "Boundary_Rect")){
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        f32 XOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 YOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Width  = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Height = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_EndArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        Result = MakeCollisionRect(V2(XOffset, YOffset), V2(Width, Height));
-    }else if(CompareCStrings(Identifier, "Boundary_Circle")){
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        f32 XOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 YOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Radius  = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_EndArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        Result = MakeCollisionCircle(&InProgress.Memory, V2(XOffset, YOffset), Radius, 12);
-        
-    }else if(CompareCStrings(Identifier, "Boundary_Pill")){
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        f32 XOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 YOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Radius = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Height = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_EndArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        Result = MakeCollisionPill(&InProgress.Memory, V2(XOffset, YOffset), Radius, Height, 4);
-        
-    }else if(CompareCStrings(Identifier, "Boundary_Wedge")){
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        f32 XOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 YOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 X   = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Y  = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_EndArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        v2 Offset = -0.5f*V2(X, Y) + V2(XOffset, YOffset);
-        Result = MakeCollisionWedge(&InProgress.Memory, Offset, X, Y);
-        
-    }else if(CompareCStrings(Identifier, "Boundary_Quad")){
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        f32 XOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 YOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 X0 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Y0 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 X1 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Y1 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 X2 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Y2 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 X3 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        f32 Y3 = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        SJA_EXPECT_TOKEN(&Reader, FileTokenType_EndArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-        
-        Result.Type = BoundaryType_FreeForm;
-        Result.Offset = V2(XOffset, YOffset);
-        f32 MinX = Minimum(Minimum(Minimum(X0, X1), Minimum(X2, X3)), 0.0f);
-        f32 MinY = Minimum(Minimum(Minimum(Y0, Y1), Minimum(Y2, Y3)), 0.0f);
-        Result.Bounds.Min = V2(MinX, MinY);
-        
-        f32 MaxX = Maximum(Maximum(Maximum(X0, X1), Maximum(X2, X3)), 0.0f);
-        f32 MaxY = Maximum(Maximum(Maximum(Y0, Y1), Maximum(Y2, Y3)), 0.0f);
-        Result.Bounds.Max = V2(MaxX, MaxY);
-        
-        Result.FreeFormPointCount = 4;
-        Result.FreeFormPoints = ArenaPushArray(&InProgress.Memory, v2, 4);
-        Result.FreeFormPoints[0] = V2(X0, Y0);
-        Result.FreeFormPoints[1] = V2(X1, Y1);
-        Result.FreeFormPoints[2] = V2(X2, Y2);
-        Result.FreeFormPoints[3] = V2(X3, Y3);
-        
-    }else{
-        Reader.LastError = FileReaderError_InvalidToken;
-        return(Result);
-    }
+    SJA_BEGIN_FUNCTION(&Reader, "Rect", {});
     
-    return(Result);
+    f32 XOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
+    f32 YOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
+    f32 Width  = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
+    f32 Height = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
+    
+    Result = SizeRect(V2(XOffset, YOffset), V2(Width, Height));
+    SJA_END_FUNCTION(&Reader, Result);
+    
+    
+    return Result;
 }
 
 asset_sprite_sheet_frame
@@ -671,14 +501,14 @@ asset_loader::ExpectTypeSpriteSheetFrame(){
     asset_sprite_sheet_frame Result = {};
     
     const char *Identifier = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-    if(CompareCStrings(Identifier, "Frame")){
+    if(CStringsEqual(Identifier, "Frame")){
         SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
         
         u32 Index = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
         Result.Index = (u8)Index;
         
         SJA_EXPECT_TOKEN(&Reader, FileTokenType_EndArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
-    }else if(CompareCStrings(Identifier, "Flip")){
+    }else if(CStringsEqual(Identifier, "Flip")){
         SJA_EXPECT_TOKEN(&Reader, FileTokenType_BeginArguments, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
         
         u32 Index = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_FUNCTION(Result));
@@ -777,7 +607,7 @@ asset_loader::LoadImage(const char *Path){
 
 b8 
 asset_loader::DoAttribute(const char *String, const char *Attribute){
-    b8 Result = CompareCStrings(String, Attribute);
+    b8 Result = CStringsEqual(String, Attribute);
     if(Result) CurrentAttribute = Attribute;
     return(Result);
 }
@@ -842,7 +672,7 @@ asset_loader::LoadAssetFile(const char *Path){
 }
 
 #define SJA_COMMAND(Command)                 \
-if(CompareCStrings(String, #Command)) { \
+if(CStringsEqual(String, #Command)) { \
 BeginCommand(#Command);            \
 return Process##Command(); \
 }       
@@ -853,9 +683,10 @@ asset_loader::ProcessCommand(){
     
     SJA_COMMAND(Ignore);
     SJA_COMMAND(SpecialCommands);
-    SJA_COMMAND(SpriteSheet);
     SJA_COMMAND(Animation);
-    SJA_COMMAND(Entity);
+    SJA_COMMAND(SpriteSheet);
+    SJA_COMMAND(Player);
+    SJA_COMMAND(Enemy);
     SJA_COMMAND(Art);
     SJA_COMMAND(SoundEffect);
     SJA_COMMAND(Tilemap);
@@ -928,6 +759,74 @@ asset_loader::ProcessVariables(){
     return ChooseStatus(Result);
 }
 
+//~ Animations
+asset_loading_status
+asset_loader::ProcessAnimation(){
+    asset_loading_status Result = AssetLoadingStatus_Okay;
+    
+    const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_COMMAND)
+        CurrentAsset = Name;;
+    asset_animation *Animation = AssetsGet_(&InProgress, Animation, Name);
+    *Animation = {};
+    
+    while(true){
+        file_token Token = Reader.PeekToken();
+        HandleToken(Token);
+        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
+        
+        if(DoAttribute(String, "on_finish")){
+            
+            entity_state From = ReadState();
+            if(From == State_None) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            entity_state To = ReadState();
+            if(To == State_None) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            
+            Animation->ChangeDatas[From].Condition = ChangeCondition_AnimationOver;
+            Animation->NextStates[From] = To;
+        }else if(DoAttribute(String, "after_time")){
+            animation_change_data ChangeData = {};
+            
+            file_token Token = Reader.NextToken();
+            Token = MaybeTokenIntegerToFloat(Token);
+            if(Token.Type == FileTokenType_String){
+                u64 Hash = HashString(Token.String);
+                ChangeData.Condition = SpecialChangeCondition_CooldownVariable;
+                ChangeData.VarHash = Hash;
+                
+            }else if(Token.Type == FileTokenType_Float){
+                ChangeData.Condition = ChangeCondition_CooldownOver;
+                ChangeData.Cooldown = Token.Float;
+                
+            }else{
+                LogWarning("Expected a string or a float, instead read: %s", TokenToString(Token));
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
+            
+            entity_state From = ReadState();
+            if(From == State_None){
+                LogWarning("State cannot be: state_none");
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
+            entity_state To = ReadState();
+            if(To == State_None){
+                LogWarning("State cannot be: state_none");
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
+            
+            Animation->ChangeDatas[From] = ChangeData;
+            Animation->NextStates[From] = To;
+            
+        }else if(DoAttribute(String, "blocking")){
+            entity_state State = ReadState();
+            if(State == State_None) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            Animation->BlockingStates[State] = true;
+            
+        }else{ HANDLE_INVALID_ATTRIBUTE(String); }
+    }
+    
+    return ChooseStatus(Result);
+}
+
 //~ Sprite sheets
 entity_state
 asset_loader::ReadState(){
@@ -987,7 +886,7 @@ asset_loader::ProcessSpriteSheet(){
     while(true){
         file_token Token = Reader.PeekToken();
         HandleToken(Token);
-        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);;
+        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
         
         if(DoAttribute(String, "piece")){
             s32 Index = SJA_EXPECT_UINT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
@@ -1035,7 +934,7 @@ asset_loader::ProcessSpriteSheet(){
             file_token Token = Reader.PeekToken();
             if(Token.Type == FileTokenType_Identifier){
                 const char *S = Token.String;
-                if(CompareCStrings(S, "FLIP")){
+                if(CStringsEqual(S, "FLIP")){
                     FrameFlags |= SpriteSheetFrameFlag_Flip;
                 }else{
                     LogWarning("Invalid flag: '%s'", S);
@@ -1126,6 +1025,17 @@ asset_loader::ProcessSpriteSheet(){
                     Sheet->YOffsets[I][J] += BaseYOffset;
                 }
             }
+        }else if(DoAttribute(String, "animation")){
+            const char *AnimationName = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            
+            asset_animation *Animation = AssetsGet_(&InProgress, Animation, AnimationName);
+            if(!Animation){
+                LogWarning("The animation: '%s' is undefined!", AnimationName);
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
+            
+            Sheet->Animation = *Animation;
+            
         }else{ 
             if(ProcessSpriteSheetStates(String, Sheet) != AssetLoadingStatus_Okay){
                 HANDLE_INVALID_ATTRIBUTE(String); 
@@ -1145,117 +1055,18 @@ asset_loader::ProcessSpriteSheet(){
     return ChooseStatus(Result);
 }
 
-//~ Animations
-asset_loading_status
-asset_loader::ProcessAnimation(){
-    asset_loading_status Result = AssetLoadingStatus_Okay;
-    
-    const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_COMMAND)
-        CurrentAsset = Name;;
-    asset_animation *Animation = AssetsGet_(&InProgress, Animation, Name);
-    *Animation = {};
-    
-    while(true){
-        file_token Token = Reader.PeekToken();
-        HandleToken(Token);
-        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-        
-        if(DoAttribute(String, "on_finish")){
-            
-            entity_state From = ReadState();
-            if(From == State_None) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            entity_state To = ReadState();
-            if(To == State_None) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            
-            Animation->ChangeDatas[From].Condition = ChangeCondition_AnimationOver;
-            Animation->NextStates[From] = To;
-        }else if(DoAttribute(String, "after_time")){
-            animation_change_data ChangeData = {};
-            
-            file_token Token = Reader.NextToken();
-            Token = MaybeTokenIntegerToFloat(Token);
-            if(Token.Type == FileTokenType_String){
-                u64 Hash = HashString(Token.String);
-                ChangeData.Condition = SpecialChangeCondition_CooldownVariable;
-                ChangeData.VarHash = Hash;
-                
-            }else if(Token.Type == FileTokenType_Float){
-                ChangeData.Condition = ChangeCondition_CooldownOver;
-                ChangeData.Cooldown = Token.Float;
-                
-            }else{
-                LogWarning("Expected a string or a float, instead read: %s", TokenToString(Token));
-                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            }
-            
-            entity_state From = ReadState();
-            if(From == State_None){
-                LogWarning("State cannot be: state_none");
-                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            }
-            entity_state To = ReadState();
-            if(To == State_None){
-                LogWarning("State cannot be: state_none");
-                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            }
-            
-            Animation->ChangeDatas[From] = ChangeData;
-            Animation->NextStates[From] = To;
-            
-        }else if(DoAttribute(String, "blocking")){
-            entity_state State = ReadState();
-            if(State == State_None) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            Animation->BlockingStates[State] = true;
-            
-        }else{ HANDLE_INVALID_ATTRIBUTE(String); }
-    }
-    
-    return ChooseStatus(Result);
-}
-
-//~ Entities
-inline b8
-asset_loader::IsInvalidEntityType(asset_entity *Entity, entity_type Target){
-    b8 Result = false;
-    if(Entity->Type != Target){
-        if(Entity->Type == EntityType_None){
-            LogWarning("Entity type must be defined before!");
-        }else{
-            LogWarning("Entity type must be: %s", ENTITY_TYPE_NAME_TABLE[Target]);
-        }
-        Result = true;
-    }
-    return(Result);
-}
+//~ Player
 
 asset_loading_status
-asset_loader::ProcessEntity(){
+asset_loader::ProcessPlayer(){
     asset_loading_status Result = AssetLoadingStatus_Okay;
     
-    const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
-    CurrentAsset = Name;
-    asset_entity *Entity = AssetsGet_(&InProgress, Entity, Name);
-    *Entity = {};
-    Entity->Tag = MaybeExpectTag();
-    
-    collision_boundary Boundaries[MAX_ENTITY_ASSET_BOUNDARIES];
-    u32 BoundaryCount = 0;
-    b8 HasSetAnimation = false;
     while(true){
         file_token Token = Reader.PeekToken();
         if(Token.Type == FileTokenType_BeginCommand) break;
-        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
         
-        if(DoAttribute(String, "type")){
-            const char *TypeName = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            entity_type Type = HashTableFind(&EntityTypeTable, TypeName);
-            if(Type == EntityType_None){
-                LogWarning("Invalid type name: '%s'!", TypeName);
-                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            }
-            
-            Entity->Type = Type;
-        }else if(DoAttribute(String, "piece")){
+        if(DoAttribute(String, "spritesheet")){
             const char *SheetName = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             asset_sprite_sheet *Sheet = AssetsGet_(&InProgress, SpriteSheet, SheetName);
             if(!Sheet){
@@ -1263,29 +1074,15 @@ asset_loader::ProcessEntity(){
                 SJA_ERROR_BEHAVIOR_ATTRIBUTE;
             }
             
-            Entity->SpriteSheet = Sheet;
-            f32 ZOffset = (f32)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            ZOffset *= 0.1f;
-            
-            Entity->Size = Sheet->FrameSize;
-            
-        }else if(DoAttribute(String, "animation")){
-            const char *AnimationName = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            asset_animation *Animation = AssetsGet_(&InProgress, Animation, AnimationName);
-            if(!Animation){
-                LogWarning("The animation: '%s' is undefined!", AnimationName);
-                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            }
-            
-            Entity->Animation = *Animation;
-            HasSetAnimation = true;
-            
-        }else if(DoAttribute(String, "animation_var")){
+            PlayerData->SpriteSheet = Sheet;
+        }
+        
+#if 0        
+        else if(DoAttribute(String, "animation_var")){
             if(!HasSetAnimation){
                 LogWarning("Animation must be specified before 'animation_var' is used!");
                 SJA_ERROR_BEHAVIOR_ATTRIBUTE;
             }
-            //if(IsInvalidEntityType(Entity, ENTITY_TYPE(enemy_entity))) return(false);
             
             const char *VarName = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             u64 VarHash = HashString(VarName);
@@ -1307,43 +1104,104 @@ asset_loader::ProcessEntity(){
                 LogWarning("Couldn't find animation variable '%s'!", VarName);
             }
             
-        }else if(DoAttribute(String, "mass")){
-            Entity->Mass = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            
-        }else if(DoAttribute(String, "speed")){
-            Entity->Speed = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            
+        }
+#endif
+        
+        else if(DoAttribute(String, "speed")){
+            PlayerData->Speed = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
         }else if(DoAttribute(String, "boundary")){
-            u32 Index = SJA_EXPECT_UINT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            if(Index > MAX_ENTITY_ASSET_BOUNDARIES){
-                LogWarning("'%d' must be less than %d!", Index, MAX_ENTITY_ASSET_BOUNDARIES);
+            PlayerData->Rect = ExpectTypeRect();
+        }else{ HANDLE_INVALID_ATTRIBUTE(String); }
+    }
+    
+    if(!PlayerData->SpriteSheet){
+        LogWarning("Sprite sheet must be set!");
+        SJA_ERROR_BEHAVIOR_COMMAND;
+    }
+    
+    return ChooseStatus(Result);
+}
+
+//~ Enemies
+asset_loading_status
+asset_loader::ProcessEnemy(){
+    asset_loading_status Result = AssetLoadingStatus_Okay;
+    
+    const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
+    enemy_data *Entity = 0;
+#define ENEMY_TYPE_(Type, TypeName) else if(CStringsEqual(Name, TypeName)){ \
+Entity = &EnemyData[Type]; \
+}
+    
+    if(false){
+    }
+    ENEMY_TYPES
+        else{
+        LogWarning("'%s' is not a valid enemy type!", Name);
+        SJA_ERROR_BEHAVIOR_COMMAND;
+    }
+    
+#undef ENEMY_TYPE_
+    Entity->Tag = MaybeExpectTag();
+    
+    while(true){
+        file_token Token = Reader.PeekToken();
+        if(Token.Type == FileTokenType_BeginCommand) break;
+        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
+        
+        if(DoAttribute(String, "spritesheet")){
+            const char *SheetName = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            asset_sprite_sheet *Sheet = AssetsGet_(&InProgress, SpriteSheet, SheetName);
+            if(!Sheet){
+                LogWarning("The sprite sheet: '%s' is undefined!", SheetName);
                 SJA_ERROR_BEHAVIOR_ATTRIBUTE;
             }
             
-            if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
-            Boundaries[Index] = ExpectTypeBoundary();
-        }else if(DoAttribute(String, "damage")){
-            if(IsInvalidEntityType(Entity, EntityType_Enemy)) SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            Entity->SpriteSheet = Sheet;
+        }
+        
+#if 0        
+        else if(DoAttribute(String, "animation_var")){
+            if(!HasSetAnimation){
+                LogWarning("Animation must be specified before 'animation_var' is used!");
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
             
+            const char *VarName = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            u64 VarHash = HashString(VarName);
+            
+            f32 Time = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            
+            b8 FoundVar = false;
+            for(u32 I=0; I<State_TOTAL; I++){
+                animation_change_data *Data = &Entity->Animation.ChangeDatas[I];
+                if((Data->Condition == SpecialChangeCondition_CooldownVariable) &&
+                   (Data->VarHash == VarHash)){
+                    Data->Condition = ChangeCondition_CooldownOver;
+                    Data->Cooldown = Time;
+                    FoundVar = true;
+                }
+            }
+            
+            if(!FoundVar){
+                LogWarning("Couldn't find animation variable '%s'!", VarName);
+            }
+            
+        }
+#endif
+        
+        else if(DoAttribute(String, "damage")){
             Entity->Damage = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            
+        }else if(DoAttribute(String, "speed")){
+            Entity->Speed = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        }else if(DoAttribute(String, "boundary")){
+            Entity->Rect = ExpectTypeRect();
         }else{ HANDLE_INVALID_ATTRIBUTE(String); }
     }
     
     if(!Entity->SpriteSheet){
         LogWarning("Sprite sheet must be set!");
         SJA_ERROR_BEHAVIOR_COMMAND;
-    }
-    
-    Entity->Boundaries = ArenaPushArray(&InProgress.Memory, collision_boundary, BoundaryCount);
-    Entity->BoundaryCount = BoundaryCount;
-    for(u32 I=0; I<BoundaryCount; I++){
-        collision_boundary *Boundary = &Boundaries[I];
-        v2 Size = RectSize(Boundary->Bounds);
-        v2 Min   = Boundary->Bounds.Min;
-        Boundary->Offset.Y -= Min.Y;
-        Boundary->Offset.X += 0.5f*(Entity->Size.Width);
-        Entity->Boundaries[I] = *Boundary;
     }
     
     return ChooseStatus(Result);
@@ -1363,7 +1221,7 @@ asset_loader::ProcessArt(){
     while(true){
         file_token Token = Reader.PeekToken();
         HandleToken(Token);
-        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
         
         if(DoAttribute(String, "path")){
             const char *Path = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
@@ -1397,17 +1255,17 @@ asset_loader::ProcessSoundEffect(){
     while(true){
         file_token Token = Reader.PeekToken();
         HandleToken(Token);
-        const char *Attribute = SJA_EXPECT_IDENTIFIER(&Reader, return AssetLoadingStatus_Warnings);
+        const char *Attribute = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
         
         if(DoAttribute(Attribute, "path")){
-            const char *Path = SJA_EXPECT_STRING(&Reader, return AssetLoadingStatus_Warnings);
+            const char *Path = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
             sound_data Data = LoadWavFile(&InProgress.Memory, Path);
             if(!Data.Samples){
                 FailCommand(&Sound->LoadingData, "'%s' isn't a valid path to a wav file!", Path);
             }
             Sound->Sound = Data;
         }else if(DoAttribute(Attribute, "volume")){
-            Sound->VolumeMultiplier = SJA_EXPECT_FLOAT(&Reader, return AssetLoadingStatus_Warnings);
+            Sound->VolumeMultiplier = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
         }else{ HANDLE_INVALID_ATTRIBUTE(Attribute); }
     }
     
@@ -1416,7 +1274,7 @@ asset_loader::ProcessSoundEffect(){
 }
 
 #define AssetLoaderProcessTilemapTransform(Array, Name_, Transform_) \
-if(CompareCStrings(S, Name_)){                             \
+if(CStringsEqual(S, Name_)){                             \
 if((Array)->Count > 1){                               \
 asset_tilemap_tile_data *PreviousTile = &(*(Array))[(Array)->Count-2]; \
 Tile->FramesPer = PreviousTile->FramesPer;        \
@@ -1444,22 +1302,22 @@ asset_loader::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
     CurrentAttribute = 0;
     
     asset_tilemap_tile_data *Tile = ArrayAlloc(Tiles);
-    if(CompareCStrings(TileType, "art")){
+    if(CStringsEqual(TileType, "art")){
         Tile->Flags |= TileFlag_Art;
         TileType = SJA_EXPECT_IDENTIFIER(&Reader, SeekNextAttribute(); return Result;);
     }
     
-    if(CompareCStrings(TileType, "tile")){
+    if(CStringsEqual(TileType, "tile")){
         Tile->Type |= TileType_Tile;
-    }else if(CompareCStrings(TileType, "wedge_up_left")){
+    }else if(CStringsEqual(TileType, "wedge_up_left")){
         Tile->Type |= TileType_WedgeUpLeft;
-    }else if(CompareCStrings(TileType, "wedge_up_right")){
+    }else if(CStringsEqual(TileType, "wedge_up_right")){
         Tile->Type |= TileType_WedgeUpRight;
-    }else if(CompareCStrings(TileType, "wedge_down_left")){
+    }else if(CStringsEqual(TileType, "wedge_down_left")){
         Tile->Type |= TileType_WedgeDownLeft;
-    }else if(CompareCStrings(TileType, "wedge_down_right")){
+    }else if(CStringsEqual(TileType, "wedge_down_right")){
         Tile->Type |= TileType_WedgeDownRight;
-    }else if(CompareCStrings(TileType, "connector")){
+    }else if(CStringsEqual(TileType, "connector")){
         Tile->Type |= TileType_Connector;
     }else{
         LogWarning("'%s' is not a valid tile type!", TileType);
@@ -1542,8 +1400,6 @@ asset_loader::ProcessTilemap(){
     tile_array Tiles;
     InitializeArray(&Tiles, 32, &GlobalTransientMemory);
     
-    collision_boundary Boundaries[MAX_TILEMAP_BOUNDARIES];
-    u32 BoundaryCount = 0;
     u32 TileOffset = 0;
     u32 TileCount = 0;
     image *Image = 0;
@@ -1587,14 +1443,7 @@ asset_loader::ProcessTilemap(){
             s32 Count = SJA_EXPECT_UINT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             TileOffset += Count;
         }else if(DoAttribute(String, "boundary")){
-            s32 Index = SJA_EXPECT_UINT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            if(Index > MAX_TILEMAP_BOUNDARIES){
-                LogWarning("'%d' must be less than %d!", Index, MAX_TILEMAP_BOUNDARIES);
-                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-            }
-            
-            if(BoundaryCount < (u32)Index+1){ BoundaryCount = Index+1; }
-            Boundaries[Index] = ExpectTypeBoundary();
+            Tilemap->TileRect = ExpectTypeRect();
         }else if(DoAttribute(String, "manual_tile")){
             asset_tilemap_tile_data *Tile = ArrayAlloc(&Tiles);
             Tile->Type  |= TileType_Tile;
@@ -1603,7 +1452,7 @@ asset_loader::ProcessTilemap(){
             {
                 file_token Token = Reader.NextToken();
                 if(Token.Type == FileTokenType_Identifier){
-                    if(CompareCStrings(Token.Identifier, "art")){
+                    if(CStringsEqual(Token.Identifier, "art")){
                         Tile->Flags |= TileFlag_Art;
                     }
                 }else if(Token.Type == FileTokenType_Integer){
@@ -1687,12 +1536,6 @@ asset_loader::ProcessTilemap(){
     asset_tilemap_tile_data *UnsortedTiles = ArenaPushArray(&GlobalTransientMemory, asset_tilemap_tile_data, Tiles.Count);
     Tilemap->Connectors = ArenaPushArray(&InProgress.Memory, asset_tilemap_tile_data, 8);
     for(u32 I=0; I<Tiles.Count; I++){
-        if(Tiles[I].BoundaryIndex > BoundaryCount){
-            LogWarning("Tile's boundary index cannot be greater than the number of boundaries specified(%u)",
-                       BoundaryCount);
-            SJA_ERROR_BEHAVIOR_ATTRIBUTE;
-        }
-        
         if(Tiles[I].Type == TileType_Connector){
             Tilemap->Connectors[Tilemap->ConnectorCount++] = Tiles[I];
         }else{
@@ -1717,15 +1560,6 @@ asset_loader::ProcessTilemap(){
         }
         Popcounts[J] = Popcount;
         Tilemap->Tiles[J] = *Tile;
-    }
-    
-    
-    Tilemap->Boundaries = ArenaPushArray(&InProgress.Memory, collision_boundary, BoundaryCount);
-    Tilemap->BoundaryCount = BoundaryCount;
-    
-    for(u32 I=0; I<BoundaryCount; I++){
-        collision_boundary *Boundary = &Boundaries[I];
-        Tilemap->Boundaries[I] = *Boundary;
     }
     
     return ChooseStatus(Result);
