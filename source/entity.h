@@ -40,11 +40,14 @@ const char *ENEMY_TYPE_NAME_TABLE[EntityType_TOTAL] = {
 
 struct asset_sprite_sheet;
 struct player_data {
-    f32 JumpPower;
-    f32 JumpDuration;
     f32 Speed;
     rect Rect;
     asset_sprite_sheet *SpriteSheet;
+    
+    f32 InitialJumpPower;
+    f32 ContinuousJumpPower;
+    f32 CoyoteTime;
+    f32 JumpDuration;
 };
 
 struct enemy_data {
@@ -138,6 +141,10 @@ struct enemy_entity : public entity {
         };
         
         struct { // Dragonflies 
+            union{
+                struct { v2 PathStart, PathEnd; };
+                v2 Path[2];
+            };
             f32 TargetY; // Dragonflies
         };
         
@@ -152,6 +159,7 @@ struct player_entity : public entity {
     s32 Health;
     f32 JumpTime;
     f32 WeaponChargeTime;
+    f32 CoyoteTime;
     v2 StartP;
     v2 JumpNormal;
 };
@@ -227,7 +235,7 @@ struct entity_manager {
     
     void Initialize(memory_arena *Arena, player_data *PlayerData, enemy_data *EnemyData);
     void Reset();
-    void UpdateBoxing(enemy_entity *Entity);
+    void UpdateBoxing(physics_update_context *UpdateContext, enemy_entity *Entity, f32 dTime);
     void UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_input *Input, settings_state *Settings);
     void RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, f32 dTime, world_manager *Worlds);
     void MaybeDoTrails(enemy_entity *Entity, f32 dTime);

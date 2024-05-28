@@ -702,7 +702,7 @@ V2Ceil(v2 V){
 tyler_function inline v2
 V2Lerp(v2 A, v2 B, f32 T){
     T = Clamp(T, 0.0f, 1.0f);
-    v2 Result = T*A + (1.0f-T)*B;
+    v2 Result = A + T*(B-A);
     return(Result);
 }
 
@@ -1100,6 +1100,18 @@ SizeRangeS32(s32 Start, s32 Size){
     return Result;
 }
 
+tyler_function inline range_s32
+AfterRangeS32Overlap(range_s32 Range, s32 Size){
+    range_s32 Result = SizeRangeS32(Range.End, Size);
+    return Result;
+}
+
+tyler_function inline range_s32
+AfterRangeS32(range_s32 Range, s32 Size){
+    range_s32 Result = SizeRangeS32(Range.End+1, Size);
+    return Result;
+}
+
 tyler_function inline s32
 RangeSize(range_s32 Range){
     return Range.End-Range.Start;
@@ -1190,6 +1202,12 @@ MakeRangeF32(f32 Start, f32 End){
 tyler_function inline range_f32
 SizeRangeF32(f32 Start, f32 Size){
     range_f32 Result = MakeRangeF32(Start, Start+Size);
+    return Result;
+}
+
+tyler_function inline range_f32
+AfterRangeF32(range_f32 Range, f32 Size){
+    range_f32 Result = SizeRangeF32(Range.End, Size);
     return Result;
 }
 
@@ -1569,6 +1587,25 @@ RectRound(rect R){
     return R;
 }
 
+tyler_function inline v2
+RectTopLeft(rect R){
+    return V2(R.Min.X, R.Max.Y);
+}
+
+tyler_function inline v2
+RectTopRight(rect R){
+    return R.Max;
+}
+
+tyler_function inline v2
+RectBottomRight(rect R){
+    return V2(R.Max.X, R.Min.Y);
+}
+
+tyler_function inline v2
+RectBottomLeft(rect R){
+    return R.Min;
+}
 //~ Intrinsics
 struct bit_scan_result
 {
@@ -2137,6 +2174,17 @@ ArrayAlloc(array<T> *Array, u32 N=1){
     return(Result);
 }
 
+template<typename T> tyler_function inline T *
+ArrayMaybeAlloc(array<T> *Array, u32 N=1){
+    T *Result = 0;
+    if(Array->Count+N <= Array->MaxCount){
+        Result = &Array->Items[Array->Count];
+        Array->Count += N;
+    }
+    ZeroMemory(Result, sizeof(T));
+    return(Result);
+}
+
 // A better insert might be better,
 // following the same logic as ordered and unordered remove 
 template<typename T> void
@@ -2182,6 +2230,16 @@ ArrayRemoveByValue(array<T> *Array, T Value){
             ArrayOrderedRemove(Array, I);
             return true;
         }
+    }
+    return false;
+}
+
+template<typename T> tyler_function inline b8
+ArrayRemoveByPtr(array<T> *Array, void *Value){
+    umw Index = ((umw)Value-(umw)Array->Items)/sizeof(T);
+    if(Index < Array->Count){
+        ArrayOrderedRemove(Array, (u32)Index);
+        return true;
     }
     return false;
 }
@@ -2266,6 +2324,8 @@ struct dynamic_array {
         Assert(Index < Count);
         return(Items[Index]);
     }
+    
+    inline operator array<T>(){ return MakeFullArray(Items, Count); }
     
     inline operator b8(){  return(Items != 0); }
     inline operator b16(){ return(Items != 0); }
@@ -2412,6 +2472,27 @@ ArrayUnorderedRemove(dynamic_array<T> *Array, u32 Index){
 }
 
 template<typename T> tyler_function inline b8
+ArrayRemoveByValue(dynamic_array<T> *Array, T Value){
+    for(u32 I=0; I<Array->Count; I++){
+        if(ArrayGet(Array, I) == Value){
+            ArrayOrderedRemove(Array, I);
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename T> tyler_function inline b8
+ArrayRemoveByPtr(dynamic_array<T> *Array, void *Value){
+    umw Index = ((umw)Value-(umw)Array->Items)/sizeof(T);
+    if(Index < Array->Count){
+        ArrayOrderedRemove(Array, (u32)Index);
+        return true;
+    }
+    return false;
+}
+
+template<typename T> tyler_function inline b8
 ArrayHasItem(dynamic_array<T> *Array, T Item){
     for(u32 I=0; I<Array->Count; I++){
         if(ArrayGet(Array, I) == Item) return true;
@@ -2531,6 +2612,16 @@ ArrayRemoveByValue(static_array<T, U> *Array, T Value){
             ArrayOrderedRemove(Array, I);
             return true;
         }
+    }
+    return false;
+}
+
+template<typename T, u32 U> tyler_function inline b8
+ArrayRemoveByPtr(static_array<T, U> *Array, void *Value){
+    umw Index = ((umw)Value-(umw)Array->Items)/sizeof(T);
+    if(Index < Array->Count){
+        ArrayOrderedRemove(Array, (u32)Index);
+        return true;
     }
     return false;
 }

@@ -1,9 +1,9 @@
 
-//#define DEBUG_PHYSICS_ALL
+#define DEBUG_PHYSICS_ALL
 
 #if defined(DEBUG_PHYSICS_ALL)
-#define DEBUG_PHYSICS_BOXES
-#define DEBUG_PHYSICS_FLOORS
+//#define DEBUG_PHYSICS_BOXES
+//#define DEBUG_PHYSICS_FLOORS
 //#define DEBUG_PHYSICS_COLLISIONS
 //#define DEBUG_PHYSICS_FLOOR_CONNECTIONS
 #endif
@@ -81,6 +81,15 @@ MakeOtherCollision(physics_collision *Collision, entity *Entity){
     return Result;
 }
 
+//~
+internal inline b8
+LetEntityOnFloor(entity *Entity, v2 Normal){
+    f32 SpeedThreshold = 75.0f;
+    v2 Tangent = V2Clockwise90(Normal);
+    if(AbsoluteValue(V2Dot(Tangent, Entity->dP)) > SpeedThreshold) return false;
+    return true;
+}
+
 //~ Physics floor
 
 inline physics_floor *
@@ -88,15 +97,15 @@ entity_manager::FloorFindFloor(physics_floor *Floor, f32 S){
     if(!Floor) return Floor;
     physics_floor *FirstFloor = Floor;
     while(!RangeContainsInclusive(Floor->Range, S)){
-        u32 Index = 0;
+        s32 Index = 0;
         if(S > Floor->Range.Max){
             Index = Floor->NextIndex;
         }else if(S < Floor->Range.Min){
             Index = Floor->PrevIndex;
         }else INVALID_CODE_PATH;
         
-        if(Index > 0){
-            Floor = &PhysicsFloors[Index-1];
+        if(Index >= 0){
+            Floor = &PhysicsFloors[Index];
         }else{
             break;
         }
@@ -112,8 +121,8 @@ entity_manager::FloorFindFloor(physics_floor *Floor, f32 S){
 inline physics_floor *
 entity_manager::FloorNextFloor(physics_floor *Floor){
     physics_floor *Result = 0;
-    if(Floor->NextIndex > 1){
-        Result = &PhysicsFloors[Floor->NextIndex-1];
+    if(Floor->NextIndex >= 0){
+        Result = &PhysicsFloors[Floor->NextIndex];
     }
     return Result;
 }
@@ -121,10 +130,15 @@ entity_manager::FloorNextFloor(physics_floor *Floor){
 inline physics_floor *
 entity_manager::FloorPrevFloor(physics_floor *Floor){
     physics_floor *Result = 0;
-    if(Floor->PrevIndex > 1){
-        Result = &PhysicsFloors[Floor->PrevIndex-1];
+    if(Floor->PrevIndex >= 0){
+        Result = &PhysicsFloors[Floor->PrevIndex];
     }
     return Result;
+}
+
+inline v2 
+FloorBaseP(physics_floor *Floor){
+    return (WorldPosP(Floor->Entity->Pos)+Floor->Offset);
 }
 
 inline v2
@@ -368,6 +382,19 @@ HandlePlayerCollision(entity_manager *Entities, physics_update *Update,
         Entities->DamagePlayer(Enemy->Damage);
         
         return true;
+    }else if(HasTag(EntityB->Tag, AssetTag_Boxing)){
+        enemy_entity *Enemy = (enemy_entity *)EntityB;
+        
+        v2 D = WorldPosP(EntityA->Pos) - WorldPosP(Enemy->Pos);
+        f32 Strength = 500.0f;
+        if(V2Dot(D, V2(1, 0)) > 0) EntityA->dP = V2( Strength, 0);
+        else                       EntityA->dP = V2(-Strength, 0);
+        
+        f32 ExtraStrength = 30.0f;
+        EntityA->dP += ExtraStrength*V2Normalize(D);
+        EntityA->Pos = MakeWorldPos(WorldPosP(EntityA->Pos));
+        
+        return true;
     }
     
     return false;
@@ -400,6 +427,17 @@ HandleDragonflyCollision(entity_manager *Entities, physics_update *Update,
     return false;
 }
 
+internal b8
+HandleBoxingCollision(entity_manager *Entities, physics_update *Update, 
+                      enemy_entity *EntityA, entity *EntityB){
+    if(EntityB->Type == EntityType_Player){
+        return false;
+    }
+    
+    return false;
+}
+
+
 // TODO(Tyler): There is probably a better way of handling moving floors... The current method
 // seems to be rather innacurate.
 void
@@ -421,10 +459,11 @@ entity_manager::HandleCollision(physics_update *Update, f32 TimeElapsed){
     }
     
     if(Collision->Type == PhysicsCollision_Floor){
-        if(V2Dot(Collision->Floor->Normal, EntityA->UpNormal) > 0){
+        if((V2Dot(Collision->Floor->Normal, EntityA->UpNormal) > 0) && 
+           LetEntityOnFloor(EntityA, Collision->Floor->Normal)){
             if(EntityA->TrailEffect & SnailTrail_Bouncy){
                 
-            }else{
+            }else if(!(HasTag(EntityA->Tag, AssetTag_Boxing))){
                 Update->Pos = WorldPosConvert(Update->Pos, Collision->Floor);
                 v2 NewP = WorldPosP(Update->Pos);
                 EntityA->Pos = Update->Pos;
@@ -438,8 +477,6 @@ entity_manager::HandleCollision(physics_update *Update, f32 TimeElapsed){
                 
                 return;
             }
-        }else{
-            int A = 1;
         }
     }else if(Collision->Type == PhysicsCollision_Normal){
         entity *EntityB = Collision->EntityB;
@@ -449,6 +486,8 @@ entity_manager::HandleCollision(physics_update *Update, f32 TimeElapsed){
                 ResetPosition = HandleSnailCollision(this, Update, (enemy_entity *)EntityA, EntityB);
             }else if(HasTag(EntityA->Tag, AssetTag_Dragonfly)){
                 ResetPosition = HandleDragonflyCollision(this, Update, (enemy_entity *)EntityA, EntityB);
+            }else if(HasTag(EntityA->Tag, AssetTag_Boxing)){
+                ResetPosition = HandleBoxingCollision(this, Update, (enemy_entity *)EntityA, EntityB);
             }else if(EntityA->Type == EntityType_Player){
                 ResetPosition = HandlePlayerCollision(this, Update, (player_entity *)EntityA, EntityB);
             }
@@ -493,7 +532,9 @@ entity_manager::HandleCollision(physics_update *Update, f32 TimeElapsed){
         }
         
         if(!RangeOverlapsInclusive(Update->Pos.Floor->Range, SRange)){
-            Update->Pos = DoFloorRaycast(Update->Pos, Update->Size, EntityA->UpNormal);
+            if(LetEntityOnFloor(Update->Entity, Update->Pos.Floor->Normal)){
+                Update->Pos = DoFloorRaycast(Update->Pos, Update->Size, EntityA->UpNormal);
+            }
         }
     }
     
@@ -506,9 +547,6 @@ entity_manager::DoFloorRaycast(world_position Pos, v2 Size, v2 UpNormal){
     local_constant f32 MinRange = -10;
     local_constant f32 MaxRange = 10;
     v2 P = WorldPosP(Pos);
-    if(Pos.Floor){
-        
-    }
     
     physics_floor *FoundFloor = 0;
     FOR_EACH(Floor, &PhysicsFloors){
@@ -685,10 +723,8 @@ entity_manager::DoPhysics(audio_mixer *Mixer, physics_update_context *Context, f
     
 #if defined(DEBUG_PHYSICS_BOXES)
     FOR_EACH(Update, &Context->PhysicsUpdates){
-#if 1
         RenderRectOutline(DebugInfo.State->Renderer.GetRenderGroup(RenderGroupID_Scaled), 
                           WorldPosBounds(Update.Pos, Update.Size, Update.UpNormal), ZLayer(1, ZLayer_DebugUI, -1), GREEN, 0.5f);
-#endif
         RenderRect(DebugInfo.State->Renderer.GetRenderGroup(RenderGroupID_Scaled), 
                    CenterRect(WorldPosP(Update.Pos, Update.Size), V2(2)), ZLayer(1, ZLayer_DebugUI, -1), RED);
         RenderRectOutline(DebugInfo.State->Renderer.GetRenderGroup(RenderGroupID_Scaled), 

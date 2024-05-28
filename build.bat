@@ -15,24 +15,24 @@ REM set BUILD_MODE="release"
 REM set PROCESS_ASSETS="true"
 
 if %BUILD_MODE% == "release" ( 
-                                                                                                                                                                                                                                                set COMPILE_OPTIONS=%COMPILE_OPTIONS% /O2 /DDO_RELEASE_BUILD 
+                                                                                                                                                                                                                                                    set COMPILE_OPTIONS=%COMPILE_OPTIONS% /O2 /DDO_RELEASE_BUILD 
 set EXE_NAME=Win32SnailJumpyRelease.exe
-                                                                                                                                                                                                                                                                                                                                                                                                                                                        ) else ( 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                ) else ( 
 set COMPILE_OPTIONS=%COMPILE_OPTIONS% /Od
-                                                                                                                                                                                                                                                                                                                                                                                                                set EXE_NAME=Win32SnailJumpyDebug.exe
+                                                                                                                                                                                                                                                                                                                                                                                                                        set EXE_NAME=Win32SnailJumpyDebug.exe
 )
 
 if %PROCESS_ASSETS% == "true" (
-                                                                    cl %COMPILE_OPTIONS% %DEBUG_OPTIONS% %INCLUDE_PATHS% /Fe:Win32AssetProcessor.exe ..\source\win32\win32_asset_processor.cpp /link %LINK_OPTIONS% %LIBRARY_PATHS% 
+                                                                        cl %COMPILE_OPTIONS% %DEBUG_OPTIONS% %INCLUDE_PATHS% /Fe:Win32AssetProcessor.exe ..\source\win32\win32_asset_processor.cpp /link %LINK_OPTIONS% %LIBRARY_PATHS% 
 pushd "..\data"
-                                                        ..\build\Win32AssetProcessor.exe
+                                                                ..\build\Win32AssetProcessor.exe
 if %errorlevel% neq 0 exit /b %errorlevel%
-                                                                                                            popd
+                                                                                                                    popd
 
-                                                    set COMPILE_OPTIONS=%COMPILE_OPTIONS% /DSNAIL_JUMPY_USE_PROCESSED_ASSETS
+                                                        set COMPILE_OPTIONS=%COMPILE_OPTIONS% /DSNAIL_JUMPY_USE_PROCESSED_ASSETS
 ) else (
-                        goto build_game 
-                                    )
+                            goto build_game 
+                    )
 
 :build_game
                     rc /nologo /fo .\win32_resource.res /I..\data ..\source\win32\win32_resource.rc 

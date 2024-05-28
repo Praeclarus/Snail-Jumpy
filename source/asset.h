@@ -54,13 +54,14 @@ global_constant u32 MAX_TILEMAP_BOUNDARIES = 8;
 ASSET_TAG("background",       Background)  \
 ASSET_TAG("snail",            Snail)       \
 ASSET_TAG("dragonfly",        Dragonfly)   \
-ASSET_TAG("boxing_dragonfly", BoxingDragonfly)  \
+ASSET_TAG("boxing",           Boxing)  \
 ASSET_TAG("trail_bouncy",     TrailBouncy) \
 ASSET_TAG("trail_speedy",     TrailSpeedy) \
 ASSET_TAG("trail_sticky",     TrailSticky) \
 ASSET_TAG("animated",         Animated)    \
 ASSET_TAG("art",              Art)         \
 ASSET_TAG("arrow",            Arrow)       \
+ASSET_TAG("no_editor",        NoEditor)    \
 
 ;
 
@@ -389,6 +390,7 @@ struct asset_tilemap_tile_data {
 };
 
 struct asset_tilemap {
+    asset_tag Tag;
     asset_loading_data LoadingData;
     
     render_texture Texture;

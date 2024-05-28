@@ -848,8 +848,9 @@ game_renderer::CalculateParallax(s8 Layer){
 }
 
 void
-game_renderer::DoParallax(render_item *Item, s8 Layer){
+game_renderer::DoParallax(render_item *Item, s8 Layer, b8 Scale){
     v2 Offset = CalculateParallax(Layer);
+    if(Scale) Offset *= CameraScale;
     
     for(u32 I=Item->VertexOffset; 
         I<(Item->VertexOffset+Item->VertexCount); 

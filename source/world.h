@@ -4,36 +4,73 @@
 //~ Edit stuff
 
 //- Undo/redo
+enum selection_type {
+    Selection_None,
+    Selection_Entity,
+    Selection_GravityZone,
+};
+
+struct editor_selection {
+    selection_type Type;
+    union {
+        void *Thing;
+        entity *Entity;
+        gravity_zone *Zone;
+    };
+};
+
 global_constant u32 EDITOR_HISTORY_DEPTH = 64;
 global_constant u32 EDITOR_TILES_PER_ACTION = 10;
 enum editor_action_type {
     EditorAction_None,
-    EditorAction_AddEntity,
-    EditorAction_DeleteEntity,
-    EditorAction_MoveEntity,
+    EditorAction_AddThing,
+    EditorAction_DeleteThing,
+    EditorAction_MoveThing,
     EditorAction_ResizeTilemap,
     EditorAction_MoveTilemap,
-    EditorAction_EditTilemap
+    EditorAction_EditTilemap,
+    EditorAction_ChangeSize,
+    EditorAction_ChangeEntityDirection,
+    EditorAction_ChangeZoneDirection,
 };
 
 struct editor_action {
     editor_action_type Type;
     
-    entity *Entity;
+    editor_selection Thing;
     
     union {
         // MoveEntity
         struct{
-            v2 PreviousP;
+            v2 OldP;
             v2 NewP;
         };
         
         // NOTE(Tyler): We only keep one of these so that it can be freed when its time for cleanup
-        struct{
+        struct {
             tilemap_tile *Tiles;
             u32 Width;
             u32 Height;
         };
+        
+        // Change size
+        struct {
+            rect OldArea;
+            rect NewArea;
+        };
+        
+        // Gravity Zone stuff
+        struct {
+            rect Area;
+            v2 Direction;
+        };
+        
+        // Change zone direction
+        struct {
+            v2 OldDirection;
+            v2 NewDirection;
+        };
+        
     };
 };
 
@@ -42,9 +79,12 @@ struct editor_action_system {
     array<editor_action> Actions;
     u32 ActionIndex;
     
-    v2 EntityPreviousP;
     u32 TileCounter;
     b8 JustBeganEdit;
+    
+    editor_action *CurrentAction;
+    
+    
     
     void Undo(asset_system *Assets);
     void Redo(asset_system *Assets);
@@ -52,13 +92,25 @@ struct editor_action_system {
     void CleanupActionReverse(editor_action *Action);
     void ClearActionHistory();
     editor_action *MakeAction(editor_action_type Type);
-    template<typename T, u32 U> T *
-        ActionAddEntity(world_data *World, bucket_array<T, U> *Array);
-    inline void ActionDeleteEntity(entity *Entity);
-    inline void LogActionMoveEntity(entity *Entity);
+    void LogAddThing(editor_selection Selection);
+    inline void ActionDeleteThing(editor_selection Thing);
+    
+    inline void CheckCurrentAction(editor_selection *Thing, editor_action_type Type);
+    inline void ActionMoveThing(editor_selection *Thing, v2 NewP, v2 OldP);
+    inline void ActionChangeSize(editor_selection *Thing, rect NewArea, rect OldArea);
+    inline void EndCurrentAction();
+    
+    inline void ActionChangeEntityDirection(entity *Entity, direction Direction);
+    inline void ActionChangeZoneDirection(gravity_zone *Zone, v2 NewDirection, v2 OldDirection);
+    
     inline void LogActionTilemap(editor_action_type Type, entity *Entity, tilemap_tile *Tiles, u32 Width, u32 Height);
     inline void ActionEditTilemap(entity *Entity);
     inline void ActionBeginEditTilemap();
+    
+    inline void DeleteThing(editor_action *Action, editor_selection *Thing);
+    inline void ReturnThing(editor_action *Action, editor_selection *Thing);
+    inline void MoveThing(editor_selection *Thing, v2 P);
+    inline void ChangeThingSize(editor_selection *Thing, rect Area);
 };
 
 //~ World data

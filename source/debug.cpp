@@ -15,6 +15,9 @@
 #define DO_DEBUG_INFO() debug_info_display DebugDisplay##__FUNCTION__
 #define DEBUG_MESSAGE(...) DebugInfo.SubmitMessage(__VA_ARGS__)
 #define DEBUG_STATEMENT(Statement) Statement
+#define DEBUG_POINT(P, Color) DebugInfo.SubmitPoint((P), Color)
+#define DEBUG_LINE(A, B, Color)  DebugInfo.SubmitLine((A), (B), Color)
+#define DEBUG_LINE_FROM(A, To, Color)  DebugInfo.SubmitLine((A), (A)+(To), Color)
 
 local_constant f32 DEBUG_FADEOUT_RANGE = 0.5f;
 
@@ -55,6 +58,9 @@ enum debug_message_type {
     DebugMessage_Fadeout,
     DebugMessage_Asset,
     
+    DebugMessage_Point,
+    DebugMessage_Line,
+    
     DebugMessage_EndPerFrame,
 };
 
@@ -69,6 +75,11 @@ struct debug_message {
     union{
         const char *Message;
         debug_string_node *StringNode;
+        struct {
+            v2    PointA;
+            v2    PointB;
+            color Color;
+        };
     };
     u32 AssetLoadCounter;
     f32 Timeout;
@@ -88,6 +99,8 @@ struct debug_info {
     inline void VSubmitMessage(debug_message_type Type, f32 Timeout, const char *Format, va_list VarArgs);
     inline void SubmitMessage(debug_message_type Type, const char *Format, ...);
     inline void SubmitMessage(debug_message_type Type, f32 Timeout, const char *Format, ...);
+    inline void SubmitPoint(v2 P, color Color);
+    inline void SubmitLine(v2 A, v2 B, color Color);
     inline void EndFrame(debug_scope_time_elapsed Elapsed);
     inline void DoDebugHotkeys();
 };
@@ -186,6 +199,33 @@ debug_info::SubmitMessage(debug_message_type Type, f32 Timeout, const char *Form
 }
 
 inline void
+debug_info::SubmitPoint(v2 P, color Color){
+    if(!Messages.Items){
+        DebugInfo.Messages = MakeDynamicArray<debug_message>(8);
+    }
+    debug_message Message = {};
+    Message.Type  = DebugMessage_Point;
+    Message.PointA = P;
+    Message.Color = Color;
+    
+    ArrayAdd(&Messages, Message);
+}
+
+inline void
+debug_info::SubmitLine(v2 A, v2 B, color Color){
+    if(!Messages.Items){
+        DebugInfo.Messages = MakeDynamicArray<debug_message>(8);
+    }
+    debug_message Message = {};
+    Message.Type  = DebugMessage_Line;
+    Message.PointA = A;
+    Message.PointB = B;
+    Message.Color = Color;
+    
+    ArrayAdd(&Messages, Message);
+}
+
+inline void
 debug_info::EndFrame(debug_scope_time_elapsed Elapsed) {
     asset_system *Assets = &State->Assets;
     SJA_DEBUG(asset_loader *Loader = &State->AssetLoader);
@@ -233,8 +273,25 @@ debug_info::EndFrame(debug_scope_time_elapsed Elapsed) {
     }
     
     if(DisplayFlags & DebugDisplay_Messages){
-        v2 DebugP = V2(250, 190);
+        v2 DebugP = V2(200, Renderer->OutputSize.Y-100);
         FOR_EACH_(Message, Index, &Messages){
+            if(Message.Type == DebugMessage_Point){
+                RenderRect(Renderer->GetRenderGroup(RenderGroupID_Scaled),
+                           CenterRect(Message.PointA-Renderer->CameraFinalP, V2(2)), 
+                           ZLayer(ZLayer_DebugUI), 
+                           Message.Color);
+                ARRAY_REMOVE_IN_LOOP_ORDERED(&Messages, Index);
+                continue;
+            }else if(Message.Type == DebugMessage_Line){
+                RenderLine(Renderer->GetRenderGroup(RenderGroupID_Scaled),
+                           Message.PointA-Renderer->CameraFinalP, 
+                           Message.PointB-Renderer->CameraFinalP, 
+                           ZLayer(ZLayer_DebugUI), 0.5,
+                           Message.Color);
+                ARRAY_REMOVE_IN_LOOP_ORDERED(&Messages, Index);
+                continue;
+            }
+            
             if((Message.Type == DebugMessage_Asset) && 
                SJA_DEBUG_EXPR(Message.AssetLoadCounter < Loader->LoadCounter)){
                 ARRAY_REMOVE_IN_LOOP_ORDERED(&Messages, Index);
@@ -266,9 +323,9 @@ debug_info::EndFrame(debug_scope_time_elapsed Elapsed) {
                 Message.Type = DebugMessage_EndPerFrame;
             }
         }
+        
     }
 }
-
 //~ 
 struct debug_info_display {
     debug_scope_timer Timer;
@@ -286,4 +343,7 @@ struct debug_info_display {
 #define DEBUG_DATA_INITIALIZE(...)
 #define DEBUG_MESSAGE(...) 
 #define DEBUG_STATEMENT(Statement) 
+#define DEBUG_POINT(P, Color)
+#define DEBUG_LINE(A, B, Color)
+#define DEBUG_LINE_FROM(A, To, Color)
 #endif

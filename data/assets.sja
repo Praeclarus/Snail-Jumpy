@@ -33,6 +33,7 @@
         consecutive 10 10 8 0
         consecutive 20  3 8 0
         consecutive 23  3 8 0
+base_y_offset -11
     state_none
         left  1
         right 2
@@ -232,8 +233,11 @@ animation "enemy"
 : Player
 	   speed       70
 spritesheet player
-#    speed 150
-	    boundary Rect(0 0 5 12)
+	    boundary    Rect(0 0 5 12)
+initial_jump_power    60
+continuous_jump_power 40
+jump_duration         0.05
+coyote_time           0.3
 
 : Enemy "Snail" Tag("snail")
 	            spritesheet   snail
@@ -270,10 +274,10 @@ spritesheet player
 	   boundary       Rect(0 0 12 12)
 	   damage         2    
 
-: Enemy "Boxing"
+: Enemy "Boxing" Tag("boxing")
 	            spritesheet   boxing
     #animation_var "stun_time" 0.0
-	   speed         50
+	   speed         70
 	   boundary      Rect(0 11 31 3)
 	   damage        1
 
@@ -315,13 +319,13 @@ spritesheet player
 	   path "asset_backgrounds/background_test_front.png"
 	
 #~ @sja_other
-: Art "gravity_arrow_a" Tag("arrow")
+: Art "gravity_arrow_a" Tag("arrow" "no_editor")
 path "asset_arts/cyan_arrow_1.png"
 
-: Art "gravity_arrow_b" Tag("arrow")
+: Art "gravity_arrow_b" Tag("arrow" "no_editor")
 path "asset_arts/cyan_arrow_2.png"
 
-: Art "gravity_arrow_c" Tag("arrow")
+: Art "gravity_arrow_c" Tag("arrow" "no_editor")
 path "asset_arts/cyan_arrow_3.png"
 
 #~ @sja_tilemaps
@@ -633,7 +637,7 @@ path "asset_arts/cyan_arrow_3.png"
     tile 0 "?_?X#X?X?" ROTATE_PREVIOUS_90
     tile 0 "?X?X#X?X?" 2
 
-: Tilemap "trail_bouncy"
+: Tilemap "trail_bouncy" Tag("no_editor")
 path "asset_tilemaps/trail_bouncy.png"
 tile_size 16 16
 dimensions 10 6
@@ -653,7 +657,7 @@ tile 0 "____#____" 1
 tile 0 "____#____" 1
 tile 0 "____#____" 1
 
-: Tilemap "trail_speedy"
+: Tilemap "trail_speedy" Tag("no_editor")
 path "asset_tilemaps/trail_speedy.png"
 tile_size 16 16
 dimensions 10 6
@@ -674,7 +678,7 @@ tile 0 "____#____" 1
 tile 0 "____#____" 1
 
 
-: Tilemap "trail_sticky"
+: Tilemap "trail_sticky" Tag("no_editor")
 path "asset_tilemaps/trail_strong.png"
 tile_size 16 16
 dimensions 5 5

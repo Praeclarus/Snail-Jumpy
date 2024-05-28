@@ -20,13 +20,13 @@ struct selector_context {
 };
 
 //~ Edit mode
-enum edit_mode {
-    EditMode_Entity,
-    EditMode_Tilemap,
-    EditMode_TilemapTemporary
+enum edit_state {
+    EditState_General,
+    EditState_Tilemap,
+    EditState_TilemapTemporary
 };
 
-enum edit_mode_thing {
+enum edit_thing {
     EditThing_None,
     EditThing_Tilemap    = 1,
     EditThing_CoinP      = 2,
@@ -34,27 +34,31 @@ enum edit_mode_thing {
     EditThing_Art        = 4,
     EditThing_Teleporter = 5,
     EditThing_Door       = 6,
+    EditThing_GravityZone = 7,
     
     EditThing_TOTAL
 };
-global_constant edit_mode_thing EDITOR_FORWARD_EDIT_MODE_TABLE[EditThing_TOTAL] = {
+
+global_constant edit_thing EDITOR_FORWARD_EDIT_MODE_TABLE[EditThing_TOTAL] = {
     EditThing_Tilemap,
     EditThing_CoinP,
     EditThing_Enemy,
     EditThing_Art,
     EditThing_Teleporter,
     EditThing_Door,
+    EditThing_GravityZone,
     EditThing_None,
 };
 
-global_constant edit_mode_thing EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_TOTAL] = {
-    EditThing_Door,
+global_constant edit_thing EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_TOTAL] = {
+    EditThing_GravityZone,
     EditThing_None,
     EditThing_Tilemap,
     EditThing_CoinP,
     EditThing_Enemy,
     EditThing_Art,
     EditThing_Teleporter,
+    EditThing_Door,
 };
 
 enum auto_tile {
@@ -68,8 +72,8 @@ enum auto_tile {
 };
 
 enum tilemap_edit_mode {
-    TilemapEditMode_Auto,
-    TilemapEditMode_Manual,
+    TilemapEditState_Auto,
+    TilemapEditState_Manual,
 };
 
 //~ 
@@ -117,6 +121,16 @@ enum world_editor_flags_ {
     WorldEditorFlag_HideEntityNames = (1 << 3),
 };
 
+struct editor_drag_result {
+    b8 Selected;
+    v2 NewP;
+};
+
+struct editor_rect_result {
+    b8 Updated;
+    rect Rect;
+};
+
 struct world_editor {
     os_input *OSInput;
     ui_manager *UI;
@@ -139,10 +153,10 @@ struct world_editor {
     world_data *World;
     editor_action_system *Actions;
     
-    edit_mode EditMode;
-    edit_mode_thing EditThing;
+    edit_state EditState;
+    edit_thing EditThing;
     
-    entity *Selected;
+    editor_selection Selection;
     
     editor_grid Grid;
     
@@ -163,20 +177,28 @@ struct world_editor {
     void DoEditThingArt(render_group *GameGroup, asset_system *Assets, f32 dTime);
     void DoEditThingTeleporter(render_group *GameGroup);
     void DoEditThingDoor(render_group *GameGroup);
+    void DoEditThingGravityZone(render_group *GameGroup);
     
-    inline void EditModeEntity(entity *Entity);
+    inline void SelectThing(void *Thing, selection_type Type=Selection_None);
     
     b8 DoButton(render_group *GameGroup, rect R, u64 ID, f32 dTime, rounded_rect_corner Corners=RoundedRectCorner_None);
     void DoEntityFacingDirections(render_group *Group, entity *Entity, f32 dTime);
-    void DoSelectedThingUI(render_group *GameGroup, asset_system *Assets);
     void DoEnemyOverlay(render_group *GameGroup, enemy_entity *Entity, f32 dTime);
     
-    inline b8 IsSelectionDisabled(entity *Entity, os_key_flags KeyFlags);
-    inline b8 DoDragEntity(render_group *GameGroup, render_group *FontGroup, entity *Entity, b8 Special=false);
-    inline b8 DoDeleteEntity(entity *Entity, b8 Special=false);
+    void DoEntitiesWindow(render_group *GameGroup, asset_system *Assets);
+    void DoEntitySection(ui_window *Window, render_group *Group, asset_system *Assets);
+    void DoGravityZoneSection(ui_window *Window, render_group *Group, asset_system *Assets);
+    
+    inline b8 IsSelectionDisabled(void *Thing, os_key_flags KeyFlags);
+    inline editor_drag_result DoDraggableThing(render_group *Group, render_group *FontGroup, 
+                                               void *Thing, rect R, const char *Title, 
+                                               b8 Special=false);
+    inline b8 DoDeleteThing(void *Thing, rect R, b8 Special=false);
+    
+    inline editor_rect_result EditorEditableRect(render_group *Group, rect Rect, u64 ParentID);
     
     //~ Editing tilemap
-    tilemap_edit_mode TilemapEditMode;
+    tilemap_edit_mode TilemapEditState;
     b8 TilemapDoSelectorOverlay;
     u16 ManualTileIndex;
     auto_tile AutoTileMode;

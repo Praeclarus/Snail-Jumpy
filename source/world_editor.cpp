@@ -23,7 +23,7 @@ ToggleWorldEditor(world_editor *WorldEditor){
     }else if(GameMode == GameMode_MainGame){
         // To editor from main game
         ChangeState(GameMode_WorldEditor, MakeString(0));
-        WorldEditor->EditModeEntity(0);
+        WorldEditor->SelectThing(0);
     }
 }
 
@@ -33,14 +33,17 @@ ToggleFlag(u32 *Flag, u32 Value){
     else              *Flag |= Value;
 }
 
-inline void
-world_editor::EditModeEntity(entity *Entity){
+inline void 
+world_editor::SelectThing(void *Thing, selection_type Type){
+    if(EditState != EditState_General) return; 
+    
     TilemapDoSelectorOverlay = true;
-    TilemapEditMode = TilemapEditMode_Auto;
+    TilemapEditState = TilemapEditState_Auto;
     AutoTileMode = AutoTile_Tile;
     ManualTileIndex = 0;
-    Selected = Entity;
-    EditMode = EditMode_Entity;
+    Selection = {};
+    Selection.Type = Type;
+    Selection.Thing = Thing;
 }
 
 internal inline const char *
@@ -51,9 +54,18 @@ GetEntityName(entity *Entity){
     return EntityName;
 }
 
-#define EditorAllocEntity(Editor, Array) \
+#define EditorAllocEntity_(Editor, Array) \
 (Editor)->Actions->ActionAddEntity((Editor)->World, &(Editor)->Actions->Entities->Array)
 
+
+//~ Selection
+internal inline editor_selection
+MakeSelection(void *Thing, selection_type Type){
+    editor_selection Result = {};
+    Result.Thing = Thing;
+    Result.Type = Type;
+    return Result;
+}
 
 //~ Snapping
 
@@ -96,13 +108,168 @@ SnapToGrid(rect R, editor_grid Grid){
     return(Result);
 }
 
+//~
+inline editor_rect_result
+world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID){
+    editor_rect_result Result = {};
+    
+    v2 PointSize = V2(6);
+    //- Corner 1 (Top left)
+    {
+        v2 P = RectTopLeft(Rect);
+        rect R = CenterRect(P, PointSize);
+        u64 ID = WIDGET_ID_CHILD(ParentID, WIDGET_ID);
+        
+        v2 PointSize = V2(4);
+        ui_animation *Animation = HashTableGetPtr(&UI->AnimationStates, ID);
+        switch(EditorDraggableElement(UI, ID, R, P, -2, 1)){
+            case UIBehavior_JustActivate: {}
+            case UIBehavior_Activate: {
+                UI_UPDATE_T(Animation->ActiveT, true, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+                v2 Offset = UI->Renderer->ScreenToWorld(UI->ActiveElement.Offset, 0);
+                v2 Delta = SnapToGrid(MouseP + Offset, Grid)-P;
+                if(Rect.Min.X + Delta.X < Rect.Max.X){
+                    Rect.Min.X += Delta.X;
+                    Result.Updated = true;
+                }
+                if(Rect.Max.Y + Delta.Y > Rect.Min.Y){
+                    Rect.Max.Y += Delta.Y;
+                    Result.Updated = true;
+                }
+            }break;
+            case UIBehavior_Deactivate: {
+                Actions->EndCurrentAction();
+            } 
+            case UIBehavior_None: {
+                UI_UPDATE_T(Animation->ActiveT, false, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+            }break;
+        }
+        color Color = UIGetColor(&EDITOR_THEME, Animation->HoverT, Animation->ActiveT);
+        RenderRect(Group, R, EDITOR_OVERLAY_Z, Color);
+    }
+    
+    //- Corner 2 (Top right)
+    {
+        v2 P = RectTopRight(Rect);
+        rect R = CenterRect(P, PointSize);
+        u64 ID = WIDGET_ID;
+        
+        v2 PointSize = V2(4);
+        ui_animation *Animation = HashTableGetPtr(&UI->AnimationStates, ID);
+        switch(EditorDraggableElement(UI, ID, R, P, -2, 1)){
+            case UIBehavior_JustActivate: {}
+            case UIBehavior_Activate: {
+                UI_UPDATE_T(Animation->ActiveT, true, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+                v2 Offset = UI->Renderer->ScreenToWorld(UI->ActiveElement.Offset, 0);
+                v2 Delta = SnapToGrid(MouseP + Offset, Grid)-P;
+                if(Rect.Max.X + Delta.X > Rect.Min.X){
+                    Rect.Max.X += Delta.X;
+                    Result.Updated = true;
+                }
+                if(Rect.Max.Y + Delta.Y > Rect.Min.Y){
+                    Rect.Max.Y += Delta.Y;
+                    Result.Updated = true;
+                }
+            }break;
+            case UIBehavior_Deactivate: {
+                Actions->EndCurrentAction();
+            } 
+            case UIBehavior_None: {
+                UI_UPDATE_T(Animation->ActiveT, false, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+            }break;
+        }
+        color Color = UIGetColor(&EDITOR_THEME, Animation->HoverT, Animation->ActiveT);
+        RenderRect(Group, R, EDITOR_OVERLAY_Z, Color);
+    }
+    
+    //- Corner 3 (Bottom right)
+    {
+        v2 P = RectBottomRight(Rect);
+        rect R = CenterRect(P, PointSize);
+        u64 ID = WIDGET_ID;
+        
+        v2 PointSize = V2(4);
+        ui_animation *Animation = HashTableGetPtr(&UI->AnimationStates, ID);
+        switch(EditorDraggableElement(UI, ID, R, P, -2, 1)){
+            case UIBehavior_JustActivate: {}
+            case UIBehavior_Activate: {
+                UI_UPDATE_T(Animation->ActiveT, true, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+                v2 Offset = UI->Renderer->ScreenToWorld(UI->ActiveElement.Offset, 0);
+                v2 Delta = SnapToGrid(MouseP + Offset, Grid)-P;
+                if(Rect.Max.X + Delta.X > Rect.Min.X){
+                    Rect.Max.X += Delta.X;
+                    Result.Updated = true;
+                }
+                if(Rect.Min.Y + Delta.Y < Rect.Max.Y){
+                    Rect.Min.Y += Delta.Y;
+                    Result.Updated = true;
+                }
+            }break;
+            case UIBehavior_Deactivate: {
+                Actions->EndCurrentAction();
+            } 
+            case UIBehavior_None: {
+                UI_UPDATE_T(Animation->ActiveT, false, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+            }break;
+        }
+        color Color = UIGetColor(&EDITOR_THEME, Animation->HoverT, Animation->ActiveT);
+        RenderRect(Group, R, EDITOR_OVERLAY_Z, Color);
+    }
+    
+    
+    //- Corner 4 (Bottom left)
+    {
+        v2 P = RectBottomLeft(Rect);
+        rect R = CenterRect(P, PointSize);
+        u64 ID = WIDGET_ID;
+        
+        v2 PointSize = V2(4);
+        ui_animation *Animation = HashTableGetPtr(&UI->AnimationStates, ID);
+        switch(EditorDraggableElement(UI, ID, R, P, -2, 1)){
+            case UIBehavior_JustActivate: {}
+            case UIBehavior_Activate: {
+                UI_UPDATE_T(Animation->ActiveT, true, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+                v2 Offset = UI->Renderer->ScreenToWorld(UI->ActiveElement.Offset, 0);
+                v2 Delta = SnapToGrid(MouseP + Offset, Grid)-P;
+                if(Rect.Min.X + Delta.X < Rect.Max.X){
+                    Rect.Min.X += Delta.X;
+                    Result.Updated = true;
+                }
+                if(Rect.Min.Y + Delta.Y < Rect.Max.Y){
+                    Rect.Min.Y += Delta.Y;
+                    Result.Updated = true;
+                }
+            }break;
+            case UIBehavior_Deactivate: {
+                Actions->EndCurrentAction();
+            } 
+            case UIBehavior_None: {
+                UI_UPDATE_T(Animation->ActiveT, false, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
+            }break;
+        }
+        color Color = UIGetColor(&EDITOR_THEME, Animation->HoverT, Animation->ActiveT);
+        RenderRect(Group, R, EDITOR_OVERLAY_Z, Color);
+    }
+    
+    Result.Rect = Rect;
+    return Result;
+}
+
+
 //~ Undo/redo
 
 void
 editor_action_system::CleanupActionRegular(editor_action *Action){
     switch(Action->Type){
-        case EditorAction_DeleteEntity: {
-            Entities->FullRemoveEntity(Action->Entity);
+        case EditorAction_DeleteThing: {
+            switch(Action->Thing.Type){
+                case Selection_Entity: 
+                Entities->FullRemoveEntity(Action->Thing.Entity); 
+                break;
+                case Selection_GravityZone: 
+                ArrayRemoveByPtr(&Entities->GravityZones, Action->Thing.Zone); 
+                break;
+            }
         }break;
         case EditorAction_EditTilemap:;
         case EditorAction_ResizeTilemap:;
@@ -116,8 +283,15 @@ editor_action_system::CleanupActionRegular(editor_action *Action){
 void
 editor_action_system::CleanupActionReverse(editor_action *Action){
     switch(Action->Type){
-        case EditorAction_AddEntity: {
-            Entities->FullRemoveEntity(Action->Entity);
+        case EditorAction_AddThing: {
+            switch(Action->Thing.Type){
+                case Selection_Entity: 
+                Entities->FullRemoveEntity(Action->Thing.Entity); 
+                break;
+                case Selection_GravityZone: 
+                ArrayRemoveByPtr(&Entities->GravityZones, Action->Thing.Zone); 
+                break;
+            }
         }break;
         case EditorAction_EditTilemap:;
         case EditorAction_ResizeTilemap:;
@@ -135,67 +309,162 @@ editor_action_system::ClearActionHistory(){
     ArrayClear(&Actions);
 }
 
+inline void
+editor_action_system::DeleteThing(editor_action *Action, editor_selection *Thing){
+    switch(Thing->Type){
+        case Selection_Entity: {
+            Entities->DeleteEntity(Thing->Entity);
+        }break;
+        case Selection_GravityZone: {
+            FOR_EACH_(Zone, Index, &Entities->GravityZones){
+                if(&Zone == Thing->Zone){
+                    Action->Area = Zone.Area;
+                    Action->Direction = Zone.Direction;
+                    Thing->Zone = 0;
+                    
+                    ARRAY_REMOVE_IN_LOOP_ORDERED(&Entities->GravityZones, Index);
+                }
+            }
+        }break;
+    }
+}
+
+inline void
+editor_action_system::ReturnThing(editor_action *Action, editor_selection *Thing){
+    switch(Thing->Type){
+        case Selection_Entity: {
+            Entities->ReturnEntity(Thing->Entity);
+        }break;
+        case Selection_GravityZone: {
+            Assert(Thing->Zone == 0);
+            Thing->Zone = AllocGravityZone(&Entities->GravityZones, Action->Area, Action->Direction);
+        }break;
+    }
+}
+
+inline void 
+editor_action_system::ChangeThingSize(editor_selection *Thing, rect Area){
+    switch(Thing->Type){
+        case Selection_Entity: {
+            Assert(0);
+        }break;
+        case Selection_GravityZone: {
+            Thing->Zone->Area = Area;
+        }break;
+    }
+}
+
+inline void
+editor_action_system::MoveThing(editor_selection *Thing, v2 P){
+    switch(Thing->Type){
+        case Selection_Entity: {
+            Thing->Entity->Pos = MakeWorldPos(P);
+        }break;
+        case Selection_GravityZone: {
+            Thing->Zone->Area = SizeRect(P, RectSize(Thing->Zone->Area));
+        }break;
+    }
+}
+
 void 
 editor_action_system::Undo(asset_system *Assets){
+    EndCurrentAction();
     if(ActionIndex == 0) return;
     
     ActionIndex--;
     editor_action *Action = &Actions[ActionIndex];
     switch(Action->Type){
-        case EditorAction_AddEntity: {
-            Entities->DeleteEntity(Action->Entity);
+        case EditorAction_AddThing: {
+            DeleteThing(Action, &Action->Thing);
         }break;
-        case EditorAction_DeleteEntity: {
-            Entities->ReturnEntity(Action->Entity);
+        case EditorAction_DeleteThing: {
+            ReturnThing(Action, &Action->Thing);
         }break;
-        case EditorAction_MoveEntity: {
-            Action->Entity->Pos = MakeWorldPos(Action->PreviousP);
+        case EditorAction_MoveThing: {
+            MoveThing(&Action->Thing, Action->OldP);
         }break;
         case EditorAction_MoveTilemap:;
         case EditorAction_EditTilemap:;
         case EditorAction_ResizeTilemap: {
-            tilemap_entity *Tilemap = (tilemap_entity *)Action->Entity;
+            tilemap_entity *Tilemap = (tilemap_entity *)Action->Thing.Entity;
             Swap(Tilemap->Tiles, Action->Tiles);
             Swap(Tilemap->Width, Action->Width);
             Swap(Tilemap->Height, Action->Height);
             asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Tilemap->Asset);
             Tilemap->Size = V2(Tilemap->Width*Asset->TileSize.X, Tilemap->Height*Asset->TileSize.Y);
         }break;
+        case EditorAction_ChangeSize: {
+            ChangeThingSize(&Action->Thing, Action->OldArea);
+        }break;
+        case EditorAction_ChangeEntityDirection: {
+            Assert(Action->Thing.Type == Selection_Entity);
+            entity *Entity = Action->Thing.Entity;
+            if(Entity->Animation.Direction == Direction_Right){
+                Entity->Animation.Direction = Direction_Left;
+            }else{
+                Entity->Animation.Direction = Direction_Right;
+            }
+        }break;
+        case EditorAction_ChangeZoneDirection: {
+            Assert(Action->Thing.Type == Selection_GravityZone);
+            Action->Thing.Zone->Direction = Action->OldDirection;
+        }break;
+        default: Assert(0); 
     }
 }
 
 void 
 editor_action_system::Redo(asset_system *Assets){
+    EndCurrentAction();
     if(Actions.Count == 0) return;
     if(ActionIndex == Actions.Count) return;
     
     editor_action *Action = &Actions[ActionIndex];
     ActionIndex++;
     switch(Action->Type){
-        case EditorAction_AddEntity: {
-            Entities->ReturnEntity(Action->Entity);
+        case EditorAction_AddThing: {
+            ReturnThing(Action, &Action->Thing);
         }break;
-        case EditorAction_DeleteEntity: {
-            Entities->DeleteEntity(Action->Entity);
+        case EditorAction_DeleteThing: {
+            DeleteThing(Action, &Action->Thing);
         }break;
-        case EditorAction_MoveEntity: {
-            Action->Entity->Pos = MakeWorldPos(Action->NewP);
+        case EditorAction_MoveThing: {
+            MoveThing(&Action->Thing, Action->NewP);
         }break;
         case EditorAction_MoveTilemap:;
         case EditorAction_EditTilemap:;
         case EditorAction_ResizeTilemap: {
-            tilemap_entity *Tilemap = (tilemap_entity *)Action->Entity;
+            tilemap_entity *Tilemap = (tilemap_entity *)Action->Thing.Entity;
             Swap(Tilemap->Tiles, Action->Tiles);
             Swap(Tilemap->Width, Action->Width);
             Swap(Tilemap->Height, Action->Height);
             asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Tilemap->Asset);
             Tilemap->Size = V2(Tilemap->Width*Asset->TileSize.X, Tilemap->Height*Asset->TileSize.Y);
         }break;
+        case EditorAction_ChangeSize: {
+            ChangeThingSize(&Action->Thing, Action->NewArea);
+        }break;
+        case EditorAction_ChangeEntityDirection: {
+            Assert(Action->Thing.Type == Selection_Entity);
+            entity *Entity = Action->Thing.Entity;
+            if(Entity->Animation.Direction == Direction_Right){
+                Entity->Animation.Direction = Direction_Left;
+            }else{
+                Entity->Animation.Direction = Direction_Right;
+            }
+        }break;
+        case EditorAction_ChangeZoneDirection: {
+            Assert(Action->Thing.Type == Selection_GravityZone);
+            Action->Thing.Zone->Direction = Action->NewDirection;
+        }break;
+        default: Assert(0); 
     }
 }
 
 editor_action *
 editor_action_system::MakeAction(editor_action_type Type){
+    EndCurrentAction();
+    
     while(ActionIndex < Actions.Count){
         CleanupActionReverse(&Actions[ActionIndex]);
         ArrayOrderedRemove(&Actions, ActionIndex);
@@ -205,47 +474,106 @@ editor_action_system::MakeAction(editor_action_type Type){
     editor_action *Action = ArrayAlloc(&Actions);
     if(!Action){
         ArrayOrderedRemove(&Actions, 0);
-        Action = ArrayAlloc(&Actions);
+        Action = ArrayMaybeAlloc(&Actions);
         Assert(Action);
     }
     Action->Type = Type;
     return(Action);
 }
 
-template<typename T, u32 U>
-inline T *
-editor_action_system::ActionAddEntity(world_data *World, bucket_array<T, U> *Array){
-    editor_action *Action = MakeAction(EditorAction_AddEntity);
-    Action->Entity = Entities->AllocEntity_(World, Array);
+inline void
+editor_action_system::LogAddThing(editor_selection Thing){
+    editor_action *Action = MakeAction(EditorAction_AddThing);
+    Action->Thing = Thing;
+}
+
+inline void
+editor_action_system::ActionDeleteThing(editor_selection Thing){
+    if((Thing.Type == Selection_Entity) && 
+       (Thing.Entity->Type == EntityType_Player)) return;
     
-    return (T *)Action->Entity;
+    editor_action *Action = MakeAction(EditorAction_DeleteThing);
+    Action->Thing = Thing;
+    DeleteThing(Action, &Action->Thing);
 }
 
-inline void
-editor_action_system::ActionDeleteEntity(entity *Entity){
-    if(Entity->Type == EntityType_Player){
-    }else{
-        editor_action *Action = MakeAction(EditorAction_DeleteEntity);
-        Action->Entity = Entity;
-        Entities->DeleteEntity(Entity);
+inline void 
+editor_action_system::CheckCurrentAction(editor_selection *Thing, editor_action_type Type){
+    if(CurrentAction){
+        if((CurrentAction->Thing.Thing != Thing->Thing) ||
+           (CurrentAction->Type != Type)){
+            EndCurrentAction();
+        }
     }
+    
 }
 
 inline void
-editor_action_system::LogActionMoveEntity(entity *Entity){
-    if(WorldPosP(Entity->Pos) == EntityPreviousP) return;
-    editor_action *Action = MakeAction(EditorAction_MoveEntity);
-    Action->Entity = Entity;
-    Action->PreviousP = EntityPreviousP;
-    Action->NewP  = WorldPosP(Entity->Pos);
+editor_action_system::ActionMoveThing(editor_selection *Thing, v2 NewP, v2 OldP){
+    CheckCurrentAction(Thing, EditorAction_MoveThing);
+    if(!CurrentAction){
+        CurrentAction = MakeAction(EditorAction_MoveThing);
+        CurrentAction->Thing = *Thing;
+        CurrentAction->OldP = OldP;
+    }
+    
+    CurrentAction->NewP  = NewP;
+    MoveThing(Thing, NewP);
 }
 
+inline void
+editor_action_system::ActionChangeSize(editor_selection *Thing, rect NewArea, rect OldArea){
+    CheckCurrentAction(Thing, EditorAction_ChangeSize);
+    if(!CurrentAction){
+        CurrentAction = MakeAction(EditorAction_ChangeSize);
+        CurrentAction->Thing = *Thing;
+        CurrentAction->OldArea = OldArea;
+    }
+    CurrentAction->NewArea = NewArea;
+    ChangeThingSize(Thing, NewArea);
+}
+
+inline void
+editor_action_system::EndCurrentAction(){
+    if(CurrentAction){
+        if(CurrentAction->Type == EditorAction_MoveThing){
+            if(CurrentAction->NewP == CurrentAction->OldP){
+                Actions.Count--;
+                ActionIndex--;
+            }
+        }else if(CurrentAction->Type == EditorAction_ChangeSize){
+            if(CurrentAction->NewP == CurrentAction->OldP){
+                Actions.Count--;
+                ActionIndex--;
+            }
+        }
+        
+    }
+    
+    CurrentAction = 0;
+}
+
+inline void 
+editor_action_system::ActionChangeEntityDirection(entity *Entity, direction Direction){
+    editor_action *Action = MakeAction(EditorAction_ChangeEntityDirection);
+    Action->Thing = MakeSelection(Entity, Selection_Entity);
+    Entity->Animation.Direction = Direction;
+}
+
+inline void
+editor_action_system::ActionChangeZoneDirection(gravity_zone *Zone, v2 NewDirection, v2 OldDirection){
+    editor_action *Action = MakeAction(EditorAction_ChangeZoneDirection);
+    Action->Thing = MakeSelection(Zone, Selection_GravityZone);
+    Action->NewDirection = NewDirection;
+    Action->OldDirection = OldDirection;
+    Zone->Direction = NewDirection;
+}
 inline void 
 editor_action_system::LogActionTilemap(editor_action_type Type, entity *Entity, tilemap_tile *Tiles, u32 Width, u32 Height){
     Assert((Type == EditorAction_ResizeTilemap) ||
            (Type == EditorAction_MoveTilemap))
         editor_action *Action = MakeAction(Type);
-    Action->Entity = Entity;
+    Action->Thing = MakeSelection(Entity, Selection_Entity);
     Action->Tiles  = Tiles;
     Action->Width  = Width;
     Action->Height = Height;
@@ -259,7 +587,7 @@ editor_action_system::ActionEditTilemap(entity *Entity_){
     tilemap_entity *Entity = (tilemap_entity *)Entity_;
     
     editor_action *Action = MakeAction(EditorAction_EditTilemap);
-    Action->Entity = Entity;
+    Action->Thing = MakeSelection(Entity, Selection_Entity);
     Action->Tiles  = Entity->Tiles;
     Action->Width  = Entity->Width;
     Action->Height = Entity->Height;
@@ -276,6 +604,8 @@ inline void
 editor_action_system::ActionBeginEditTilemap(){
     JustBeganEdit = true;
 }
+
+
 
 //~ Selector
 internal inline selector_context 
@@ -373,6 +703,7 @@ Var = Array[SelectorSelectItem(UI, &Selector)]
 
 
 //~ Edit things
+#if 1
 void 
 world_editor::DoEditThingTilemap(render_group *GameGroup, asset_system *Assets, f32 dTime){
     //~ Selector
@@ -386,9 +717,17 @@ world_editor::DoEditThingTilemap(render_group *GameGroup, asset_system *Assets, 
         }
     }
     
-    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Tilemaps.Count);
+    u32 Count = 0;
+    FOR_EACH(TilemapID, &Tilemaps){
+        asset_tilemap *Tilemap = AssetsFind_(Assets, Tilemap, TilemapID);
+        if(HasTag(Tilemap->Tag, AssetTag_NoEditor)) continue;
+        Count++;
+    }
+    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Count);
     for(u32 I=0; I<Tilemaps.Count; I++){
         asset_tilemap *Tilemap = AssetsFind_(Assets, Tilemap, Tilemaps[I]);
+        if(HasTag(Tilemap->Tag, AssetTag_NoEditor)) continue;
+        
         v2 Size = SelectorClampSize(&Selector, Tilemap->CellSize);
         
         RenderTileAtIndex(GameGroup, Tilemap, Selector.P, EDITOR_SELECTOR_Z, 0);
@@ -406,7 +745,9 @@ world_editor::DoEditThingTilemap(render_group *GameGroup, asset_system *Assets, 
     
     //~ Adding
     if(UI->DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
-        tilemap_entity *Entity = EditorAllocEntity(this, Tilemaps);
+        tilemap_entity *Entity = AllocEntity(&World->Manager, Tilemaps, World);
+        Actions->LogAddThing(MakeSelection(Entity, Selection_Entity));
+        //tilemap_entity *Entity = EditorAllocEntity(this, Tilemaps);
         
         u32 WidthU32  = 10;
         u32 HeightU32 = 10;
@@ -420,9 +761,10 @@ world_editor::DoEditThingTilemap(render_group *GameGroup, asset_system *Assets, 
         
         SetupTilemapEntity(Assets, Entity, P, TilemapToAdd);
         EditThing = EditThing_None;
-        EditModeEntity(Entity);
+        SelectThing(Entity, Selection_Entity);
     }
 }
+#endif
 
 void
 world_editor::DoEditThingCoin(render_group *GameGroup){
@@ -460,13 +802,14 @@ world_editor::DoEditThingDoor(render_group *GameGroup){
             RenderRect(GameGroup, R, EDITOR_CURSOR_Z, BROWN);
         }break;
         case UIBehavior_Deactivate: {
-            door_entity *Entity = EditorAllocEntity(this, Doors);
+            door_entity *Entity = AllocEntity(&World->Manager, Doors, World);
+            Actions->LogAddThing(MakeSelection(Entity, Selection_Entity));
             rect R = SnapToGrid(DragRect, Grid);
             Entity->Type = EntityType_Door;
             Entity->Pos = MakeWorldPos(SnapToGrid(R.Min, Grid));
             Entity->Size = RectSize(R);
             Entity->RequiredLevel = Strings.MakeBuffer();
-            EditModeEntity(Entity);
+            SelectThing(Entity, Selection_Entity);
         }break;
     }
 }
@@ -480,13 +823,38 @@ world_editor::DoEditThingTeleporter(render_group *GameGroup){
     
     //~ Adding
     if(UI->DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
-        teleporter_entity *Entity = EditorAllocEntity(this, Teleporters);
+        teleporter_entity *Entity = AllocEntity(&World->Manager, Teleporters, World);
+        Actions->LogAddThing(MakeSelection(Entity, Selection_Entity));
         SetupTriggerEntity(Entity, EntityType_Teleporter, CursorP, V2(16));
         
         Entity->Level         = Strings.MakeBuffer();
         Entity->RequiredLevel = Strings.MakeBuffer();
         
-        EditModeEntity(Entity);
+        SelectThing(Entity, Selection_Entity);
+    }
+}
+
+void
+world_editor::DoEditThingGravityZone(render_group *GameGroup){
+    switch(UI->DoClickElement(WIDGET_ID, MouseButton_Left, false, -2)){
+        case UIBehavior_None: {
+            RenderRectOutline(GameGroup, SizeRect(CursorP, TILE_SIZE), EDITOR_CURSOR_Z, BLUE);
+        }break;
+        case UIBehavior_JustActivate: {
+            DragRect.Min = MouseP;
+        }case UIBehavior_Activate: {
+            DragRect.Max = MouseP;
+            
+            rect R = SnapToGrid(DragRect, Grid);
+            RenderRectOutline(GameGroup, R, EDITOR_CURSOR_Z, BLUE);
+        }break;
+        case UIBehavior_Deactivate: {
+            gravity_zone *Zone = ArrayAlloc(&World->Manager.GravityZones);
+            Zone->Direction = V2(0, 1);
+            Zone->Area = SnapToGrid(DragRect, Grid);
+            Actions->LogAddThing(MakeSelection(Zone, Selection_GravityZone));
+            SelectThing(Zone, Selection_GravityZone);
+        }break;
     }
 }
 
@@ -532,7 +900,8 @@ world_editor::DoEditThingEnemy(render_group *GameGroup, asset_system *Assets, f3
     
     //~ Adding
     if(UI->DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
-        enemy_entity *Entity = EditorAllocEntity(this, Enemies);
+        enemy_entity *Entity = AllocEntity(&World->Manager, Enemies, World);
+        Actions->LogAddThing(MakeSelection(Entity, Selection_Entity));
         Entity->Animation.Direction = Direction_Right;
         
         Entity->PathStart = P + V2(-0.5f*Size.X, 0.5f*Size.Y);
@@ -541,7 +910,7 @@ world_editor::DoEditThingEnemy(render_group *GameGroup, asset_system *Assets, f3
         Entity->PathEnd   = SnapToGrid(Entity->PathEnd, Grid);
         
         SetupEnemyEntity(Actions->Entities, Entity, EnemyTypeToAdd, SnapToGrid(P, Grid));
-        EditModeEntity(Entity);
+        SelectThing(Entity, Selection_Entity);
     }
 }
 
@@ -559,9 +928,16 @@ world_editor::DoEditThingArt(render_group *GameGroup, asset_system *Assets, f32 
         }
     }
     
-    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Arts.Count);
+    u32 Count = 0;
+    FOR_EACH(ArtID, &Arts){
+        asset_art *Art = AssetsFind_(Assets, Art, ArtID);
+        if(HasTag(Art->Tag, AssetTag_NoEditor)) continue;
+        Count++;
+    }
+    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Count);
     for(u32 I=0; I<Arts.Count; I++){
         asset_art *Asset = AssetsFind_(Assets, Art, Arts[I]);
+        if(HasTag(Asset->Tag, AssetTag_NoEditor)) continue;
         v2 Size = SelectorClampSize(&Selector, 0.5f*Asset->Size);
         
         RenderTexture(GameGroup, SizeRect(Selector.P, Size), EDITOR_SELECTOR_Z, Asset->Texture, MakeRect(V2(0), V2(1)), false);
@@ -580,7 +956,8 @@ world_editor::DoEditThingArt(render_group *GameGroup, asset_system *Assets, f32 
     
     //~ Adding
     if(UI->DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
-        art_entity *Entity = EditorAllocEntity(this, Arts);
+        art_entity *Entity = AllocEntity(&World->Manager, Arts, World);
+        Actions->LogAddThing(MakeSelection(Entity, Selection_Entity));
         
         Entity->Type = EntityType_Art;
         Entity->Pos = MakeWorldPos(P);
@@ -688,17 +1065,17 @@ void
 world_editor::MaybeEditTilemap(render_group *GameGroup, asset_system *Assets){
     TIMED_FUNCTION();
     
-    if(!Selected) return;
-    if(Selected->Type != EntityType_Tilemap) return;
-    if((EditMode == EditMode_Entity) || (EditMode == EditMode_TilemapTemporary)){
+    if(Selection.Type != Selection_Entity) return;
+    if(Selection.Entity->Type != EntityType_Tilemap) return;
+    if((EditState == EditState_General) || (EditState == EditState_TilemapTemporary)){
         b8 DoEdit = OSInput->TestModifier(KeyFlag_Any|EDIT_TILEMAP_MODIFIER);
-        if(DoEdit) EditMode = EditMode_TilemapTemporary;
-        else       EditMode = EditMode_Entity;
+        if(DoEdit) EditState = EditState_TilemapTemporary;
+        else       EditState = EditState_General;
     }
     
-    if((EditMode != EditMode_Tilemap) && (EditMode != EditMode_TilemapTemporary)) return;
+    if((EditState != EditState_Tilemap) && (EditState != EditState_TilemapTemporary)) return;
     
-    tilemap_entity *Tilemap = (tilemap_entity *)Selected;
+    tilemap_entity *Tilemap = (tilemap_entity *)Selection.Entity;
     asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Tilemap->Asset);
     
     v2 TileP = MouseP - WorldPosP(Tilemap->Pos);
@@ -758,10 +1135,10 @@ world_editor::MaybeEditTilemap(render_group *GameGroup, asset_system *Assets){
     //~ Edit mode
     if(OSInput->KeyJustDown('T', KeyFlag_Any)){
         TilemapDoSelectorOverlay = true;
-        if(TilemapEditMode == TilemapEditMode_Auto){
-            TilemapEditMode = TilemapEditMode_Manual;
-        }else if(TilemapEditMode == TilemapEditMode_Manual){
-            TilemapEditMode = TilemapEditMode_Auto;
+        if(TilemapEditState == TilemapEditState_Auto){
+            TilemapEditState = TilemapEditState_Manual;
+        }else if(TilemapEditState == TilemapEditState_Manual){
+            TilemapEditState = TilemapEditState_Auto;
         }else{ INVALID_CODE_PATH; }
     }
     
@@ -825,7 +1202,7 @@ world_editor::MaybeEditTilemap(render_group *GameGroup, asset_system *Assets){
         Tilemap->Tiles[MapIndex].OverrideVariation = 0;
     }
     
-    if(TilemapEditMode == TilemapEditMode_Auto){
+    if(TilemapEditState == TilemapEditState_Auto){
         //~ Auto tile selector
         if(TilemapDoSelectorOverlay){
             selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, AutoTileMode, AutoTile_TOTAL, KeyFlag_Any);
@@ -869,7 +1246,7 @@ world_editor::MaybeEditTilemap(render_group *GameGroup, asset_system *Assets){
             Tilemap->Tiles[MapIndex].OverrideID = 0;
         }
         
-    }else if(TilemapEditMode == TilemapEditMode_Manual){
+    }else if(TilemapEditState == TilemapEditState_Manual){
         
         //~ Manual tile selector
         if(TilemapDoSelectorOverlay){
@@ -933,11 +1310,11 @@ world_editor::DoEntityFacingDirections(render_group *Group, entity *Entity, f32 
     v2 B = V2(A.X+Entity->Size.X+Size.X, A.Y);
     
     if(DoButton(Group, SizeRect(A, Size), WIDGET_ID, dTime, RoundedRectCorner_TopLeft|RoundedRectCorner_BottomLeft)){
-        Entity->Animation.Direction = Direction_Left;
+        Actions->ActionChangeEntityDirection(Entity, Direction_Left);
     }
     
     if(DoButton(Group, SizeRect(B, Size), WIDGET_ID, dTime, RoundedRectCorner_TopRight|RoundedRectCorner_BottomRight)){
-        Entity->Animation.Direction = Direction_Right;
+        Actions->ActionChangeEntityDirection(Entity, Direction_Right);
     }
 }
 
@@ -977,10 +1354,10 @@ world_editor::DoEnemyOverlay(render_group *Group, enemy_entity *Entity, f32 dTim
 }
 
 void
-world_editor::DoSelectedThingUI(render_group *Group, asset_system *Assets){
+world_editor::DoEntitiesWindow(render_group *Group, asset_system *Assets){
     TIMED_FUNCTION();
     
-    ui_window *Window = UI->BeginWindow("Edit entity", V2(0, OSInput->WindowSize.Y));
+    ui_window *Window = UI->BeginWindow("Edit entities", V2(0, OSInput->WindowSize.Y));
     
     //~ Coins
     if(Window->BeginSection("Coins", WIDGET_ID, 10)){
@@ -1014,9 +1391,10 @@ world_editor::DoSelectedThingUI(render_group *Group, asset_system *Assets){
     
     //~ Entity list
     if(Window->BeginSection("Entities", WIDGET_ID, 10, true)){
-        array<const char *> Names = MakeArray<const char *>(&GlobalTransientMemory, World->Manager.EntityCount+1);
+        dynamic_array<const char *> Names = MakeDynamicArray<const char *>(&GlobalTransientMemory, 8);
         array<u64> IDs = MakeArray<u64>(&GlobalTransientMemory, World->Manager.EntityCount+1);
         s32 SelectedIndex = -1;
+        range_s32 EntityRange = SizeRangeS32(0, World->Manager.ActualEntityCount);
         FOR_EACH_ENTITY(&World->Manager){
             const char *EntityName = GetEntityName(It.Item);
             u32 I=0;
@@ -1027,33 +1405,60 @@ world_editor::DoSelectedThingUI(render_group *Group, asset_system *Assets){
                 }
                 I++;
             }
+            
+            if(Selection.Entity == It.Item){
+                SelectedIndex = I;
+            }
             ArrayInsert(&Names, I, EntityName);
             ArrayInsert(&IDs,   I, It.Item->ID.EntityID);
         }
         
-        if(Selected){
-            FOR_EACH_(ID, I, &IDs){
-                if(ID == Selected->ID.EntityID) SelectedIndex = I;
-            }
+        
+        range_s32 ZoneRange = AfterRangeS32(EntityRange, World->Manager.GravityZones.Count);
+        FOR_EACH_(Zone, Index, &World->Manager.GravityZones){
+            const char *Name = ArenaPushFormatCString(&GlobalTransientMemory, "Gravity Zone %03llu", Index);
+            ArrayAdd(&Names, Name);
+            if(Selection.Zone == &Zone) SelectedIndex = ZoneRange.Start+Index;
         }
         
         SelectedIndex = Window->List(Names, SelectedIndex, WIDGET_ID);
-        if(SelectedIndex >= 0){
+        if(RangeContainsInclusive(EntityRange, SelectedIndex)){
             FOR_EACH_ENTITY(&World->Manager){
                 if((s32)It.Item->ID.EntityID == IDs[SelectedIndex]){
-                    Selected = It.Item;
+                    SelectThing(It.Item, Selection_Entity);
                     break;
                 }
             }
+        }else if(RangeContainsInclusive(ZoneRange, SelectedIndex)){
+            gravity_zone *Zone = &World->Manager.GravityZones[SelectedIndex-ZoneRange.Start];
+            SelectThing(Zone, Selection_GravityZone);
+        }else{
+            Assert(SelectedIndex < 0);
         }
         
         Window->EndSection();
     }
     
-    if(!Selected){
-        Window->End();
-        return;
+    switch(Selection.Type){
+        case Selection_Entity: {
+            DoEntitySection(Window, Group, Assets);
+        }break;
+        case Selection_GravityZone: {
+            DoGravityZoneSection(Window, Group, Assets);
+        }break;
     }
+    
+    Window->End();
+}
+
+void 
+world_editor::DoEntitySection(ui_window *Window, render_group *Group, asset_system *Assets){
+    Assert(Selection.Type == Selection_Entity);
+    entity *Selected = Selection.Entity;
+    if(Selected->Flags & EntityFlag_Deleted){
+        SelectThing(0);
+    }
+    
     switch(Selected->Type){
         case EntityType_Tilemap: {
             if(Window->BeginSection("Edit tilemap", WIDGET_ID, 10, true)){
@@ -1069,27 +1474,27 @@ world_editor::DoSelectedThingUI(render_group *Group, asset_system *Assets){
                                       (s32)World->Height-(s32)Tilemap->Height);
                 }
                 
-                b8 OverrideEditTilemap = (EditMode == EditMode_Tilemap);
+                b8 OverrideEditTilemap = (EditState == EditState_Tilemap);
                 OverrideEditTilemap = Window->ToggleBox("Edit tilemap(E)", OverrideEditTilemap, WIDGET_ID);
                 if(OSInput->KeyJustDown('E')) OverrideEditTilemap = !OverrideEditTilemap;
-                if(OverrideEditTilemap != (EditMode == EditMode_Tilemap)){
-                    if(EditMode == EditMode_Tilemap) EditMode = EditMode_Entity;
+                if(OverrideEditTilemap != (EditState == EditState_Tilemap)){
+                    if(EditState == EditState_Tilemap) EditState = EditState_General;
                     else{
-                        EditMode = EditMode_Tilemap;
+                        EditState = EditState_Tilemap;
                         Actions->ActionBeginEditTilemap();
                     }
                 }
                 
                 TOGGLE_FLAG(Window, "Treat edges as tiles", 
-                            Selected->Flags, EntityFlag_TilemapTreatEdgesAsTiles);
+                            Tilemap->Flags, EntityFlag_TilemapTreatEdgesAsTiles);
                 
                 Window->EndSection();
             }
         }break;
         case EntityType_Enemy: {
-            DoEnemyOverlay(Group, (enemy_entity *)Selected, OSInput->dTime);
+            enemy_entity *Enemy = (enemy_entity *)Selected;
+            DoEnemyOverlay(Group, Enemy, OSInput->dTime);
             if(Window->BeginSection("Edit Enemy", WIDGET_ID, 10, true)){
-                enemy_entity *Enemy = (enemy_entity *)Selected;
                 Window->Text("Enemy Type: %s", ENEMY_TYPE_NAME_TABLE[Enemy->EnemyType]);
                 Window->EndSection();
             }
@@ -1102,33 +1507,53 @@ world_editor::DoSelectedThingUI(render_group *Group, asset_system *Assets){
             
             player_entity *Entity = (player_entity *)Selected;
             DoEntityFacingDirections(Group, Entity, OSInput->dTime);
-            
         }break;
         case EntityType_Teleporter: {
             if(Window->BeginSection("Edit teleporter", WIDGET_ID, 10, true)){
-                teleporter_entity *Entity = (teleporter_entity *)Selected;
+                teleporter_entity *Tele = (teleporter_entity *)Selected;
                 
                 Window->Text("Level:");
-                Window->TextInput(Entity->Level, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+                Window->TextInput(Tele->Level, DEFAULT_BUFFER_SIZE, WIDGET_ID);
                 Window->Text("Required level to unlock:");
-                Window->TextInput(Entity->RequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+                Window->TextInput(Tele->RequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
                 Window->EndSection();
             }
         }break;
         case EntityType_Door: {
             if(Window->BeginSection("Edit door", WIDGET_ID, 10, true)){
-                door_entity *Entity = (door_entity *)Selected;
+                door_entity *Door = (door_entity *)Selected;
                 
-                Window->Text("Required level to unlock:", 
-                             Entity->RequiredLevel);
-                Window->TextInput(Entity->RequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
+                Window->Text("Required level to unlock:", Door->RequiredLevel);
+                Window->TextInput(Door->RequiredLevel, DEFAULT_BUFFER_SIZE, WIDGET_ID);
                 Window->EndSection();
             }
         }break;
     }
-    
-    Window->End();
 }
+
+void 
+world_editor::DoGravityZoneSection(ui_window *Window, render_group *Group, asset_system *Assets){
+    gravity_zone *Zone = Selection.Zone;
+    
+    if(Window->BeginSection("Edit gravity zone", WIDGET_ID, 10, true)){
+        Window->DoRow(2);
+        if(Window->Button("Rotate Forward", WIDGET_ID)){
+            Actions->ActionChangeZoneDirection(Zone, V2Clockwise90(Zone->Direction), Zone->Direction);
+        }
+        if(Window->Button("Rotate Backward", WIDGET_ID)){
+            Actions->ActionChangeZoneDirection(Zone, V2CounterClockwise90(Zone->Direction), Zone->Direction);
+        }
+        
+        Window->EndSection();
+    }
+    
+    editor_rect_result Edit = EditorEditableRect(Group, Zone->Area, WIDGET_ID);
+    if(Edit.Updated){
+        Actions->ActionChangeSize(&Selection, Edit.Rect, Zone->Area);
+    }
+}
+
+
 
 //~ UI
 void
@@ -1207,27 +1632,10 @@ world_editor::DoUI(asset_system *Assets){
     }
     
     //~ Debug
-#if 0
+#if 1
     if(Window->BeginSection("Debug", WIDGET_ID, 25, true)){
-        Window->Text("ActionIndex: %u", Actions->ActionIndex);
-        Window->Text("ActionCount: %u", Actions->Actions.Count);
-        Window->Text("EntityPreviousP: (%f, %f)", Actions->EntityPreviousP.X, Actions->EntityPreviousP.Y);
-        
-        {
-            local_persist u32 SelectedIndex = 0;
-            const char *Texts[] = {
-                "Apple",
-                "Pear",
-                "Banana",
-                "Cherry",
-            };
-            
-            Window->DoRow(3);
-            SelectedIndex = Window->DropDownMenu(Texts, ArrayCount(Texts), SelectedIndex, WIDGET_ID);
-            Window->Button("+", WIDGET_ID);
-            SelectedIndex = Window->DropDownMenu(Texts, ArrayCount(Texts), SelectedIndex, WIDGET_ID);
-        }
-        
+        Window->Text("Selected Type: %u\n", Selection.Type);
+        Window->Text("Actions: %u / %u", Actions->ActionIndex, Actions->Actions.Count);
         Window->EndSection();
     }
 #endif
@@ -1239,10 +1647,10 @@ world_editor::DoUI(asset_system *Assets){
 //~ Selecting
 
 inline b8
-world_editor::IsSelectionDisabled(entity *Entity, os_key_flags KeyFlags){
-    b8 Result = !((Selected == Entity) || 
+world_editor::IsSelectionDisabled(void *Thing, os_key_flags KeyFlags){
+    b8 Result = !((Selection.Thing == Thing) || 
                   OSInput->TestModifier(KeyFlags) || 
-                  (EditMode != EditMode_Entity));
+                  (EditState != EditState_General));
     Result = Result || !(OSInput->TestModifier(KeyFlags));
     return(Result);
 }
@@ -1253,32 +1661,27 @@ SelectionKeyFlags(b8 Special){
     return(Result);
 }
 
-inline b8
-world_editor::DoDragEntity(render_group *Group, render_group *FontGroup, entity *Entity, b8 Special){
-    b8 Result = false;
+inline editor_drag_result
+world_editor::DoDraggableThing(render_group *Group, render_group *FontGroup, 
+                               void *Thing, rect R, const char *Title, b8 Special){
+    editor_drag_result Result = {};
     os_key_flags KeyFlags = SelectionKeyFlags(Special);
-    u64 ID = (u64) Entity;
+    u64 ID = (u64)Thing;
     ui_animation *Animation = HashTableGetPtr(&UI->AnimationStates, ID);
-    UI_UPDATE_T(Animation->ActiveT, (Selected==Entity), EDITOR_THEME.ActiveT, OSInput->dTime);
+    UI_UPDATE_T(Animation->ActiveT, (Selection.Thing==Thing), EDITOR_THEME.ActiveT, OSInput->dTime);
     
-    rect R = EditorEntityBounds(Entity->Pos, Entity->Size, Entity->Type);
-    
-    if(EditMode == EditMode_Entity){
-        ui_behavior Behavior = EditorDraggableElement(UI, ID, R, WorldPosP(Entity->Pos), -2, 1,
-                                                      KeyFlags, IsSelectionDisabled(Entity, KeyFlags));
+    if(EditState == EditState_General){
+        ui_behavior Behavior = EditorDraggableElement(UI, ID, R, R.Min, -2, 1,
+                                                      KeyFlags, IsSelectionDisabled(Thing, KeyFlags));
         if((Behavior == UIBehavior_JustActivate) ||
            (Behavior == UIBehavior_Activate)){
-            if(Behavior == UIBehavior_JustActivate){
-                Actions->EntityPreviousP = WorldPosP(Entity->Pos);
-            }
-            Result = true;
+            Result.Selected = true;
             
             v2 Offset = UI->Renderer->ScreenToWorld(UI->ActiveElement.Offset, 0);
-            Entity->Pos = MakeWorldPos(SnapToGrid(MouseP + Offset, Grid));
+            Result.NewP = SnapToGrid(MouseP + Offset, Grid);
             
-            EditModeEntity(Entity);
         }else if(Behavior == UIBehavior_Deactivate){
-            Actions->LogActionMoveEntity(Entity);
+            Actions->EndCurrentAction();
         }
         
         color Color = UIGetColor(&EDITOR_THEME, Animation->HoverT, Animation->ActiveT);
@@ -1288,12 +1691,11 @@ world_editor::DoDragEntity(render_group *Group, render_group *FontGroup, entity 
         
         if(!(EditorFlags & WorldEditorFlag_HideEntityNames)){
             v2 P = Group->Renderer->WorldToScreen(V2(0.5f*(R.Min.X+R.Max.X), R.Max.Y+2), 1);
-            RenderCenteredString(FontGroup, UI->NormalFont, Color, P, EDITOR_OVERLAY_Z, GetEntityName(Entity));
+            RenderCenteredString(FontGroup, UI->NormalFont, Color, P, EDITOR_OVERLAY_Z, Title);
         }
         
-        if(Selected == Entity) Result = false;
         
-    }else if((EditMode == EditMode_Tilemap) || (EditMode == EditMode_TilemapTemporary)){
+    }else if((EditState == EditState_Tilemap) || (EditState == EditState_TilemapTemporary)){
         color Color = UIGetColor(&EDITOR_THEME, Animation->HoverT, Animation->ActiveT);
         if(!(EditorFlags & WorldEditorFlag_HideOverlays)){
             RenderRectOutline(Group, R, EDITOR_OVERLAY_Z, Color);
@@ -1301,27 +1703,27 @@ world_editor::DoDragEntity(render_group *Group, render_group *FontGroup, entity 
         
         if(!(EditorFlags & WorldEditorFlag_HideEntityNames)){
             v2 P = Group->Renderer->WorldToScreen(V2(0.5f*(R.Min.X+R.Max.X), R.Max.Y+2), 1);
-            RenderCenteredString(FontGroup, UI->NormalFont, Color, P, EDITOR_OVERLAY_Z, GetEntityName(Entity));
+            RenderCenteredString(FontGroup, UI->NormalFont, Color, P, EDITOR_OVERLAY_Z, Title);
         }
     }
     
-    return(Result);
+    return Result;
 }
 
+
 inline b8
-world_editor::DoDeleteEntity(entity *Entity, b8 Special){
+world_editor::DoDeleteThing(void *Thing, rect R, b8 Special){
     b8 Result = false;
     os_key_flags KeyFlags = SelectionKeyFlags(Special);
-    u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)Entity);
-    rect R = EditorEntityBounds(Entity->Pos, Entity->Size);
+    u64 ID = WIDGET_ID_CHILD(WIDGET_ID, (u64)Thing);
     
-    if(EditMode != EditMode_Entity) return(Result);
+    if(EditState != EditState_General) return(Result);
     
     if(EditorButtonElement(UI, ID, R, MouseButton_Right, -1, 1, 
-                           KeyFlags, IsSelectionDisabled(Entity, KeyFlags)) == UIBehavior_Activate){
+                           KeyFlags, IsSelectionDisabled(Thing, KeyFlags)) == UIBehavior_Activate){
         Result = true;
     }
-    if((Selected == Entity) && OSInput->KeyJustDown(KeyCode_Delete)){ Result = true; }
+    if((Selection.Thing == Thing) && OSInput->KeyJustDown(KeyCode_Delete)){ Result = true; }
     
     return(Result);
 }
@@ -1334,12 +1736,12 @@ world_editor::ProcessHotKeys(game_renderer *Renderer, asset_system *Assets){
     if(OSInput->KeyJustDown('E', KeyFlag_Control)) ToggleWorldEditor(this); 
     // Ctrl+'S' (Save) is handled elsewhere
     
-    if(OSInput->KeyJustDown('A')) ToggleFlag(&EditorFlags, WorldEditorFlag_HideArt); 
+    if(OSInput->KeyJustDown('X')) ToggleFlag(&EditorFlags, WorldEditorFlag_HideArt); 
     if(OSInput->KeyJustDown('O')) ToggleFlag(&EditorFlags, WorldEditorFlag_HideOverlays); 
     
     if(OSInput->KeyJustDown('F', KeyFlag_Control)){
         entity *Entity = World->Manager.Player;
-        if(Selected) Entity = Selected;
+        if(Selection.Type == Selection_Entity) Entity = Selection.Entity;
         
         v2 Center = RectCenter(EditorEntityBounds(Entity->Pos, Entity->Size));
         Renderer->SetCameraTarget(Center);
@@ -1349,9 +1751,11 @@ world_editor::ProcessHotKeys(game_renderer *Renderer, asset_system *Assets){
     if(OSInput->KeyJustDown('Y', KeyFlag_Control)) Actions->Redo(Assets);
     //if(OSInput->KeyJustDown('B')) ClearActionHistory();
     
-    if(OSInput->KeyJustDown(KeyCode_Delete)) if(Selected) Actions->ActionDeleteEntity(Selected);
+    if(OSInput->KeyJustDown(KeyCode_Delete)){
+        Actions->ActionDeleteThing(Selection);
+    }
     
-    if(EditMode != EditMode_Entity) return;
+    if(EditState != EditState_General) return;
     if(OSInput->KeyJustDown('1')) EditThing = EditThing_None;          
     if(OSInput->KeyJustDown('2')) EditThing = EditThing_Tilemap;
     if(OSInput->KeyJustDown('3')) EditThing = EditThing_CoinP;
@@ -1359,7 +1763,13 @@ world_editor::ProcessHotKeys(game_renderer *Renderer, asset_system *Assets){
     if(OSInput->KeyJustDown('5')) EditThing = EditThing_Art;
     if(OSInput->KeyJustDown('6')) EditThing = EditThing_Teleporter;
     if(OSInput->KeyJustDown('7')) EditThing = EditThing_Door;
+    if(OSInput->KeyJustDown('8')) EditThing = EditThing_GravityZone;
     
+    f32 Amount = 2;
+    if(OSInput->KeyDown('W')) UI->Renderer->MoveCamera(V2(      0,  Amount));
+    if(OSInput->KeyDown('A')) UI->Renderer->MoveCamera(V2(-Amount,       0));
+    if(OSInput->KeyDown('S')) UI->Renderer->MoveCamera(V2(      0, -Amount));
+    if(OSInput->KeyDown('D')) UI->Renderer->MoveCamera(V2(Amount,        0));
 }
 
 //~
@@ -1370,12 +1780,30 @@ world_editor::UpdateEditorEntities(render_group *Group, render_group *FontGroup,
     FOR_EACH_ENTITY(Manager){
         entity *Entity = It.Item;
         b8 Special = (Entity->Type == EntityType_Tilemap);
-        if(DoDragEntity(Group, FontGroup, Entity, Special)){
+        editor_drag_result Drag = DoDraggableThing(Group, FontGroup, Entity, 
+                                                   EditorEntityBounds(Entity->Pos, Entity->Size, Entity->Type), 
+                                                   GetEntityName(Entity), Special);
+        if(Drag.Selected){
+            SelectThing(Entity, Selection_Entity);
+            Actions->ActionMoveThing(&Selection, Drag.NewP, WorldPosP(Entity->Pos));
         }
         
-        if(DoDeleteEntity(Entity, Special)){
-            Actions->ActionDeleteEntity(Entity);
+        if(DoDeleteThing(Entity, EditorEntityBounds(Entity->Pos, Entity->Size), Special)){
+            Actions->ActionDeleteThing(MakeSelection(Entity, Selection_Entity));
         }
+    }
+    
+    FOR_EACH(Zone, &Manager->GravityZones){
+        editor_drag_result Drag = DoDraggableThing(Group, FontGroup, &Zone, Zone.Area, "ZONE");
+        if(Drag.Selected){
+            SelectThing(&Zone, Selection_GravityZone);
+            Actions->ActionMoveThing(&Selection, Drag.NewP, Zone.Area.Min);
+        }
+        
+        if(DoDeleteThing(&Zone, Zone.Area)){
+            Actions->ActionDeleteThing(MakeSelection(&Zone, Selection_GravityZone));
+        }
+        
     }
     
     FOR_ENTITY_TYPE(&Manager->Tilemaps){
@@ -1403,13 +1831,17 @@ world_editor::ChangeWorld(world_data *World_){
     if(World == World_) return;
     World = World_;
     const char *Name = Strings.GetString(World->Name);
-    Selected = 0;
+    Selection = {};
     CopyCString(NameBuffer, Name, DEFAULT_BUFFER_SIZE);
 }
 
 void
 world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input, asset_system *Assets){
     TIMED_FUNCTION();
+    
+    DO_DEBUG_INFO();
+    
+    
     OSInput = Input;
     UI = UI_;
     if(!World){
@@ -1417,7 +1849,7 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
         EnemyTypeToAdd = EnemyType_Snail;
         Grid.Offset = V2(0);
         Grid.CellSize = TILE_SIZE;
-        EditModeEntity(0);
+        SelectThing(0);
     }
     
     //~ Prep
@@ -1430,8 +1862,7 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
 #if 0    
     {
         render_group *Group = Renderer->GetRenderGroup(RenderGroupID_Noisy);
-        RenderRect(Group, MakeRect(V2(0), Renderer->ScreenToWorld(Input->WindowSize)), ZLayer(ZLayer_TOTAL), 
-                   );
+        RenderRect(Group, MakeRect(V2(0), Renderer->ScreenToWorld(Input->WindowSize)), ZLayer(ZLayer_TOTAL));
     }
 #endif
     
@@ -1440,10 +1871,9 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
     CursorP = SnapToGrid(MouseP-0.5*TILE_SIZE, Grid);
     
     Actions = &World->Actions;
-    if(Selected && (Selected->Flags & EntityFlag_Deleted)) Selected = 0;
-    if(!Selected){
-        if(EditMode == EditMode_TilemapTemporary) EditMode = EditMode_Entity;
-        else if(EditMode == EditMode_Tilemap)     EditMode = EditMode_Entity;
+    if(!Selection.Type){
+        if(EditState == EditState_TilemapTemporary) EditState = EditState_General;
+        else if(EditState == EditState_Tilemap)     EditState = EditState_General;
     }
     
     render_group *FontGroup     = Renderer->GetRenderGroup(RenderGroupID_Font);
@@ -1463,11 +1893,12 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
     //~ 
     ProcessHotKeys(Renderer, Assets);
     DoUI(Assets); 
-    DoSelectedThingUI(ScaledGroup, Assets);
+    
+    DoEntitiesWindow(ScaledGroup, Assets);
     MaybeEditTilemap(GameGroup, Assets);
     
     //~ Editing
-    if(EditMode == EditMode_Entity){
+    if(EditState == EditState_General){
         if(UI->DoScrollElement(WIDGET_ID, -1, KeyFlag_None)){
             s32 Range = 100;
             s32 Scroll = UI->ActiveElement.Scroll;
@@ -1499,6 +1930,9 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
             }break;
             case EditThing_Door: {
                 DoEditThingDoor(GameGroup);
+            }break;
+            case EditThing_GravityZone: {
+                DoEditThingGravityZone(GameGroup);
             }break;
             default: { INVALID_CODE_PATH }break;
         }
@@ -1535,7 +1969,7 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
             Action->Entity = CopyEntity(&ActionMemory, Entity);
         }
         
-        EditModeEntity(0);
+        EditStateGeneral(0);
         CleanupEntity(Entity);
         ArrayOrderedRemove(&World->Entities, I);
         I--; // Repeat the last iteration because an item was removed

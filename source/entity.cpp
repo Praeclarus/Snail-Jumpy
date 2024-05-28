@@ -286,8 +286,8 @@ ZoneSpawnArrow(gravity_zone *Zone, u32 Index, gravity_zone_arrow_art_type ArtTyp
 }
 
 internal inline gravity_zone *
-MakeGravityZone(dynamic_array<gravity_zone> *GravityZones, rect Rect, 
-                v2 GravityDirection){
+AllocGravityZone(dynamic_array<gravity_zone> *GravityZones, rect Rect, 
+                 v2 GravityDirection){
     gravity_zone *Zone = ArrayAlloc(GravityZones);
     Zone->Area = Rect;
     Zone->Direction = GravityDirection;
@@ -302,9 +302,9 @@ MakeGravityZone(dynamic_array<gravity_zone> *GravityZones, rect Rect,
 }
 
 internal inline gravity_zone *
-MakeGravityZone(dynamic_array<gravity_zone> *GravityZones, v2 P, v2 Size, 
-                v2 GravityDirection){
-    return MakeGravityZone(GravityZones, SizeRect(P, Size), GravityDirection);
+AllocGravityZone(dynamic_array<gravity_zone> *GravityZones, v2 P, v2 Size, 
+                 v2 GravityDirection){
+    return AllocGravityZone(GravityZones, SizeRect(P, Size), GravityDirection);
 }
 
 
@@ -463,7 +463,7 @@ MovePlatformer(physics_update_context *Context, entity *Entity, f32 Movement, f3
         Entity->dP += Tangent * (dS-V2Dot(Tangent, Entity->dP));
         v2 Delta = (Entity->dP*dTime +
                     ddP*dTime*dTime);
-        Entity->dP += ddP*dTime;;
+        Entity->dP += ddP*dTime;
         
         physics_update *Update = MakeGravityUpdate(Context, Entity, Delta);
 #if 0        
@@ -505,7 +505,6 @@ MovePlatformer(physics_update_context *Context, entity *Entity, f32 Movement, f3
 // TODO(Tyler): Perhaps move dTime into the update context
 internal inline void
 MoveDragonfly(physics_update_context *Context, entity *Entity, f32 Movement, f32 dTime, f32 TargetY){
-    
     v2 FloorNormal = V2(0, 1);
     v2 ddP = {};
     v2 FloorTangent = V2Normalize(V2TripleProduct(FloorNormal, V2(1, 0)));
@@ -636,6 +635,7 @@ MakePhysicsFloor(entity *Entity, v2 Offset, v2 Normal, v2 Tangent, range_f32 Ran
     Floor.Normal = Normal;
     Floor.Tangent = Tangent;
     Floor.Range = Range;
+    Floor.PrevIndex = Floor.NextIndex = -1;
     return Floor;
 }
 
@@ -691,22 +691,6 @@ entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physi
                                        tilemap_tile *Tiles, tile_type *TileTypes, tilemap_entity *Entity){
     asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Entity->Asset);
     local_constant f32 SQRT_2 = SquareRoot(2.0f);
-    
-#if 0    
-    // NOTE(Tyler): We need to move by column, that is why X is the outer loop.
-    for(s32 X=0; X<(s32)Entity->Width; X++){
-        for(s32 Y=0; Y<(s32)Entity->Height; Y++){
-            if(DoneTiles[Y*Entity->Width + X]) continue;
-            
-            if(GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, X, Y) == 0) continue;
-            
-            // Has a space above it 
-            if(GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, X, Y+1)) continue;
-            
-            TilemapCalculateFloorBlob(Asset, Entity, Floors, DoneTiles, TileTypes, Up, X, Y);
-        }
-    }
-#endif
     
     // TODO(Tyler): This new algorithm can easily be integrated with CalculateTilemapIndices.
     dynamic_array<physics_floor> WorkingFloors = MakeDynamicArray<physics_floor>(&GlobalTransientMemory, 16);
@@ -785,37 +769,39 @@ entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physi
         
         f32 NextDotProduct = F32_NEGATIVE_INFINITY;
         f32 PrevDotProduct = F32_NEGATIVE_INFINITY;
-        u32 NextIndex = 0;
-        u32 PrevIndex = 0;
+        s32 NextIndex = -1;
+        s32 PrevIndex = -1;
         for(u32 J=I+1; J<Floors->Count; J++){
             physics_floor *FloorB = ArrayGetPtr(Floors, J);
             
             v2 StartB = FloorCalcP(FloorB, FloorB->Range.Min);
             v2 EndB   = FloorCalcP(FloorB, FloorB->Range.Max);
             
-            
-            if(StartA == EndB){
+            local_constant f32 Epsilon = 0.01f;
+            if((FloorB->NextIndex < 0) && (V2LengthSquared(StartA-EndB) < Epsilon)){
                 if(V2Dot(FloorB->Normal, FloorA.Tangent) > PrevDotProduct){
                     PrevDotProduct = V2Dot(FloorB->Normal, FloorA.Tangent);
-                    PrevIndex = J+1;
+                    PrevIndex = J;
                 }
-            }else if(EndA == StartB){
+            }else if((FloorB->PrevIndex < 0) && (V2LengthSquared(EndA-StartB) < Epsilon)){
                 if(V2Dot(FloorA.Normal, FloorB->Tangent) > NextDotProduct){
                     NextDotProduct = V2Dot(FloorA.Normal, FloorB->Tangent);
-                    NextIndex = J+1;
+                    NextIndex = J;
                 }
             }
         }
         
-        if(PrevIndex > 0){
-            ArrayGetPtr(Floors, PrevIndex-1)->NextIndex = I+1;
+        if(PrevIndex >= 0){
+            ArrayGetPtr(Floors, PrevIndex)->NextIndex = I;
             FloorA.PrevIndex  = PrevIndex;
-        }else if(NextIndex > 0){
-            ArrayGetPtr(Floors, NextIndex-1)->PrevIndex = I+1;
+        }
+        if(NextIndex >= 0){
+            ArrayGetPtr(Floors, NextIndex)->PrevIndex = I;
             FloorA.NextIndex  = NextIndex;
         }else Assert(FloorA.NextIndex || FloorA.PrevIndex);
     }
     
+#if 1
     FOR_EACH_(FloorA, I, Floors){
         if(FloorA.ID > 0) continue;
         
@@ -827,13 +813,14 @@ entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physi
             Shift = Floor->Range.Max;
             
             if(Floor->NextIndex > 0){
-                Floor = ArrayGetPtr(Floors, Floor->NextIndex-1);
+                Floor = ArrayGetPtr(Floors, Floor->NextIndex);
             }else{
                 break;
             }
             
         }while(Floor != &FloorA);
     }
+#endif
 #endif
     
 }
@@ -891,8 +878,13 @@ auto *NewEntity = AllocEntity(ToManager, Array, 0); \
         if(!(It.Item->TypeFlags & EntityTypeFlag_Dynamic)) continue;
         entity *Entity = It.Item;
         if(HasTag(Entity->Tag, AssetTag_Dragonfly)) continue;
+        if(HasTag(Entity->Tag, AssetTag_Boxing)) continue;
         
         Entity->Pos = ToManager->DoFloorRaycast(Entity->Pos, Entity->Size, Entity->UpNormal);
+    }
+    
+    FOR_EACH(Zone, &GravityZones){
+        ArrayAdd(&ToManager->GravityZones, Zone);
     }
     
     //~
@@ -1140,8 +1132,81 @@ entity_manager::EntityTestGravityZones(entity *Entity){
 }
 
 void
-entity_manager::UpdateBoxing(enemy_entity *Entity){
+entity_manager::UpdateBoxing(physics_update_context *Context, enemy_entity *Entity, f32 dTime){
+    //v2 TargetP = V2(32, 50);
+    v2 TargetP = RectCenter(WorldPosBounds(Player->Pos, Player->Size, Player->UpNormal));
+    v2 P       = RectCenter(WorldPosBounds(Entity->Pos, Entity->Size, Entity->UpNormal));
+    DEBUG_POINT(TargetP, PINK);
+    DEBUG_LINE(TargetP, P, BLUE);
     
+    {
+        f32 ClosestDistance = F32_POSITIVE_INFINITY;
+        physics_floor *ClosestFloor = 0;
+        FOR_EACH(Floor, &PhysicsFloors){
+            v2 FloorP = FloorBaseP(&Floor);
+            f32 PNormal = V2Dot(Floor.Normal, P-FloorP);
+            if(PNormal < 0) continue;
+            DEBUG_LINE_FROM(FloorP, PNormal*Floor.Normal, PINK);
+            
+            f32 TargetPPNormal = V2Dot(Floor.Normal, TargetP-P);
+            if(TargetPPNormal > 0) continue;
+            
+            f32 TargetPPTangent = V2Dot(Floor.Tangent, TargetP-P);
+            
+            f32 PTangent = AbsoluteValue(PNormal/TargetPPNormal) * TargetPPTangent;
+            f32 S = V2Dot(Floor.Tangent, (P-FloorP))+PTangent;
+            
+            //f32 TangentSize = AbsoluteValue(V2Dot(Floor.Tangent, Entity->Size));
+            f32 TangentSize = 0;
+            
+            if((-TangentSize < S) && (S < RangeSize(Floor.Range)+TangentSize)){
+                if(PNormal < ClosestDistance){
+                    ClosestDistance = PNormal;
+                    ClosestFloor = &Floor;
+                }
+            }
+        }
+        
+        if(ClosestFloor){
+            physics_floor *Floor = ClosestFloor;
+            v2 FloorP = FloorBaseP(Floor);
+            v2 FloorEnd = FloorP+Floor->Tangent*RangeSize(Floor->Range);
+            DEBUG_POINT(FloorP, ORANGE);
+            DEBUG_LINE(FloorP, FloorEnd, ORANGE);
+            
+            if((V2LengthSquared(FloorP-P) < V2LengthSquared(FloorEnd-P)) &&
+               V2Dot(Floor->Normal, TargetP-P) >= 0){
+                Floor = FloorPrevFloor(Floor);
+                Assert(Floor);
+                
+                //TargetP = FloorBaseP(Floor)+0.5f*RangeSize(Floor->Range)*Floor->Tangent;
+                TargetP = FloorP;
+                TargetP += Floor->Normal*AbsoluteValue(V2Dot(Floor->Normal,   Entity->Size));
+                
+            }else{
+                Floor = FloorNextFloor(Floor);
+                
+                Assert(Floor);
+                TargetP = FloorEnd;
+                TargetP += Floor->Normal*AbsoluteValue(V2Dot(Floor->Normal,   Entity->Size));
+            }
+            //DEBUG_POINT(FloorP, RED);
+            
+            DEBUG_POINT(TargetP, BLUE);
+        }
+    }
+    
+    DEBUG_LINE(TargetP, P, PINK);
+    
+    v2 Movement = Entity->Speed*V2Normalize(TargetP-P);
+    f32 FrictionFactor = 5.0f;
+    Entity->dP = V2Lerp(Entity->dP, Movement, FrictionFactor*dTime);
+    v2 ddP = {};
+    v2 Delta = (Entity->dP*dTime +
+                ddP*dTime*dTime);
+    Entity->dP += ddP*dTime;
+    
+    physics_update *Update = MakeGravityUpdate(Context, Entity, Delta);
 }
 
 void 
@@ -1174,31 +1239,29 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_i
             Movement -= MovementSpeed;
         }
         
-        // TODO(Tyler): Load 'JumpTime' and 'JumpPower' from a variables file
-        if(Entity->Pos.Floor){
-            if((Entity->JumpTime >= 0.0f) && DoJump) DoStartJump = true;
-            Entity->JumpTime = 0.05f;
-        }
-        local_constant f32 JumpStartPower = 60.0f;
-        local_constant f32 JumpBoostPower = 40.0f;
-        if(Entity->JumpTime > 0.0f){
-            if(DoStartJump){
+        if((Entity->CoyoteTime > 0.0f) && DoJump){
+            if(Entity->JumpTime == PlayerData->JumpDuration){
                 Entity->JumpNormal = Entity->UpNormal;
-                Entity->dP += JumpStartPower*Entity->JumpNormal;
+                Entity->dP += PlayerData->InitialJumpPower*Entity->JumpNormal;
                 Entity->Pos = WorldPosConvert(Entity->Pos);
-            }else if(DoJump){
-                Entity->dP += JumpBoostPower*Entity->JumpNormal;
-            }else{
-                Entity->JumpTime = 0.0f;
+            }else if(Entity->JumpTime > 0){
+                Entity->dP += PlayerData->ContinuousJumpPower*Entity->JumpNormal;
             }
             Entity->JumpTime -= dTime;
         }
         
+        if(Entity->Pos.Floor){
+            Entity->JumpTime   = PlayerData->JumpDuration;
+            Entity->CoyoteTime = PlayerData->CoyoteTime;
+        }else{
+            Entity->CoyoteTime -= dTime;
+        }
+        
         if(!Entity->Pos.Floor){
             f32 Epsilon = 0.01f;
-            if(Epsilon < Entity->dP.Y){
+            if(Entity->JumpTime > 0.0f){
                 ChangeEntityState(Entity, State_Jumping);
-            }else if((Entity->dP.Y < -Epsilon)){
+            }else{
                 ChangeEntityState(Entity, State_Falling);
             }
         }else{
@@ -1263,7 +1326,7 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_i
         }
         
         if(Entity->EnemyType == EnemyType_BoxingDragonfly){
-            UpdateBoxing(Entity);
+            UpdateBoxing(&UpdateContext, Entity, dTime);
         }else{
             v2 Tangent = V2Clockwise90(Entity->UpNormal);
             
@@ -1435,7 +1498,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         RenderTrail(Group, Assets, &Trail, dTime);
     }
     
-    //~ Gravity Zones
+    //~ Gravity Zones @render_zones
     render_group *NoLightingGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
     
     FOR_EACH(Zone, &GravityZones){
@@ -1450,14 +1513,14 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
             
             asset_art *Art = Arrows[Arrow->ArtType];
             
-            RenderArt(NoLightingGroup, Art, Arrow->P, ZLayer(1, ZLayer_GameForeground, 0), UpToTransform(Zone.Direction));
-            
             //RenderRectOutline(Group, SizeRect(Arrow->P, Art->Size), ENTITY_DEFAULT_Z, BLUE);
             f32 Speed = GetRandomFloat(I, 20);
             Arrow->P += Arrow->Delta;
-            if(!RectOverlaps(RectGrow(Zone.Area, -Art->Size), SizeRect(Arrow->P, Art->Size))){
+            if(!RectOverlaps(Zone.Area, SizeRect(Arrow->P, Art->Size))){
                 ZoneSpawnArrow(&Zone, I, Arrow->ArtType);
+            }else{
             }
+            RenderArt(NoLightingGroup, Art, Arrow->P, ZLayer(1, ZLayer_GameForeground, 0), UpToTransform(Zone.Direction));
         }
     }
     
@@ -1522,20 +1585,31 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
 #if defined(DEBUG_PHYSICS_FLOORS)
     {
         render_group *DebugGroup = Group->Renderer->GetRenderGroup(RenderGroupID_Scaled);
+        render_group *DebugFontGroup = Group->Renderer->GetRenderGroup(RenderGroupID_Font);
         FOR_EACH_(Floor, I, &PhysicsFloors){
             RenderLineFrom(DebugGroup, WorldPosP(Floor.Entity->Pos)+Floor.Offset, RangeSize(Floor.Range)*Floor.Tangent, 
                            ZLayer(1, ZLayer_DebugUI, -10), 0.5f, RED);
+            {
+                v2 P = Group->Renderer->WorldToScreen(WorldPosP(Floor.Entity->Pos)+Floor.Offset, 1);
+                P.X -= 10;
+                P.Y += 10;
+                RenderFormatString(DebugFontGroup, DebugConfig.Font, WHITE, P, ZLayer(0, ZLayer_DebugUI, 0), "%d", I);
+            }
 #if defined(DEBUG_PHYSICS_FLOOR_CONNECTIONS)
-            DEBUG_MESSAGE(DebugMessage_PerFrame, "Floor %d (%.2f, %.2f): %.2f %.2f", I,
+            DEBUG_MESSAGE(DebugMessage_PerFrame, "Floor %d (%.2f, %.2f) (%.2f, %.2f): %.2f %.2f %d %d", 
+                          I,
+                          Floor.Offset.X, Floor.Offset.Y,
                           Floor.Normal.X, Floor.Normal.Y,
-                          Floor.Range.Min, Floor.Range.Max);
+                          Floor.Range.Min, Floor.Range.Max,
+                          Floor.PrevIndex, Floor.NextIndex);
 #endif
             
 #if 0
             f32 O = 2;
             physics_floor *Next = &Floor;
-            while(Next->NextIndex != I+1){
-                Next = &PhysicsFloors[Next->NextIndex-1];
+            while((Next->NextIndex != (s32)I) &&
+                  (Next->NextIndex >= 0)){
+                Next = &PhysicsFloors[Next->NextIndex];
                 RenderLineFrom(DebugGroup, O*Next->Normal+WorldPosP(Next->Entity->Pos)+Next->Offset, RangeSize(Next->Range)*Next->Tangent, 
                                ZLayer(1, ZLayer_DebugUI, -10), 0.5f, GREEN);
                 O += 2;

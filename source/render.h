@@ -44,6 +44,8 @@ struct framebuffer {
     u32 ID;
     u32 RenderbufferID;
     render_texture Texture;
+    v2s Size;
+    b8 IsBad;
 };
 
 struct basic_vertex {
@@ -244,7 +246,7 @@ struct game_renderer {
     u32          *AddIndices(render_item *Item, u32 IndexCount);
     
     v2   CalculateParallax(s8 Layer);
-    void DoParallax(render_item *Item, s8 Layer);
+    void DoParallax(render_item *Item, s8 Layer, b8 Scale=false);
     
     void BeginClipRect(rect ClipRect);
     void EndClipRect();

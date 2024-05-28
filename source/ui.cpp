@@ -442,4 +442,3 @@ EditorButtonElement(ui_manager *Manager, u64 ID, rect R, os_mouse_button Button,
     
     return(Result);
 }
-

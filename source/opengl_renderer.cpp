@@ -403,6 +403,7 @@ internal void
 InitializeFramebuffer(framebuffer *Framebuffer, v2 Size){
     GLsizei Width = (GLsizei)Size.X;
     GLsizei Height = (GLsizei)Size.Y;
+    Framebuffer->Size = V2S(Width, Height);
     
     glGenFramebuffers(1, &Framebuffer->ID);
     glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer->ID);
@@ -427,7 +428,7 @@ InitializeFramebuffer(framebuffer *Framebuffer, v2 Size){
                               Framebuffer->RenderbufferID);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
         LogMessage("ERROR: framebuffer not complete!");
-        INVALID_CODE_PATH;
+        Framebuffer->IsBad = true;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);  
 }
@@ -436,6 +437,7 @@ internal void
 ResizeFramebuffer(framebuffer *Framebuffer, v2 NewSize){
     GLsizei Width = (GLsizei)NewSize.X;
     GLsizei Height = (GLsizei)NewSize.Y;
+    Framebuffer->Size = V2S(Width, Height);
     
     glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer->ID);
     
@@ -452,14 +454,23 @@ ResizeFramebuffer(framebuffer *Framebuffer, v2 NewSize){
     
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
         LogMessage("ERROR: framebuffer not complete!");
-        INVALID_CODE_PATH;
+        Framebuffer->IsBad = true;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);  
 }
 
 internal void
+FramebufferCheck(framebuffer *Framebuffer){
+    if(Framebuffer->IsBad){
+        Framebuffer->IsBad = false;
+        ResizeFramebuffer(Framebuffer, V2(Framebuffer->Size));
+    }
+}
+
+internal void
 UseFramebuffer(framebuffer *Framebuffer){
     if(Framebuffer){
+        FramebufferCheck(Framebuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer->ID);
     }else{
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -468,6 +479,8 @@ UseFramebuffer(framebuffer *Framebuffer){
 
 void
 opengl_backend::RenderFramebuffer(screen_shader *Shader, framebuffer *Framebuffer, v2 OutputSize, f32 Scale){
+    if(Framebuffer->IsBad) return;
+    
     glScissor(0, 0, (u32)OutputSize.X, (u32)OutputSize.Y);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);

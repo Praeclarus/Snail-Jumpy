@@ -410,7 +410,7 @@ ui_window::ToggleBox(const char *Text, b8 Value, u64 ID){
     rect ActiveRect = RectGrow(BoxRect, -(1.0f-Theme->ActiveBoxPercentSize)*Height);
     rect MiddleRect = SizeRect(P+0.5*V2(Height), V2(0));
     
-    f32 ActiveT = EaseInSquared(State->ActiveT);
+    f32 ActiveT = EaseInSquared(1.0f-State->ActiveT);
     ActiveRect = RectLerp(ActiveRect, MiddleRect, ActiveT);
     DrawRect(ActiveRect, UI_WINDOW_WIDGET_Z-1, Theme->Roundness, Theme->ActiveColor);
     

@@ -19,9 +19,15 @@ struct physics_floor {
     v2 Delta;
     
     s32 ID;
-    // These are 1 greater than they actually are.
-    u32 PrevIndex;
-    u32 NextIndex;
+    
+    s32 PrevIndex;
+    s32 NextIndex;
+};
+
+struct physics_floor_group {
+    array<physics_floor> Floors;
+    range_f32 Range;
+    v2 P;
 };
 
 enum physics_collision_type {

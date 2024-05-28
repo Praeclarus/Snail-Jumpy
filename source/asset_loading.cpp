@@ -1111,6 +1111,14 @@ asset_loader::ProcessPlayer(){
             PlayerData->Speed = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
         }else if(DoAttribute(String, "boundary")){
             PlayerData->Rect = ExpectTypeRect();
+        }else if(DoAttribute(String, "initial_jump_power")){
+            PlayerData->InitialJumpPower = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        }else if(DoAttribute(String, "continuous_jump_power")){
+            PlayerData->ContinuousJumpPower = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        }else if(DoAttribute(String, "coyote_time")){
+            PlayerData->CoyoteTime = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        }else if(DoAttribute(String, "jump_duration")){
+            PlayerData->JumpDuration = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
         }else{ HANDLE_INVALID_ATTRIBUTE(String); }
     }
     
@@ -1396,6 +1404,7 @@ asset_loader::ProcessTilemap(){
     CurrentAsset = Name;
     asset_tilemap *Tilemap = AssetsGet_(&InProgress, Tilemap, Name);
     *Tilemap = {};
+    Tilemap->Tag = MaybeExpectTag();
     
     tile_array Tiles;
     InitializeArray(&Tiles, 32, &GlobalTransientMemory);
