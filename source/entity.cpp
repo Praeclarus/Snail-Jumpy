@@ -6,7 +6,6 @@ entity_manager::Reset(){
     ArenaClear(&Memory);
     
     Player = ArenaPushType(&Memory, player_entity);
-    InitializeBucketArray(&Tilemaps,    &Memory);
     InitializeBucketArray(&Coins,       &Memory);
     InitializeBucketArray(&Enemies,     &Memory);
     InitializeBucketArray(&Teleporters, &Memory);
@@ -328,15 +327,6 @@ SetupDoorEntity(door_entity *Entity, v2 P){
 }
 
 internal inline void
-SetupTilemapEntity(asset_system *Assets, tilemap_entity *Entity, v2 P, asset_id Asset_){
-    SetupBaseEntity(Entity, P, EntityType_Tilemap);
-    Entity->Asset = Asset_;
-    asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Entity->Asset);
-    Entity->TileSize = Asset->TileSize;
-    Entity->Size = V2(Entity->TileSize.X*(f32)Entity->Width, Entity->TileSize.Y*(f32)Entity->Height);
-}
-
-internal inline void
 SetupPlayerEntity(entity_manager *Entities, player_entity *Entity, v2 P){
     SetupBaseEntity(Entity, P, EntityType_Player);
     player_data *Data = Entities->PlayerData;
@@ -392,10 +382,6 @@ entity_manager::FullRemoveEntity(entity *Entity_){
     if(!(Entity_->Flags & EntityFlag_Deleted)) DeleteEntity(Entity_);
     ActualEntityCount--;
     switch(Entity_->Type){
-        case EntityType_Tilemap: {
-            tilemap_entity *Entity = (tilemap_entity *)Entity_;
-            OSDefaultFree(Entity->Tiles);
-        }break;
         case EntityType_Teleporter: {
             teleporter_entity *Entity = (teleporter_entity *)Entity_;
             Strings.RemoveBuffer(Entity->Level);
@@ -444,7 +430,7 @@ TeleporterResponse(asset_system *Assets, entity_manager *Entities, entity *Data,
 //~
 // TODO(Tyler): Perhaps move dTime into the update context
 internal inline void
-MovePlatformer(physics_update_context *Context, entity *Entity, f32 Movement, f32 dTime, f32 Gravity=-150.0f){
+MovePlatformer(physics_update_context *Context, entity *Entity, f32 Movement, f32 dTime, f32 Gravity=-250.0f){
     if(!Entity->Pos.Floor){
         f32 FrictionFactor     = 0.0f;
         f32 AccelerationFactor = 3.0f;
@@ -628,9 +614,8 @@ GetTileTypeSafely(tile_type *Types, u32 Width, u32 Height, v2s V){
 }
 
 internal inline physics_floor
-MakePhysicsFloor(entity *Entity, v2 Offset, v2 Normal, v2 Tangent, range_f32 Range){
+MakePhysicsFloor(v2 Offset, v2 Normal, v2 Tangent, range_f32 Range){
     physics_floor Floor = {};
-    Floor.Entity = Entity;
     Floor.Offset = Offset;
     Floor.Normal = Normal;
     Floor.Tangent = Tangent;
@@ -649,7 +634,7 @@ GetTileDirectionOffset(tile_type Type, direction Up, v2 TileSize){
     }else{
         switch(Up){
             case Direction_Up:    return V2(0, TileSize.Y);
-            case Direction_Right: return TileSize;
+            case Direction_Right: return V2(TileSize.X, TileSize.X);
             case Direction_Down:  return V2(TileSize.X, 0);
             case Direction_Left:  break;
         }
@@ -687,37 +672,40 @@ TilemapAddFloor(dynamic_array<physics_floor> *Floors, physics_floor NewFloor){
 }
 
 void
-entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
-                                       tilemap_tile *Tiles, tile_type *TileTypes, tilemap_entity *Entity){
-    asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Entity->Asset);
+entity_manager::CalculateTilemapFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
+                                       world_data *World, tilemap_data *Data, tile_type *TileTypes){
     local_constant f32 SQRT_2 = SquareRoot(2.0f);
+    
     
     // TODO(Tyler): This new algorithm can easily be integrated with CalculateTilemapIndices.
     dynamic_array<physics_floor> WorkingFloors = MakeDynamicArray<physics_floor>(&GlobalTransientMemory, 16);
-    s32 Width = (s32)Entity->Width;
-    s32 Height = (s32)Entity->Height;
+    s32 Width = (s32)World->Width;
+    s32 Height = (s32)World->Height;
     for(s32 Y=0; Y<Height; Y++){
         for(s32 X=0; X<Width; X++){
-            tile_type Type = GetTileTypeSafely(TileTypes, Entity->Width, Entity->Height, X, Y);
+            tile_type Type = GetTileTypeSafely(TileTypes, Width, Height, X, Y);
             if(Type == 0) continue;
             
-            tilemap_tile_place Place = CalculatePlace(Tiles, Width, Height, X, Y, false);
+            u8 Slot = Data->Tiles[Y*Width + X].Slot;
+            tilemap_tile_place Place = CalculatePhysicsPlace(TileTypes, Width, Height, X, Y);
             
-            v2 Offset = V2(X*Asset->TileSize.X, Y*Asset->TileSize.Y);
+            b8 IsPlatform = HasTag(Assets->GetTilemapSlot(Slot)->Tag, AssetTag_Platform);;
             
-            if(Type & TileType_Wedge){
+            v2 Offset = V2(X*TILE_SIZE.X, Y*TILE_SIZE.Y);
+            
+            if(Type & TileType_Wedge && 
+               (!IsPlatform || (Type & TileType_WedgeUp))){
                 tilemap_tile_place WedgeMask = GetWedgeMask(Type);
                 
                 if(WedgeMask & Place){
                     v2 Normal = GetTileTypeNormal(Type);
                     v2 Tangent = V2Clockwise90(Normal);
-                    v2 TileOffset = V2Maximum(V2(0), V2Round(-Tangent))*Entity->TileSize.X;
+                    v2 TileOffset = V2Maximum(V2(0), V2Round(-Tangent))*TILE_SIDE;
                     
                     TilemapAddFloor(&WorkingFloors, 
-                                    MakePhysicsFloor(Entity, 
-                                                     Offset+TileOffset, 
+                                    MakePhysicsFloor(Offset+TileOffset, 
                                                      Normal, Tangent, 
-                                                     MakeRangeF32(0, SQRT_2*Entity->TileSize.X)));
+                                                     MakeRangeF32(0, SQRT_2*TILE_SIDE)));
                     
                     Place &= ~WedgeMask;
                 }
@@ -726,31 +714,27 @@ entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physi
             if(!(Type & TileTypeFlag_Art)){
                 if(Place & 0x1000){ // Up
                     TilemapAddFloor(&WorkingFloors, 
-                                    MakePhysicsFloor(Entity, 
-                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Up, Entity->TileSize), 
+                                    MakePhysicsFloor(Offset+GetTileDirectionOffset(TileType_Tile, Direction_Up, TILE_SIZE), 
                                                      V2(0, 1), V2(1, 0), 
-                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                                                     MakeRangeF32(0, TILE_SIDE)));
                 }
-                if(Place & 0x100){ // Left
+                if(Place & 0x100 && !IsPlatform){ // Left
                     TilemapAddFloor(&WorkingFloors, 
-                                    MakePhysicsFloor(Entity, 
-                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Left, Entity->TileSize), 
+                                    MakePhysicsFloor(Offset+GetTileDirectionOffset(TileType_Tile, Direction_Left, TILE_SIZE), 
                                                      V2(-1, 0), V2(0, 1), 
-                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                                                     MakeRangeF32(0, TILE_SIDE)));
                 }
-                if(Place & 0x40){ // Right
+                if(Place & 0x40 && !IsPlatform){ // Right
                     TilemapAddFloor(&WorkingFloors, 
-                                    MakePhysicsFloor(Entity, 
-                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Right, Entity->TileSize), 
+                                    MakePhysicsFloor(Offset+GetTileDirectionOffset(TileType_Tile, Direction_Right, TILE_SIZE), 
                                                      V2(1, 0), V2(0, -1), 
-                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                                                     MakeRangeF32(0, TILE_SIDE)));
                 }
-                if(Place & 0x4){ // Down
+                if(Place & 0x4 && !IsPlatform){ // Down
                     TilemapAddFloor(&WorkingFloors, 
-                                    MakePhysicsFloor(Entity, 
-                                                     Offset+GetTileDirectionOffset(TileType_Tile, Direction_Down, Entity->TileSize), 
+                                    MakePhysicsFloor(Offset+GetTileDirectionOffset(TileType_Tile, Direction_Down, TILE_SIZE), 
                                                      V2(0, -1), V2(-1, 0), 
-                                                     MakeRangeF32(0, Entity->TileSize.X)));
+                                                     MakeRangeF32(0, TILE_SIDE)));
                 }
             }
         }
@@ -826,7 +810,7 @@ entity_manager::TilemapCalculateFloors(asset_system *Assets, dynamic_array<physi
 }
 
 void 
-entity_manager::LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena){
+entity_manager::LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena, dynamic_array<physics_floor> *Floors){
     ToManager->EntityIDCounter = EntityIDCounter;
     
 #define ENTITY_TYPE_(Type, Array)  \
@@ -843,7 +827,7 @@ auto *NewEntity = AllocEntity(ToManager, Array, 0); \
     Player->StartP = WorldPosP(Player->Pos);
     *ToManager->Player = *Player;
     
-    dynamic_array<physics_floor> Floors = MakeDynamicArray<physics_floor>(16, &GlobalTransientMemory);
+#if 0
     FOR_ENTITY_TYPE(&ToManager->Tilemaps){
         tilemap_entity *Entity = It.Item;
         Entity->TilemapData = MakeTilemapData(Arena, 
@@ -856,22 +840,17 @@ auto *NewEntity = AllocEntity(ToManager, Array, 0); \
                                 (Entity->Flags&EntityFlag_TilemapTreatEdgesAsTiles), TileTypes);
         ToManager->TilemapCalculateFloors(Assets, &Floors, Entity->Tiles, TileTypes, Entity);
     }
+#endif
     
     FOR_ENTITY_TYPE(&ToManager->Enemies){
         if(HasTag(It.Item->Tag, AssetTag_Dragonfly)){
             It.Item->TargetY = WorldPosP(It.Item->Pos).Y;
-            physics_floor *Floor = ArrayAlloc(&Floors);
-            Floor->ID = Floors.Count;
+            It.Item->OwnedFloor = ArrayAlloc(Floors);
+            It.Item->OwnedFloor->ID = Floors->Count;
             v2 Size = It.Item->Size;
-            *Floor = MakePhysicsFloor(It.Item, V2(-0.5f*Size.X, Size.Y), 
-                                      V2(0, 1), V2(1, 0), MakeRangeF32(0, Size.X));
+            *It.Item->OwnedFloor = MakePhysicsFloor(V2(-0.5f*Size.X, Size.Y), 
+                                                    V2(0, 1), V2(1, 0), MakeRangeF32(0, Size.X));
         }
-    }
-    
-    ToManager->PhysicsFloors = ArrayFinalize(&ToManager->Memory, &Floors);
-    
-    FOR_EACH(Floor, &ToManager->PhysicsFloors){
-        Floor.Entity->OwnedFloor = &Floor;
     }
     
     FOR_EACH_ENTITY(ToManager){
@@ -1091,7 +1070,7 @@ entity_manager::EntityTestTrails(entity *Entity){
         
         while(Floor && (TrailMin < Minimum(Floor->Range.Max, Trail.Range.Max))){
             range_f32 Range = MakeRangeF32(TrailMin, Minimum(Floor->Range.Max, Trail.Range.Max));
-            v2 RelP = P-(Floor->Offset+WorldPosP(Floor->Entity->Pos));
+            v2 RelP = FloorBaseP(Floor);
             f32 AlongNormal = V2Dot(Floor->Normal, RelP);
             if(AbsoluteValue(AlongNormal) < TrailHeight){
                 f32 S = V2Dot(Floor->Tangent, RelP)+Floor->Range.Min;
@@ -1143,7 +1122,7 @@ entity_manager::UpdateBoxing(physics_update_context *Context, enemy_entity *Enti
         f32 ClosestDistance = F32_POSITIVE_INFINITY;
         physics_floor *ClosestFloor = 0;
         FOR_EACH(Floor, &PhysicsFloors){
-            v2 FloorP = FloorBaseP(&Floor);
+            v2 FloorP = Floor.Offset;
             f32 PNormal = V2Dot(Floor.Normal, P-FloorP);
             if(PNormal < 0) continue;
             DEBUG_LINE_FROM(FloorP, PNormal*Floor.Normal, PINK);
@@ -1426,13 +1405,6 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
                           ENTITY_DEFAULT_Z, dTime);
     }
     
-    //~ Tilemaps @render_tilemap
-    FOR_ENTITY_TYPE(&Tilemaps){
-        tilemap_entity *Tilemap = It.Item;  
-        asset_tilemap *Asset = AssetsFind_(Assets, Tilemap, Tilemap->Asset);
-        RenderTilemap(Group, Asset, &Tilemap->TilemapData, WorldPosP(Tilemap->Pos), ENTITY_DEFAULT_Z);
-    }
-    
     //~ Coins @render_coin
     FOR_ENTITY_TYPE(&Coins){
         coin_entity *Coin = It.Item;
@@ -1558,6 +1530,10 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     }
 #endif
     
+    //~ Tilemaps @render_tilemap
+    {
+        RenderTilemap(Group, Assets, &CurrentWorld->Tilemap, V2(0), ZLayer(1, ZLayer_GameForeground, 0));
+    }
 #if 1
     //~ Backgrounds
     {
@@ -1587,10 +1563,10 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         render_group *DebugGroup = Group->Renderer->GetRenderGroup(RenderGroupID_Scaled);
         render_group *DebugFontGroup = Group->Renderer->GetRenderGroup(RenderGroupID_Font);
         FOR_EACH_(Floor, I, &PhysicsFloors){
-            RenderLineFrom(DebugGroup, WorldPosP(Floor.Entity->Pos)+Floor.Offset, RangeSize(Floor.Range)*Floor.Tangent, 
+            RenderLineFrom(DebugGroup, FloorCalcP(&Floor, Floor.Range.Min), RangeSize(Floor.Range)*Floor.Tangent, 
                            ZLayer(1, ZLayer_DebugUI, -10), 0.5f, RED);
             {
-                v2 P = Group->Renderer->WorldToScreen(WorldPosP(Floor.Entity->Pos)+Floor.Offset, 1);
+                v2 P = Group->Renderer->WorldToScreen(FloorCalcP(&Floor, Floor.Range.Min), 1);
                 P.X -= 10;
                 P.Y += 10;
                 RenderFormatString(DebugFontGroup, DebugConfig.Font, WHITE, P, ZLayer(0, ZLayer_DebugUI, 0), "%d", I);

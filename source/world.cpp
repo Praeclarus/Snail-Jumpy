@@ -32,9 +32,25 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
         if(World){
             CurrentWorld = World;
             
-            World->Manager.LoadTo(Assets, Entities, &TransientMemory);
+            dynamic_array<physics_floor> Floors = MakeDynamicArray<physics_floor>(16, &GlobalTransientMemory);
+            World->Manager.LoadTo(Assets, Entities, &TransientMemory, &Floors);
+            
+            //- Tilemap loading
+            {
+                World->Tilemap = MakeTilemapData(&TransientMemory, World->Width, World->Height);
+                tile_type *PhysicsTileTypes = ArenaPushArray(&GlobalTransientMemory, tile_type, World->Width*World->Height);
+                CalculateTilemapIndices(Assets, World->EditTiles, &World->Tilemap,
+                                        false, PhysicsTileTypes);
+                Entities->CalculateTilemapFloors(Assets, &Floors, World, &World->Tilemap, PhysicsTileTypes);
+            }
+            
+            Entities->PhysicsFloors = ArrayFinalize(&Entities->Memory, &Floors);
+            
+            
+            
             //~ Coins
             {
+#if 0
                 // Coins
                 Entities->CoinData.Tiles = CurrentWorld->Map;
                 Entities->CoinData.XTiles = CurrentWorld->Width;
@@ -51,6 +67,7 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
                         }
                     }
                 }
+#endif
                 
 #if 0                
                 collision_boundary *Boundary = Entities->AllocBoundaries(1);
@@ -69,6 +86,7 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
                 }
                 Score = 0; // UpdateCoin changes this value
 #endif
+                
             }
         }
     }
@@ -134,7 +152,9 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
     World->AmbientColor = Header->AmbientColor;
     World->Exposure     = Header->Exposure;
     
+#if 0    
     WORLDS_READ_ARRAY(World->Map, World->Width*World->Height, 1, U32_MAX);
+#endif
     
     {
         player_entity *Entity = World->Manager.Player;
@@ -145,15 +165,7 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
     
     for(u32 I=0; I<Header->EntityCount; I++){
         entity_type Type; StreamReadVar(&Stream, Type);
-        if(Type == EntityType_Tilemap){
-            tilemap_entity *Entity = AllocEntity(&World->Manager, Tilemaps, 0);
-            WORLDS_READ_ENTITY(Entity, Type);
-            WORLDS_READ_ASSET(Entity->Asset, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->Width, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->Height, 1, U32_MAX);
-            WORLDS_READ_ARRAY(Entity->Tiles, Entity->Width*Entity->Height, 1, U32_MAX);
-            SetupTilemapEntity(Assets, Entity, P, Entity->Asset);
-        }else if(Type == EntityType_Enemy){
+        if(Type == EntityType_Enemy){
             enemy_entity *Entity = AllocEntity(&World->Manager, Enemies, 0);
             WORLDS_READ_ENTITY(Entity, Type);
             WORLDS_READ_VAR(Entity->EnemyType, 1, U32_MAX);
@@ -267,20 +279,13 @@ world_manager::WriteWorldsToFiles(){
         u32 Offset = 0;
         WORLDS_WRITE_VAR(Header);
         
+#if 0
         WORLDS_WRITE_ARRAY(World->Map, World->Width*World->Height);
+#endif
         
         {
             player_entity *Entity = World->Manager.Player;
             WORLDS_WRITE_ENTITY(Entity);
-        }
-        
-        FOR_ENTITY_TYPE(&World->Manager.Tilemaps){
-            tilemap_entity *Entity = It.Item;
-            WORLDS_WRITE_ENTITY(Entity);
-            WORLDS_WRITE_ASSET(Entity->Asset);
-            WORLDS_WRITE_VAR(Entity->Width);
-            WORLDS_WRITE_VAR(Entity->Height);
-            WORLDS_WRITE_ARRAY(Entity->Tiles, Entity->Width*Entity->Height);
         }
         
         FOR_ENTITY_TYPE(&World->Manager.Enemies){
@@ -335,9 +340,11 @@ world_manager::Initialize(memory_arena *Arena, player_data *PlayerData_, enemy_d
 world_data *
 world_manager::FindWorld(asset_system *Assets, string Name){
     world_data *Result = HashTableFindPtr<string, world_data>(&WorldTable, Name);
+#if 0
     if(!Result){
         Result = LoadWorldFromFile(Assets, Strings.GetString(Name));
     }
+#endif
     
     return(Result);
 }
@@ -348,8 +355,8 @@ world_manager::GetWorld(asset_system *Assets, string Name){
     if(!Result){
         Result = MakeWorld(Name);
         Result->Width = 32;
-        Result->Height = 18;
-        Result->Map = (u8 *)OSDefaultAlloc(Result->Width*Result->Height);
+        Result->Height = 32;
+        Result->EditTiles = (tilemap_edit_tile *)OSDefaultAlloc(Result->Width*Result->Height*sizeof(tilemap_edit_tile));
     }
     return(Result);
 }

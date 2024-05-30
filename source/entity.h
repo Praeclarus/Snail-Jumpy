@@ -93,17 +93,6 @@ struct entity {
     v2 UpNormal;
 };
 
-struct tilemap_entity : public entity {
-    v2 TileSize;
-    tilemap_data TilemapData;
-    asset_id Asset;
-    u8 *PhysicsMap;
-    
-    u32 Width;
-    u32 Height;
-    tilemap_tile *Tiles;
-};
-
 struct coin_entity : public entity {
 };
 
@@ -221,7 +210,6 @@ struct entity_manager {
     
     player_entity *Player;
     
-    bucket_array<tilemap_entity,    32> Tilemaps;
     bucket_array<coin_entity,       32> Coins;
     bucket_array<enemy_entity,      32> Enemies;
     bucket_array<teleporter_entity, 32> Teleporters;
@@ -243,7 +231,7 @@ struct entity_manager {
     void EntityTestTrails(entity *Entity);
     void EntityTestGravityZones(entity *Entity);
     inline void DamagePlayer(u32 Damage);
-    inline void LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena);
+    inline void LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena, dynamic_array<physics_floor> *Floors);
     
     template<typename T, u32 U> T *AllocEntity_(world_data *World, bucket_array<T, U> *Array);
     void FullRemoveEntity(entity *Entity);
@@ -259,8 +247,8 @@ struct entity_manager {
     world_position DoFloorRaycast(world_position Pos, v2 Size, v2 GravityNormal);
     void DoPhysics(audio_mixer *Mixer, physics_update_context *Context, f32 dTime);
     
-    void TilemapCalculateFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
-                                tilemap_tile *Tiles, tile_type *Types, tilemap_entity *Entity);
+    void CalculateTilemapFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
+                                world_data *World, tilemap_data *Data, tile_type *Types);
     
     void HandleCollision(physics_update *Update, f32 TimeElapsed);
     inline physics_floor *FloorFindFloor(physics_floor *Floor, f32 S);

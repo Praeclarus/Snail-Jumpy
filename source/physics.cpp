@@ -2,10 +2,10 @@
 #define DEBUG_PHYSICS_ALL
 
 #if defined(DEBUG_PHYSICS_ALL)
-//#define DEBUG_PHYSICS_BOXES
-//#define DEBUG_PHYSICS_FLOORS
+#define DEBUG_PHYSICS_BOXES
+#define DEBUG_PHYSICS_FLOORS
 //#define DEBUG_PHYSICS_COLLISIONS
-//#define DEBUG_PHYSICS_FLOOR_CONNECTIONS
+//#define rDEBUG_PHYSICS_FLOOR_CONNECTIONS
 #endif
 
 
@@ -136,23 +136,20 @@ entity_manager::FloorPrevFloor(physics_floor *Floor){
     return Result;
 }
 
-inline v2 
+inline v2
 FloorBaseP(physics_floor *Floor){
-    return (WorldPosP(Floor->Entity->Pos)+Floor->Offset);
+    return Floor->P + Floor->Offset;
 }
 
 inline v2
 FloorCalcP(physics_floor *Floor, f32 S){
-    Assert(Floor->Entity->Pos.Floor != Floor);
-    v2 P = (WorldPosP(Floor->Entity->Pos)+Floor->Offset) + Floor->Tangent*(S-Floor->Range.Min);
+    v2 P = FloorBaseP(Floor) + Floor->Tangent*(S-Floor->Range.Min);
     return P;
 }
 
 inline f32
 FloorCalcS(physics_floor *Floor, v2 P){
-    Assert(Floor->Entity->Pos.Floor != Floor);
-    f32 S = V2Dot((P-(WorldPosP(Floor->Entity->Pos)+Floor->Offset)), Floor->Tangent)+Floor->Range.Min;
-    
+    f32 S = V2Dot(P-FloorBaseP(Floor), Floor->Tangent)+Floor->Range.Min;
     return S;
 }
 
@@ -553,7 +550,7 @@ entity_manager::DoFloorRaycast(world_position Pos, v2 Size, v2 UpNormal){
         rect Bounds = WorldPosBounds(Pos, Size, UpNormal);
         v2 ObjectTangent = V2Clockwise90(UpNormal);
         
-        v2 FloorPA = (WorldPosP(Floor.Entity->Pos)+Floor.Offset);
+        v2 FloorPA = FloorBaseP(&Floor);
         v2 FloorPB = FloorPA+(Floor.Tangent*RangeSize(Floor.Range));
         
         f32 AlongNormal = V2Dot(Floor.Normal, P-FloorPA);
@@ -606,6 +603,10 @@ entity_manager::CalculateFloorCollision(physics_update *UpdateA, physics_floor *
     if(UpdateA->Pos.Floor && (UpdateA->Pos.Floor->ID == Floor->ID) &&
        V2Dot(Floor->Normal, UpdateA->UpNormal) > 0) return;
     
+    if(Floor->Entity){
+        Floor->P = WorldPosP(Floor->Entity->Pos);
+    }
+    
     rect Bounds = WorldPosBounds(UpdateA->Pos, UpdateA->Size, UpdateA->UpNormal);
     v2 ObjectTangent = V2Clockwise90(UpdateA->UpNormal);
     
@@ -613,7 +614,7 @@ entity_manager::CalculateFloorCollision(physics_update *UpdateA, physics_floor *
     f32 NormalDelta = V2Dot(Floor->Normal, Delta);
     if(NormalDelta >= 0) return;
     
-    v2 FloorPA = (WorldPosP(Floor->Entity->Pos)+Floor->Offset);
+    v2 FloorPA = FloorBaseP(Floor);
     v2 FloorPB = FloorPA+(Floor->Tangent*RangeSize(Floor->Range));
     v2 NormalBase = V2(0);
     
@@ -666,7 +667,6 @@ entity_manager::CalculateFloorCollision(physics_update *UpdateA, physics_floor *
             UpdateA->Collision = MakeCollision(PhysicsCollision_Floor, 0.0f, Floor->Normal, V2(0), Floor);
         }
     }
-    
 }
 
 void

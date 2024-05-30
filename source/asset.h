@@ -54,7 +54,7 @@ global_constant u32 MAX_TILEMAP_BOUNDARIES = 8;
 ASSET_TAG("background",       Background)  \
 ASSET_TAG("snail",            Snail)       \
 ASSET_TAG("dragonfly",        Dragonfly)   \
-ASSET_TAG("boxing",           Boxing)  \
+ASSET_TAG("boxing",           Boxing)      \
 ASSET_TAG("trail_bouncy",     TrailBouncy) \
 ASSET_TAG("trail_speedy",     TrailSpeedy) \
 ASSET_TAG("trail_sticky",     TrailSticky) \
@@ -62,6 +62,8 @@ ASSET_TAG("animated",         Animated)    \
 ASSET_TAG("art",              Art)         \
 ASSET_TAG("arrow",            Arrow)       \
 ASSET_TAG("no_editor",        NoEditor)    \
+ASSET_TAG("transparent",      Transparent) \
+ASSET_TAG("platform",         Platform)    \
 
 ;
 
@@ -101,6 +103,7 @@ struct asset_loading_data {
 #define AssetTableInit(Name, Arena, MaxCount, Data, DataSize) ProcessedAssetsInitialize##Name(Arena, Name##Table, Data, DataSize)
 #define AssetTableGet_(Prefix, Name, Key) (&(Prefix Name##Table[Key.ID]))
 #define AssetTableFind_(Prefix, Name, Key) (&(Prefix Name##Table[Key.ID]))
+#define AssetTableCount(Assets, Name) (Assets)->Name##ID_TOTAL
 
 #define AssetID(Name, ID) MakeAssetID(Name##ID_##ID)
 #define AssetIDName(Name, ID_) Name##NameTable[ID_.ID]
@@ -361,18 +364,20 @@ struct tile_connector_data {
     u8 Selected;
 };
 
+union tilemap_tile {
+    struct{
+        u32 Slot : 8;
+        u32 Index : 24;
+    };
+    u32 Tile;
+};
+
 struct tilemap_data {
     u32 Width;
     u32 Height;
-    u32 *Indices;
+    tilemap_tile *Tiles;
     render_transform *Transforms;
     tile_connector_data *Connectors;
-};
-
-struct tilemap_tile {
-    u32 OverrideID;
-    u8  OverrideVariation;
-    u8  Type;
 };
 
 struct asset_tilemap_tile_data {
@@ -392,6 +397,7 @@ struct asset_tilemap_tile_data {
 struct asset_tilemap {
     asset_tag Tag;
     asset_loading_data LoadingData;
+    s8 Slot;
     
     render_texture Texture;
     v2 TileSize;
@@ -405,10 +411,13 @@ struct asset_tilemap {
     asset_tilemap_tile_data *Connectors;
     
     rect TileRect;
+    
 };
 
-struct new_tilemap_tile {
-    
+struct tilemap_edit_tile {
+    s8 Slot;
+    s8 OnlySlot;
+    tile_type Type;
 };
 
 //~ Fonts
@@ -503,7 +512,9 @@ enum special_commands_ {
 //~ Asset system
 global_constant color             ERROR_COLOR = MakeColor(1.0f, 0.0f, 1.0f);
 global_constant fancy_font_format ERROR_FANCY = MakeFancyFormat(ERROR_COLOR);
-\
+
+global_constant u32 MAX_TILEMAP_SLOTS = 32;
+
 typedef dynamic_array<asset_tilemap_tile_data> tile_array;
 struct asset_system {
     //~ Asset stuff
@@ -520,35 +531,10 @@ struct asset_system {
     asset_art          DummyArt;
     asset_tilemap      DummyTilemap;
     
+    array<asset_tilemap *> TilemapSlots;
+    asset_tilemap *GetTilemapSlot(s8 Slot);
+    
     void Initialize(memory_arena *Arena, void *Data=0, u32 DataSize=0);
-    
-#if 0    
-    //~ Logging 
-    const char *CurrentCommand;
-    const char *CurrentAttribute;
-    
-    void BeginCommand(const char *Name);
-    void LogError(const char *Format, ...);
-    void LogInvalidAttribute(const char *Attribute);
-    
-    //~ SJA reading and parsing
-    u64 LastFileWriteTime;
-    hash_table<const char *, direction>    DirectionTable;
-    
-    file_reader Reader;
-    file_token ExpectToken(file_token_type Type);
-    u32        ExpectPositiveInteger_();
-    
-    array<s32>         ExpectTypeArrayS32();
-    
-    void InitializeLoader(memory_arena *Arena);
-    
-    b8 DoAttribute(const char *String, const char *Attribute);
-    
-    void LoadAssetFile(const char *Path);
-    b8 ProcessCommand();
-    b8 ProcessIgnore();
-#endif
 };
 
 

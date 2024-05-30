@@ -2167,10 +2167,10 @@ ArrayAlloc(array<T> *Array, u32 N=1){
     if(Array->Count+N <= Array->MaxCount){
         Result = &Array->Items[Array->Count];
         Array->Count += N;
+        ZeroMemory(Result, sizeof(T));
     }else{
         Assert(0);
     }
-    ZeroMemory(Result, sizeof(T));
     return(Result);
 }
 
@@ -2180,8 +2180,8 @@ ArrayMaybeAlloc(array<T> *Array, u32 N=1){
     if(Array->Count+N <= Array->MaxCount){
         Result = &Array->Items[Array->Count];
         Array->Count += N;
+        ZeroMemory(Result, sizeof(T));
     }
-    ZeroMemory(Result, sizeof(T));
     return(Result);
 }
 

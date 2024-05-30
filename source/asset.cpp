@@ -370,6 +370,20 @@ RenderArt(render_group *Group, asset_art *Art, v2 P, z_layer Z, render_transform
 }
 #endif
 
+asset_tilemap *
+asset_system::GetTilemapSlot(s8 Slot){
+    if(Slot < 0){
+        DEBUG_MESSAGE(DebugMessage_Fadeout, "Slot (%d) does not existd", Slot);
+        return 0;
+    }
+    if(Slot >= (s32)TilemapSlots.Count){
+        DEBUG_MESSAGE(DebugMessage_Fadeout, "Slot %d > tilemap slots (%u)", Slot, TilemapSlots.Count);
+        return 0;
+    }
+    
+    return TilemapSlots[Slot];
+}
+
 internal inline tilemap_tile_place
 StringToTilePlace(const char *S){
     u32 Count = CStringLength(S);
@@ -501,7 +515,7 @@ MakeTilemapData(memory_arena *Arena, u32 Width, u32 Height){
     tilemap_data Result = {};
     Result.Width  = Width;
     Result.Height = Height;
-    Result.Indices = ArenaPushArray(Arena, u32, Width*Height);
+    Result.Tiles = ArenaPushArray(Arena, tilemap_tile, Width*Height);
     Result.Transforms = ArenaPushArray(Arena, render_transform, Width*Height);
     Result.Connectors = ArenaPushArray(Arena, tile_connector_data, Width*Height);
     return(Result);
@@ -516,25 +530,25 @@ ChooseTileIndex(asset_tilemap_tile_data *Tile, u32 Seed){
 }
 
 internal inline void 
-RenderTilemap(render_group *Group, asset_tilemap *Tilemap, tilemap_data *Data, v2 P, z_layer Z){
+RenderTilemap(render_group *Group, asset_system *Assets, tilemap_data *Data, v2 P, z_layer Z){
     TIMED_FUNCTION();
     
-    v2 Size = Tilemap->TileSize;
-    
-    v2 Margin = Tilemap->CellSize - Tilemap->TileSize;
-    P -= 0.5f*Margin;
+    v2 Size = TILE_SIZE;
     
     u32 MapIndex = 0;
     v2 TileP = P;
     for(u32 Y=0; Y<Data->Height; Y++){
         for(u32 X=0; X<Data->Width; X++){
-            u32 TileIndex = Data->Indices[MapIndex];
+            u32 TileIndex = Data->Tiles[MapIndex].Index;
             if(TileIndex){
+                asset_tilemap *Tilemap = Assets->GetTilemapSlot(Data->Tiles[MapIndex].Slot);
+                v2 Margin = Tilemap->CellSize - Tilemap->TileSize;
+                v2 VisualTileP = TileP-0.5f*Margin;
                 
                 TileIndex--;
                 render_transform Transform = Data->Transforms[MapIndex];
                 
-                RenderTileAtIndex(Group, Tilemap, TileP, Z, TileIndex, Transform);
+                RenderTileAtIndex(Group, Tilemap, VisualTileP, Z, TileIndex, Transform);
                 
                 // TODO(Tyler): This could likely be more efficient, but then again, 
                 // the entire rendering system probably could be.
@@ -543,7 +557,7 @@ RenderTilemap(render_group *Group, asset_tilemap *Tilemap, tilemap_data *Data, v
                     for(u32 I=0; I<8; I++){
                         if(Connector.Selected & (1 << I)){
                             u32 ConnectorOffset = ChooseTileIndex(&Tilemap->Connectors[I], MapIndex);
-                            RenderTileAtIndex(Group, Tilemap, TileP, ZLayerShift(Z, -10), ConnectorOffset,
+                            RenderTileAtIndex(Group, Tilemap, VisualTileP, ZLayerShift(Z, -10), ConnectorOffset,
                                               Tilemap->Connectors[I].Transform);
                         }
                     }
@@ -560,82 +574,112 @@ RenderTilemap(render_group *Group, asset_tilemap *Tilemap, tilemap_data *Data, v
 }
 
 internal inline void
-CalculateSinglePlace(tilemap_tile *Tiles, s32 Width, s32 Height, 
+CalculateSinglePlace(tilemap_edit_tile *Tiles, s32 Width, s32 Height, 
                      s32 X, s32 Y, s32 XOffset, s32 YOffset, 
-                     tilemap_tile_place *Place){
+                     tilemap_tile_place *Place, s8 Slot){
     u8 SingleTile = 0x01;
     if(((X+XOffset) < 0) || ((Y+YOffset) < 0)){
     }else if(((X+XOffset) >= Width) || ((Y+YOffset) >= Height)){
     }else{
         u32 OtherIndex = (Y+YOffset)*Width + (X+XOffset);
         u8 OtherHasTile = Tiles[OtherIndex].Type;
-        if(OtherHasTile) SingleTile <<= 1;
+        if(OtherHasTile && 
+           ((Tiles[OtherIndex].OnlySlot < 0) || 
+            (Tiles[OtherIndex].OnlySlot == Slot))){
+            SingleTile <<= 1;
+        }
     }
     (*Place) |= SingleTile;
 }
 
 internal inline void
-CalculateSinglePlaceWithBoundsTiles(tilemap_tile *Tiles, s32 Width, s32 Height, 
+CalculateSinglePlaceWithBoundsTiles(tilemap_edit_tile *Tiles, s32 Width, s32 Height, 
                                     s32 X, s32 Y, s32 XOffset, s32 YOffset, 
-                                    tilemap_tile_place *Place){
+                                    tilemap_tile_place *Place, s8 Slot){
     u8 SingleTile = 0x02;
     if(((X+XOffset) < 0) || ((Y+YOffset) < 0)){
     }else if(((X+XOffset) >= Width) || ((Y+YOffset) >= Height)){
     }else{
         u32 OtherIndex = (Y+YOffset)*Width + (X+XOffset);
         u8 OtherHasTile = Tiles[OtherIndex].Type;
-        if(!OtherHasTile) SingleTile >>= 1;
+        if(!OtherHasTile || 
+           !((Tiles[OtherIndex].OnlySlot < 0) || 
+             (Tiles[OtherIndex].OnlySlot == Slot))){
+            SingleTile >>= 1;
+        }
     }
     (*Place) |= SingleTile;
 }
 
 internal inline tilemap_tile_place
-CalculatePlace(tilemap_tile *Tiles, s32 Width, s32 Height, s32 X, s32 Y, b8 BoundsTiles=false){
+CalculatePlace(tilemap_edit_tile *Tiles, s32 Width, s32 Height, s32 X, s32 Y, s8 Slot, b8 BoundsTiles=false){
     tilemap_tile_place Place = 0;
     if(!BoundsTiles){
-        CalculateSinglePlace(Tiles, Width, Height, X, Y, -1,  1, &Place); Place <<= 2;
-        CalculateSinglePlace(Tiles, Width, Height, X, Y,  0,  1, &Place); Place <<= 2;
-        CalculateSinglePlace(Tiles, Width, Height, X, Y,  1,  1, &Place); Place <<= 2;
-        CalculateSinglePlace(Tiles, Width, Height, X, Y, -1,  0, &Place); Place <<= 2;
-        CalculateSinglePlace(Tiles, Width, Height, X, Y,  1,  0, &Place); Place <<= 2;
-        CalculateSinglePlace(Tiles, Width, Height, X, Y, -1, -1, &Place); Place <<= 2;
-        CalculateSinglePlace(Tiles, Width, Height, X, Y,  0, -1, &Place); Place <<= 2;
-        CalculateSinglePlace(Tiles, Width, Height, X, Y,  1, -1, &Place);
+        CalculateSinglePlace(Tiles, Width, Height, X, Y, -1,  1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlace(Tiles, Width, Height, X, Y,  0,  1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlace(Tiles, Width, Height, X, Y,  1,  1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlace(Tiles, Width, Height, X, Y, -1,  0, &Place, Slot); Place <<= 2;
+        CalculateSinglePlace(Tiles, Width, Height, X, Y,  1,  0, &Place, Slot); Place <<= 2;
+        CalculateSinglePlace(Tiles, Width, Height, X, Y, -1, -1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlace(Tiles, Width, Height, X, Y,  0, -1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlace(Tiles, Width, Height, X, Y,  1, -1, &Place, Slot);
     }else{
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y, -1,  1, &Place); Place <<= 2;
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  0,  1, &Place); Place <<= 2;
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  1,  1, &Place); Place <<= 2;
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y, -1,  0, &Place); Place <<= 2;
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  1,  0, &Place); Place <<= 2;
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y, -1, -1, &Place); Place <<= 2;
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  0, -1, &Place); Place <<= 2;
-        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  1, -1, &Place);
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y, -1,  1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  0,  1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  1,  1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y, -1,  0, &Place, Slot); Place <<= 2;
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  1,  0, &Place, Slot); Place <<= 2;
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y, -1, -1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  0, -1, &Place, Slot); Place <<= 2;
+        CalculateSinglePlaceWithBoundsTiles(Tiles, Width, Height, X, Y,  1, -1, &Place, Slot);
     }
     return(Place);
 }
 
-internal void
-SetTilemapTile(tilemap_tile *Tiles, tilemap_data *Data, u8 *PhysicsMap, tile_type *TileTypes, u32 MapIndex, asset_tilemap_tile_data *Tile){
-    if(Tiles[MapIndex].OverrideVariation > 0){
-        u32 Variation = Tiles[MapIndex].OverrideVariation - 1;
-        u32 OffsetSize = Tile->OffsetMax - Tile->OffsetMin;
-        Variation = (Variation%OffsetSize);
-        u32 TileIndex = Tile->OffsetMin+Variation;
-        Data->Indices[MapIndex] = TileIndex+1;
-        Tiles[MapIndex].OverrideVariation = (u8)(Variation+1);
+internal inline void
+CalculateSinglePhysicsPlace(tile_type *Tiles, s32 Width, s32 Height, 
+                            s32 X, s32 Y, s32 XOffset, s32 YOffset, 
+                            tilemap_tile_place *Place){
+    u8 SingleTile = 0x01;
+    if(((X+XOffset) < 0) || ((Y+YOffset) < 0)){
+    }else if(((X+XOffset) >= Width) || ((Y+YOffset) >= Height)){
     }else{
-        Data->Indices[MapIndex] = ChooseTileIndex(Tile, MapIndex)+1;
+        u32 OtherIndex = (Y+YOffset)*Width + (X+XOffset);
+        u8 OtherHasTile = Tiles[OtherIndex];
+        if(OtherHasTile) SingleTile <<= 1; 
     }
-    Data->Transforms[MapIndex] = Tile->Transform;
-    if(PhysicsMap && !(Tile->Flags & TileFlag_Art)){
-        PhysicsMap[MapIndex] = Tile->BoundaryIndex+1;
-    }
-    if(TileTypes) TileTypes[MapIndex] = Tile->Type;
+    (*Place) |= SingleTile;
+}
+
+internal inline tilemap_tile_place
+CalculatePhysicsPlace(tile_type *Tiles, s32 Width, s32 Height, s32 X, s32 Y){
+    tilemap_tile_place Place = 0;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y, -1,  1, &Place); Place <<= 2;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y,  0,  1, &Place); Place <<= 2;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y,  1,  1, &Place); Place <<= 2;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y, -1,  0, &Place); Place <<= 2;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y,  1,  0, &Place); Place <<= 2;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y, -1, -1, &Place); Place <<= 2;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y,  0, -1, &Place); Place <<= 2;
+    CalculateSinglePhysicsPlace(Tiles, Width, Height, X, Y,  1, -1, &Place);
+    return(Place);
 }
 
 internal void
-CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_data *Data, 
-                        u8 *PhysicsMap=0, b8 TreatEdgesAsTiles=false, tile_type *TileTypes=0){
+SetTilemapTile(tilemap_edit_tile *Tiles, tilemap_data *Data, tile_type *PhysicsTileTypes, u32 MapIndex, asset_tilemap_tile_data *Tile, u8 Slot){
+    Data->Tiles[MapIndex].Slot = Slot;
+    Data->Tiles[MapIndex].Index = ChooseTileIndex(Tile, MapIndex)+1;
+    
+    Data->Transforms[MapIndex] = Tile->Transform;
+    if(PhysicsTileTypes){
+        PhysicsTileTypes[MapIndex] = Tile->Type;
+        if(Tile->Flags & TileFlag_Art) PhysicsTileTypes[MapIndex] = 0;
+    }
+}
+
+internal void
+CalculateTilemapIndices(asset_system *Assets, tilemap_edit_tile *Tiles, tilemap_data *Data,
+                        b8 TreatEdgesAsTiles=false, tile_type *PhysicsTileTypes=0){
     TIMED_FUNCTION();
     
     s32 Width = (s32)Data->Width;
@@ -644,10 +688,14 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
     u32 MapIndex = 0;
     for(s32 Y=0; Y<Height; Y++){
         for(s32 X=0; X<Width; X++){
-            tilemap_tile PreTile = Tiles[MapIndex];
+            tilemap_edit_tile PreTile = Tiles[MapIndex];
+            asset_tilemap *Tilemap = Assets->GetTilemapSlot(PreTile.Slot);
+            if(!Tilemap){
+                DEBUG_MESSAGE(DebugMessage_Fadeout, "Tilemap at slot %u doesn't exist!", PreTile.Slot);
+                continue;
+            }
             if(PreTile.Type){
-                tilemap_tile_place Place = CalculatePlace(Tiles, Width, Height, X, Y, 
-                                                          TreatEdgesAsTiles);
+                tilemap_tile_place Place = CalculatePlace(Tiles, Width, Height, X, Y, PreTile.Slot, TreatEdgesAsTiles);
                 
                 tile_type Type = PreTile.Type;
                 tile_flags Flags = 0;
@@ -658,6 +706,7 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
                 asset_tilemap_tile_data *FoundTile = 0;
                 
                 //~ 
+#if 0
                 if(Tiles[MapIndex].OverrideID > 0){
                     u32 ID = Tiles[MapIndex].OverrideID-1;
                     for(u32 I=0; I<Tilemap->TileCount; I++){
@@ -672,6 +721,7 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
                         }
                     }
                 }
+#endif
                 
                 if(!FoundTile){
                     FoundTile = TilemapFindTile(Tilemap, Place, Type, Flags);
@@ -686,7 +736,7 @@ CalculateTilemapIndices(asset_tilemap *Tilemap, tilemap_tile *Tiles, tilemap_dat
                     }
                 }
                 
-                if(FoundTile) SetTilemapTile(Tiles, Data, PhysicsMap, TileTypes, MapIndex, FoundTile);
+                if(FoundTile) SetTilemapTile(Tiles, Data, PhysicsTileTypes, MapIndex, FoundTile, PreTile.Slot);
             }
             MapIndex++;
         }

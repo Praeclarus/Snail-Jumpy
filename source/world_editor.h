@@ -20,28 +20,20 @@ struct selector_context {
 };
 
 //~ Edit mode
-enum edit_state {
-    EditState_General,
-    EditState_Tilemap,
-    EditState_TilemapTemporary
-};
-
 enum edit_thing {
     EditThing_None,
     EditThing_Tilemap    = 1,
-    EditThing_CoinP      = 2,
-    EditThing_Enemy      = 3,
-    EditThing_Art        = 4,
-    EditThing_Teleporter = 5,
-    EditThing_Door       = 6,
-    EditThing_GravityZone = 7,
+    EditThing_Enemy      = 2,
+    EditThing_Art        = 3,
+    EditThing_Teleporter = 4,
+    EditThing_Door       = 5,
+    EditThing_GravityZone = 6,
     
     EditThing_TOTAL
 };
 
 global_constant edit_thing EDITOR_FORWARD_EDIT_MODE_TABLE[EditThing_TOTAL] = {
     EditThing_Tilemap,
-    EditThing_CoinP,
     EditThing_Enemy,
     EditThing_Art,
     EditThing_Teleporter,
@@ -54,7 +46,6 @@ global_constant edit_thing EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_TOTAL] = {
     EditThing_GravityZone,
     EditThing_None,
     EditThing_Tilemap,
-    EditThing_CoinP,
     EditThing_Enemy,
     EditThing_Art,
     EditThing_Teleporter,
@@ -136,9 +127,10 @@ struct world_editor {
     ui_manager *UI;
     world_manager *Worlds;
     
+    u8 TilemapSlotToAdd;
     asset_id   ArtToAdd;
     enemy_type EnemyTypeToAdd;
-    asset_id   TilemapToAdd;
+    
     
     world_editor_flags EditorFlags;
     char NameBuffer[DEFAULT_BUFFER_SIZE];
@@ -153,7 +145,6 @@ struct world_editor {
     world_data *World;
     editor_action_system *Actions;
     
-    edit_state EditState;
     edit_thing EditThing;
     
     editor_selection Selection;
@@ -189,6 +180,7 @@ struct world_editor {
     void DoEntitySection(ui_window *Window, render_group *Group, asset_system *Assets);
     void DoGravityZoneSection(ui_window *Window, render_group *Group, asset_system *Assets);
     
+    inline void ChangeEditThing(edit_thing NewEditThing);
     inline b8 IsSelectionDisabled(void *Thing, os_key_flags KeyFlags);
     inline editor_drag_result DoDraggableThing(render_group *Group, render_group *FontGroup, 
                                                void *Thing, rect R, const char *Title, 
@@ -198,13 +190,8 @@ struct world_editor {
     inline editor_rect_result EditorEditableRect(render_group *Group, rect Rect, u64 ParentID);
     
     //~ Editing tilemap
-    tilemap_edit_mode TilemapEditState;
     b8 TilemapDoSelectorOverlay;
-    u16 ManualTileIndex;
     auto_tile AutoTileMode;
-    
-    void MaybeEditTilemap(render_group *GameGroup, asset_system *Assets);
-    
 };
 
 //~ Constants

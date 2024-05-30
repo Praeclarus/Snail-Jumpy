@@ -637,6 +637,8 @@ asset_loader::LoadAssetFile(const char *Path){
     if(LastFileWriteTime < NewFileWriteTime){
         LoadCounter++;
         ArenaClear(&InProgress.Memory);
+        InProgress.TilemapSlots = MakeFullArray<asset_tilemap *>(&InProgress.Memory, MAX_TILEMAP_SLOTS);
+        
         LoadingStatus = AssetLoadingStatus_Okay;
         
         Reader = MakeFileReader(Path);
@@ -1310,10 +1312,6 @@ asset_loader::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
     CurrentAttribute = 0;
     
     asset_tilemap_tile_data *Tile = ArrayAlloc(Tiles);
-    if(CStringsEqual(TileType, "art")){
-        Tile->Flags |= TileFlag_Art;
-        TileType = SJA_EXPECT_IDENTIFIER(&Reader, SeekNextAttribute(); return Result;);
-    }
     
     if(CStringsEqual(TileType, "tile")){
         Tile->Type |= TileType_Tile;
@@ -1334,6 +1332,10 @@ asset_loader::ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *T
     }
     
     asset_tag Tag = MaybeExpectTag();
+    if(HasTag(Tag, AssetTag_Art)){
+        //Tile->Type |= TileTypeFlag_Art;
+        Tile->Flags |= TileFlag_Art;
+    }
     
     if(!(Tile->Type & TileType_Connector)){
         u32 BoundaryIndex = SJA_EXPECT_UINT(&Reader, SeekNextAttribute(); return Result;);
@@ -1405,6 +1407,7 @@ asset_loader::ProcessTilemap(){
     asset_tilemap *Tilemap = AssetsGet_(&InProgress, Tilemap, Name);
     *Tilemap = {};
     Tilemap->Tag = MaybeExpectTag();
+    Tilemap->Slot = -1;
     
     tile_array Tiles;
     InitializeArray(&Tiles, 32, &GlobalTransientMemory);
@@ -1510,6 +1513,9 @@ asset_loader::ProcessTilemap(){
             }
             
             
+        }else if(DoAttribute(String, "slot")){
+            Tilemap->Slot = (s8)SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            InProgress.TilemapSlots[Tilemap->Slot] = Tilemap;
         }else{
             if(ProcessTilemapTile(&Tiles, String, &TileOffset) != AssetLoadingStatus_Okay){
                 SJA_ERROR_BEHAVIOR_ATTRIBUTE;

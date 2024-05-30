@@ -331,6 +331,7 @@ path "asset_arts/cyan_arrow_3.png"
 #~ @sja_tilemaps
 
 : Tilemap "grass_and_dirt"
+slot 0
     path "asset_tilemaps/grass_and_dirt_platform.png"
     tile_size 16 16
     dimensions 9 9
@@ -388,6 +389,7 @@ path "asset_arts/cyan_arrow_3.png"
     wedge_down_right 4 "?X_X#_?_?" REVERSE_PREVIOUS
 
 : Tilemap "dirt"
+slot 1
     path "asset_tilemaps/dirt_platform.png"
     tile_size 16 16
     dimensions 7 6
@@ -422,6 +424,7 @@ path "asset_arts/cyan_arrow_3.png"
     tile 0             "?X?X#X?_?" 4
 
 : Tilemap "cobblestone"
+slot 2
     path "asset_tilemaps/cobblestone_platform.png"
     tile_size 16 16
     dimensions 5 5
@@ -463,6 +466,7 @@ path "asset_arts/cyan_arrow_3.png"
     wedge_down_left 3 "?X?_#_?_?" REVERSE_AND_ROTATE_PREVIOUS_90
 
 : Tilemap "plant"
+slot 3
     path "asset_tilemaps/plant_platform.png"
     tile_size 16 16
     dimensions 9 7
@@ -511,7 +515,8 @@ path "asset_arts/cyan_arrow_3.png"
     wedge_up_left 1 "?_?_#X?_?" 2
     wedge_up_right 2 "?_?X#_?_?" REVERSE_PREVIOUS
 
-: Tilemap "wood_plank"
+: Tilemap "wood_plank" Tag("transparent" "platform")
+slot 4
     path "asset_tilemaps/wood_plank_platform.png"
     tile_size 16 16
     dimensions 5 6
@@ -539,27 +544,29 @@ path "asset_arts/cyan_arrow_3.png"
     wedge_up_left 1    "?_X_#_?_?" 1
     wedge_up_right 2   "X_?_#_?_?" 1
     #ropes
-    art tile 0 "?_?_#_?X?" 1
-    art tile 0 "?X?_#_?X?" 1
-    art tile 0 "?_?_#X?X?" 1
-    art tile 0 "?X?_#X?X?" 1
-    art tile 0 "?_?X#_?X?" 1
-    art tile 0 "?X?X#_?X?" 1
+    tile Tag("art") 0 "?_?_#_?X?" 1
+    tile Tag("art") 0 "?X?_#_?X?" 1
+    tile Tag("art") 0 "?_?_#X?X?" 1
+    tile Tag("art") 0 "?X?_#X?X?" 1
+    tile Tag("art") 0 "?_?X#_?X?" 1
+    tile Tag("art") 0 "?X?X#_?X?" 1
 
 : Tilemap "metal_gate_art"
-    path "asset_tilemaps/metal_gate_art.png"
+    slot 5
+path "asset_tilemaps/metal_gate_art.png"
     tile_size 16 32
     dimensions 5 2
-    art tile 0 "?_?_#_???" 2
-    art tile 0 "?_?_#X???" 2
-    art tile 0 "?_?X#_???" 2
-    art tile 0 "?X??#X???" 1
-    art tile 0 "?X??#_???" 1
-    art tile 0 "?_?X#X???" 1
+    tile Tag("art") 0 "?_?_#_???" 2
+     tile Tag("art") 0 "?_?_#X???" 2
+     tile Tag("art") 0 "?_?X#_???" 2
+     tile Tag("art") 0 "?X??#X???" 1
+     tile Tag("art") 0 "?X??#_???" 1
+     tile Tag("art") 0 "?_?X#X???" 1
     manual_tile art 0 1
 
 : Tilemap "flower_box"
-    path "asset_tilemaps/flower_box_platform.png"
+    slot 6
+path "asset_tilemaps/flower_box_platform.png"
     tile_size 16 16
     boundary Rect(0 0 16 16)
     dimensions 4 2
@@ -569,7 +576,7 @@ path "asset_arts/cyan_arrow_3.png"
     tile 0 "???X#X???" 2
 
 : Tilemap "snail"
-    path "asset_tilemaps/snailsheet.png"
+path "asset_tilemaps/snailsheet.png"
     tile_size 16 16
     dimensions 7 4
     boundary Rect(0 0 16 16)
@@ -617,6 +624,7 @@ path "asset_arts/cyan_arrow_3.png"
     connector "???X#?_X?" V_REVERSE_PREVIOUS
 
 : Tilemap "cactus"
+slot 7
     path "asset_tilemaps/cactus.png"
     tile_size 16 16
     dimensions 5 3

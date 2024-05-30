@@ -8,6 +8,7 @@ enum selection_type {
     Selection_None,
     Selection_Entity,
     Selection_GravityZone,
+    Selection_World,
 };
 
 struct editor_selection {
@@ -16,6 +17,7 @@ struct editor_selection {
         void *Thing;
         entity *Entity;
         gravity_zone *Zone;
+        world_data *World;
     };
 };
 
@@ -40,7 +42,7 @@ struct editor_action {
     editor_selection Thing;
     
     union {
-        // MoveEntity
+        // Move entity
         struct{
             v2 OldP;
             v2 NewP;
@@ -48,7 +50,7 @@ struct editor_action {
         
         // NOTE(Tyler): We only keep one of these so that it can be freed when its time for cleanup
         struct {
-            tilemap_tile *Tiles;
+            tilemap_edit_tile *EditTiles;
             u32 Width;
             u32 Height;
         };
@@ -80,10 +82,8 @@ struct editor_action_system {
     u32 ActionIndex;
     
     u32 TileCounter;
-    b8 JustBeganEdit;
     
     editor_action *CurrentAction;
-    
     
     
     void Undo(asset_system *Assets);
@@ -103,9 +103,8 @@ struct editor_action_system {
     inline void ActionChangeEntityDirection(entity *Entity, direction Direction);
     inline void ActionChangeZoneDirection(gravity_zone *Zone, v2 NewDirection, v2 OldDirection);
     
-    inline void LogActionTilemap(editor_action_type Type, entity *Entity, tilemap_tile *Tiles, u32 Width, u32 Height);
-    inline void ActionEditTilemap(entity *Entity);
-    inline void ActionBeginEditTilemap();
+    inline void LogActionTilemap(editor_action_type Type, world_data *World, tilemap_edit_tile *Tiles, u32 Width, u32 Height);
+    inline void ActionEditTilemap(world_data *World);
     
     inline void DeleteThing(editor_action *Action, editor_selection *Thing);
     inline void ReturnThing(editor_action *Action, editor_selection *Thing);
@@ -127,9 +126,11 @@ struct world_data {
     string Name;
     u64 ID;
     
-    u8 *Map;
+    tilemap_data Tilemap;
+    tilemap_edit_tile *EditTiles;
     u32 Width;
     u32 Height;
+    
     
     entity_manager Manager;
     

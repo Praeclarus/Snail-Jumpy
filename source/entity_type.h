@@ -29,7 +29,6 @@ EntityManagerNextIteration(Manager, &It, ExcludeFlags))
 #define FOR_EACH_ENTITY(Manager) FOR_EACH_ENTITY_(Manager, EntityFlag_Deleted)
 
 #define ENTITY_TYPES \
-ENTITY_TYPE_(EntityType_Tilemap,    Tilemaps)    \
 ENTITY_TYPE_(EntityType_Coin,       Coins)       \
 ENTITY_TYPE_(EntityType_Enemy,      Enemies)     \
 ENTITY_TYPE_(EntityType_Teleporter, Teleporters) \
@@ -41,7 +40,7 @@ enum entity_type {
     EntityType_None       = 0,
     
     EntityType_Player     = 1,
-    EntityType_Tilemap    = 2,
+    EntityType_Filler0    = 2,
     EntityType_Coin       = 3,
     EntityType_Enemy      = 4,
     EntityType_Teleporter = 5,

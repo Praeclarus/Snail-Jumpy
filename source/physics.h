@@ -11,12 +11,13 @@ struct physics_update;
 typedef void trigger_response_function(asset_system *Assets, entity_manager *Entities, entity *Entity, entity *EntityB);
 
 struct physics_floor {
-    entity *Entity;
+    v2 P;
     v2 Offset;
     v2 Normal;
     v2 Tangent;
     range_f32 Range;
     v2 Delta;
+    entity *Entity;
     
     s32 ID;
     
