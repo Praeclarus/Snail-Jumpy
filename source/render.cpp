@@ -23,6 +23,7 @@ RenderQuad(render_group *Group, render_texture Texture, z_layer Z,
     render_item *RenderItem = Renderer->NewRenderItem(Group, Texture, HasAlpha, Z);
     
     basic_vertex *Vertices = Renderer->AddVertices(RenderItem, 4);
+    
     Vertices[0] = {P0, (f32)Z.Z, T0, C0};
     Vertices[1] = {P1, (f32)Z.Z, T1, C1};
     Vertices[2] = {P2, (f32)Z.Z, T2, C2};
@@ -729,6 +730,11 @@ game_renderer::Initialize(memory_arena *Arena, v2 OutputSize_){
     InitializeArray(&Indices,  2000);
 }
 
+void 
+game_renderer::ChangeScaleCompute(f32 NewFactor){
+    TargetScaleComputeFactor = NewFactor;
+}
+
 void
 game_renderer::ChangeScale(f32 NewScale){
     f32 Epsilon = 0.0001f;
@@ -771,9 +777,11 @@ game_renderer::NewFrame(memory_arena *Arena, v2 OutputSize_, color ClearColor_, 
     v2 Delta = dTime*CameraSpeed*(CameraTargetP-CameraFinalP);
     CameraFinalP += Delta;
     
+    local_constant f32 ScaleComputeFactorSpeed = 0.3f;
+    
     v2 BoundsSize = RectSize(CameraBounds);
-    f32 Factor = 210.0f;
-    f32 NewScale = Minimum(OutputSize.X/Factor, OutputSize.Y/Factor);
+    ScaleComputeFactor += ScaleComputeFactorSpeed*(TargetScaleComputeFactor-ScaleComputeFactor);
+    f32 NewScale = Minimum(OutputSize.X/ScaleComputeFactor, OutputSize.Y/ScaleComputeFactor);
     NewScale = Maximum(NewScale, 1.0f);
     ChangeScale(NewScale);
 }
@@ -879,7 +887,7 @@ game_renderer::AddLight(v2 P, z_layer Z, color Color, f32 Intensity, f32 Radius)
     *Light = {};
     
     Light->P = P - CalculateParallax(Z.Layer);
-    Light->Z = (f32)Z.Z;
+    Light->Z = (f32)Z.Layer;
     Light->R = Intensity*Color.R;
     Light->G = Intensity*Color.G;
     Light->B = Intensity*Color.B;

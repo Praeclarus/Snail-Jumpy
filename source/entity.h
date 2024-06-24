@@ -145,21 +145,23 @@ struct enemy_entity : public entity {
 };
 
 struct player_entity : public entity {
-    s32 Health;
     f32 JumpTime;
     f32 WeaponChargeTime;
     f32 CoyoteTime;
     v2 StartP;
     v2 JumpNormal;
+    
+    s32 MaxHealth;
+    s32 Health;
+    s32 VisualHealth;
+    f32 VisualHealthUpdateT;
+    
+    asset_sound_effect *DamageSound;
+    asset_sound_effect *DeathSound;
 };
 
 struct projectile_entity : public entity {
     f32 RemainingLife;
-};
-
-// TODO(Tyler): This has a lot of unnecessary stuff in it
-struct art_entity : public entity {
-    asset_id Asset;
 };
 
 enum gravity_zone_arrow_art_type {
@@ -192,6 +194,36 @@ enum tilemap_floor_side_ {
     TilemapFloorSide_Left  = (1 << Direction_Left),
 };
 
+//~ Art
+// TODO(Tyler): This has a lot of unnecessary stuff in it
+struct art_entity : public entity {
+    asset_id Asset;
+};
+
+struct floor_art_part {
+    u8 Index;
+    world_position Pos;
+};
+
+global_constant u32 FLOOR_ART_MAX_PART_COUNT = 32;
+struct floor_art {
+    union{
+        struct {
+            v2 PA;
+            v2 PB;
+        };
+        rect R;
+    };
+    f32 HalfRange = 4;
+    f32 Density   = 1;
+    asset_id Asset;
+    floor_art_part Parts[FLOOR_ART_MAX_PART_COUNT];
+    u32 PartCount;
+    
+    v2 UpNormal;
+    b8 Updated; // This is only for editor stuff;
+};
+
 //~
 struct world_manager;
 struct entity_manager {
@@ -204,6 +236,7 @@ struct entity_manager {
     
     dynamic_array<trail> Trails;
     dynamic_array<gravity_zone> GravityZones;
+    dynamic_array<floor_art> FloorArts;
     
     player_data *PlayerData;
     enemy_data  *EnemyDatas;
@@ -223,21 +256,25 @@ struct entity_manager {
     
     void Initialize(memory_arena *Arena, player_data *PlayerData, enemy_data *EnemyData);
     void Reset();
+    inline void FloorArtGenerate(asset_system *Assets, floor_art *Art);
     void UpdateBoxing(physics_update_context *UpdateContext, enemy_entity *Entity, f32 dTime);
-    void UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_input *Input, settings_state *Settings);
+    void UpdateEntities(game_renderer *Renderer, asset_system *Assets, audio_mixer *Mixer,
+                        os_input *Input, settings_state *Settings);
     void RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, f32 dTime, world_manager *Worlds);
     void MaybeDoTrails(enemy_entity *Entity, f32 dTime);
     void RenderTrail(render_group *Group, asset_system *Assets, trail *Trail, f32 dTime);
     void EntityTestTrails(entity *Entity);
-    void EntityTestGravityZones(entity *Entity);
-    inline void DamagePlayer(u32 Damage);
+    void EntityTestGravityZones(world_data *World, entity *Entity);
+    inline void DamagePlayer(audio_mixer *Mixer, u32 Damage);
     inline void LoadTo(asset_system *Assets, entity_manager *ToManager, memory_arena *Arena, dynamic_array<physics_floor> *Floors);
+    void LoadFloorRaycasts(asset_system *Assets, entity_manager *ToManager);
     
     template<typename T, u32 U> T *AllocEntity_(world_data *World, bucket_array<T, U> *Array);
     void FullRemoveEntity(entity *Entity);
     
     void DeleteEntity(entity *Entity);
     void ReturnEntity(entity *Entity);
+    
     
     //~ Physics
     array<physics_floor> PhysicsFloors;
@@ -250,7 +287,7 @@ struct entity_manager {
     void CalculateTilemapFloors(asset_system *Assets, dynamic_array<physics_floor> *Floors, 
                                 world_data *World, tilemap_data *Data, tile_type *Types);
     
-    void HandleCollision(physics_update *Update, f32 TimeElapsed);
+    void HandleCollision(audio_mixer *Mixer, physics_update *Update, f32 TimeElapsed);
     inline physics_floor *FloorFindFloor(physics_floor *Floor, f32 S);
     inline physics_floor *FloorPrevFloor(physics_floor *Floor);
     inline physics_floor *FloorNextFloor(physics_floor *Floor);

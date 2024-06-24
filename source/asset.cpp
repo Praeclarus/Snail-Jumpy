@@ -1244,11 +1244,12 @@ asset_system::Initialize(memory_arena *Arena, void *Data, u32 DataSize){
     Memory = MakeArena(Arena, Megabytes(128));
     AssetTableInit(SpriteSheet, Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(Animation,   Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
-    AssetTableInit(Art,         Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(SoundEffect, Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(Tilemap,     Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(Font,        Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     AssetTableInit(Variable,    Arena, MAX_VARIABLES,       Data, DataSize);
+    AssetTableInit(Art,         Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
+    AssetTableInit(FloorArt,    Arena, MAX_ASSETS_PER_TYPE, Data, DataSize);
     
     //~ Dummy assets
     u8 InvalidColor[] = {0xff, 0x00, 0xff, 0xff};

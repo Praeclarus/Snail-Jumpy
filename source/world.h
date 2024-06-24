@@ -9,6 +9,7 @@ enum selection_type {
     Selection_Entity,
     Selection_GravityZone,
     Selection_World,
+    Selection_FloorArt,
 };
 
 struct editor_selection {
@@ -18,6 +19,7 @@ struct editor_selection {
         entity *Entity;
         gravity_zone *Zone;
         world_data *World;
+        floor_art *FloorArt;
     };
 };
 
@@ -65,6 +67,15 @@ struct editor_action {
         struct {
             rect Area;
             v2 Direction;
+        };
+        
+        
+        // Floor Art stuff
+        struct {
+            rect R;
+            f32 HalfRange;
+            f32 Density;
+            v2 UpNormal;
         };
         
         // Change zone direction
@@ -130,12 +141,11 @@ struct world_data {
     tilemap_edit_tile *EditTiles;
     u32 Width;
     u32 Height;
-    
+    u32 CoinsToSpawn;
+    u32 CoinsRequired;
     
     entity_manager Manager;
     
-    u32 CoinsToSpawn;
-    u32 CoinsRequired;
     world_flags Flags;
     
     hsb_color BackgroundColor;
@@ -148,7 +158,7 @@ struct world_data {
 
 //~ World manager
 
-global_constant u32 CURRENT_WORLD_FILE_VERSION = 2;
+global_constant u32 CURRENT_WORLD_FILE_VERSION = 1;
 
 struct player_data;
 struct enemy_data;
@@ -177,20 +187,107 @@ struct world_manager {
 #pragma pack(push, 1)
 struct world_file_header {
     char Header[3];
+    u32 HeaderSize;
     u32 Version;
-    u32 WidthInTiles;
-    u32 HeightInTiles;
-    
+};
+
+enum world_file_chunk_type_ {
+    WorldFileChunkType_None          = 0,
+    WorldFileChunkType_Entity        = 1,
+    WorldFileChunkType_Camera        = 2, 
+    WorldFileChunkType_Tilemap       = 3,
+    WorldFileChunkType_GravityZone   = 4,
+    WorldFileChunkType_FloorArt      = 5,
+    WorldFileChunkType_Miscellaneous = 6,
+};
+typedef u8 world_file_chunk_type;
+
+struct world_file_chunk_header {
+    u32 Version;
+    u32 ChunkSize; // Including this header
+    world_file_chunk_type Type;
+};
+
+struct world_file_chunk_entities {
+    world_file_chunk_header Header;
     u64 EntityIDCounter;
     u32 EntityCount;
-    
-    u32 CoinsToSpawn;
-    u32 CoinsRequired;
-    
+};
+
+struct world_file_chunk_entity {
+    world_file_chunk_header Header;
+    entity_type Type;
+    entity_flags Flags;
+    v2 P;
+    entity_id ID;
+};
+
+struct world_file_chunk_entity_enemy {
+    world_file_chunk_entity Base;
+    enemy_type EnemyType;
+    v2 PathStart;
+    v2 PathEnd;
+    f32 TargetY;
+    direction Direction;
+};
+
+struct world_file_chunk_entity_teleporter {
+    world_file_chunk_entity Base;
+    // NOTE(Tyler): string Level;
+    // NOTE(Tyler): string RequiredLevel;
+};
+
+struct world_file_chunk_entity_door {
+    world_file_chunk_entity Base;
+    rect Bounds;
+    // NOTE(Tyler): string RequiredLevel;
+};
+
+struct world_file_chunk_entity_art {
+    world_file_chunk_entity Base;
+    // NOTE(Tyler): asset_id Asset;
+};
+
+struct world_file_chunk_tilemap { 
+    world_file_chunk_header Header;
+    u32 Width;
+    u32 Height;
+    // NOTE(Tyler): tilemap_edit_tile EditTiles[];
+};
+
+struct world_file_chunk_camera {
+    world_file_chunk_header Header;
     hsb_color BackgroundColor;
     hsb_color AmbientColor;
     f32       Exposure;
 };
+
+struct world_file_chunk_gravity_zone {
+    world_file_chunk_header Header;
+    v2 Direction;
+    rect Area;
+};
+
+struct world_file_chunk_floor_art_part {
+    u8 Index;
+    v2 P;
+};
+
+struct world_file_chunk_floor_art {
+    world_file_chunk_header Header;
+    v2 PA;
+    v2 PB;
+    v2 UpNormal;
+    u32 PartCount;
+    // NOTE(Tyler): asset_id Asset;
+    // NOTE(Tyler): world_file_chunk_floor_art_part Parts[];
+};
+
+struct world_file_chunk_miscellaneous {
+    world_file_chunk_header Header;
+    u64 EntityIDCounter;
+};
+
 #pragma pack(pop)
 
 #endif //SNAIL_JUMPY_WORLD_H

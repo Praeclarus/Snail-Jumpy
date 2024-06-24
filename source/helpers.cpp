@@ -81,6 +81,9 @@ GetRandomFloat(u32 Seed, u32 Spread=5, f32 Power=0.2f){
     return(Result);
 }
 
+#define RANDOM_SEED ((u32)(341234*Counter)+(u32)(HashKey(__FILE__) * __LINE__))
+#define RANDOM_SEED_(Seed) ((u32)(341234*(Counter+Seed))+(u32)(HashKey(__FILE__) * __LINE__))
+
 internal inline b8 
 StopSeeking(char C){
     b8 Result = (!IsALetter(C) &&

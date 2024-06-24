@@ -76,6 +76,7 @@ enum z_layer_level {
     ZLayer_GameUI,
     ZLayer_GameForeground,
     ZLayer_GameEntities,
+    ZLayer_GameMidground,
     ZLayer_GameBackground,
     ZLayer_TOTAL,
 };
@@ -87,8 +88,8 @@ union z_layer {
     static_assert(ZLayer_TOTAL < (1 << 4));
     struct {
         u8 Sub;
-        s8  Layer : 4;
         u8  Main  : 4;
+        s8  Layer : 4;
     };
     u16 Z;
     
@@ -266,11 +267,15 @@ struct game_renderer {
     v2  CameraTargetP;
     v2  CameraFinalP;
     
+    f32 ScaleComputeFactor       = 200.0f;
+    f32 TargetScaleComputeFactor = ScaleComputeFactor;
+    
     void SetCameraSettings(f32 Speed);
     void SetCameraTarget(v2 P);
     void MoveCamera(v2 Delta);
     void ResetCamera();
     void ChangeScale(f32 NewScale);
+    void ChangeScaleCompute(f32 NewFactor);
     
     void CalculateCameraBounds(world_data *World);
     v2   WorldToScreen(v2 P, s8 Layer=0);

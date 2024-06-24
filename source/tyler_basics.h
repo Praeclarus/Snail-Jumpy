@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 #include <float.h>
-// Remove this dependency
+// TODO(Tyler): Remove this dependency
 #include <math.h>
 
 #ifndef TYLER_SNPRINTF
@@ -386,6 +386,12 @@ IsEven(s32 A){
 tyler_function inline b8
 IsOdd(s32 A){
     b8 Result = (A % 2) == 1;
+    return(Result);
+}
+
+tyler_function inline s32
+SignOf(s32 A){
+    s32 Result = (A < 0) ? -1 : 1;
     return(Result);
 }
 

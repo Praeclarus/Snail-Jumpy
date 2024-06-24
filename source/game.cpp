@@ -22,7 +22,7 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
     
     render_group *GameGroup   = Renderer->GetRenderGroup(RenderGroupID_Lighting);
     render_group *GameUIGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
-    Entities->UpdateEntities(Renderer, Mixer, Input, Settings);
+    Entities->UpdateEntities(Renderer, Assets, Mixer, Input, Settings);
     Entities->RenderEntities(GameGroup, Assets, Renderer, Input->dTime, Worlds);
     
     player_entity *Player = Entities->Player;
@@ -60,22 +60,45 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
         RenderRect(GameUIGroup, MakeRect(Min, Max), ZLayer(0, ZLayer_GameUI), MakeColor(1.0f, 0.0f, 1.0f, 0.9f));
     }
     
-    //~ Health display
+    //~ Health display @render_health_display
     {
-        v2 P = V2(10.0f, 10.0f);
         f32 XAdvance = 10.0f;
+        f32 Margin   = 5.0f;
         
-        u32 FullHearts = Player->Health / 3;
-        u32 Remainder = Player->Health % 3;
+        s32 MaxHealth = Player->MaxHealth;
+        f32 Width = XAdvance*MaxHealth + Margin;
+        f32 Height = 10 + Margin;
+        
+        v2 TopRight = Renderer->ScreenToWorld(Renderer->OutputSize, 0)-V2(Width, Height);
+        v2 P = V2(Margin, TopRight.Y);
+        
+        Player->VisualHealth = Clamp(Player->VisualHealth, 0, (3*MaxHealth));
+        u32 Health = (u32)Player->VisualHealth;
         
         asset_sprite_sheet *Asset = AssetsFind(Assets, SpriteSheet, heart);
-        Assert(FullHearts <= 3);
-        u32 I;
-        for(I = 0; I < FullHearts; I++){
-            RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, 0);
+        for(s32 I = 0; I < MaxHealth; I++){
+            u32 Frame = 3;
+            if(Health > 3){
+                Health -= 3;
+                Frame = 0;
+            }else if(Health > 0){
+                Frame = 3-Health;
+                Health = 0;
+            }
+            RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, Frame);
             P.X += XAdvance;
         }
         
+        f32 Threshold = 0.05f;
+        if(3*Player->Health-Player->VisualHealth != 0){
+            Player->VisualHealthUpdateT += Input->dTime;
+        }
+        if(Player->VisualHealthUpdateT > Threshold){
+            Player->VisualHealth += SignOf(3*Player->Health - Player->VisualHealth);
+            Player->VisualHealthUpdateT = 0;
+        }
+        
+#if 0        
         if(Remainder > 0){
             Remainder = 3 - Remainder;
             RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, Remainder);
@@ -83,33 +106,18 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
             I++;
         }
         
-        if(I < 3){
-            for(u32 J = 0; J < 3-I; J++){
-                RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI) , 1, 3);
-                P.X += XAdvance;
-            }
+        for(u32 I=0; I<EmptyHearts; I++){
+            RenderSpriteSheetAnimationFrame(GameUIGroup, Asset, P, ZLayer(0, ZLayer_GameUI), 1, 3);
+            P.X += XAdvance;
         }
-    }
-    
-#if 0
-    //~ Rope/vine thing
-    {
-        v2 BaseP = V2(100, 110);
-        
-        f32 FinalT = (0.5f*Sin(2*Counter))+0.5f;
-        f32 MinAngle = 0.4*PI;
-        f32 MaxAngle = 0.6f*PI;
-        f32 Angle = Lerp(MinAngle, MaxAngle, FinalT);
-        v2 Delta = 50.0f*V2(Cos(Angle), -Sin(Angle));
-        
-        RenderLineFrom(BaseP, Delta, 0.0f, 1.0f, GREEN, GameItem(1));
-        GameRenderer.AddLight(BaseP+Delta, MakeColor(0.0f, 1.0f, 0.0f), 0.3f, 5.0f, GameItem(1));
-    }
 #endif
+    }
     
+#if 0    
     {
         v2 WindowSize = Renderer->ScreenToWorld(Input->WindowSize, 0);
         asset_font *Font = AssetsFind(Assets, Font, font_basic);
         FontRenderString(GameUIGroup, Font, V2(10, WindowSize.Y-10-Font->Height), ZLayer(ZLayer_GameUI), WHITE, "Score: %u", Score);
     }
+#endif
 }

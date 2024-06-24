@@ -1,5 +1,5 @@
 
-#define DEBUG_PHYSICS_ALL
+//#define DEBUG_PHYSICS_ALL
 
 #if defined(DEBUG_PHYSICS_ALL)
 #define DEBUG_PHYSICS_BOXES
@@ -371,12 +371,12 @@ MakeFloorMoveUpdate(physics_update_context *Context, entity *Entity, f32 DeltaS)
 //~ Physics system
 
 internal b8
-HandlePlayerCollision(entity_manager *Entities, physics_update *Update, 
+HandlePlayerCollision(audio_mixer *Mixer, entity_manager *Entities, physics_update *Update, 
                       player_entity *EntityA, entity *EntityB){
     if(HasTag(EntityB->Tag, AssetTag_Snail) ||
        HasTag(EntityB->Tag, AssetTag_Dragonfly)){
         enemy_entity *Enemy = (enemy_entity *)EntityB;
-        Entities->DamagePlayer(Enemy->Damage);
+        Entities->DamagePlayer(Mixer, Enemy->Damage);
         
         return true;
     }else if(HasTag(EntityB->Tag, AssetTag_Boxing)){
@@ -438,7 +438,7 @@ HandleBoxingCollision(entity_manager *Entities, physics_update *Update,
 // TODO(Tyler): There is probably a better way of handling moving floors... The current method
 // seems to be rather innacurate.
 void
-entity_manager::HandleCollision(physics_update *Update, f32 TimeElapsed){
+entity_manager::HandleCollision(audio_mixer *Mixer, physics_update *Update, f32 TimeElapsed){
     physics_collision *Collision = &Update->Collision;
     entity *EntityA = Update->Entity;
     
@@ -486,7 +486,7 @@ entity_manager::HandleCollision(physics_update *Update, f32 TimeElapsed){
             }else if(HasTag(EntityA->Tag, AssetTag_Boxing)){
                 ResetPosition = HandleBoxingCollision(this, Update, (enemy_entity *)EntityA, EntityB);
             }else if(EntityA->Type == EntityType_Player){
-                ResetPosition = HandlePlayerCollision(this, Update, (player_entity *)EntityA, EntityB);
+                ResetPosition = HandlePlayerCollision(Mixer, this, Update, (player_entity *)EntityA, EntityB);
             }
         }
         
@@ -554,7 +554,7 @@ entity_manager::DoFloorRaycast(world_position Pos, v2 Size, v2 UpNormal){
         v2 FloorPB = FloorPA+(Floor.Tangent*RangeSize(Floor.Range));
         
         f32 AlongNormal = V2Dot(Floor.Normal, P-FloorPA);
-        if((MinRange < AlongNormal) && (AlongNormal < MaxRange)){
+        if((MinRange <= AlongNormal) && (AlongNormal <= MaxRange)){
             range_f32 TangentRange = MakeRangeF32(V2Dot(ObjectTangent, FloorPA),
                                                   V2Dot(ObjectTangent, FloorPB));
             
@@ -601,10 +601,17 @@ entity_manager::CalculateCollision(physics_update *UpdateA, physics_update *Upda
 void
 entity_manager::CalculateFloorCollision(physics_update *UpdateA, physics_floor *Floor, v2 Supplemental){
     if(UpdateA->Pos.Floor && (UpdateA->Pos.Floor->ID == Floor->ID) &&
-       V2Dot(Floor->Normal, UpdateA->UpNormal) > 0) return;
+       V2Dot(Floor->Normal, UpdateA->UpNormal) > 0){
+        return;
+    }
     
     if(Floor->Entity){
         Floor->P = WorldPosP(Floor->Entity->Pos);
+    }
+    
+    if((Floor->Flags & FloorFlag_Bounds) &&
+       (V2Dot(Floor->Normal, UpdateA->UpNormal) != 0)){
+        return;
     }
     
     rect Bounds = WorldPosBounds(UpdateA->Pos, UpdateA->Size, UpdateA->UpNormal);
@@ -707,7 +714,7 @@ entity_manager::DoPhysics(audio_mixer *Mixer, physics_update_context *Context, f
                           Update.TimeRemaining, Update.Collision.TimeOfImpact, TimeElapsed);
 #endif
             
-            HandleCollision(&Update, TimeElapsed);
+            HandleCollision(Mixer, &Update, TimeElapsed);
             
             Update.Collision = MakeCollision();
             

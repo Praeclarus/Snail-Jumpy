@@ -112,12 +112,12 @@ world_editor::ChangeEditThing(edit_thing NewEditThing){
 }
 
 inline editor_rect_result
-world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID){
+world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID, b8 OnlyMinMax){
     editor_rect_result Result = {};
     
     v2 PointSize = V2(6);
     //- Corner 1 (Top left)
-    {
+    if(!OnlyMinMax){
         v2 P = RectTopLeft(Rect);
         rect R = CenterRect(P, PointSize);
         u64 ID = WIDGET_ID_CHILD(ParentID, WIDGET_ID);
@@ -164,12 +164,17 @@ world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID){
                 UI_UPDATE_T(Animation->ActiveT, true, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
                 v2 Offset = UI->Renderer->ScreenToWorld(UI->ActiveElement.Offset, 0);
                 v2 Delta = SnapToGrid(MouseP + Offset, Grid)-P;
-                if(Rect.Max.X + Delta.X > Rect.Min.X){
-                    Rect.Max.X += Delta.X;
-                    Result.Updated = true;
-                }
-                if(Rect.Max.Y + Delta.Y > Rect.Min.Y){
-                    Rect.Max.Y += Delta.Y;
+                if(!OnlyMinMax){
+                    if(Rect.Max.X + Delta.X > Rect.Min.X){
+                        Rect.Max.X += Delta.X;
+                        Result.Updated = true;
+                    }
+                    if(Rect.Max.Y + Delta.Y > Rect.Min.Y){
+                        Rect.Max.Y += Delta.Y;
+                        Result.Updated = true;
+                    }
+                }else{
+                    Rect.Max += Delta;
                     Result.Updated = true;
                 }
             }break;
@@ -185,7 +190,7 @@ world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID){
     }
     
     //- Corner 3 (Bottom right)
-    {
+    if(!OnlyMinMax){
         v2 P = RectBottomRight(Rect);
         rect R = CenterRect(P, PointSize);
         u64 ID = WIDGET_ID;
@@ -214,6 +219,8 @@ world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID){
                 UI_UPDATE_T(Animation->ActiveT, false, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
             }break;
         }
+        
+        
         color Color = UIGetColor(&EDITOR_THEME, Animation->HoverT, Animation->ActiveT);
         RenderRect(Group, R, EDITOR_OVERLAY_Z, Color);
     }
@@ -233,12 +240,17 @@ world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID){
                 UI_UPDATE_T(Animation->ActiveT, true, EDITOR_THEME.ActiveT, UI->OSInput->dTime);
                 v2 Offset = UI->Renderer->ScreenToWorld(UI->ActiveElement.Offset, 0);
                 v2 Delta = SnapToGrid(MouseP + Offset, Grid)-P;
-                if(Rect.Min.X + Delta.X < Rect.Max.X){
-                    Rect.Min.X += Delta.X;
-                    Result.Updated = true;
-                }
-                if(Rect.Min.Y + Delta.Y < Rect.Max.Y){
-                    Rect.Min.Y += Delta.Y;
+                if(!OnlyMinMax){
+                    if(Rect.Min.X + Delta.X < Rect.Max.X){
+                        Rect.Min.X += Delta.X;
+                        Result.Updated = true;
+                    }
+                    if(Rect.Min.Y + Delta.Y < Rect.Max.Y){
+                        Rect.Min.Y += Delta.Y;
+                        Result.Updated = true;
+                    }
+                }else{
+                    Rect.Min += Delta;
                     Result.Updated = true;
                 }
             }break;
@@ -254,6 +266,7 @@ world_editor::EditorEditableRect(render_group *Group, rect Rect, u64 ParentID){
     }
     
     Result.Rect = Rect;
+    //Result.Rect = RectRectify(Rect);
     return Result;
 }
 
@@ -328,6 +341,19 @@ editor_action_system::DeleteThing(editor_action *Action, editor_selection *Thing
                 }
             }
         }break;
+        case Selection_FloorArt: {
+            FOR_EACH_(Art, Index, &Entities->FloorArts){
+                if(&Art == Thing->FloorArt){
+                    Action->R         = Art.R;
+                    Action->HalfRange = Art.HalfRange;
+                    Action->Density   = Art.Density;
+                    Action->UpNormal  = Art.UpNormal;
+                    Thing->FloorArt = 0;
+                    
+                    ARRAY_REMOVE_IN_LOOP_ORDERED(&Entities->FloorArts, Index);
+                }
+            }
+        }break;
     }
 }
 
@@ -341,6 +367,14 @@ editor_action_system::ReturnThing(editor_action *Action, editor_selection *Thing
             Assert(Thing->Zone == 0);
             Thing->Zone = AllocGravityZone(&Entities->GravityZones, Action->Area, Action->Direction);
         }break;
+        case Selection_FloorArt: {
+            Assert(Thing->FloorArt == 0);
+            Thing->FloorArt = ArrayAlloc(&Entities->FloorArts);
+            Thing->FloorArt->R = Action->R;
+            Thing->FloorArt->HalfRange = Action->HalfRange;
+            Thing->FloorArt->Density   = Action->Density;
+            Thing->FloorArt->UpNormal  = Action->UpNormal;
+        }break;
     }
 }
 
@@ -353,6 +387,9 @@ editor_action_system::ChangeThingSize(editor_selection *Thing, rect Area){
         case Selection_GravityZone: {
             Thing->Zone->Area = Area;
         }break;
+        case Selection_FloorArt: {
+            Thing->FloorArt->R = Area;
+        }break;
     }
 }
 
@@ -364,6 +401,9 @@ editor_action_system::MoveThing(editor_selection *Thing, v2 P){
         }break;
         case Selection_GravityZone: {
             Thing->Zone->Area = SizeRect(P, RectSize(Thing->Zone->Area));
+        }break;
+        case Selection_FloorArt: {
+            Thing->FloorArt->R = SizeRect(P, RectSize(Thing->FloorArt->R));
         }break;
     }
 }
@@ -550,6 +590,12 @@ editor_action_system::EndCurrentAction(){
         }else if(CurrentAction->Type == EditorAction_EditTilemap){
             TileCounter = 0;
         }
+        
+#if 0
+        if(CurrentAction->Thing.Type == Selection_FloorArt){
+            CurrentAction->Thing.FloorArt->Updated = true;
+        }
+#endif
     }
     
     CurrentAction = 0;
@@ -1029,6 +1075,67 @@ world_editor::DoEditThingArt(render_group *GameGroup, asset_system *Assets, f32 
     }
 }
 
+void
+world_editor::DoEditThingFloorArt(render_group *Group, asset_system *Assets, f32 dTime){
+    u32 SelectedIndex = 0;
+    array<asset_id> Arts = MakeArray<asset_id>(&GlobalTransientMemory, AssetsCount(Assets, FloorArt));
+    ASSET_TABLE_FOR_EACH(It, Assets, FloorArt){
+        if(HasTag(It.Value.Tag, AssetTag_Background)) continue;
+        if(HasTag(It.Value.Tag, AssetTag_NoEditor)) continue;
+        asset_id Key = It.Key;
+        if(Key.ID){ 
+            if(Key == FloorArtToAdd) SelectedIndex = Arts.Count;
+            ArrayAdd(&Arts, Key); 
+        }
+    }
+    
+    selector_context Selector = BeginSelector(DEFAULT_SELECTOR_P, SelectedIndex, Arts.Count);
+    for(u32 I=0; I<Arts.Count; I++){
+        asset_floor_art *Asset = AssetsFind_(Assets, FloorArt, Arts[I]);
+        v2 Size = SelectorClampSize(&Selector, 2*Asset->Size);
+        
+        RenderTexture(Group, SizeRect(Selector.P, Size), EDITOR_SELECTOR_Z, 
+                      Asset->Textures[0], MakeRect(V2(0), V2(1)), false);
+        
+        SelectorDoItem(UI, &Selector, WIDGET_ID_CHILD(WIDGET_ID, I+1), I, Size, dTime);
+    }
+    StringSelectorSelectItem(Arts, FloorArtToAdd, WIDGET_ID);
+    asset_floor_art *Art = AssetsFind_(Assets, FloorArt, FloorArtToAdd);
+    
+    v2 Size = Art->Size;
+    v2 P = MouseP - 0.5*Size;
+    P = SnapToGrid(P, Grid);
+    
+    {
+        render_texture Texture = Art->Textures[0];
+        RenderTexture(Group, SizeRect(P, Size), EDITOR_CURSOR_Z, Texture,
+                      MakeRect(V2(0), V2(1)), true);
+    }
+    
+    
+    switch(UI->DoClickElement(WIDGET_ID, MouseButton_Left, false, -2)){
+        case UIBehavior_None: {
+        }break;
+        case UIBehavior_JustActivate: {
+            DragRect.Min = P;
+        }case UIBehavior_Activate: {
+            DragRect.Max = P;
+            
+            RenderLine(Group, DragRect.Min, DragRect.Max, EDITOR_CURSOR_Z, 1, RED);
+        }break;
+        case UIBehavior_Deactivate: {
+            floor_art *Art = ArrayAlloc(&World->Manager.FloorArts);
+            Art->PA = DragRect.Min;
+            Art->PB = DragRect.Max;
+            Art->Asset = FloorArtToAdd;
+            Art->UpNormal = V2(0, 1);
+            Actions->LogAddThing(MakeSelection(Art, Selection_FloorArt));
+            SelectThing(Art, Selection_FloorArt);
+            Actions->Entities->FloorArtGenerate(Assets, Art);
+        }break;
+    }
+}
+
 //~ Selected thing
 b8
 world_editor::DoButton(render_group *GameGroup, rect R, u64 ID, f32 dTime, rounded_rect_corner Corners){
@@ -1163,34 +1270,33 @@ world_editor::DoEntitiesWindow(render_group *Group, asset_system *Assets){
         range_s32 EntityRange = SizeRangeS32(0, World->Manager.ActualEntityCount);
         FOR_EACH_ENTITY(&World->Manager){
             const char *EntityName = GetEntityName(It.Item);
-            u32 I=0;
-            FOR_EACH(B, &Names){
-                alphabetic_order Order = CStringsAlphabeticOrder(EntityName, B);
-                if(Order == AlphabeticOrder_AFirst){
-                    break;
-                }
-                I++;
-            }
             
             if(Selection.Entity == It.Item){
-                SelectedIndex = I;
+                SelectedIndex = Names.Count;
             }
-            ArrayInsert(&Names, I, EntityName);
-            ArrayInsert(&IDs,   I, It.Item->ID.EntityID);
+            ArrayAdd(&Names, EntityName);
+            ArrayAdd(&IDs,   It.Item->ID.EntityID);
         }
         
         
         range_s32 ZoneRange = AfterRangeS32(EntityRange, World->Manager.GravityZones.Count);
         FOR_EACH_(Zone, Index, &World->Manager.GravityZones){
-            const char *Name = ArenaPushFormatCString(&GlobalTransientMemory, "Gravity Zone %03llu", Index);
+            const char *Name = ArenaPushFormatCString(&GlobalTransientMemory, "Zone %03llu", Index);
             ArrayAdd(&Names, Name);
             if(Selection.Zone == &Zone) SelectedIndex = ZoneRange.Start+Index;
+        }
+        
+        range_s32 FloorArtRange = AfterRangeS32(ZoneRange, World->Manager.FloorArts.Count);
+        FOR_EACH_(Art, Index, &World->Manager.FloorArts){
+            const char *Name = ArenaPushFormatCString(&GlobalTransientMemory, "Floor art %03llu", Index);
+            ArrayAdd(&Names, Name);
+            if(Selection.FloorArt == &Art) SelectedIndex = FloorArtRange.Start+Index;
         }
         
         SelectedIndex = Window->List(Names, SelectedIndex, WIDGET_ID);
         if(RangeContainsInclusive(EntityRange, SelectedIndex)){
             FOR_EACH_ENTITY(&World->Manager){
-                if((s32)It.Item->ID.EntityID == IDs[SelectedIndex]){
+                if((u64)It.Item->ID.EntityID == IDs[SelectedIndex]){
                     SelectThing(It.Item, Selection_Entity);
                     break;
                 }
@@ -1198,6 +1304,9 @@ world_editor::DoEntitiesWindow(render_group *Group, asset_system *Assets){
         }else if(RangeContainsInclusive(ZoneRange, SelectedIndex)){
             gravity_zone *Zone = &World->Manager.GravityZones[SelectedIndex-ZoneRange.Start];
             SelectThing(Zone, Selection_GravityZone);
+        }else if(RangeContainsInclusive(FloorArtRange, SelectedIndex)){
+            floor_art *Art = &World->Manager.FloorArts[SelectedIndex-FloorArtRange.Start];
+            SelectThing(Art, Selection_FloorArt);
         }else{
             Assert(SelectedIndex < 0);
         }
@@ -1211,6 +1320,9 @@ world_editor::DoEntitiesWindow(render_group *Group, asset_system *Assets){
         }break;
         case Selection_GravityZone: {
             DoGravityZoneSection(Window, Group, Assets);
+        }break;
+        case Selection_FloorArt: {
+            DoFloorArtSection(Window, Group, Assets);
         }break;
     }
     
@@ -1288,6 +1400,50 @@ world_editor::DoGravityZoneSection(ui_window *Window, render_group *Group, asset
     }
 }
 
+void 
+world_editor::DoFloorArtSection(ui_window *Window, render_group *Group, asset_system *Assets){
+    floor_art *Art = Selection.FloorArt;
+    
+    if(Window->BeginSection("Edit floor art", WIDGET_ID, 10, true)){
+        local_constant f32 MAX_DENSITY = 4.0f;
+        Window->Text("Density (%.1f)", Art->Density);
+        Art->Density = MAX_DENSITY*Window->Slider(Art->Density/MAX_DENSITY, WIDGET_ID);
+        
+        local_constant f32 MAX_HALF_RANGE = 0.5*TILE_SIDE;
+        Window->Text("Spread (%.1f)", Art->HalfRange);
+        Art->HalfRange = MAX_HALF_RANGE*Window->Slider(Art->HalfRange/MAX_HALF_RANGE, WIDGET_ID);
+        
+        if(Window->Button("Regenerate", WIDGET_ID)){
+            Actions->Entities->FloorArtGenerate(Assets, Art);
+        }
+        
+        Window->DoRow(4);
+        if(Window->Button("Up", WIDGET_ID)){
+            Art->UpNormal = V2(0, 1);
+            Actions->Entities->FloorArtGenerate(Assets, Art);
+        }
+        if(Window->Button("Down", WIDGET_ID)){
+            Art->UpNormal = V2(0, -1);
+            Actions->Entities->FloorArtGenerate(Assets, Art);
+        }
+        if(Window->Button("Left", WIDGET_ID)){
+            Art->UpNormal = V2(-1, 0);
+            Actions->Entities->FloorArtGenerate(Assets, Art);
+        }
+        if(Window->Button("Right", WIDGET_ID)){
+            Art->UpNormal = V2(1, 0);
+            Actions->Entities->FloorArtGenerate(Assets, Art);
+        }
+        
+        Window->EndSection();
+    }
+    
+    
+    editor_rect_result Edit = EditorEditableRect(Group, Art->R, WIDGET_ID, true);
+    if(Edit.Updated){
+        Actions->ActionChangeSize(&Selection, Edit.Rect, Art->R);
+    }
+}
 
 
 //~ UI
@@ -1369,8 +1525,10 @@ world_editor::DoUI(asset_system *Assets){
     //~ Debug
 #if 1
     if(Window->BeginSection("Debug", WIDGET_ID, 25, true)){
-        Window->Text("Selected Type: %u\n", Selection.Type);
-        Window->Text("Actions: %u / %u", Actions->ActionIndex, Actions->Actions.Count);
+        Window->Text("Current ID: %llu", World->Manager.EntityIDCounter);
+        if(Selection.Type == Selection_Entity){
+            Window->Text("Entity ID: %llu", Selection.Entity->ID.EntityID);
+        }
         Window->EndSection();
     }
 #endif
@@ -1470,6 +1628,7 @@ world_editor::ProcessHotKeys(game_renderer *Renderer, asset_system *Assets){
     
     if(OSInput->KeyJustDown(KeyCode_Delete)){
         Actions->ActionDeleteThing(Selection);
+        SelectThing(0);
     }
     
     if(OSInput->KeyJustDown('1')) ChangeEditThing(EditThing_None);
@@ -1479,6 +1638,7 @@ world_editor::ProcessHotKeys(game_renderer *Renderer, asset_system *Assets){
     if(OSInput->KeyJustDown('5')) ChangeEditThing(EditThing_Teleporter);
     if(OSInput->KeyJustDown('6')) ChangeEditThing(EditThing_Door);
     if(OSInput->KeyJustDown('7')) ChangeEditThing(EditThing_GravityZone);
+    if(OSInput->KeyJustDown('8')) ChangeEditThing(EditThing_FloorArt);
     
     f32 Amount = 2;
     if(OSInput->KeyDown('W')) UI->Renderer->MoveCamera(V2(      0,  Amount));
@@ -1504,11 +1664,13 @@ world_editor::UpdateEditorEntities(render_group *Group, render_group *FontGroup,
         
         if(DoDeleteThing(Entity, EditorEntityBounds(Entity->Pos, Entity->Size))){
             Actions->ActionDeleteThing(MakeSelection(Entity, Selection_Entity));
+            if(Selection.Thing == Entity) SelectThing(0);
         }
     }
     
-    FOR_EACH(Zone, &Manager->GravityZones){
-        editor_drag_result Drag = DoDraggableThing(Group, FontGroup, &Zone, Zone.Area, "ZONE");
+    FOR_EACH_(Zone, Index, &Manager->GravityZones){
+        const char *Name = ArenaPushFormatCString(&GlobalTransientMemory, "Zone %03llu", Index);
+        editor_drag_result Drag = DoDraggableThing(Group, FontGroup, &Zone, Zone.Area, Name);
         if(Drag.Selected){
             SelectThing(&Zone, Selection_GravityZone);
             Actions->ActionMoveThing(&Selection, Drag.NewP, Zone.Area.Min);
@@ -1516,8 +1678,31 @@ world_editor::UpdateEditorEntities(render_group *Group, render_group *FontGroup,
         
         if(DoDeleteThing(&Zone, Zone.Area)){
             Actions->ActionDeleteThing(MakeSelection(&Zone, Selection_GravityZone));
+            if(Selection.Thing == &Zone) SelectThing(0);
         }
         
+    }
+    
+    FOR_EACH_(Art, Index, &Manager->FloorArts){
+        RenderLine(Group, Art.PA, Art.PB, EDITOR_CURSOR_Z, 1, RED);
+        const char *Name = ArenaPushFormatCString(&GlobalTransientMemory, "Floor art %03llu", Index);
+        
+        rect R = RectGrow(RectRectify(Art.R), 3);
+        editor_drag_result Drag = DoDraggableThing(Group, FontGroup, &Art, R, Name);
+        if(Drag.Selected){
+            SelectThing(&Art, Selection_FloorArt);
+            Actions->ActionMoveThing(&Selection, Drag.NewP, Art.PA);
+        }
+        
+        if(DoDeleteThing(&Art, R)){
+            Actions->ActionDeleteThing(MakeSelection(&Art, Selection_FloorArt));
+            if(Selection.Thing == &Art) SelectThing(0);
+        }
+        
+        if(Art.Updated){
+            Actions->Entities->FloorArtGenerate(Assets, &Art);
+            Art.Updated = false;
+        }
     }
     
     World->Tilemap = MakeTilemapData(&GlobalTransientMemory, World->Width, World->Height);
@@ -1597,6 +1782,22 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
     
     DoEntitiesWindow(ScaledGroup, Assets);
     
+    //~ Zooooom
+    if(UI->DoScrollElement(WIDGET_ID, -2, KeyFlag_Alt)){
+        s32 Range = 100;
+        s32 Scroll = UI->ActiveElement.Scroll;
+        
+        if(Scroll < -10){
+            Renderer->ChangeScaleCompute(Renderer->ScaleComputeFactor+30);
+        }else if(Scroll > 10){
+            if(Renderer->ScaleComputeFactor > 50){
+                Renderer->ChangeScaleCompute(Renderer->ScaleComputeFactor-30);
+            }
+        }
+        
+    }
+    
+    
     //~ Editing
     if(UI->DoScrollElement(WIDGET_ID, -1, KeyFlag_None)){
         s32 Range = 100;
@@ -1633,6 +1834,9 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
         }break;
         case EditThing_GravityZone: {
             DoEditThingGravityZone(GameGroup);
+        }break;
+        case EditThing_FloorArt: {
+            DoEditThingFloorArt(GameGroup, Assets, OSInput->dTime);
         }break;
         default: { INVALID_CODE_PATH }break;
     }

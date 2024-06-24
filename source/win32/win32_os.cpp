@@ -201,7 +201,9 @@ OSOpenFile(const char *Path, open_file_flags Flags){
         Access |= GENERIC_WRITE;
     }
     if(Flags & OpenFile_Clear){
-        DeleteFileA(Path);
+        //DeleteFileA(Path);
+        Creation = CREATE_ALWAYS;
+        
     }
     
     os_file *Result;

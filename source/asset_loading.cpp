@@ -690,6 +690,7 @@ asset_loader::ProcessCommand(){
     SJA_COMMAND(Player);
     SJA_COMMAND(Enemy);
     SJA_COMMAND(Art);
+    SJA_COMMAND(FloorArt);
     SJA_COMMAND(SoundEffect);
     SJA_COMMAND(Tilemap);
     SJA_COMMAND(Font);
@@ -743,18 +744,11 @@ asset_loader::ProcessVariables(){
             asset_variable *Variable = AssetsGet_(&InProgress, Variable, Name);
             Variable->S = Strings.GetPermanentString(Data);
             Variable->Asset = MakeAssetID(Type, Data);
-        }else if(DoAttribute(Attribute, "room")){
-            const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            const char *Data = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        }else if(DoAttribute(Attribute, "int")){
+            const char *Name = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            s32 Data = SJA_EXPECT_INT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             asset_variable *Variable = AssetsGet_(&InProgress, Variable, Name);
-            Variable->S = Strings.GetPermanentString(Data);
-            Variable->TAID = MakeAssetID("Room", Data);
-        }else if(DoAttribute(Attribute, "item")){
-            const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            const char *Data = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
-            asset_variable *Variable = AssetsGet_(&InProgress, Variable, Name);
-            Variable->S = Strings.GetPermanentString(Data);
-            Variable->TAID = MakeAssetID("Item", Data);
+            Variable->S32 = Data;
         }else{ HANDLE_INVALID_ATTRIBUTE(Attribute); }
     }
     
@@ -879,6 +873,7 @@ asset_loader::ProcessSpriteSheet(){
     CurrentAsset = Name;
     asset_sprite_sheet *Sheet = AssetsGet_(&InProgress, SpriteSheet, Name);
     *Sheet = {};
+    Sheet->Tag = MaybeExpectTag();
     
     v2s FrameSize = V2S(0);
     v2s ImageSizes[MAX_SPRITE_SHEET_PIECES] = {};
@@ -1243,11 +1238,64 @@ asset_loader::ProcessArt(){
             }
             Art->Size = V2(Image->Size);
             Art->Texture = Image->Texture;
+        }else if(DoAttribute(String, "light_offset")){
+            Art->LightOffset = ExpectTypeV2();
+        }else if(DoAttribute(String, "light_radius")){
+            Art->LightRadius = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        }else if(DoAttribute(String, "light_intensity")){
+            Art->LightIntensity = SJA_EXPECT_FLOAT(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+        }else if(DoAttribute(String, "light_color")){
+            Art->LightColor = ExpectTypeColor();
         }else{ HANDLE_INVALID_ATTRIBUTE(String); }
     }
     
     return ChooseStatus(Result);
 }
+
+//~ Floor arts
+asset_loading_status
+asset_loader::ProcessFloorArt(){
+    asset_loading_status Result = AssetLoadingStatus_Okay;
+    
+    const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
+    CurrentAsset = Name;
+    asset_floor_art *Art = AssetsGet_(&InProgress, FloorArt, Name);
+    *Art = {};
+    Art->Tag = MaybeExpectTag();
+    
+    dynamic_array<render_texture> Textures = MakeDynamicArray<render_texture>(&GlobalTransientMemory, 8);
+    while(true){
+        file_token Token = Reader.PeekToken();
+        HandleToken(Token);
+        const char *String = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_COMMAND);
+        
+        if(DoAttribute(String, "path")){
+            const char *Path = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            
+            image *Image = LoadImage(Path);
+            if(!Image){
+                LogWarning("'%s' isn't a valid path to an image!", Path);
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
+            if((Art->Size != V2(0)) &&
+               (Art->Size != V2(Image->Size))){
+                LogWarning("Image sizes do not match!");
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
+            if(V2(Image->Size) == V2(0)){
+                LogWarning("Image size cannot be (0, 0)!");
+                SJA_ERROR_BEHAVIOR_ATTRIBUTE;
+            }
+            
+            Art->Size = V2(Image->Size);
+            ArrayAdd(&Textures, Image->Texture);
+        }else{ HANDLE_INVALID_ATTRIBUTE(String); }
+    }
+    
+    Art->Textures = ArrayFinalize(&InProgress.Memory, &Textures);
+    return ChooseStatus(Result);
+}
+
 
 //~ Sound effects
 asset_loading_status

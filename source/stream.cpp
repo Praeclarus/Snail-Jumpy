@@ -13,6 +13,10 @@ MakeReadStream(void *Buffer, umw BufferSize){
 #define StreamConsumeType(Stream, Type)     (Type *)StreamConsumeBytes(Stream, sizeof(Type))
 #define StreamConsumeArray(Stream, Type, N) (Type *)StreamConsumeBytes(Stream, N*sizeof(Type))
 
+internal b8 StreamHasMore(stream *Stream){
+    return (Stream->BufferPos < Stream->BufferEnd);
+}
+
 internal inline u8 *
 StreamConsumeBytes(stream *Stream, u32 Bytes){
     u8 *Result = 0;
@@ -26,7 +30,24 @@ StreamConsumeBytes(stream *Stream, u32 Bytes){
     return(Result);
 }
 
-#define PeekType(Stream, Type) (Type *)PeekBytes(Stream, sizeof(Type))
+struct stream_marker {
+    u8 *BufferPos;
+};
+
+internal inline stream_marker
+StreamBeginMarker(stream *Stream, u32 Offset){
+    stream_marker Result = {};
+    Result.BufferPos = Stream->BufferPos;
+    StreamConsumeBytes(Stream, Offset);
+    return Result;
+}
+
+internal inline void
+StreamEndMarker(stream *Stream, stream_marker Marker){
+    Stream->BufferPos = Marker.BufferPos;
+}
+
+#define StreamPeekType(Stream, Type) (Type *)StreamPeekBytes(Stream, sizeof(Type))
 internal inline u8 *
 StreamPeekBytes(stream *Stream, u32 Bytes){
     u8 *SavedBufferPos = Stream->BufferPos;
@@ -34,7 +55,6 @@ StreamPeekBytes(stream *Stream, u32 Bytes){
     Stream->BufferPos = SavedBufferPos;
     return(Result);
 }
-
 
 internal inline char *
 StreamConsumeString(stream *Stream){

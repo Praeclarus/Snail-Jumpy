@@ -10,7 +10,16 @@ struct physics_collision;
 struct physics_update;
 typedef void trigger_response_function(asset_system *Assets, entity_manager *Entities, entity *Entity, entity *EntityB);
 
+typedef u8 physics_floor_flags;
+enum physics_floor_flags_ {
+    FloorFlag_None   = (0 << 0),
+    FloorFlag_Bounds = (1 << 0),
+    FloorFlag_Hurts  = (1 << 1),
+};
+
 struct physics_floor {
+    physics_floor_flags Flags;
+    
     v2 P;
     v2 Offset;
     v2 Normal;

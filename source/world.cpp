@@ -44,9 +44,40 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
                 Entities->CalculateTilemapFloors(Assets, &Floors, World, &World->Tilemap, PhysicsTileTypes);
             }
             
+            //- World bounds
+            v2 Max = TILE_SIDE*V2((f32)World->Width, (f32)World->Height);
+            
+            { // Left
+                physics_floor *Floor = ArrayAlloc(&Floors);
+                *Floor = MakePhysicsFloor(V2(0, Max.Y), V2(1, 0), V2(0, -1),
+                                          MakeRangeF32(0, TILE_SIDE*World->Height));
+                Floor->Flags |= FloorFlag_Bounds;
+            }
+            
+            { // Top
+                physics_floor *Floor = ArrayAlloc(&Floors);
+                *Floor = MakePhysicsFloor(V2(Max.X, Max.Y), V2(0, -1), V2(-1, 0),
+                                          MakeRangeF32(0, TILE_SIDE*World->Width));
+                Floor->Flags |= FloorFlag_Bounds;
+            }
+            
+            { // Right
+                physics_floor *Floor = ArrayAlloc(&Floors);
+                *Floor = MakePhysicsFloor(V2(Max.X, 0), V2(-1, 0), V2(0, 1),
+                                          MakeRangeF32(0, TILE_SIDE*World->Height));
+                Floor->Flags |= FloorFlag_Bounds;
+            }
+            
+            { // Bottom
+                physics_floor *Floor = ArrayAlloc(&Floors);
+                *Floor = MakePhysicsFloor(V2(0, 0), V2(0, 1), V2(1, 0),
+                                          MakeRangeF32(0, TILE_SIDE*World->Width));
+                Floor->Flags |= FloorFlag_Bounds;
+            }
+            
             Entities->PhysicsFloors = ArrayFinalize(&Entities->Memory, &Floors);
             
-            
+            World->Manager.LoadFloorRaycasts(Assets, Entities);
             
             //~ Coins
             {
@@ -94,29 +125,63 @@ world_manager::LoadWorld(asset_system *Assets, entity_manager *Entities, const c
 
 //~ Loading from file
 
-#define WORLDS_READ_VAR(Var, MinVersion, MaxVersion) \
-if((MinVersion <= Header->Version) && (Header->Version <= MaxVersion)) { StreamReadVar(&Stream, Var); }
+#define StreamReadAsset(Stream) MakeAssetID(0, StreamConsumeString(Stream));
 
-#define WORLDS_READ_ASSET(Asset, MinVersion, MaxVersion) \
-if((MinVersion <= Header->Version) && (Header->Version <= MaxVersion)) \
-{ Asset = MakeAssetID(0, StreamConsumeString(&Stream)); }
-
-#define WORLDS_READ_ENTITY(Entity, Type_)  \
-Entity->Type = Type_;                              \
-v2 P = {};                                         \
-WORLDS_READ_VAR(Entity->Flags, 1, U32_MAX);        \
-WORLDS_READ_VAR(P.X, 1, U32_MAX);                  \
-WORLDS_READ_VAR(P.Y, 1, U32_MAX);                  \
-WORLDS_READ_VAR(Entity->ID.WorldID, 1, U32_MAX);   \
-WORLDS_READ_VAR(Entity->ID.EntityID, 1, U32_MAX);  \
-
-#define WORLDS_READ_STRING(Var, MinVersion, MaxVersion) \
-if((MinVersion <= Header->Version) && (Header->Version <= MaxVersion)) \
-{ StreamReadAndBufferString(&Stream, Var); }
-
-#define WORLDS_READ_ARRAY(Var, Size, MinVersion, MaxVersion) \
-if((MinVersion <= Header->Version) && (Header->Version <= MaxVersion)) \
-{ StreamReadAndAllocVar(&Stream, Var, Size); }
+internal inline void 
+WorldLoadEntityChunk(asset_system *Assets, 
+                     world_data *World, 
+                     world_file_chunk_entity *Base, 
+                     stream *Stream){
+    switch(Base->Type){
+        case EntityType_Player: {
+            player_entity *Entity = World->Manager.Player;
+            Entity->ID = Base->ID;
+            SetupPlayerEntity(&World->Manager, Entity, Base->P);
+        }break;
+        case EntityType_Enemy: {
+            world_file_chunk_entity_enemy *Data = (world_file_chunk_entity_enemy *)Base;
+            enemy_entity *Entity = AllocEntity(&World->Manager, Enemies, 0);
+            Entity->ID                  = Base->ID;
+            Entity->EnemyType           = Data->EnemyType;
+            Entity->PathStart           = Data->PathStart;
+            Entity->PathEnd             = Data->PathEnd;
+            Entity->TargetY             = Data->TargetY;
+            Entity->Animation.Direction = Data->Direction;
+            SetupEnemyEntity(&World->Manager, Entity, Entity->EnemyType, Base->P);
+        }break;
+        case EntityType_Teleporter: {
+            world_file_chunk_entity_teleporter *Data = (world_file_chunk_entity_teleporter *)Base;
+            teleporter_entity *Entity = AllocEntity(&World->Manager, Teleporters, 0);
+            Entity->ID  = Base->ID;
+            
+            stream_marker Marker = StreamBeginMarker(Stream, sizeof(*Data));
+            StreamReadAndBufferString(Stream, Entity->Level);
+            StreamReadAndBufferString(Stream, Entity->RequiredLevel);
+            StreamEndMarker(Stream, Marker);
+            
+            SetupTeleporterEntity(Entity, Base->P);
+        }break;
+        case EntityType_Door: {
+            world_file_chunk_entity_door *Data = (world_file_chunk_entity_door *)Base;
+            door_entity *Entity = AllocEntity(&World->Manager, Doors, 0);
+            Entity->ID = Base->ID;
+            Entity->Size = RectSize(Data->Bounds);
+            stream_marker Marker = StreamBeginMarker(Stream, sizeof(*Data));
+            StreamReadAndBufferString(Stream, Entity->RequiredLevel);
+            StreamEndMarker(Stream, Marker);
+            SetupDoorEntity(Entity, Base->P);
+        }break;
+        case EntityType_Art: {
+            world_file_chunk_entity_art *Data = (world_file_chunk_entity_art *)Base;
+            art_entity *Entity = AllocEntity(&World->Manager, Arts, 0);
+            stream_marker Marker = StreamBeginMarker(Stream, sizeof(*Data));
+            asset_id Asset = StreamReadAsset(Stream);
+            StreamEndMarker(Stream, Marker);
+            SetupArtEntity(Assets, Entity, Base->P, Asset);
+        }break;
+        
+    }
+}
 
 world_data *
 world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
@@ -142,64 +207,64 @@ world_manager::LoadWorldFromFile(asset_system *Assets, const char *Name){
         return(0);
     }
     
-    World->Width = Header->WidthInTiles;
-    World->Height = Header->HeightInTiles;
-    
-    World->Manager.EntityIDCounter = Header->EntityIDCounter;
-    World->CoinsToSpawn = Header->CoinsToSpawn;
-    World->CoinsRequired = Header->CoinsRequired;
-    World->BackgroundColor = Header->BackgroundColor;
-    World->AmbientColor = Header->AmbientColor;
-    World->Exposure     = Header->Exposure;
-    
-#if 0    
-    WORLDS_READ_ARRAY(World->Map, World->Width*World->Height, 1, U32_MAX);
-#endif
-    
-    {
-        player_entity *Entity = World->Manager.Player;
-        WORLDS_READ_VAR(Entity->Type, 1, U32_MAX);
-        WORLDS_READ_ENTITY(Entity, Entity->Type);
-        SetupPlayerEntity(&World->Manager, Entity, P);
-    }
-    
-    for(u32 I=0; I<Header->EntityCount; I++){
-        entity_type Type; StreamReadVar(&Stream, Type);
-        if(Type == EntityType_Enemy){
-            enemy_entity *Entity = AllocEntity(&World->Manager, Enemies, 0);
-            WORLDS_READ_ENTITY(Entity, Type);
-            WORLDS_READ_VAR(Entity->EnemyType, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->PathStart.X, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->PathStart.Y, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->PathEnd.X, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->PathEnd.Y, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->TargetY, 1, U32_MAX);
-            WORLDS_READ_VAR(Entity->Animation.Direction, 1, U32_MAX);
-            SetupEnemyEntity(&World->Manager, Entity, Entity->EnemyType, P);
-        }else if(Type == EntityType_Teleporter){
-            teleporter_entity *Entity = AllocEntity(&World->Manager, Teleporters, 0);
-            WORLDS_READ_ENTITY(Entity, Type);
-            WORLDS_READ_STRING(Entity->Level, 1, U32_MAX);
-            WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
-            SetupTeleporterEntity(Entity, P);
-        }else if(Type == EntityType_Door){
-            door_entity *Entity = AllocEntity(&World->Manager, Doors, 0);
-            WORLDS_READ_ENTITY(Entity, Type);
-            rect Bounds = {};
-            WORLDS_READ_VAR(Bounds.X0, 1, U32_MAX);
-            WORLDS_READ_VAR(Bounds.Y0, 1, U32_MAX);
-            WORLDS_READ_VAR(Bounds.X1, 1, U32_MAX);
-            WORLDS_READ_VAR(Bounds.Y1, 1, U32_MAX);
-            Entity->Size = RectSize(Bounds);
-            WORLDS_READ_STRING(Entity->RequiredLevel, 1, U32_MAX);
-            SetupDoorEntity(Entity, P);
-        }else if(Type == EntityType_Art){
-            art_entity *Entity = AllocEntity(&World->Manager, Arts, 0);
-            Entity->Type = Type;
-            WORLDS_READ_ENTITY(Entity, Type);
-            WORLDS_READ_ASSET(Entity->Asset, 1, U32_MAX);
-            SetupArtEntity(Assets, Entity, P, Entity->Asset);
+    while(StreamHasMore(&Stream)){
+        world_file_chunk_header *Header = StreamPeekType(&Stream, world_file_chunk_header);
+        
+        switch(Header->Type){
+            case WorldFileChunkType_None: {
+                Assert(0);
+            }break;
+            case WorldFileChunkType_Entity: {
+                world_file_chunk_entity *Base = (world_file_chunk_entity *)Header;
+                WorldLoadEntityChunk(Assets, World, Base, &Stream);
+            }break;
+            case WorldFileChunkType_Camera: {
+                world_file_chunk_camera *Chunk = (world_file_chunk_camera *)Header;
+                World->BackgroundColor = Chunk->BackgroundColor;
+                World->AmbientColor    = Chunk->AmbientColor;
+                World->Exposure        = Chunk->Exposure;
+            }break;
+            case WorldFileChunkType_Tilemap: {
+                world_file_chunk_tilemap *Chunk = (world_file_chunk_tilemap *)Header;
+                World->Width = Chunk->Width;
+                World->Height = Chunk->Height;
+                World->EditTiles = (tilemap_edit_tile *)OSDefaultAlloc(World->Width*World->Height*sizeof(tilemap_edit_tile));
+                CopyMemory(World->EditTiles, (void *)(Chunk + 1), sizeof(*World->EditTiles)*World->Width*World->Height);
+            }break;
+            case WorldFileChunkType_GravityZone: {
+                world_file_chunk_gravity_zone *Chunk = (world_file_chunk_gravity_zone *)Header;
+                AllocGravityZone(&World->Manager.GravityZones, Chunk->Area, Chunk->Direction);
+            }break;
+            case WorldFileChunkType_FloorArt: {
+                world_file_chunk_floor_art *Chunk = (world_file_chunk_floor_art *)Header;
+                floor_art *Art = ArrayAlloc(&World->Manager.FloorArts);
+                Art->PA        = Chunk->PA;
+                Art->PB        = Chunk->PB;
+                Art->UpNormal  = Chunk->UpNormal;
+                Art->PartCount = Chunk->PartCount;
+                
+                stream_marker Marker = StreamBeginMarker(&Stream, sizeof(*Chunk));
+                Art->Asset = StreamReadAsset(&Stream);
+                FOR_RANGE(I, 0, Art->PartCount){
+                    world_file_chunk_floor_art_part *Part = StreamConsumeType(&Stream, world_file_chunk_floor_art_part);
+                    Art->Parts[I].Index = Part->Index;
+                    Art->Parts[I].Pos   = MakeWorldPos(Part->P);
+                }
+                
+                StreamEndMarker(&Stream, Marker);
+                
+                FOR_RANGE(I, 0, Chunk->PartCount);
+            }break;
+            case WorldFileChunkType_Miscellaneous: {
+                world_file_chunk_miscellaneous *Chunk = (world_file_chunk_miscellaneous *)Header;
+                World->Manager.EntityIDCounter = Chunk->EntityIDCounter;
+            }break;
+            default: {
+                Assert(0);
+            }break;
         }
+        
+        StreamConsumeBytes(&Stream, Header->ChunkSize);
     }
     
     return(World);
@@ -238,7 +303,6 @@ WriteDataToFile(os_file *File, u32 *Offset, void *Data, u32 Size){
 
 #define WORLDS_WRITE_VAR(Var) { OSWriteToFile(File, Offset, &Var, sizeof(Var)); \
 Offset += sizeof(Var); }
-#define WORLDS_WRITE_ASSET(Asset) WriteStringToFile(File, &Offset, Strings.GetString(MakeString(Asset.ID)))
 #define WORLDS_WRITE_ARRAY(Array, Count) { OSWriteToFile(File, Offset, (Array), (Count)*sizeof(*(Array))); \
 Offset += (Count)*sizeof(*(Array)); }
 #define WORLDS_WRITE_STRING(S) WriteStringToFile(File, &Offset, S);
@@ -251,6 +315,26 @@ WriteF32ToFile(File, &Offset, WorldPosP(Entity->Pos).Y); \
 WORLDS_WRITE_VAR(Entity->ID.WorldID);  \
 WORLDS_WRITE_VAR(Entity->ID.EntityID);
 
+internal inline world_file_chunk_header
+MakeWorldFileChunkHeader(u32 ChunkSize, world_file_chunk_type Type){
+    world_file_chunk_header Result = {};
+    Result.Version = CURRENT_WORLD_FILE_VERSION;
+    Result.ChunkSize = ChunkSize;
+    Result.Type = Type;
+    return Result;
+}
+
+internal inline world_file_chunk_entity
+MakeWorldFileChunkEntity(entity *Entity, u32 Size){
+    world_file_chunk_entity Result = {};
+    Result.Header = MakeWorldFileChunkHeader(Size, WorldFileChunkType_Entity);
+    Result.Type = Entity->Type;
+    Result.Flags = Entity->Flags;
+    Result.P = WorldPosP(Entity->Pos);
+    Result.ID = Entity->ID;
+    return Result;
+}
+
 void
 world_manager::WriteWorldsToFiles(){
     HASH_TABLE_FOR_EACH_BUCKET(It, &WorldTable){
@@ -258,70 +342,117 @@ world_manager::WriteWorldsToFiles(){
         
         char Path[512];
         stbsp_snprintf(Path, 512, "worlds/%s.sjw", World->Name);
-        os_file *File = OSOpenFile(Path, OpenFile_Write);
+        os_file *File = OSOpenFile(Path, OpenFile_WriteClear);
         Assert(File);
         
         world_file_header Header = {};
         Header.Header[0] = 'S';
         Header.Header[1] = 'J';
         Header.Header[2] = 'W';
+        Header.HeaderSize = sizeof(Header);
         Header.Version = CURRENT_WORLD_FILE_VERSION;
-        Header.WidthInTiles  = World->Width;
-        Header.HeightInTiles = World->Height;
-        Header.EntityCount     = World->Manager.EntityCount;
-        Header.EntityIDCounter = World->Manager.EntityIDCounter;
-        Header.CoinsToSpawn  = World->CoinsToSpawn;
-        Header.CoinsRequired = World->CoinsRequired;
-        Header.BackgroundColor = World->BackgroundColor;
-        Header.AmbientColor  = World->AmbientColor;
-        Header.Exposure      = World->Exposure;
         
         u32 Offset = 0;
         WORLDS_WRITE_VAR(Header);
         
-#if 0
-        WORLDS_WRITE_ARRAY(World->Map, World->Width*World->Height);
-#endif
+        {
+            world_file_chunk_miscellaneous Chunk = {};
+            Chunk.Header = MakeWorldFileChunkHeader(sizeof(Chunk), WorldFileChunkType_Miscellaneous);
+            Chunk.EntityIDCounter = World->Manager.EntityIDCounter;
+            WORLDS_WRITE_VAR(Chunk);
+        }
         
         {
-            player_entity *Entity = World->Manager.Player;
-            WORLDS_WRITE_ENTITY(Entity);
+            world_file_chunk_tilemap Chunk = {};
+            Chunk.Header = MakeWorldFileChunkHeader(sizeof(Chunk), WorldFileChunkType_Tilemap);
+            Chunk.Width = World->Width;
+            Chunk.Height = World->Height;
+            Chunk.Header.ChunkSize += sizeof(*World->EditTiles)*Chunk.Width*Chunk.Height;
+            WORLDS_WRITE_VAR(Chunk);
+            WORLDS_WRITE_ARRAY(World->EditTiles, Chunk.Width*Chunk.Height);
+        }
+        
+        {
+            world_file_chunk_camera Chunk = {};
+            Chunk.Header          = MakeWorldFileChunkHeader(sizeof(Chunk), WorldFileChunkType_Camera);
+            Chunk.BackgroundColor = World->BackgroundColor;
+            Chunk.AmbientColor    = World->AmbientColor;
+            Chunk.Exposure        = World->Exposure;
+            WORLDS_WRITE_VAR(Chunk);
+        }
+        
+        {
+            world_file_chunk_entity Chunk = MakeWorldFileChunkEntity(World->Manager.Player, sizeof(Chunk));
+            WORLDS_WRITE_VAR(Chunk);
         }
         
         FOR_ENTITY_TYPE(&World->Manager.Enemies){
-            enemy_entity *Entity = It.Item;
-            WORLDS_WRITE_ENTITY(Entity);
-            WORLDS_WRITE_VAR(Entity->EnemyType);
-            WORLDS_WRITE_VAR(Entity->PathStart.X);
-            WORLDS_WRITE_VAR(Entity->PathStart.Y);
-            WORLDS_WRITE_VAR(Entity->PathEnd.X);
-            WORLDS_WRITE_VAR(Entity->PathEnd.Y);
-            WORLDS_WRITE_VAR(Entity->TargetY);
-            WORLDS_WRITE_VAR(Entity->Animation.Direction);
+            world_file_chunk_entity_enemy Chunk = {};
+            Chunk.Base = MakeWorldFileChunkEntity(It.Item, sizeof(Chunk));
+            Chunk.EnemyType = It.Item->EnemyType;
+            Chunk.PathStart = It.Item->PathStart;
+            Chunk.PathEnd   = It.Item->PathEnd;
+            Chunk.TargetY   = It.Item->TargetY;
+            Chunk.Direction = It.Item->Animation.Direction;
+            WORLDS_WRITE_VAR(Chunk);
         }
         
         FOR_ENTITY_TYPE(&World->Manager.Teleporters){
-            teleporter_entity *Entity = It.Item;
-            WORLDS_WRITE_ENTITY(Entity);
-            WORLDS_WRITE_STRING(Entity->Level);
-            WORLDS_WRITE_STRING(Entity->RequiredLevel);
+            world_file_chunk_entity_teleporter Chunk = {};
+            Chunk.Base = MakeWorldFileChunkEntity(It.Item, sizeof(Chunk));
+            Chunk.Base.Header.ChunkSize += CStringLength(It.Item->Level)+1;
+            Chunk.Base.Header.ChunkSize += CStringLength(It.Item->RequiredLevel)+1;
+            WORLDS_WRITE_VAR(Chunk.Base);
+            WORLDS_WRITE_STRING(It.Item->Level);
+            WORLDS_WRITE_STRING(It.Item->RequiredLevel);
         }
         
         FOR_ENTITY_TYPE(&World->Manager.Doors){
-            door_entity *Entity = It.Item;
-            WORLDS_WRITE_ENTITY(Entity);
-            WORLDS_WRITE_STRING(Entity->RequiredLevel);
-            rect Bounds = SizeRect(V2(0), Entity->Size);
-            WORLDS_WRITE_VAR(Bounds.X0);
-            WORLDS_WRITE_VAR(Bounds.Y0);
-            WORLDS_WRITE_VAR(Bounds.X1);
-            WORLDS_WRITE_VAR(Bounds.Y1);
+            world_file_chunk_entity_door Chunk = {};
+            Chunk.Base = MakeWorldFileChunkEntity(It.Item, sizeof(Chunk));
+            Chunk.Bounds = SizeRect(V2(0), It.Item->Size);
+            Chunk.Base.Header.ChunkSize += CStringLength(It.Item->RequiredLevel)+1;
+            WORLDS_WRITE_VAR(Chunk);
+            WORLDS_WRITE_STRING(It.Item->RequiredLevel);
         }
         
         FOR_ENTITY_TYPE(&World->Manager.Arts){
-            art_entity *Entity = It.Item;
-            WORLDS_WRITE_ENTITY(Entity);
-            WORLDS_WRITE_ASSET(Entity->Asset);
+            world_file_chunk_entity_art Chunk = {};
+            Chunk.Base = MakeWorldFileChunkEntity(It.Item, sizeof(Chunk));
+            const char *Asset = Strings.GetString(MakeString(It.Item->Asset.ID));
+            Chunk.Base.Header.ChunkSize += CStringLength(Asset)+1;
+            WORLDS_WRITE_VAR(Chunk);
+            WORLDS_WRITE_STRING(Asset);
+        }
+        
+        FOR_EACH(Zone, &World->Manager.GravityZones){
+            world_file_chunk_gravity_zone Chunk = {};
+            Chunk.Header    = MakeWorldFileChunkHeader(sizeof(Chunk), WorldFileChunkType_GravityZone);
+            Chunk.Direction = Zone.Direction;
+            Chunk.Area      = Zone.Area;
+            WORLDS_WRITE_VAR(Chunk);
+        }
+        
+        FOR_EACH(Art, &World->Manager.FloorArts){
+            world_file_chunk_floor_art Chunk = {};
+            Chunk.Header = MakeWorldFileChunkHeader(sizeof(Chunk), WorldFileChunkType_FloorArt);
+            Chunk.PartCount = Art.PartCount;
+            Chunk.PA        = Art.PA;
+            Chunk.PB        = Art.PB;
+            Chunk.UpNormal  = Art.UpNormal;
+            const char *Asset = Strings.GetString(MakeString(Art.Asset.ID));
+            Chunk.Header.ChunkSize += CStringLength(Asset)+1;
+            Chunk.Header.ChunkSize += sizeof(world_file_chunk_floor_art_part)*Art.PartCount;
+            
+            WORLDS_WRITE_VAR(Chunk);
+            WORLDS_WRITE_STRING(Asset);
+            FOR_RANGE(I, 0, Art.PartCount){
+                world_file_chunk_floor_art_part Part = {};
+                Part.Index = Art.Parts[I].Index;
+                Part.P     = WorldPosP(Art.Parts[I].Pos);
+                WORLDS_WRITE_VAR(Part);
+            }
+            
         }
         
         OSCloseFile(File);
@@ -340,11 +471,9 @@ world_manager::Initialize(memory_arena *Arena, player_data *PlayerData_, enemy_d
 world_data *
 world_manager::FindWorld(asset_system *Assets, string Name){
     world_data *Result = HashTableFindPtr<string, world_data>(&WorldTable, Name);
-#if 0
     if(!Result){
         Result = LoadWorldFromFile(Assets, Strings.GetString(Name));
     }
-#endif
     
     return(Result);
 }

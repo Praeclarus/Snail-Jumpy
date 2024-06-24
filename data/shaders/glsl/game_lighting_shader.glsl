@@ -13,8 +13,11 @@ uniform mat4 InProjection;
 
 void main(){
     gl_Position = InProjection * vec4(InPosition, 1.0);
-    FragmentP = InPosition;
+    int InZ = int(InPosition.z);
+    InZ = ((InZ&0xf000) >> 12);
+    FragmentP = vec3(InPosition.xy, float(InZ));
     FragmentColor = InColor;
+    //FragmentColor = vec4(float(InZ)/6.0);
     FragmentUV = InPixelUV;
 };
 //~
@@ -46,7 +49,7 @@ layout (std140) uniform LightsBlock{
 };
 
 vec3 CalculateLight(vec3 LightP, vec3 LightColor, float Radius){
-    float ZFactor = 0.001;
+    float ZFactor = 3.0;
     vec3 P = FragmentP;
     LightP.z *= ZFactor;
     P.z *= ZFactor;

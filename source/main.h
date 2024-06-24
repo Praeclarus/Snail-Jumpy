@@ -3,7 +3,7 @@
 
 // TODO(Tyler): Do this in build.bat
 #define SNAIL_JUMPY_DEBUG_BUILD
-#define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
+#define SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT true
 
 #define BUCKET_ARRAY_IGNORE_FLAG (1 << 3)
 

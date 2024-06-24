@@ -16,6 +16,7 @@ entity_manager::Reset(){
     
     ArrayClear(&Trails);
     ArrayClear(&GravityZones);
+    ArrayClear(&FloorArts);
     
     ArrayClear(&PhysicsFloors);
 }
@@ -27,6 +28,7 @@ entity_manager::Initialize(memory_arena *Arena, player_data *PlayerData_, enemy_
     
     Trails = MakeDynamicArray<trail>(Arena, 8);
     GravityZones = MakeDynamicArray<gravity_zone>(Arena, 8);
+    FloorArts    = MakeDynamicArray<floor_art>(Arena, 8);
     
     PlayerData = PlayerData_;
     EnemyDatas = EnemyData_;
@@ -205,13 +207,17 @@ UpToTransform(v2 Up){
 }
 
 inline void
-entity_manager::DamagePlayer(u32 Damage){
+entity_manager::DamagePlayer(audio_mixer *Mixer, u32 Damage){
     Player->Pos = MakeWorldPos(Player->StartP);
     Player->dP = V2(0);
     Player->Health -= Damage;
     if(Player->Health <= 0){
-        Player->Health = 9;
+        Player->Health = Player->MaxHealth;
         Score = 0;
+        
+        Mixer->PlaySound(Player->DeathSound);
+    }else{
+        Mixer->PlaySound(Player->DamageSound);
     }
 }
 
@@ -307,6 +313,34 @@ AllocGravityZone(dynamic_array<gravity_zone> *GravityZones, v2 P, v2 Size,
 }
 
 
+inline void
+entity_manager::FloorArtGenerate(asset_system *Assets, floor_art *Art){
+    u32 HalfRange = Clamp((u32)Art->HalfRange, 1, (u32)TILE_SIDE);
+    
+    asset_floor_art *Asset = AssetsGet_(Assets, FloorArt, Art->Asset);
+    u32 VariationCount = Asset->Textures.Count;
+    
+    v2 Delta = (Art->PB-Art->PA);
+    f32 Length = V2Length(Delta);
+    u32 CountToGenerate = (u32)(Art->Density*Length/(Asset->Size.X));
+    CountToGenerate = Minimum(CountToGenerate, FLOOR_ART_MAX_PART_COUNT);
+    
+    v2 OffsetPB = Art->PB-(Delta/Length)*V2Dot(Delta/Length, Asset->Size);
+    
+    u32 Cap = (u32)Delta.X;
+    FOR_RANGE(I, 0, CountToGenerate){
+        floor_art_part *Part = &Art->Parts[I];
+        Part->Index = (u8)GetRandomNumber(I) % VariationCount;
+        v2 P = V2Lerp(Art->PA, OffsetPB, (f32)I/(f32)(CountToGenerate-1));
+        f32 Offset = (f32)(GetRandomNumber(RANDOM_SEED_(I)) % (2*HalfRange)) - HalfRange;
+        P += Offset*Delta/Length;
+        
+        Part->Pos = MakeWorldPos(P);
+    }
+    
+    Art->PartCount = CountToGenerate;
+}
+
 //~ 
 internal inline void 
 SetupBaseEntity(entity *Entity, v2 P, entity_type Type){
@@ -332,9 +366,13 @@ SetupPlayerEntity(entity_manager *Entities, player_entity *Entity, v2 P){
     player_data *Data = Entities->PlayerData;
     Entity->Size = RectSize(Data->Rect);
     Entity->JumpTime = 1.0f;
-    Entity->Health = 9;
     Entity->Pos = MakeWorldPos(V2(P.X, P.Y));
     Entity->StartP = V2(P.X, P.Y);
+    
+    // TODO(Tyler): I dunno what to do about this yet.
+    Entity->MaxHealth = 10;
+    Entity->Health = 10;
+    Entity->VisualHealth = 3*Entity->Health;
 }
 
 internal inline void
@@ -853,6 +891,14 @@ auto *NewEntity = AllocEntity(ToManager, Array, 0); \
         }
     }
     
+    FOR_EACH(Zone, &GravityZones){
+        ArrayAdd(&ToManager->GravityZones, Zone);
+    }
+}
+
+void
+entity_manager::LoadFloorRaycasts(asset_system *Assets, entity_manager *ToManager){
+    
     FOR_EACH_ENTITY(ToManager){
         if(!(It.Item->TypeFlags & EntityTypeFlag_Dynamic)) continue;
         entity *Entity = It.Item;
@@ -862,14 +908,22 @@ auto *NewEntity = AllocEntity(ToManager, Array, 0); \
         Entity->Pos = ToManager->DoFloorRaycast(Entity->Pos, Entity->Size, Entity->UpNormal);
     }
     
-    FOR_EACH(Zone, &GravityZones){
-        ArrayAdd(&ToManager->GravityZones, Zone);
+    FOR_EACH(Art, &FloorArts){
+        floor_art *NewArt = ArrayAlloc(&ToManager->FloorArts);
+        *NewArt = Art;
+        asset_floor_art *Asset = AssetsGet_(Assets, FloorArt, NewArt->Asset);
+        FOR_RANGE(I, 0, NewArt->PartCount){
+            floor_art_part *Part = &NewArt->Parts[I];
+            Part->Pos = ToManager->DoFloorRaycast(Part->Pos, Asset->Size, NewArt->UpNormal);
+#if 1
+            if(!Part->Pos.Floor){
+                Part->Pos.P += V2(0, 100);
+            }
+#endif
+        }
     }
     
-    //~
-    //MakeGravityZone(&ToManager->GravityZones, V2(48, 96),  V2(80, 160), V2(1, 0));
 }
-
 
 //~ Entity updating and rendering
 
@@ -1087,7 +1141,7 @@ entity_manager::EntityTestTrails(entity *Entity){
 }
 
 void
-entity_manager::EntityTestGravityZones(entity *Entity){
+entity_manager::EntityTestGravityZones(world_data *World, entity *Entity){
     rect R = WorldPosBounds(Entity->Pos, Entity->Size, Entity->UpNormal);
     
     v2 NewUpNormal = V2(0);
@@ -1101,7 +1155,12 @@ entity_manager::EntityTestGravityZones(entity *Entity){
             NewUpNormal += -Zone.Direction;
         }
     }
-    if(V2LengthSquared(NewUpNormal) == 0) Entity->UpNormal = V2(0, 1);
+    if(V2LengthSquared(NewUpNormal) == 0){
+        rect Bounds = SizeRect(V2(0), TILE_SIDE*V2((f32)World->Width, (f32)World->Height));
+        if(RectOverlaps(Bounds, WorldPosBounds(Entity->Pos, Entity->Size, Entity->UpNormal))){
+            Entity->UpNormal = V2(0, 1);
+        }
+    }
     else Entity->UpNormal = V2Normalize(NewUpNormal);
     
     if(Entity->Pos.Floor &&
@@ -1189,7 +1248,8 @@ entity_manager::UpdateBoxing(physics_update_context *Context, enemy_entity *Enti
 }
 
 void 
-entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_input *Input, settings_state *Settings){
+entity_manager::UpdateEntities(game_renderer *Renderer, asset_system *Assets, audio_mixer *Mixer, 
+                               os_input *Input, settings_state *Settings){
     TIMED_FUNCTION();
     
     physics_update_context UpdateContext = MakeUpdateContext(&GlobalTransientMemory, 512);
@@ -1198,10 +1258,19 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_i
     //~ Player @update_player
     {
         player_entity *Entity = Player;
-        if(WorldPosP(Entity->Pos).Y < -30.0f){
-            DamagePlayer(2);
-        }
         
+        Entity->MaxHealth = GetVarS32(Assets, player_max_health);
+        Entity->Health = Clamp(Entity->Health, 0, Entity->MaxHealth);
+        
+        Entity->DamageSound = AssetsFind(Assets, SoundEffect, damage);
+        Entity->DeathSound  = AssetsFind(Assets, SoundEffect, death);
+        
+        world_data *World = CurrentWorld;
+        rect Bounds = SizeRect(V2(0), TILE_SIDE*V2((f32)World->Width, (f32)World->Height));
+        Bounds = RectGrow(Bounds, 30);
+        if(!RectOverlaps(Bounds, WorldPosBounds(Entity->Pos, Entity->Size, Entity->UpNormal))){
+            DamagePlayer(Mixer, 1);
+        }
         f32 MovementSpeed = PlayerData->Speed;
         f32 Movement = 0.0f;
         b8 Left  = Input->KeyDown(Settings->PlayerLeft,  KeyFlag_Any);
@@ -1216,6 +1285,10 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_i
         }else if(Left && !Right){
             Entity->Animation.Direction = Direction_Left;
             Movement -= MovementSpeed;
+        }
+        
+        if(DoStartJump){
+            Mixer->PlaySound(AssetsFind(Assets, SoundEffect, jump));
         }
         
         if((Entity->CoyoteTime > 0.0f) && DoJump){
@@ -1249,7 +1322,7 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_i
         }
         
         EntityTestTrails(Entity);
-        EntityTestGravityZones(Entity);
+        EntityTestGravityZones(CurrentWorld, Entity);
         
         MovePlatformer(&UpdateContext, Entity, Movement, dTime);
         
@@ -1331,7 +1404,7 @@ entity_manager::UpdateEntities(game_renderer *Renderer, audio_mixer *Mixer, os_i
                 MovePlatformer(&UpdateContext, Entity, Movement, dTime);
             }
             MaybeDoTrails(Entity, dTime);
-            EntityTestGravityZones(Entity);
+            EntityTestGravityZones(CurrentWorld, Entity);
         }
     }
     
@@ -1381,7 +1454,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     //~ Player @render_player
     {
         player_entity *Entity = Player;
-        Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), ENTITY_DEFAULT_Z, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 1.0f, 15.0f);
+        Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), ENTITY_DEFAULT_Z, MakeColor(0.3f, 0.5f, 0.7f, 1.0), 0.5f, 10.0f);
         DoEntityAnimation(Group, PlayerData->SpriteSheet, &Entity->Animation, 
                           Entity->Pos, Entity->Size, Entity->UpNormal,
                           ENTITY_DEFAULT_Z, dTime);
@@ -1398,8 +1471,8 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         }
 #endif
         
-        Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), Z, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, 
-                           Entity->Size.X+8);
+        Renderer->AddLight(WorldPosCenter(Entity->Pos, Entity->Size), Z, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 
+                           0.5f, Entity->Size.X);
         DoEntityAnimation(Group, Data->SpriteSheet, &Entity->Animation, 
                           Entity->Pos, Entity->Size, Entity->UpNormal,
                           ENTITY_DEFAULT_Z, dTime);
@@ -1419,10 +1492,9 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     FOR_ENTITY_TYPE(&Arts){
         art_entity *Art = It.Item;
         asset_art *Asset = AssetsFind_(Assets, Art, Art->Asset);
-        RenderArt(Group, Asset, WorldPosP(Art->Pos), ENTITY_DEFAULT_Z);
-        v2 Center = WorldPosP(Art->Pos)+0.5f*Asset->Size;
-        f32 Radius = Asset->Size.Width;
-        Renderer->AddLight(Center, ENTITY_DEFAULT_Z, MakeColor(1.0f, 0.6f, 0.3f, 1.0), 0.5f, Radius);
+        RenderArt(Group, Asset, WorldPosP(Art->Pos, Art->Size), ENTITY_DEFAULT_Z);
+        Renderer->AddLight(WorldPosP(Art->Pos)+Asset->LightOffset, ENTITY_DEFAULT_Z, 
+                           Asset->LightColor, Asset->LightIntensity, Asset->LightRadius);
     }
     
     //~ Teleporters @render_teleporter
@@ -1496,6 +1568,22 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         }
     }
     
+    //~ Floor art @render_floor_art
+    FOR_EACH(Art, &FloorArts){
+        asset_floor_art *Asset = AssetsGet_(Assets, FloorArt, Art.Asset);
+        
+        FOR_RANGE(I, 0, Art.PartCount){
+            floor_art_part *Part = &Art.Parts[I];
+            Part->Index = (u8)Clamp(Part->Index, 0, Asset->Textures.Count);
+            
+            render_texture Texture = Asset->Textures[Part->Index];
+            RenderTexture(Group, WorldPosBounds(Part->Pos, Asset->Size, Art.UpNormal), 
+                          ZLayer(1, ZLayer_GameForeground, 1), 
+                          Texture, UpToTransform(Art.UpNormal),
+                          MakeRect(V2(0), V2(1)), true);
+        }
+    }
+    
 #if 0    
     //~ Projectiles @render_projectile
     FOR_ENTITY_TYPE(this, projectile_entity){
@@ -1532,12 +1620,14 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     
     //~ Tilemaps @render_tilemap
     {
-        RenderTilemap(Group, Assets, &CurrentWorld->Tilemap, V2(0), ZLayer(1, ZLayer_GameForeground, 0));
+        RenderTilemap(Group, Assets, &CurrentWorld->Tilemap, V2(0), ZLayer(1, ZLayer_GameMidground, 0));
     }
 #if 1
     //~ Backgrounds
     {
         asset_art *Background = AssetsFind(Assets, Art, background_test_mushrooms);
+        RenderRect(Group, MakeRect(V2(0), Background->Size), ZLayer(6, ZLayer_GameBackground, -1), 
+                   ColorAlphiphy(Group->Renderer->ClearColor, 0.4f));
         RenderArt(Group, Background,  V2(0, 0), ZLayer(6, ZLayer_GameBackground, 0));
         
 #if 0

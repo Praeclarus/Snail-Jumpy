@@ -585,7 +585,7 @@ WinMain(HINSTANCE Instance,
         ShowWindow(Win32MainWindow, SW_SHOW);
     }
     
-#if defined(SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT)
+#if SNAIL_JUMPY_DO_AUTO_SAVE_ON_EXIT
     MainState.Worlds.WriteWorldsToFiles();
 #endif
     

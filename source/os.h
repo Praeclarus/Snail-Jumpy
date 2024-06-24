@@ -7,6 +7,7 @@ enum open_file_flags_ {
     OpenFile_Write = (1 << 1),
     OpenFile_ReadWrite = OpenFile_Read | OpenFile_Write,
     OpenFile_Clear  = (1 << 2),
+    OpenFile_WriteClear = OpenFile_Write | OpenFile_Clear,
 };
 typedef u8 open_file_flags;
 struct os_file;

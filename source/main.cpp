@@ -32,6 +32,12 @@ String(const char *S){
     return(Result);
 }
 
+internal inline const char *
+String(string S){
+    const char *Result = Strings.GetString(S);
+    return(Result);
+}
+
 //~ Includes
 #include "logging.cpp"
 #include "os.cpp"

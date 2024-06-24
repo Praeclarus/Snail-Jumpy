@@ -113,7 +113,7 @@ struct asset_loading_data {
 #define AssetsFind(System, Name, Key) AssetsFind_(System, Name, AssetID(Name, Key))
 
 #define GetVar(Assets, ID_)      AssetsFind(Assets, Variable, ID_)->S
-#define GetVarTAID(Assets, ID_)  AssetsFind(Assets, Variable, ID_)->TAID
+#define GetVarS32(Assets, ID_)   AssetsFind(Assets, Variable, ID_)->S32
 #define GetVarAsset(Assets, ID_) AssetsFind(Assets, Variable, ID_)->Asset
 #define GetVarName(Assets, ID_)  AssetsFind(Assets, Variable, ID_)->NameData
 
@@ -183,6 +183,7 @@ CompareKeys(asset_id A, asset_id B){
 #define AssetIDName(Name, ID_) Strings.GetString(MakeString((ID_).ID))
 
 #define GetVar(Assets, ID_)      AssetsFind(Assets, Variable, ID_)->S
+#define GetVarS32(Assets, ID_)   AssetsFind(Assets, Variable, ID_)->S32
 #define GetVarAsset(Assets, ID_) AssetsFind(Assets, Variable, ID_)->Asset
 #define GetVarName(Assets, ID_)  AssetsFind(Assets, Variable, ID_)->NameData
 
@@ -272,6 +273,7 @@ struct asset_animation {
 // I would like to reduce its size significantly.
 struct asset_sprite_sheet {
     asset_loading_data LoadingData;
+    asset_tag Tag;
     
     u32 StateTable[State_TOTAL][Direction_TOTAL];
     
@@ -299,6 +301,20 @@ struct asset_art {
     asset_tag Tag;
     asset_loading_data LoadingData;
     render_texture Texture;
+    v2 Size;
+    
+    v2 LightOffset;
+    f32 LightRadius;
+    f32 LightIntensity;
+    color LightColor;
+};
+
+//~ Floor art
+struct asset_floor_art {
+    asset_tag Tag;
+    asset_loading_data LoadingData;
+    
+    array<render_texture> Textures;
     v2 Size;
 };
 
@@ -494,13 +510,14 @@ struct font_string_metrics {
     v2 Advance;
 };
 
+
 //~ Variables
 struct asset_variable {
     asset_loading_data LoadingData;
     
     const char *S;
-    asset_id TAID;
     asset_id Asset;
+    s32 S32;
 };
 
 //~ Special commands
@@ -526,6 +543,7 @@ struct asset_system {
     asset_table(Tilemap,     asset_tilemap);
     asset_table(Font,        asset_font);
     asset_table(Variable,    asset_variable);
+    asset_table(FloorArt,    asset_floor_art);
     
     asset_sprite_sheet DummySpriteSheet;
     asset_art          DummyArt;
@@ -612,6 +630,7 @@ struct asset_loader {
     asset_loading_status ProcessPlayer();
     asset_loading_status ProcessEnemy();
     asset_loading_status ProcessArt();
+    asset_loading_status ProcessFloorArt();
     asset_loading_status ProcessSoundEffect();
     asset_loading_status ProcessTilemapTile(tile_array *Tiles, const char *TileType, u32 *TileOffset);
     asset_loading_status ProcessTilemap();

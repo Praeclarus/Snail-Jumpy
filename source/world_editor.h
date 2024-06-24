@@ -22,12 +22,13 @@ struct selector_context {
 //~ Edit mode
 enum edit_thing {
     EditThing_None,
-    EditThing_Tilemap    = 1,
-    EditThing_Enemy      = 2,
-    EditThing_Art        = 3,
-    EditThing_Teleporter = 4,
-    EditThing_Door       = 5,
+    EditThing_Tilemap     = 1,
+    EditThing_Enemy       = 2,
+    EditThing_Art         = 3,
+    EditThing_Teleporter  = 4,
+    EditThing_Door        = 5,
     EditThing_GravityZone = 6,
+    EditThing_FloorArt    = 7,
     
     EditThing_TOTAL
 };
@@ -39,17 +40,19 @@ global_constant edit_thing EDITOR_FORWARD_EDIT_MODE_TABLE[EditThing_TOTAL] = {
     EditThing_Teleporter,
     EditThing_Door,
     EditThing_GravityZone,
+    EditThing_FloorArt,
     EditThing_None,
 };
 
 global_constant edit_thing EDITOR_REVERSE_EDIT_MODE_TABLE[EditThing_TOTAL] = {
-    EditThing_GravityZone,
+    EditThing_FloorArt,
     EditThing_None,
     EditThing_Tilemap,
     EditThing_Enemy,
     EditThing_Art,
     EditThing_Teleporter,
     EditThing_Door,
+    EditThing_GravityZone,
 };
 
 enum auto_tile {
@@ -129,6 +132,7 @@ struct world_editor {
     
     u8 TilemapSlotToAdd;
     asset_id   ArtToAdd;
+    asset_id   FloorArtToAdd;
     enemy_type EnemyTypeToAdd;
     
     
@@ -163,12 +167,12 @@ struct world_editor {
     void ProcessHotKeys(game_renderer *Renderer, asset_system *Assets);
     
     void DoEditThingTilemap(render_group *GameGroup, asset_system *Assets, f32 dTime);
-    void DoEditThingCoin(render_group *GameGroup);
     void DoEditThingEnemy(render_group *GameGroup, asset_system *Assets, f32 dTime);
-    void DoEditThingArt(render_group *GameGroup, asset_system *Assets, f32 dTime);
     void DoEditThingTeleporter(render_group *GameGroup);
     void DoEditThingDoor(render_group *GameGroup);
     void DoEditThingGravityZone(render_group *GameGroup);
+    void DoEditThingArt(render_group *GameGroup, asset_system *Assets, f32 dTime);
+    void DoEditThingFloorArt(render_group *GameGroup, asset_system *Assets, f32 dTime);
     
     inline void SelectThing(void *Thing, selection_type Type=Selection_None);
     
@@ -179,6 +183,7 @@ struct world_editor {
     void DoEntitiesWindow(render_group *GameGroup, asset_system *Assets);
     void DoEntitySection(ui_window *Window, render_group *Group, asset_system *Assets);
     void DoGravityZoneSection(ui_window *Window, render_group *Group, asset_system *Assets);
+    void DoFloorArtSection(ui_window *Window, render_group *Group, asset_system *Assets);
     
     inline void ChangeEditThing(edit_thing NewEditThing);
     inline b8 IsSelectionDisabled(void *Thing, os_key_flags KeyFlags);
@@ -187,7 +192,8 @@ struct world_editor {
                                                b8 Special=false);
     inline b8 DoDeleteThing(void *Thing, rect R, b8 Special=false);
     
-    inline editor_rect_result EditorEditableRect(render_group *Group, rect Rect, u64 ParentID);
+    inline editor_rect_result EditorEditableRect(render_group *Group, rect Rect, u64 ParentID,
+                                                 b8 OnlyMinMax=false);
     
     //~ Editing tilemap
     b8 TilemapDoSelectorOverlay;

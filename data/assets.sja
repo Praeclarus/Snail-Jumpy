@@ -4,9 +4,12 @@
 : SpecialCommands
 #worlds Array("Debug")
 
+: Variables
+int player_max_health 10
+
 #~ @sja_animations
 : Animation "enemy"
-    on_finish              state_turning    state_moving
+on_finish              state_turning    state_moving
 	   on_finish              state_retreating state_stunned
 	   after_time "stun_time" state_stunned    state_returning
 	   on_finish              state_returning  state_moving
@@ -205,11 +208,22 @@ animation "enemy"
 
 : SpriteSheet "bouncy_snail"
     size 16 16
-    piece 0 "asset_sprite_sheets/snail_test_bouncy.png"
-        consecutive   0 4 8 0
-        consecutive   4 4 8 0
-        consecutive   8 5 8 0
-        consecutive  13 5 8 0
+    piece 0 "asset_sprite_sheets/snail_sprite_sheet.png"
+        consecutive  0  4 8 0
+        consecutive  4  4 8 0
+        consecutive  8  3 8 0
+        consecutive 11  3 8 0
+        consecutive 14  4 8 0
+        consecutive 18  4 8 0
+        consecutive 25  3 3 0
+        consecutive 28  3 3 0
+        consecutive 31  7 8 0
+        consecutive 38  7 8 0
+piece 1 "asset_sprite_sheets/slimes/snail_bouncy.png"
+consecutive 0  4 8 0
+consecutive 4  4 8 0
+consecutive 9  3 8 0
+consecutive 14 3 8 0
     state_none
         left  1
         right 2
@@ -223,11 +237,10 @@ animation "enemy"
 
 #~ @sja_art_spritesheets
 
-: SpriteSheet "heart"
+: SpriteSheet "heart" Tag("art")
 	   size 8 8
 	   piece 0 "asset_sprite_sheets/heart_8x8.png"
         consecutive 0 4 0 0
-
 
 #~ @sja_entities
 : Player
@@ -283,26 +296,40 @@ coyote_time           0.3
 
 #~ @sja_arts
 
-: Art "art_test"
-    path "asset_arts/test_art.png"
+: Art "lamp_a"
+path "asset_arts/Lamps/Lamp_A.png"
+light_offset V2(11 8)
+    light_radius 20
+light_intensity 0.8 
+light_color Color(1 1 0 1)
 
-: Art "art_test2"
-	   path "asset_arts/test_art2.png"
+: Art "lamp_b"
+path "asset_arts/Lamps/Lamp_B.png"
+light_offset V2(5 8)
+    light_radius 20
+light_intensity 0.8
+light_color Color(1 1 0 1)
 
-: Art "grass_platform_a"
-	   path "asset_arts/grass_platform_a.png"
+: Art "lamp_c"
+path "asset_arts/Lamps/Lamp_C.png"
+light_offset V2(8 20)
+    light_radius 30 
+light_intensity 0.8
+light_color Color(1 1 0 1)
 
-: Art "grass_platform_b"
-	   path "asset_arts/grass_platform_b.png"
+: Art "lamp_d"
+path "asset_arts/Lamps/Lamp_D.png"
+light_offset V2(7 0)
+    light_radius 25
+light_intensity 1.0
+light_color Color(1 1 0 1)
 
-: Art "grass_platform_c"
-	   path "asset_arts/grass_platform_c.png"
-
-: Art "grass_platform_d"
-	   path "asset_arts/grass_platform_d.png"
-
-: Art "grass_platform_e"
-	   path "asset_arts/grass_platform_e.png"
+: Art "lamp_e"
+path "asset_arts/Lamps/Lamp_E.png"
+light_offset V2(7 0)
+    light_radius 30
+light_intensity 0.8
+light_color Color(1 1 0 1)
 
 #~ @sja_backgrounds
 
@@ -320,13 +347,13 @@ coyote_time           0.3
 	
 #~ @sja_other
 : Art "gravity_arrow_a" Tag("arrow" "no_editor")
-path "asset_arts/cyan_arrow_1.png"
+path "asset_arts/arrows/cyan_arrow_a.png"
 
 : Art "gravity_arrow_b" Tag("arrow" "no_editor")
-path "asset_arts/cyan_arrow_2.png"
+path "asset_arts/arrows/cyan_arrow_b.png"
 
 : Art "gravity_arrow_c" Tag("arrow" "no_editor")
-path "asset_arts/cyan_arrow_3.png"
+path "asset_arts/arrows/cyan_arrow_c.png"
 
 #~ @sja_tilemaps
 
@@ -551,14 +578,16 @@ slot 4
     tile Tag("art") 0 "?_?X#_?X?" 1
     tile Tag("art") 0 "?X?X#_?X?" 1
 
-: Tilemap "metal_gate_art"
+: Tilemap "metal_gate_art" Tag("transparent")
     slot 5
 path "asset_tilemaps/metal_gate_art.png"
     tile_size 16 32
     dimensions 5 2
     tile Tag("art") 0 "?_?_#_???" 2
-     tile Tag("art") 0 "?_?_#X???" 2
-     tile Tag("art") 0 "?_?X#_???" 2
+     tile Tag("art") 0 "?_?_#X???" 1
+skip_tiles 1
+     tile Tag("art") 0 "?_?X#_???" 1
+skip_tiles 1
      tile Tag("art") 0 "?X??#X???" 1
      tile Tag("art") 0 "?X??#_???" 1
      tile Tag("art") 0 "?_?X#X???" 1
@@ -623,7 +652,7 @@ path "asset_tilemaps/snailsheet.png"
     connector "?X_?#X???" REVERSE_PREVIOUS
     connector "???X#?_X?" V_REVERSE_PREVIOUS
 
-: Tilemap "cactus"
+: Tilemap "cactus" Tag("transparent")
 slot 7
     path "asset_tilemaps/cactus.png"
     tile_size 16 16
@@ -1009,10 +1038,7 @@ tile 0 "___?#?___" 10
     Z 11
     SPACE 10
     
-# //////////////////////////////////////////////////////////////////////////
-#                              Sound effects
-# //////////////////////////////////////////////////////////////////////////
-
+#~ @sja_sound_effects
 : SoundEffect "entity_land"
     path "asset_sound_effects/osj/LandFX.wav"
 
@@ -1020,13 +1046,17 @@ tile 0 "___?#?___" 10
     path "asset_sound_effects/osj/ArenaFX.wav"
 
 : SoundEffect "damage"
-    path "asset_sound_effects/osj/DeathFX.wav"
+    path "asset_sound_effects/damage.wav"
 
 : SoundEffect "death"
     path "asset_sound_effects/osj/LoseFX.wav"
 
+: SoundEffect "jump"
+path "asset_sound_effects/osj/JumpFX.wav"
+
 : SoundEffect "menu_move"
     path "asset_sound_effects/puhp_01.wav"
+
 
 : SoundEffect "test_music"
     # path "asset_sound_effects/osj/Music.wav"
@@ -1034,4 +1064,30 @@ tile 0 "___?#?___" 10
 
 : SoundEffect "trail_bouncy"
     path "asset_sound_effects/boing.WAV"
+
+#~ @sja_floor_art
+
+: FloorArt "mushroom"
+path "asset_arts/Mushroom/Mushroom_A.png"
+path "asset_arts/Mushroom/Mushroom_B.png"
+path "asset_arts/Mushroom/Mushroom_C.png"
+path "asset_arts/Mushroom/Mushroom_D.png"
+path "asset_arts/Mushroom/Mushroom_E.png"
+path "asset_arts/Mushroom/Mushroom_F.png"
+path "asset_arts/Mushroom/Mushroom_G.png"
+
+: FloorArt "grassy"
+path "asset_arts/Grassy/Grassy_A.png"
+path "asset_arts/Grassy/Grassy_B.png"
+path "asset_arts/Grassy/Grassy_C.png"
+path "asset_arts/Grassy/Grassy_D.png"
+path "asset_arts/Grassy/Grassy_E.png"
+path "asset_arts/Grassy/Grassy_F.png"
+
+: FloorArt "spike"
+path "asset_arts/Spikes/Spike_A.png"
+path "asset_arts/Spikes/Spike_B.png"
+path "asset_arts/Spikes/Spike_C.png"
+path "asset_arts/Spikes/Spike_D.png"
+path "asset_arts/Spikes/Spike_E.png"
 
