@@ -9,6 +9,11 @@ EditorEntityP(world_position Pos, v2 Size, entity_type Type=EntityType_None){
 internal inline rect
 EditorEntityBounds(world_position Pos, v2 Size, entity_type Type=EntityType_None){
     v2 Up = V2(0, 1);
+    if(Type == EntityType_Door){
+        return SizeRect(WorldPosP(Pos), Size);
+    }else if(Type == EntityType_Teleporter){
+        return SizeRect(WorldPosP(Pos), Size);
+    }
     return WorldPosBounds(Pos, Size, Up);
 }
 
@@ -940,8 +945,9 @@ world_editor::DoEditThingTeleporter(render_group *GameGroup){
     if(UI->DoClickElement(WIDGET_ID, MouseButton_Left, true, -2)){
         teleporter_entity *Entity = AllocEntity(&World->Manager, Teleporters, World);
         Actions->LogAddThing(MakeSelection(Entity, Selection_Entity));
-        SetupTriggerEntity(Entity, EntityType_Teleporter, CursorP, V2(16));
+        SetupTeleporterEntity(Entity, CursorP);
         
+        Entity->Size = TILE_SIZE;
         Entity->Level         = Strings.MakeBuffer();
         Entity->RequiredLevel = Strings.MakeBuffer();
         

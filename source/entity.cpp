@@ -392,13 +392,6 @@ SetupArtEntity(asset_system *Assets, art_entity *Entity, v2 P, asset_id Asset_){
     Entity->Size = AssetsFind_(Assets, Art, Entity->Asset)->Size;
 }
 
-internal inline void
-SetupTriggerEntity(entity *Entity, entity_type Type, v2 P, v2 Size){
-    Entity->Pos = MakeWorldPos(P);
-    Entity->Size = Size;
-    Entity->TypeFlags = ENTITY_TYPE_TYPE_FLAGS[Type];
-}
-
 //~ 
 
 #define AllocEntity(Manager, Array, World) \
@@ -504,6 +497,7 @@ MovePlatformer(physics_update_context *Context, entity *Entity, f32 Movement, f3
 #endif
     }else{
         physics_floor *Floor = Entity->Pos.Floor;
+        // TODO(Tyler): Add to variables
         f32 FrictionFactor     = 20.0f;
         f32 AccelerationFactor = 20.0f;
         
@@ -516,7 +510,7 @@ MovePlatformer(physics_update_context *Context, entity *Entity, f32 Movement, f3
         f32 dS = V2Dot(Floor->Tangent, Entity->dP);
         if(Movement == 0.0f){
             dS = Lerp(dS, Movement, FrictionFactor*dTime);
-        }else {
+        }else{
             dS = Lerp(dS, Movement, AccelerationFactor*dTime);
         }
         
@@ -1280,11 +1274,22 @@ entity_manager::UpdateEntities(game_renderer *Renderer, asset_system *Assets, au
         b8 DoJump      = Input->KeyDown(Settings->PlayerJump, KeyFlag_Any);
         
         if(Right && !Left){
-            Entity->Animation.Direction = Direction_Right;
             Movement += MovementSpeed;
         }else if(Left && !Right){
-            Entity->Animation.Direction = Direction_Left;
+            
             Movement -= MovementSpeed;
+        }
+        
+        {
+            v2 Tangent = V2Clockwise90(Entity->UpNormal);
+            if(Tangent.X < 0) Movement = -Movement;
+            else if(Tangent.Y < 0) Movement = -Movement;
+            
+            if(Movement > 0){
+                Entity->Animation.Direction = Direction_Right;
+            }else{
+                Entity->Animation.Direction = Direction_Left;
+            }
         }
         
         if(DoStartJump){

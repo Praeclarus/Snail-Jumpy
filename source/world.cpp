@@ -152,7 +152,8 @@ WorldLoadEntityChunk(asset_system *Assets,
         case EntityType_Teleporter: {
             world_file_chunk_entity_teleporter *Data = (world_file_chunk_entity_teleporter *)Base;
             teleporter_entity *Entity = AllocEntity(&World->Manager, Teleporters, 0);
-            Entity->ID  = Base->ID;
+            Entity->ID   = Base->ID;
+            Entity->Size = Data->Size;
             
             stream_marker Marker = StreamBeginMarker(Stream, sizeof(*Data));
             StreamReadAndBufferString(Stream, Entity->Level);
@@ -307,14 +308,6 @@ Offset += sizeof(Var); }
 Offset += (Count)*sizeof(*(Array)); }
 #define WORLDS_WRITE_STRING(S) WriteStringToFile(File, &Offset, S);
 
-#define WORLDS_WRITE_ENTITY(Entity)           \
-WORLDS_WRITE_VAR(Entity->Type);        \
-WORLDS_WRITE_VAR(Entity->Flags);       \
-WriteF32ToFile(File, &Offset, WorldPosP(Entity->Pos).X); \
-WriteF32ToFile(File, &Offset, WorldPosP(Entity->Pos).Y); \
-WORLDS_WRITE_VAR(Entity->ID.WorldID);  \
-WORLDS_WRITE_VAR(Entity->ID.EntityID);
-
 internal inline world_file_chunk_header
 MakeWorldFileChunkHeader(u32 ChunkSize, world_file_chunk_type Type){
     world_file_chunk_header Result = {};
@@ -400,9 +393,10 @@ world_manager::WriteWorldsToFiles(){
         FOR_ENTITY_TYPE(&World->Manager.Teleporters){
             world_file_chunk_entity_teleporter Chunk = {};
             Chunk.Base = MakeWorldFileChunkEntity(It.Item, sizeof(Chunk));
+            Chunk.Size = It.Item->Size;
             Chunk.Base.Header.ChunkSize += CStringLength(It.Item->Level)+1;
             Chunk.Base.Header.ChunkSize += CStringLength(It.Item->RequiredLevel)+1;
-            WORLDS_WRITE_VAR(Chunk.Base);
+            WORLDS_WRITE_VAR(Chunk);
             WORLDS_WRITE_STRING(It.Item->Level);
             WORLDS_WRITE_STRING(It.Item->RequiredLevel);
         }

@@ -233,6 +233,7 @@ struct world_file_chunk_entity_enemy {
 
 struct world_file_chunk_entity_teleporter {
     world_file_chunk_entity Base;
+    v2 Size;
     // NOTE(Tyler): string Level;
     // NOTE(Tyler): string RequiredLevel;
 };
