@@ -22,7 +22,7 @@ global_constant f32 TILE_SIDE = 16;
 global_constant v2  TILE_SIZE = V2(TILE_SIDE, TILE_SIDE);
 
 global_constant char *ASSET_FILE_PATH = "assets.sja";
-global_constant char *STARTUP_LEVEL = "Debug";
+global_constant char *DEFAULT_STARTUP_LEVEL = "Debug";
 
 global_constant u32 MINIMUM_WINDOW_WIDTH  = 800;
 global_constant u32 MINIMUM_WINDOW_HEIGHT = 600;

@@ -2,10 +2,12 @@
 
 #~
 : SpecialCommands
-#worlds Array("Debug")
+worlds Array("Demo1" "Demo2")
 
 : Variables
 int player_max_health 10
+var startup_world "Demo1"
+
 
 #~ @sja_animations
 : Animation "enemy"
@@ -282,7 +284,6 @@ coyote_time           0.3
 
 : Enemy "TrailSnail" Tag("snail" "trail_bouncy")
 	            spritesheet bouncy_snail
-    #animation_var  "stun_time" 3.0
 	   speed          50
 	   boundary       Rect(0 0 12 12)
 	   damage         2    
@@ -657,22 +658,21 @@ slot 7
     path "asset_tilemaps/cactus.png"
     tile_size 16 16
     dimensions 5 3
-    boundary Rect(0 0 16 16)
-    tile 0 "?_?_#_???" 3
-    tile 0 "?_?_#X?_?" ROTATE_PREVIOUS_270
-    tile 0 "?_?X#_?_?" ROTATE_PREVIOUS_90
-    tile 0 "?X?_#_?_?" 1
-    tile 0 "?X?_#X?_?" 1
-    tile 0 "?X?X#_?_?" REVERSE_PREVIOUS
-    tile 0 "?_?_#X?X?" V_REVERSE_PREVIOUS
-    tile 0 "?_?X#_?X?" HV_REVERSE_PREVIOUS
-    tile 0 "?X?_#_?X?" 2
-    tile 0 "?_?X#X?_?" ROTATE_PREVIOUS_90
-    tile 0 "?X?_#X?X?" 1
-    tile 0 "?X?X#_?X?" REVERSE_PREVIOUS
-    tile 0 "?X?X#X?_?" ROTATE_PREVIOUS_270
-    tile 0 "?_?X#X?X?" ROTATE_PREVIOUS_90
-    tile 0 "?X?X#X?X?" 2
+    tile Tag("art") 0 "?_?_#_???" 3
+    tile Tag("art") 0 "?_?_#X?_?" ROTATE_PREVIOUS_270
+    tile Tag("art") 0 "?_?X#_?_?" ROTATE_PREVIOUS_90
+    tile Tag("art") 0 "?X?_#_?_?" 1
+    tile Tag("art") 0 "?X?_#X?_?" 1
+    tile Tag("art") 0 "?X?X#_?_?" REVERSE_PREVIOUS
+    tile Tag("art") 0 "?_?_#X?X?" V_REVERSE_PREVIOUS
+    tile Tag("art")0 "?_?X#_?X?" HV_REVERSE_PREVIOUS
+    tile Tag("art") 0 "?X?_#_?X?" 2
+    tile Tag("art")0 "?_?X#X?_?" ROTATE_PREVIOUS_90
+    tile Tag("art")0 "?X?_#X?X?" 1
+    tile Tag("art")0 "?X?X#_?X?" REVERSE_PREVIOUS
+    tile Tag("art") 0 "?X?X#X?_?" ROTATE_PREVIOUS_270
+    tile Tag("art")0 "?_?X#X?X?" ROTATE_PREVIOUS_90
+    tile Tag("art")0 "?X?X#X?X?" 2
 
 : Tilemap "trail_bouncy" Tag("no_editor")
 path "asset_tilemaps/trail_bouncy.png"

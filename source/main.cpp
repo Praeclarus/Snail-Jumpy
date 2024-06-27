@@ -119,7 +119,12 @@ MainStateInitialize(main_state *State, void *Data, u32 DataSize){
     State->AssetLoader.LoadAssetFile(ASSET_FILE_PATH);
 #endif
     
-    State->Worlds.LoadWorld(&State->Assets, &State->Entities, STARTUP_LEVEL);
+    {
+        const char *StartupLevel = DEFAULT_STARTUP_LEVEL;
+        asset_variable *Var = AssetsFind(&State->Assets, Variable, startup_world);
+        if(Var) StartupLevel = Var->S; 
+        State->Worlds.LoadWorld(&State->Assets, &State->Entities, StartupLevel);
+    }
     
     State->WorldEditor.Initialize(&GlobalPermanentMemory, &State->Worlds);
     

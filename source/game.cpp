@@ -23,7 +23,7 @@ MainGameDoFrame(game_renderer *Renderer, audio_mixer *Mixer, asset_system *Asset
     render_group *GameGroup   = Renderer->GetRenderGroup(RenderGroupID_Lighting);
     render_group *GameUIGroup = Renderer->GetRenderGroup(RenderGroupID_NoLighting);
     Entities->UpdateEntities(Renderer, Assets, Mixer, Input, Settings);
-    Entities->RenderEntities(GameGroup, Assets, Renderer, Input->dTime, Worlds);
+    Entities->RenderEntities(GameGroup, Assets, Renderer, Worlds, CurrentWorld, Input->dTime);
     
     player_entity *Player = Entities->Player;
     

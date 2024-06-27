@@ -354,6 +354,9 @@ os_input::BeginTextInput(text_input_context *Context){
     TextInput = Context;
     TextInput->Input = this;
     TextInput->Flags &= ~TextInputFlag_DoEnd;
+    FOR_RANGE(I, 0, KeyCode_TOTAL){
+        KeyboardState[I] = 0;
+    }
 }
 
 inline b8

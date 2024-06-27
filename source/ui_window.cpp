@@ -742,20 +742,22 @@ ui_window::List(const char **Items, u32 ItemCount, s32 Selected, u64 ID, f32 Max
         const char *Item = Items[I];
         
         rect ItemRect = SizeRect(V2(LineP.X, LineP.Y), V2(TotalWidth, LineHeight));
-        ui_behavior Behavior = Manager->DoButtonElement(WIDGET_ID_CHILD(ID, I+1), ItemRect, MouseButton_Left);
-        if(Behavior == UIBehavior_Activate) Selected = I;
-        
-        ui_animation *Animation = HashTableGetPtr(&Manager->AnimationStates, WIDGET_ID_CHILD(ID, I+1));
-        UI_UPDATE_T(Animation->HoverT,  (Behavior == UIBehavior_Hovered), Theme->T, dTime);
-        UI_UPDATE_T(Animation->ActiveT, (Selected == (s32)I), Theme->ActiveT, dTime);
-        
-        color Color = UIGetColor(Theme, EaseOutSquared(Animation->HoverT), EaseOutSquared(Animation->ActiveT));
-        v2 StringP = VCenterStringP(NormalFont, PadPRight(NormalFont, LineP, Theme->ItemPaddingEm), LineHeight);
-        rounded_rect_corner Corners = RoundedRectCorner_None;
-        if(I == 0) Corners |= FirstCorner;
-        if(I == ItemCount-1) Corners |= LastCorner;
-        DrawRect(ItemRect, UI_WINDOW_WIDGET_Z, Theme->Roundness, Color, Corners);
-        DrawString(NormalFont, Theme->TextColor, StringP, UI_WINDOW_WIDGET_Z-1, Item);
+        if(RectOverlaps(TotalRect, ItemRect)){
+            ui_behavior Behavior = Manager->DoButtonElement(WIDGET_ID_CHILD(ID, I+1), RectClip(TotalRect, ItemRect), MouseButton_Left);
+            if(Behavior == UIBehavior_Activate) Selected = I;
+            
+            ui_animation *Animation = HashTableGetPtr(&Manager->AnimationStates, WIDGET_ID_CHILD(ID, I+1));
+            UI_UPDATE_T(Animation->HoverT,  (Behavior == UIBehavior_Hovered), Theme->T, dTime);
+            UI_UPDATE_T(Animation->ActiveT, (Selected == (s32)I), Theme->ActiveT, dTime);
+            
+            color Color = UIGetColor(Theme, EaseOutSquared(Animation->HoverT), EaseOutSquared(Animation->ActiveT));
+            v2 StringP = VCenterStringP(NormalFont, PadPRight(NormalFont, LineP, Theme->ItemPaddingEm), LineHeight);
+            rounded_rect_corner Corners = RoundedRectCorner_None;
+            if(I == 0) Corners |= FirstCorner;
+            if(I == ItemCount-1) Corners |= LastCorner;
+            DrawRect(ItemRect, UI_WINDOW_WIDGET_Z, Theme->Roundness, Color, Corners);
+            DrawString(NormalFont, Theme->TextColor, StringP, UI_WINDOW_WIDGET_Z-1, Item);
+        }
         
         LineP.Y -= LineHeight;
     }

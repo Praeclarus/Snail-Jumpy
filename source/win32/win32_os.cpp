@@ -371,7 +371,9 @@ OSProcessInput(os_input *Input){
             Input->MouseState[MouseButton_Middle] = (key_state)((KeyStates[I] & 0x80) ? KeyState_IsDown : KeyState_IsUp);
         }else{
             os_key_code KeyCode = Win32ConvertVKCode(I);
-            Input->KeyboardState[KeyCode] = (key_state)((KeyStates[I] & 0x80) ? KeyState_IsDown : KeyState_IsUp);
+            if(!Input->TextInput){
+                Input->KeyboardState[KeyCode] = (key_state)((KeyStates[I] & 0x80) ? KeyState_IsDown : KeyState_IsUp);
+            }
             
             switch(KeyCode){
                 case KeyCode_Shift: {
@@ -431,12 +433,15 @@ OSProcessInput(os_input *Input){
                 
                 os_key_code KeyCode = Win32ConvertVKCode(VKCode);
                 if(IsDown){
-                    if(Input->TextInput) Input->TextInput->ProcessKey(KeyCode);
-                    Input->KeyboardState[KeyCode] |= KeyState_RepeatDown;
-                    Input->KeyboardState[KeyCode] |= KeyState_IsDown;
-                    if(IsDown != WasDown){
-                        Input->KeyboardState[KeyCode] |= KeyState_JustDown;
-                        if(!Input->FirstKeyDown) Input->FirstKeyDown = KeyCode;
+                    if(Input->TextInput){
+                        Input->TextInput->ProcessKey(KeyCode);
+                    }else{
+                        Input->KeyboardState[KeyCode] |= KeyState_RepeatDown;
+                        Input->KeyboardState[KeyCode] |= KeyState_IsDown;
+                        if(IsDown != WasDown){
+                            Input->KeyboardState[KeyCode] |= KeyState_JustDown;
+                            if(!Input->FirstKeyDown) Input->FirstKeyDown = KeyCode;
+                        }
                     }
                 }else{
                     Input->KeyboardState[KeyCode] = KeyState_JustUp;

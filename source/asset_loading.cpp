@@ -659,17 +659,18 @@ asset_loader::LoadAssetFile(const char *Path){
             }
         }
         end_loop:;
+        
+        LastFileWriteTime = NewFileWriteTime;
+        
+        if(LoadingStatus == AssetLoadingStatus_Errors) return LoadingStatus;
+        
+        Swap(*MainAssets, InProgress); 
+        
+        FOR_EACH(It, &WorldsToLoad){
+            Worlds->GetWorld(MainAssets, Strings.GetString(It));
+        }
     }
     
-    LastFileWriteTime = NewFileWriteTime;
-    
-    if(LoadingStatus == AssetLoadingStatus_Errors) return LoadingStatus;
-    
-    Swap(*MainAssets, InProgress); 
-    
-    FOR_EACH(It, &WorldsToLoad){
-        Worlds->GetWorld(MainAssets, Strings.GetString(It));
-    }
     return LoadingStatus;
 }
 
@@ -731,7 +732,7 @@ asset_loader::ProcessVariables(){
         HandleToken(Token);
         const char *Attribute = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
         if(DoAttribute(Attribute, "var")){
-            const char *Name = SJA_EXPECT_STRING(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
+            const char *Name = SJA_EXPECT_IDENTIFIER(&Reader, SJA_ERROR_BEHAVIOR_ATTRIBUTE);
             string_builder Builder = BeginResizeableStringBuilder(&GlobalTransientMemory, DEFAULT_BUFFER_SIZE);
             ExpectDescriptionStrings(&Builder);
             const char *Data = FinalizeStringBuilder(&InProgress.Memory, &Builder);

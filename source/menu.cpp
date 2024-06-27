@@ -225,7 +225,8 @@ DoMainMenu(render_group *Group, os_input *Input, menu_state *State, font *ItemFo
     MenuFixSelected(State, 4);
     
     if(MenuPageDoText(Group, Input, State, &Page, "Start")){
-        ChangeState(GameMode_MainGame, String(STARTUP_LEVEL));
+        // TODO(Tyler): Fix this
+        ChangeState(GameMode_MainGame, String(DEFAULT_STARTUP_LEVEL));
     }
     if(MenuPageDoText(Group, Input, State, &Page, "Settings")){
         State->LastPage = State->Page;

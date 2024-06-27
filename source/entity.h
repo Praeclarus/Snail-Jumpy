@@ -106,7 +106,6 @@ struct teleporter_entity : public entity {
     char *Level;
     char *RequiredLevel;
     b8 IsLocked;
-    b8 IsSelected;
 };
 
 struct trail {
@@ -260,7 +259,8 @@ struct entity_manager {
     void UpdateBoxing(physics_update_context *UpdateContext, enemy_entity *Entity, f32 dTime);
     void UpdateEntities(game_renderer *Renderer, asset_system *Assets, audio_mixer *Mixer,
                         os_input *Input, settings_state *Settings);
-    void RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, f32 dTime, world_manager *Worlds);
+    void RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, 
+                        world_manager *Worlds, world_data *World, f32 dTime);
     void MaybeDoTrails(enemy_entity *Entity, f32 dTime);
     void RenderTrail(render_group *Group, asset_system *Assets, trail *Trail, f32 dTime);
     void EntityTestTrails(entity *Entity);

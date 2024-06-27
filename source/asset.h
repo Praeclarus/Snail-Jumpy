@@ -622,6 +622,8 @@ struct asset_loader {
     
     special_commands SpecialCommands;
     array<const char *> WorldsToLoad;
+    const char *StartupWorld;
+    
     asset_loading_status ProcessSpecialCommands();
     asset_loading_status ProcessSpriteSheet();
     // NOTE(Tyler): This could be changed to b8

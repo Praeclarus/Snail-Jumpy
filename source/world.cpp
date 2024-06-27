@@ -175,6 +175,7 @@ WorldLoadEntityChunk(asset_system *Assets,
         case EntityType_Art: {
             world_file_chunk_entity_art *Data = (world_file_chunk_entity_art *)Base;
             art_entity *Entity = AllocEntity(&World->Manager, Arts, 0);
+            Entity->ID = Base->ID;
             stream_marker Marker = StreamBeginMarker(Stream, sizeof(*Data));
             asset_id Asset = StreamReadAsset(Stream);
             StreamEndMarker(Stream, Marker);

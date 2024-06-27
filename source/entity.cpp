@@ -444,20 +444,6 @@ entity_manager::ReturnEntity(entity *Entity){
     EntityCount++;
 }
 
-//~ Collisions responses
-
-internal void
-TeleporterResponse(asset_system *Assets, entity_manager *Entities, entity *Data, entity *EntityB){
-    Assert(Data);
-    teleporter_entity *Teleporter = (teleporter_entity *)Data;
-    Assert(Teleporter->Type == EntityType_Teleporter);
-    if(EntityB->Type != EntityType_Player) return;
-    
-    Teleporter->IsSelected = true;
-    
-    return;
-}
-
 //~
 // TODO(Tyler): Perhaps move dTime into the update context
 internal inline void
@@ -1118,7 +1104,7 @@ entity_manager::EntityTestTrails(entity *Entity){
         
         while(Floor && (TrailMin < Minimum(Floor->Range.Max, Trail.Range.Max))){
             range_f32 Range = MakeRangeF32(TrailMin, Minimum(Floor->Range.Max, Trail.Range.Max));
-            v2 RelP = FloorBaseP(Floor);
+            v2 RelP = P - FloorBaseP(Floor);
             f32 AlongNormal = V2Dot(Floor->Normal, RelP);
             if(AbsoluteValue(AlongNormal) < TrailHeight){
                 f32 S = V2Dot(Floor->Tangent, RelP)+Floor->Range.Min;
@@ -1242,8 +1228,11 @@ entity_manager::UpdateBoxing(physics_update_context *Context, enemy_entity *Enti
 }
 
 void 
-entity_manager::UpdateEntities(game_renderer *Renderer, asset_system *Assets, audio_mixer *Mixer, 
-                               os_input *Input, settings_state *Settings){
+entity_manager::UpdateEntities(game_renderer *Renderer, 
+                               asset_system *Assets, 
+                               audio_mixer *Mixer, 
+                               os_input *Input, 
+                               settings_state *Settings){
     TIMED_FUNCTION();
     
     physics_update_context UpdateContext = MakeUpdateContext(&GlobalTransientMemory, 512);
@@ -1416,16 +1405,14 @@ entity_manager::UpdateEntities(game_renderer *Renderer, asset_system *Assets, au
     //~ Teleporters @update_teleporter
     FOR_ENTITY_TYPE(&Teleporters){
         teleporter_entity *Teleporter = It.Item;
-        if(!Teleporter->IsLocked){
-            if(Teleporter->IsSelected){
-#if 0
-                if(IsKeyJustPressed(KeyCode_Space)){
-                    ChangeState(GameMode_MainGame, Teleporter->Level);
-                }
-#endif
-                
-                Teleporter->IsSelected = false;
+        rect PlayerRect = WorldPosBounds(Player->Pos, Player->Size, Player->UpNormal);
+        rect ThisRect   = WorldPosBounds(Teleporter->Pos, Teleporter->Size, Teleporter->UpNormal);
+        b8 IsSelected = RectOverlaps(PlayerRect, ThisRect);
+        if(IsSelected && !Teleporter->IsLocked){
+            if(Input->KeyJustUp(KeyCode_Return)){
+                ChangeState(GameMode_MainGame, String(Teleporter->Level));
             }
+            
         }
     }
     
@@ -1453,7 +1440,8 @@ entity_manager::UpdateEntities(game_renderer *Renderer, asset_system *Assets, au
 }
 
 void 
-entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, f32 dTime, world_manager *Worlds){
+entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_renderer *Renderer, 
+                               world_manager *Worlds, world_data *World, f32 dTime){
     TIMED_FUNCTION();
     
     //~ Player @render_player
@@ -1506,19 +1494,17 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     FOR_ENTITY_TYPE(&Teleporters){
         teleporter_entity *Entity = It.Item;
         v2 P = WorldPosP(Entity->Pos);
+        rect PlayerRect = WorldPosBounds(Player->Pos, Player->Size, Player->UpNormal);
+        rect ThisRect   = WorldPosBounds(Entity->Pos, Entity->Size, Entity->UpNormal);
+        b8 IsSelected = RectOverlaps(PlayerRect, ThisRect);
         if(!Entity->IsLocked){
-            world_data *World = Worlds->GetWorld(Assets, Strings.GetString(Entity->Level));
-            if(World){
-                v2 StringP = P;
-                StringP.Y += 0.5f;
-                // TODO(Tyler): This should use font assets
-#if 0
-                f32 Advance = GetStringAdvance(&MainFont, Entity->Level);
-                StringP.X -= Advance/2;
-                RenderString(Renderer, &MainFont, GREEN, StringP, -1.0f, Entity->Level);
-#endif
+            v2 StringP = P;
+            StringP.Y += 0.5f;
+            if(IsSelected){
+                RenderRect(Group, SizeRect(P, Entity->Size), ENTITY_DEFAULT_Z, BLUE);
+            }else{
+                RenderRect(Group, SizeRect(P, Entity->Size), ENTITY_DEFAULT_Z, GREEN);
             }
-            RenderRect(Group, SizeRect(P, Entity->Size), ENTITY_DEFAULT_Z, GREEN);
         }else{
             RenderRect(Group, SizeRect(P, Entity->Size), ENTITY_DEFAULT_Z, 
                        MakeColor(0.0f, 0.0f, 1.0f, 0.5f));
@@ -1609,7 +1595,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
         rect PlayerRect = OffsetRect(Player->Bounds, Player->Physics->P);
         RenderRectOutline(RenderGroup, CenterRect(P, TILE_SIZE), -10.0f, ORANGE, 0, 1.0f);
         if(DoRectsOverlap(PlayerRect, R)){
-            u32 RequiredCoins = CurrentWorld->CoinsRequired;
+            u32 RequiredCoins = World->CoinsRequired;
             if((u32)Score >= RequiredCoins){
                 if(CompletionCooldown == 0.0f){
                     CompletionCooldown = 3.0f;
@@ -1625,7 +1611,7 @@ entity_manager::RenderEntities(render_group *Group, asset_system *Assets, game_r
     
     //~ Tilemaps @render_tilemap
     {
-        RenderTilemap(Group, Assets, &CurrentWorld->Tilemap, V2(0), ZLayer(1, ZLayer_GameMidground, 0));
+        RenderTilemap(Group, Assets, &World->Tilemap, V2(0), ZLayer(1, ZLayer_GameMidground, 0));
     }
 #if 1
     //~ Backgrounds

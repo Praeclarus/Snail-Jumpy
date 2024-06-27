@@ -1131,6 +1131,7 @@ world_editor::DoEditThingFloorArt(render_group *Group, asset_system *Assets, f32
         }break;
         case UIBehavior_Deactivate: {
             floor_art *Art = ArrayAlloc(&World->Manager.FloorArts);
+            DragRect = RectRectify(DragRect);
             Art->PA = DragRect.Min;
             Art->PB = DragRect.Max;
             Art->Asset = FloorArtToAdd;
@@ -1291,6 +1292,7 @@ world_editor::DoEntitiesWindow(render_group *Group, asset_system *Assets){
             ArrayAdd(&Names, Name);
             if(Selection.Zone == &Zone) SelectedIndex = ZoneRange.Start+Index;
         }
+        ZoneRange.Max--;
         
         range_s32 FloorArtRange = AfterRangeS32(ZoneRange, World->Manager.FloorArts.Count);
         FOR_EACH_(Art, Index, &World->Manager.FloorArts){
@@ -1298,6 +1300,7 @@ world_editor::DoEntitiesWindow(render_group *Group, asset_system *Assets){
             ArrayAdd(&Names, Name);
             if(Selection.FloorArt == &Art) SelectedIndex = FloorArtRange.Start+Index;
         }
+        FloorArtRange.Max--;
         
         SelectedIndex = Window->List(Names, SelectedIndex, WIDGET_ID);
         if(RangeContainsInclusive(EntityRange, SelectedIndex)){
@@ -1531,10 +1534,8 @@ world_editor::DoUI(asset_system *Assets){
     //~ Debug
 #if 1
     if(Window->BeginSection("Debug", WIDGET_ID, 25, true)){
-        Window->Text("Current ID: %llu", World->Manager.EntityIDCounter);
-        if(Selection.Type == Selection_Entity){
-            Window->Text("Entity ID: %llu", Selection.Entity->ID.EntityID);
-        }
+        Window->Text("World size: (%u, %u)", World->Width, World->Height);
+        
         Window->EndSection();
     }
 #endif
@@ -1729,23 +1730,33 @@ world_editor::ChangeWorld(world_data *World_){
     const char *Name = Strings.GetString(World->Name);
     Selection = {};
     CopyCString(NameBuffer, Name, DEFAULT_BUFFER_SIZE);
+    
+    SelectThing(0);
+    Grid.Offset = V2(0);
+    Grid.CellSize = TILE_SIZE;
+    
+    CurrentWorld = World_;
 }
 
 void
-world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input, asset_system *Assets){
+world_editor::DoFrame(game_renderer *Renderer, 
+                      ui_manager *UI_, 
+                      os_input *Input, 
+                      asset_system *Assets){
     TIMED_FUNCTION();
     
     DO_DEBUG_INFO();
-    
     
     OSInput = Input;
     UI = UI_;
     if(!World){
         ChangeWorld(CurrentWorld);
-        EnemyTypeToAdd = EnemyType_Snail;
-        Grid.Offset = V2(0);
-        Grid.CellSize = TILE_SIZE;
-        SelectThing(0);
+        
+        {
+            entity *Entity = World->Manager.Player;
+            v2 Center = RectCenter(EditorEntityBounds(Entity->Pos, Entity->Size));
+            Renderer->SetCameraTarget(Center);
+        }
     }
     
     //~ Prep
@@ -1853,7 +1864,8 @@ world_editor::DoFrame(game_renderer *Renderer, ui_manager *UI_, os_input *Input,
     
     //~ Rendering
     BEGIN_TIMED_BLOCK(RenderWorldEditor);
-    World->Manager.RenderEntities(LightingGroup, Assets, UI->Renderer, OSInput->dTime, Worlds);
+    World->Manager.RenderEntities(LightingGroup, Assets, UI->Renderer, 
+                                  Worlds, World, OSInput->dTime);
     
     END_TIMED_BLOCK();
 }

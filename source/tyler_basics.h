@@ -1612,6 +1612,18 @@ tyler_function inline v2
 RectBottomLeft(rect R){
     return R.Min;
 }
+
+tyler_function inline rect
+RectClip(rect Clip, rect R){
+    rect Result = R;
+    Result.X0 = Clamp(R.X0, Clip.X0, Clip.X1);
+    Result.X1 = Clamp(R.X1, Clip.X0, Clip.X1);
+    Result.Y0 = Clamp(R.Y0, Clip.Y0, Clip.Y1);
+    Result.Y1 = Clamp(R.Y1, Clip.Y0, Clip.Y1);
+    
+    return Result;
+}
+
 //~ Intrinsics
 struct bit_scan_result
 {
