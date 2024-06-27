@@ -1,4 +1,4 @@
 @echo off
 pushd data
-..\build\Win32SnailJumpy.exe
+..\build\Win32SnailJumpyDebug.exe
 popd
